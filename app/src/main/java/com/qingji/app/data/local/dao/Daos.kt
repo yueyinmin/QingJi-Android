@@ -395,6 +395,10 @@ interface ExerciseLogDao {
 
     @Query("SELECT * FROM exercise_log ORDER BY date ASC")
     suspend fun findAll(): List<ExerciseLog>
+
+    /** v3.3.0：「最近」页签按写入时间倒序取最近记录过的运动。 */
+    @Query("SELECT * FROM exercise_log ORDER BY createdAt DESC LIMIT :limit")
+    fun observeRecent(limit: Int): Flow<List<ExerciseLog>>
 }
 
 /** 断食记录：一天一条，按日期主键覆盖。 */
@@ -427,4 +431,8 @@ interface ExercisePresetDao {
 
     @Query("SELECT COUNT(*) FROM exercise_preset")
     suspend fun count(): Int
+
+    /** v3.3.0：右上角「新建」插入一条自定义运动。 */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertOne(item: ExercisePreset): Long
 }

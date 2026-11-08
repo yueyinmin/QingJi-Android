@@ -57,9 +57,15 @@ object QingJiRoutes {
     const val MealDetail = "meal_detail/{date}/{mealType}"
     fun mealDetail(date: java.time.LocalDate, mealType: String) = "meal_detail/$date/$mealType"
 
+    /** v3.3.0 运动模块：二级「记录运动」 → 三级「确认记录」。 */
+    const val ExercisePicker = "exercise_picker"
+    const val ExerciseConfirm = "exercise_confirm/{presetId}"
+    fun exerciseConfirm(presetId: Long) = "exercise_confirm/$presetId"
+
     /** 这些是全屏子页面：打开时不显示底部导航栏。 */
     val fullScreenRoutes = setOf(
         Settings, SearchFood, TextAi, Weight, AiConfig, Profile,
-        ImageRecord, VoiceRecord, Barcode, AiAnalysis, Backup, DiaryEdit, MealDetail, Fasting, FoodPreference, FoodLibrary, WidgetSettings
+        ImageRecord, VoiceRecord, Barcode, AiAnalysis, Backup, DiaryEdit, MealDetail,
+        Fasting, FoodPreference, FoodLibrary, WidgetSettings, ExercisePicker, ExerciseConfirm
     )
 }
