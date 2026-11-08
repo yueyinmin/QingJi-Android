@@ -36,8 +36,8 @@ android {
         applicationId = "com.qingji.app" // 手机上唯一标识，上架后不能改
         minSdk = 26                      // 最低支持 Android 8.0（覆盖 95% 以上设备）
         targetSdk = 35                   // 目标版本
-        versionCode = 325                  // 内部版本号：主版本×100 + 次版本×10 + 补丁（v2.6.1 = 261）
-        versionName = "3.2.5"             // 2026-11-08：调用统计卡挪到「我的」页最下方（数据卡之后），纯布局调整
+        versionCode = 326                  // 内部版本号：主版本×100 + 次版本×10 + 补丁（v2.6.1 = 261）
+        versionName = "3.2.6"             // 2026-11-08：日记页「写一篇」按钮去掉 10dp 投影，弹出时不再有生硬的阴影动画
     }
 
     buildTypes {
