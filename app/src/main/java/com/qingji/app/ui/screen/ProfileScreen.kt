@@ -316,7 +316,7 @@ private fun ChoiceRow(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(if (isSelected) QingJiGreen else Color(0xFFF4F5F6))
+                    .background(if (isSelected) QingJiGreen else PageBackground)
                     .clickable { onSelect(value) }
                     .padding(vertical = 10.dp),
                 contentAlignment = Alignment.Center

@@ -222,7 +222,7 @@ fun SettingsScreen(
                     title = "个人资料",
                     subtitle = "昵称、性别、生日、身高",
                     value = settings.nickname,
-                    iconColor = Color(0xFF5B8DEF)
+                    iconColor = QingJiGreen
                 ) { onOpenProfile() }
                 RowDivider()
                 SettingValueRow(
@@ -260,7 +260,7 @@ fun SettingsScreen(
                     title = "饮水目标",
                     subtitle = "首页和小组件都按它算进度",
                     value = "${settings.waterGoalMl}ml",
-                    iconColor = Color(0xFF7EC8E3)
+                    iconColor = QingJiGreenDark
                 ) { dialog = DialogKind.WATER_GOAL }
             }
             SettingsNote(
@@ -292,7 +292,7 @@ fun SettingsScreen(
                     title = "AI 识别语言",
                     subtitle = "识别结果返回的语言",
                     value = if (settings.aiLanguage == "auto") "跟随输入" else "简体中文",
-                    iconColor = Color(0xFF26A69A)
+                    iconColor = QingJiGreen.copy(alpha = 0.72f)
                 ) { dialog = DialogKind.AI_LANG }
             }
 
@@ -303,7 +303,7 @@ fun SettingsScreen(
                     title = "通知与提醒",
                     subtitle = "称重、断食、热量三类提醒的开关与时间",
                     value = "去设置",
-                    iconColor = Color(0xFF9B8AFB)
+                    iconColor = QingJiGreen
                 ) { dialog = DialogKind.REMINDERS }
             }
             SettingsNote(
@@ -318,7 +318,7 @@ fun SettingsScreen(
                     title = "记录时区",
                     subtitle = "记录按哪个时区的日期归档",
                     value = timezoneLabel(settings.timeZone),
-                    iconColor = Color(0xFF29B6F6)
+                    iconColor = QingJiGreenDark
                 ) { dialog = DialogKind.TIMEZONE }
                 RowDivider()
                 SettingValueRow(
@@ -336,21 +336,21 @@ fun SettingsScreen(
                     title = "主题与显示",
                     subtitle = "主题色、动效、水杯气泡、首页模块开关",
                     value = com.qingji.app.ui.theme.AccentThemes.byKey(settings.themeColor).label,
-                    iconColor = Color(0xFF7E57C2)
+                    iconColor = QingJiGreen.copy(alpha = 0.72f)
                 ) { dialog = DialogKind.THEME }
                 RowDivider()
                 SettingValueRow(
                     title = "桌面小组件",
                     subtitle = "快捷记录 / 今日概览 / 体重闪记",
                     value = "3 个",
-                    iconColor = Color(0xFF5B8DEF)
+                    iconColor = QingJiGreen
                 ) { onOpenWidget() }
                 RowDivider()
                 SettingValueRow(
                     title = "底部导航",
                     subtitle = "隐藏不常用的 Tab",
                     value = visibleTabsLabel(settings),
-                    iconColor = Color(0xFFEF6C00)
+                    iconColor = QingJiGreenDark
                 ) { dialog = DialogKind.BOTTOM_TABS }
             }
 
@@ -361,14 +361,14 @@ fun SettingsScreen(
                     title = "AI 服务配置",
                     subtitle = "填自己的 Base URL 与 API Key",
                     value = "",
-                    iconColor = Color(0xFFE5544B)
+                    iconColor = QingJiGreen.copy(alpha = 0.72f)
                 ) { onOpenAiConfig() }
                 RowDivider()
                 SettingValueRow(
                     title = "数据备份与导出",
                     subtitle = "导出 JSON / CSV，导入恢复",
                     value = "",
-                    iconColor = Color(0xFF29B6F6)
+                    iconColor = QingJiGreen
                 ) { onOpenBackup() }
                 RowDivider()
                 SettingValueRow(
@@ -386,14 +386,14 @@ fun SettingsScreen(
                     title = "其他平台",
                     subtitle = "换手机怎么把数据带走",
                     value = "",
-                    iconColor = Color(0xFF5B8DEF)
+                    iconColor = QingJiGreenDark
                 ) { dialog = DialogKind.PLATFORM }
                 RowDivider()
                 SettingValueRow(
                     title = "关于我们",
                     subtitle = "这个 App 是谁做的、为什么做",
                     value = "",
-                    iconColor = Color(0xFFEC407A)
+                    iconColor = QingJiGreen.copy(alpha = 0.72f)
                 ) { dialog = DialogKind.ABOUT }
                 RowDivider()
                 SettingValueRow(

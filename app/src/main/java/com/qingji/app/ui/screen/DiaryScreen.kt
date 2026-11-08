@@ -162,9 +162,9 @@ fun DiaryScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     LegendDot("未写", DividerColor)
                     Spacer(Modifier.size(6.dp))
-                    LegendDot("低", Color(0xFFD6EBE2))
+                    LegendDot("低", QingJiGreenLight)
                     Spacer(Modifier.size(6.dp))
-                    LegendDot("中", Color(0xFF8FD4B8))
+                    LegendDot("中", QingJiGreen.copy(alpha = 0.55f))
                     Spacer(Modifier.size(6.dp))
                     LegendDot("高", QingJiGreen)
                 }
@@ -181,8 +181,8 @@ fun DiaryScreen(
                         row.forEach { date ->
                             val level = DiaryRules.level(ratingByDate[date] ?: 0)
                             val color = when (level) {
-                                DiaryRules.LEVEL_LOW -> Color(0xFFD6EBE2)
-                                DiaryRules.LEVEL_MID -> Color(0xFF8FD4B8)
+                                DiaryRules.LEVEL_LOW -> QingJiGreenLight
+                                DiaryRules.LEVEL_MID -> QingJiGreen.copy(alpha = 0.55f)
                                 DiaryRules.LEVEL_HIGH -> QingJiGreen
                                 else -> DividerColor
                             }
@@ -517,9 +517,9 @@ private fun DiaryJar(count: Int, progress: Float, modifier: Modifier = Modifier)
                 w - sideInset, shoulder
             )
             lineTo(w - sideInset, h - bottomInset)
-            quadraticBezierTo(w - sideInset, h, w - bottomInset * 1.6f, h)
+            quadraticTo(w - sideInset, h, w - bottomInset * 1.6f, h)
             lineTo(bottomInset * 1.6f, h)
-            quadraticBezierTo(sideInset, h, sideInset, h - bottomInset)
+            quadraticTo(sideInset, h, sideInset, h - bottomInset)
             lineTo(sideInset, shoulder)
             cubicTo(
                 sideInset, shoulder * 0.75f,
@@ -530,7 +530,7 @@ private fun DiaryJar(count: Int, progress: Float, modifier: Modifier = Modifier)
         }
 
         // 玻璃底色
-        drawPath(jarPath, color = Color(0xFFF2FAF7))
+        drawPath(jarPath, color = QingJiGreenLight)
         // 玻璃里按篇数上升的淡色（视觉上像"存了多少"）
         clipPath(jarPath) {
             val fillTop = h - (h - shoulder) * progress.coerceIn(0f, 1f)

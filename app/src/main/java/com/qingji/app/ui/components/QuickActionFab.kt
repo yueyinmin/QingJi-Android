@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.qingji.app.ui.theme.CardWhite
 import com.qingji.app.ui.theme.QingJiGreen
+import com.qingji.app.ui.theme.QingJiGreenDark
 
 /**
  * ============================================================
@@ -42,9 +43,10 @@ fun QuickActionColumn(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        QuickActionButton(text = "水", color = Color(0xFF7EC8E3), onClick = onWater)
-        QuickActionButton(text = "秤", color = QingJiGreen, onClick = onWeight)
-        QuickActionButton(text = "拍", color = Color(0xFF5B8DEF), onClick = onPhoto)
+        // 三个按钮统一取主题色的三档深浅，不再各自写死蓝/绿色
+        QuickActionButton(text = "水", color = QingJiGreen, onClick = onWater)
+        QuickActionButton(text = "秤", color = QingJiGreenDark, onClick = onWeight)
+        QuickActionButton(text = "拍", color = QingJiGreen.copy(alpha = 0.72f), onClick = onPhoto)
     }
 }
 

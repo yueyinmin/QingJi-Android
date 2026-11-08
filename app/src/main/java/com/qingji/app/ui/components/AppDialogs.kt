@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.qingji.app.ui.theme.DangerRed
 import com.qingji.app.ui.theme.DividerColor
 import com.qingji.app.ui.theme.CardWhite
 import com.qingji.app.ui.theme.Dimens
@@ -68,7 +69,9 @@ fun AppBottomSheet(
         // 统一弹层配色：和 App 卡片同一个白，不用 Material 默认的灰紫容器
         containerColor = CardWhite,
         contentColor = TextPrimary,
-        scrimColor = Color.Black.copy(alpha = 0.42f),
+        // 遮罩调淡：0.42 会把整页压成灰的，和 App 的浅色体系割裂；
+        // 0.28 只压暗一点点，弹层开着也能看清后面的主题色。
+        scrimColor = Color.Black.copy(alpha = 0.28f),
         dragHandle = {
             Box(
                 modifier = Modifier
@@ -156,7 +159,7 @@ fun AppDialog(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(999.dp))
-                        .background(if (danger) Color(0xFFD64545) else QingJiGreen)
+                        .background(if (danger) DangerRed else QingJiGreen)
                         .pressable {
                             onConfirm()
                             onDismiss()

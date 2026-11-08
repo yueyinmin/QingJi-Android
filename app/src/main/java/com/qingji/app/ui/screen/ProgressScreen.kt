@@ -157,7 +157,7 @@ fun ProgressScreen(
         "正常" -> NormalGreen
         "超重" -> WarnOrange
         "肥胖" -> DangerRed
-        else -> Color(0xFF7EC8E3)
+        else -> QingJiGreen.copy(alpha = 0.6f)
     }
 
     // 减重进度 = 已经减掉的 / 一共要减的
@@ -447,20 +447,18 @@ private fun BodyDataCard(
 }
 
 /**
- * BMI 半圆仪表盘。
- * 把 BMI 15~35 映射到 180°~0° 的上半圆，四段颜色对应中国标准的四档。
- * 指针指向当前值；没数据时只画刻度不画指针。
+ * BMI 横向刻度条（v3.2）。
+ * 以前是半圆仪表 + 一根从圆心拉到弧上的长指针，读数固定在底部中间，
+ * 跟指针指的位置对不上。现在：
+ * - 指针缩成一个小三角，压在刻度条上方、指向当前 BMI 那一格；
+ * - BMI 数值和分级跟着指针水平移动，放在指针正下方；
+ * - 四段颜色按中国标准，偏瘦/正常用主题色，超重/肥胖保留警示色。
  */
 @Composable
 private fun BmiGauge(bmi: Double, category: String, categoryColor: Color, onClick: () -> Unit = {}) {
-    val segments = listOf(
-        15f to 18.5f to Color(0xFF7EC8E3),   // 偏瘦
-        18.5f to 24f to NormalGreen,          // 正常
-        24f to 28f to WarnOrange,             // 超重
-        28f to 35f to DangerRed               // 肥胖
-    )
+    val hasData = bmi > 0
 
-    // 进场时指针从最左边（BMI 15）扫到真实值，像体重秤归零后跳到读数
+    // 进场时指针从最左边（BMI 15）滑到真实值
     var gaugeEntered by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { gaugeEntered = true }
     val animBmi by animateFloatAsState(
@@ -468,6 +466,11 @@ private fun BmiGauge(bmi: Double, category: String, categoryColor: Color, onClic
         animationSpec = tween(durationMillis = 1100, easing = FastOutSlowInEasing),
         label = "bmiSweep"
     )
+    val fraction = ((animBmi.coerceIn(15f, 35f) - 15f) / 20f).coerceIn(0f, 1f)
+
+    // 颜色在 Composable 作用域取好，切主题色时会跟着重组
+    val thinColor = QingJiGreen.copy(alpha = 0.30f)
+    val normalColor = QingJiGreen
 
     SectionCard(modifier = Modifier.clickable { onClick() }) {
         Row(
@@ -478,67 +481,100 @@ private fun BmiGauge(bmi: Double, category: String, categoryColor: Color, onClic
             Text(text = "BMI 分级（中国标准）", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
             Text(text = "记体重 ›", fontSize = 11.sp, color = QingJiGreenDark)
         }
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(14.dp))
 
-        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            Canvas(modifier = Modifier.size(200.dp, 110.dp)) {
-                val stroke = 16.dp.toPx()
-                // 用正方形当外接框画正圆，画布只有一半高 → 自然只露出上半圆
-                val side = size.width - stroke
-                val arcSize = Size(side, side)
-                val topLeft = Offset(stroke / 2, stroke / 2)
-                val total = 35f - 15f
+        // ---- 缩小后的指针：一颗小三角，位置跟着 BMI 走 ----
+        if (hasData) {
+            androidx.compose.foundation.layout.BoxWithConstraints(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                val pointerX = (maxWidth - 12.dp) * fraction
+                Text(
+                    text = "▼",
+                    fontSize = 10.sp,
+                    color = QingJiGreenDark,
+                    modifier = Modifier.padding(start = pointerX)
+                )
+            }
+            Spacer(Modifier.height(2.dp))
+        }
 
-                // Compose 的角度：0° = 右，90° = 下，180° = 左，270° = 上。
-                // 所以上半圆是 180° → 360°，BMI 小的在左、大的在右。
-                segments.forEach { (range, color) ->
-                    val startAngle = 180f + (range.first - 15f) / total * 180f
-                    val sweep = (range.second - range.first) / total * 180f
-                    drawArc(
-                        color = color,
-                        startAngle = startAngle,
-                        sweepAngle = sweep,
-                        useCenter = false,
-                        topLeft = topLeft,
-                        size = arcSize,
-                        style = Stroke(width = stroke)
-                    )
-                }
+        // ---- 四段刻度条：15~18.5 / 18.5~24 / 24~28 / 28~35 ----
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(12.dp)
+                .clip(RoundedCornerShape(6.dp))
+        ) {
+            Box(Modifier.weight(3.5f).fillMaxHeight().background(thinColor))
+            Box(Modifier.weight(5.5f).fillMaxHeight().background(normalColor))
+            Box(Modifier.weight(4f).fillMaxHeight().background(WarnOrange))
+            Box(Modifier.weight(7f).fillMaxHeight().background(DangerRed))
+        }
 
-                // 指针：从圆心指向当前 BMI 所在角度
-                if (bmi > 0) {
-                    val clamped = animBmi.coerceIn(15f, 35f)
-                    val angleDeg = 180f + (clamped - 15f) / total * 180f
-                    val angleRad = Math.toRadians(angleDeg.toDouble())
-                    val center = Offset(size.width / 2, size.width / 2)
-                    val len = size.width / 2 - stroke
-                    val end = Offset(
-                        x = center.x + (len * kotlin.math.cos(angleRad)).toFloat(),
-                        y = center.y + (len * kotlin.math.sin(angleRad)).toFloat()
-                    )
-                    drawLine(
-                        color = Color(0xFF1A1A1A),
-                        start = center,
-                        end = end,
-                        strokeWidth = 3.dp.toPx()
-                    )
-                    drawCircle(color = Color(0xFF1A1A1A), radius = 6.dp.toPx(), center = center)
-                }
+        Spacer(Modifier.height(8.dp))
+
+        // ---- BMI 内容：放在对应指针的正下方，跟着指针水平移动 ----
+        androidx.compose.foundation.layout.BoxWithConstraints(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            val labelWidth = 128.dp
+            val startX = (maxWidth - labelWidth) * fraction
+            Column(
+                modifier = Modifier
+                    .padding(start = startX)
+                    .width(labelWidth),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = if (hasData) String.format("%.1f", bmi) else "--",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (hasData) categoryColor else TextSecondary
+                )
+                Text(
+                    text = if (hasData) "BMI · $category" else "记一次体重后显示",
+                    fontSize = 11.sp,
+                    color = if (hasData) categoryColor else TextSecondary,
+                    maxLines = 1
+                )
             }
         }
 
+        Spacer(Modifier.height(8.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(text = "15", fontSize = 11.sp, color = TextSecondary)
-            Text(
-                text = if (bmi > 0) "当前 ${String.format("%.1f", bmi)} · $category" else "记一次体重后显示指针",
-                fontSize = 12.sp,
-                color = if (bmi > 0) categoryColor else TextSecondary
-            )
             Text(text = "35", fontSize = 11.sp, color = TextSecondary)
         }
+
+        Spacer(Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            BmiLegend("偏瘦", thinColor)
+            BmiLegend("正常", normalColor)
+            BmiLegend("超重", WarnOrange)
+            BmiLegend("肥胖", DangerRed)
+        }
+    }
+}
+
+/** 刻度条下面四档的小图例。 */
+@Composable
+private fun BmiLegend(label: String, color: Color) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .clip(CircleShape)
+                .background(color)
+        )
+        Spacer(Modifier.width(4.dp))
+        Text(text = label, fontSize = 10.sp, color = TextSecondary)
     }
 }
 
@@ -660,7 +696,7 @@ private fun WeightChart(
                     if (targetWeight > 0) {
                         val y = ChartMath.yOf(targetWeight.toFloat(), bounds, h)
                         drawLine(
-                            color = Color(0xFFC9BEF7),
+                            color = QingJiGreenLight,
                             start = Offset(0f, y),
                             end = Offset(w, y),
                             strokeWidth = 1.dp.toPx(),
@@ -677,7 +713,7 @@ private fun WeightChart(
                         }
                         for (i in 1 until trajectory.size) {
                             drawLine(
-                                color = Color(0xFF9B8AFB),
+                                color = QingJiGreenDark,
                                 start = trajectory[i - 1],
                                 end = trajectory[i],
                                 strokeWidth = 2.dp.toPx(),
@@ -703,7 +739,7 @@ private fun WeightChart(
                         points.forEachIndexed { index, point ->
                             val active = selectedIndex == index
                             drawCircle(
-                                color = if (active) Color(0xFFFFFFFF) else QingJiGreen,
+                                color = if (active) Color.White else QingJiGreen,
                                 radius = if (active) 7.dp.toPx() else 4.dp.toPx(),
                                 center = Offset(point.x, point.y)
                             )
@@ -756,7 +792,7 @@ private fun WeightChart(
             Row {
                 LegendDot(color = QingJiGreen, label = "实际")
                 Spacer(Modifier.padding(6.dp))
-                if (targetWeight > 0) LegendDot(color = Color(0xFF9B8AFB), label = "目标轨迹")
+                if (targetWeight > 0) LegendDot(color = QingJiGreenDark, label = "目标轨迹")
             }
             Text(
                 text = logs.lastOrNull()?.date?.toString().orEmpty(),
@@ -841,7 +877,7 @@ private fun LegendDot(color: Color, label: String) {
 private fun WaterWeekCard(week: List<Pair<LocalDate, Int>>, goalMl: Int) {
     val total = week.sumOf { it.second }
     val peak = maxOf(goalMl, week.maxOfOrNull { it.second } ?: 0, 1)
-    val barColor = Color(0xFF7EC8E3)
+    val barColor = QingJiGreen.copy(alpha = 0.65f)
 
     SectionCard {
         Row(
@@ -1399,7 +1435,7 @@ private fun ExerciseDialog(
                         Text(
                             text = if (item.favorite) "♥" else "♡",
                             fontSize = 16.sp,
-                            color = if (item.favorite) Color(0xFFE0567A) else TextSecondary,
+                            color = if (item.favorite) QingJiGreen else TextSecondary,
                             modifier = Modifier.clickable {
                                 onToggleFavorite(item.id, !item.favorite)
                             }

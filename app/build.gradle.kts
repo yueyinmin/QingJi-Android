@@ -36,8 +36,8 @@ android {
         applicationId = "com.qingji.app" // 手机上唯一标识，上架后不能改
         minSdk = 26                      // 最低支持 Android 8.0（覆盖 95% 以上设备）
         targetSdk = 35                   // 目标版本
-        versionCode = 311                  // 内部版本号：主版本×100 + 次版本×10 + 补丁（v2.6.1 = 261）
-        versionName = "3.1.1"             // 2026-11-08：使用情况改横条 + 语义图标跟随主题色
+        versionCode = 320                  // 内部版本号：主版本×100 + 次版本×10 + 补丁（v2.6.1 = 261）
+        versionName = "3.2.0"             // 2026-11-08：全局色调统一 + 首页/食物库/加号面板/BMI 四处按参考图重排
     }
 
     buildTypes {

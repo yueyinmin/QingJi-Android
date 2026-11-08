@@ -199,7 +199,7 @@ private fun FastingRing(status: FastingStatus) {
             val stroke = 15.dp.toPx()
             // 底圈
             drawArc(
-                color = Color(0xFFE6EAEE),
+                color = DividerColor,
                 startAngle = 0f,
                 sweepAngle = 360f,
                 useCenter = false,
