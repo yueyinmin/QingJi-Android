@@ -91,6 +91,8 @@ fun DiaryScreen(
     onOpenEdit: (Long) -> Unit,
     onOpenWeight: () -> Unit = {},
     onOpenImage: () -> Unit = {},
+    /** v3.2.4：悬浮栏第二颗换成食物库 */
+    onOpenFoodLibrary: () -> Unit = {},
     modifier: Modifier = Modifier,
     vm: DiaryViewModel = viewModel()
 ) {
@@ -172,13 +174,39 @@ fun DiaryScreen(
 
             Spacer(Modifier.height(10.dp))
 
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                cells.chunked(6).forEach { row ->
+            // v3.2.4：按真实日历排 —— 7 列、周一开头，第一天先补空格对齐到对应星期。
+            // 以前 6 列 × 5 行，日期和星期根本对不上，看起来「时间不对」。
+            // 格子压到 14dp、去掉中间的日期数字，整块占屏更小，只靠颜色看打卡情况。
+            val firstWeekday = cells.firstOrNull()?.dayOfWeek?.value ?: 1   // 周一=1 … 周日=7
+            val leadingBlanks = (firstWeekday - 1 + 7) % 7
+            val calendarCells: List<LocalDate?> = List(leadingBlanks) { null } + cells
+
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                // 星期标头：一眼能看出每一列是周几
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    listOf("一", "二", "三", "四", "五", "六", "日").forEach { label ->
+                        Text(
+                            text = label,
+                            fontSize = 10.sp,
+                            color = TextSecondary,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+                calendarCells.chunked(7).forEach { row ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         row.forEach { date ->
+                            if (date == null) {
+                                Spacer(Modifier.weight(1f))
+                                return@forEach
+                            }
                             val level = DiaryRules.level(ratingByDate[date] ?: 0)
                             val color = when (level) {
                                 DiaryRules.LEVEL_LOW -> QingJiGreenLight
@@ -189,23 +217,16 @@ fun DiaryScreen(
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(34.dp)
-                                    .clip(RoundedCornerShape(7.dp))
+                                    .height(14.dp)
+                                    .clip(RoundedCornerShape(4.dp))
                                     .background(color)
                                     .clickable {
                                         val existing = diaries.firstOrNull { it.date == date }
                                         onOpenEdit(existing?.id ?: 0L)
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "${date.dayOfMonth}",
-                                    fontSize = 10.sp,
-                                    color = if (level >= DiaryRules.LEVEL_HIGH) Color.White else TextSecondary
-                                )
-                            }
+                                    }
+                            )
                         }
-                        repeat(6 - row.size) { Spacer(Modifier.weight(1f)) }
+                        repeat(7 - row.size) { Spacer(Modifier.weight(1f)) }
                     }
                 }
             }
@@ -306,7 +327,7 @@ fun DiaryScreen(
         // 往上挪 84dp，避免和右下角「写一篇」叠在一起。
         QuickActionColumn(
             onWater = { vm.addWater(200) },
-            onWeight = onOpenWeight,
+            onOpenFoodLibrary = onOpenFoodLibrary,
             onPhoto = onOpenImage,
             modifier = Modifier
                 .align(Alignment.BottomEnd)

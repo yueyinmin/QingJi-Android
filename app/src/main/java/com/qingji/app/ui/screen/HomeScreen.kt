@@ -26,6 +26,7 @@ import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.Cake
+import androidx.compose.material.icons.outlined.MonitorWeight
 import androidx.compose.material.icons.outlined.NightsStay
 import androidx.compose.material.icons.outlined.Restaurant
 import androidx.compose.material.icons.outlined.WbSunny
@@ -243,49 +244,55 @@ fun HomeScreen(
         Spacer(Modifier.height(20.dp))
 
         // ---------- 今日记录 ----------
+        // v3.2.4：AI 分析从右侧按钮组挪到「今日记录」文字旁边；
+        // 右侧第一颗由「食物库」换成「记体重」（与悬浮栏第二颗互换位置）。
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(
-                text = if (state.date == today) "今日记录" else "当日记录",
-                fontSize = TextSizes.CardTitle,
-                fontWeight = FontWeight.SemiBold,
-                color = TextPrimary
-            )
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = if (state.date == today) "今日记录" else "当日记录",
+                    fontSize = TextSizes.CardTitle,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextPrimary
+                )
                 if (settings.showAiAnalysis) {
+                    Spacer(Modifier.width(8.dp))
                     Text(
                         text = "✦ AI 分析",
-                        fontSize = 12.sp,
+                        fontSize = 11.sp,
                         color = QingJiGreenDark,
                         modifier = Modifier
                             .clip(RoundedCornerShape(999.dp))
                             .background(QingJiGreenLight)
                             .pressable { onOpenAnalysis() }
-                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                            .padding(horizontal = 9.dp, vertical = 5.dp)
                     )
                 }
-                // 右侧两颗圆形按钮：食物库 + 记一笔
+            }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // 记体重：原来在右侧悬浮栏第二颗，现在换到这里
                 Box(
                     modifier = Modifier
                         .size(34.dp)
                         .clip(RoundedCornerShape(11.dp))
                         .background(QingJiGreenLight)
-                        .pressable { onOpenFoodLibrary() },
+                        .pressable { onOpenWeight() },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Outlined.MenuBook,
-                        contentDescription = "食物库",
+                        imageVector = Icons.Outlined.MonitorWeight,
+                        contentDescription = "记体重",
                         tint = QingJiGreenDark,
                         modifier = Modifier.size(17.dp)
                     )
                 }
+                // 记一笔
                 Box(
                     modifier = Modifier
                         .size(34.dp)
@@ -337,8 +344,10 @@ fun HomeScreen(
         // ---------- 右侧悬浮快捷按钮（M2 第 4 条，可在设置里关掉） ----------
         if (settings.showQuickButtons) {
             QuickActionColumn(
-                onWater = { vm.addWater(200) },
-                onWeight = onOpenWeight,
+                // v3.2.4：点水滴 = 和点水杯一样弹出「快速记录喝水」菜单，
+                // 不再直接 +200ml；第二颗已换成食物库（记体重挪到标题行右侧）。
+                onWater = { showCupMenu = true },
+                onOpenFoodLibrary = onOpenFoodLibrary,
                 onPhoto = onOpenImage,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
