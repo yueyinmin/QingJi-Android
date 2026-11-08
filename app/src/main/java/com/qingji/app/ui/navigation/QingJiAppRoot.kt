@@ -67,19 +67,28 @@ fun QingJiAppRoot(
     /** 桌面小组件要求直达的页面路由，null 表示正常从首页打开。 */
     startTarget: String? = null,
     /** 每次点小组件都会 +1，用来强制触发一次跳转（同一按钮连点两次也能跳）。 */
-    startTargetRequestId: Long = 0L
+    startTargetRequestId: Long = 0L,
+    /** 目标用完后立刻回告 MainActivity 清空，避免残留目标被反复消费。 */
+    onTargetConsumed: () -> Unit = {}
 ) {
     val navController = rememberNavController()
 
     // 是否展开「记一笔」底部弹层
     var showAddSheet by remember { mutableStateOf(false) }
 
-    // 小组件点进来 → 直接跳到目标页；跳完把这个目标清掉，避免反复跳
+    // 小组件点进来 → 直接跳到目标页。
+    // v3.2.3：不管最后有没有真的跳，都要把目标「消费掉」并回告 MainActivity 清空。
+    // 以前 target=="home" 或空值时直接 return，目标就永远留在 Activity 里；
+    // 之后只要 Root 因换主题、转屏、设置变化重新组合，这段就会再跑一次，
+    // 用户看到的就是「点首页，最后却停在别的页」。
     LaunchedEffect(startTarget, startTargetRequestId) {
         val target = startTarget ?: return@LaunchedEffect
-        if (target == QingJiTab.Home.route) return@LaunchedEffect
-        if (target.isBlank()) return@LaunchedEffect
-        navController.navigate(target) { launchSingleTop = true }
+        if (target != QingJiTab.Home.route && target.isNotBlank()) {
+            navController.navigate(target) { launchSingleTop = true }
+        }
+        // 放在最后调用：它把 startTarget 变成 null，会让本 LaunchedEffect
+        // 重启一次；重启后 target 已是 null，第一行就直接返回，不会重复跳。
+        onTargetConsumed()
     }
 
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -121,10 +130,17 @@ fun QingJiAppRoot(
                 QingJiBottomBar(
                     currentRoute = currentRoute,
                     onTabSelected = { tab ->
-                        navController.navigate(tab.route) {
-                            popUpTo(QingJiTab.Home.route) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
+                        // v3.2.3：已经在当前页就什么都不做。
+                        // 以前重复点同一 tab 也会走一遍 popUpTo + restoreState，
+                        // 而 restoreState 会把「上次离开这个 tab 时保存的整个返回栈」
+                        // 恢复回来 —— 真机上的表现就是点「首页」却落回「进展」。
+                        if (tab.route != currentRoute) {
+                            navController.navigate(tab.route) {
+                                // 只保留首页当栈底，切 tab 不叠加历史；
+                                // 刻意不用 restoreState，保证「点哪个就停在哪」。
+                                popUpTo(QingJiTab.Home.route) { saveState = false }
+                                launchSingleTop = true
+                            }
                         }
                     },
                     onAddClick = { showAddSheet = true },
