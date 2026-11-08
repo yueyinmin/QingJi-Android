@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
@@ -22,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.qingji.app.ui.theme.DividerColor
 import com.qingji.app.ui.theme.CardWhite
 import com.qingji.app.ui.theme.Dimens
 import com.qingji.app.ui.theme.pressable
@@ -61,7 +63,22 @@ fun AppBottomSheet(
     onDismiss: () -> Unit,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        // 统一弹层配色：和 App 卡片同一个白，不用 Material 默认的灰紫容器
+        containerColor = CardWhite,
+        contentColor = TextPrimary,
+        scrimColor = Color.Black.copy(alpha = 0.42f),
+        dragHandle = {
+            Box(
+                modifier = Modifier
+                    .padding(vertical = 10.dp)
+                    .size(width = 36.dp, height = 4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(DividerColor)
+            )
+        }
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()

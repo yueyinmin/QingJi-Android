@@ -124,6 +124,9 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     /** 水杯气泡量：0 关 / 1 少 / 2 标准 / 3 多 */
     fun setWaterBubbles(level: Int) = put(SettingsKeys.WATER_BUBBLES, level.coerceIn(0, 3))
 
+    /** 自定义字体文件路径（空串 = 恢复默认字体） */
+    fun setCustomFontPath(path: String) = put(SettingsKeys.CUSTOM_FONT_PATH, path)
+
     /** 禁用所有通知（总开关） */
     fun setAllNotificationsDisabled(disabled: Boolean) = put(SettingsKeys.ALL_NOTIFICATIONS_DISABLED, disabled)
 

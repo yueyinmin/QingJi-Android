@@ -78,6 +78,8 @@ object SettingsKeys {
     val AI_LANGUAGE = stringPreferencesKey("ai_language")
     /** 禁用所有通知（总开关） */
     val ALL_NOTIFICATIONS_DISABLED = booleanPreferencesKey("all_notifications_disabled")
+    /** 自定义字体文件路径（空 = 系统默认字体） */
+    val CUSTOM_FONT_PATH = stringPreferencesKey("custom_font_path")
     /** 偏好菜系，逗号分隔 */
     val CUISINES = stringPreferencesKey("cuisines")
     val WATER_BUBBLES = intPreferencesKey("water_bubbles")
@@ -127,6 +129,7 @@ data class QingJiSettings(
     val onboardingDone: Boolean = false,
     val aiLanguage: String = "zh",
     val allNotificationsDisabled: Boolean = false,
+    val customFontPath: String = "",
     val cuisines: String = "",
     val waterBubbles: Int = 2,
     val showMealMacro: Boolean = true,
@@ -180,6 +183,7 @@ object SettingsStore {
                     onboardingDone = p[SettingsKeys.ONBOARDING_DONE] ?: false,
                     aiLanguage = p[SettingsKeys.AI_LANGUAGE] ?: "zh",
                     allNotificationsDisabled = p[SettingsKeys.ALL_NOTIFICATIONS_DISABLED] ?: false,
+                    customFontPath = p[SettingsKeys.CUSTOM_FONT_PATH] ?: "",
                     cuisines = p[SettingsKeys.CUISINES] ?: "",
                     waterBubbles = p[SettingsKeys.WATER_BUBBLES] ?: 2,
                     showMealMacro = p[SettingsKeys.SHOW_MEAL_MACRO] ?: true,
