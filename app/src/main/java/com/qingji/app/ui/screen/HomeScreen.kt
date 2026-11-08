@@ -14,13 +14,19 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.ui.draw.alpha
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -33,7 +39,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -118,6 +128,22 @@ fun HomeScreen(
             .fillMaxSize()
             .background(PageBackground)
     ) {
+        // 顶部一层很淡的主题色渐变：日期、周历都落在这一块上。
+        // 颜色取 QingJiGreenLight（跟着主题色变），不用写死任何青色。
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(250.dp)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            QingJiGreenLight,
+                            QingJiGreenLight.copy(alpha = 0.45f),
+                            PageBackground
+                        )
+                    )
+                )
+        )
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -142,17 +168,15 @@ fun HomeScreen(
                 color = TextPrimary,
                 modifier = Modifier.clickable { showDatePicker = true }
             )
-            Spacer(Modifier.size(8.dp))
-            // 下拉指示：一个小胶囊，点它和点标题一样弹出日历
-            Text(
-                text = "📅 ▾",
-                fontSize = 13.sp,
-                color = QingJiGreenDark,
+            Spacer(Modifier.size(4.dp))
+            // 下拉箭头：点它和点标题一样弹出日历（不再用 emoji 胶囊）
+            Icon(
+                imageVector = Icons.Filled.KeyboardArrowDown,
+                contentDescription = "选择日期",
+                tint = QingJiGreenDark,
                 modifier = Modifier
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(QingJiGreenLight)
+                    .size(24.dp)
                     .pressable { showDatePicker = true }
-                    .padding(horizontal = 10.dp, vertical = 5.dp)
             )
             Spacer(Modifier.weight(1f))
             // 这一颗始终渲染，只切透明度。
@@ -183,7 +207,6 @@ fun HomeScreen(
         AppearItem(index = 0) {
         TodaySummaryCard(
             state = state,
-            onAddWater = vm::addWater,
             waterGoal = settings.waterGoalMl,
             showWater = settings.showWaterCard,
             animateProgress = settings.progressAnimation,
@@ -211,39 +234,53 @@ fun HomeScreen(
                 fontWeight = FontWeight.SemiBold,
                 color = TextPrimary
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 if (settings.showAiAnalysis) {
                     Text(
-                        text = "AI 分析",
+                        text = "✦ AI 分析",
                         fontSize = 12.sp,
-                        color = TextSecondary,
+                        color = QingJiGreenDark,
                         modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(CardWhite)
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(QingJiGreenLight)
                             .pressable { onOpenAnalysis() }
                             .padding(horizontal = 10.dp, vertical = 6.dp)
                     )
                 }
-                Text(
-                    text = "食物库",
-                    fontSize = 12.sp,
-                    color = TextSecondary,
+                // 右侧两颗圆形按钮：食物库 + 记一笔
+                Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(CardWhite)
-                        .pressable { onOpenFoodLibrary() }
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
-                )
-                Text(
-                    text = "+ 记一笔",
-                    fontSize = 12.sp,
-                    color = QingJiGreen,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
+                        .size(34.dp)
+                        .clip(CircleShape)
                         .background(QingJiGreenLight)
-                        .pressable { onAddRecord() }
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
-                )
+                        .pressable { onOpenFoodLibrary() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Outlined.MenuBook,
+                        contentDescription = "食物库",
+                        tint = QingJiGreenDark,
+                        modifier = Modifier.size(17.dp)
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .size(34.dp)
+                        .clip(CircleShape)
+                        .background(QingJiGreen)
+                        .pressable { onAddRecord() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Add,
+                        contentDescription = "记一笔",
+                        tint = Color.White,
+                        modifier = Modifier.size(19.dp)
+                    )
+                }
             }
         }
 
@@ -302,34 +339,16 @@ fun HomeScreen(
     // ---------- 点水杯：先选做什么 ----------
     // 用底部弹层而不是弹窗：和「+ 记一笔」的记录面板是同一套交互语言
     if (showCupMenu) {
-        androidx.compose.material3.ModalBottomSheet(
-            onDismissRequest = { showCupMenu = false }
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
-                    .padding(bottom = 28.dp)
-            ) {
-                Text(
-                    text = "饮水",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = "已喝 ${state.waterMl} ml / 目标 ${settings.waterGoalMl} ml",
-                    fontSize = 12.sp,
-                    color = TextSecondary
-                )
-                Spacer(Modifier.height(14.dp))
-                CupMenuRow("查看今日饮水详情") {
-                    showCupMenu = false
-                    showCupDetail = true
-                }
-            }
-        }
+        QuickWaterSheet(
+            waterMl = state.waterMl,
+            goalMl = settings.waterGoalMl,
+            onAdd = { ml -> vm.addWater(ml) },
+            onOpenDetail = {
+                showCupMenu = false
+                showCupDetail = true
+            },
+            onDismiss = { showCupMenu = false }
+        )
     }
 
     // ---------- 首页显示设置（气泡量 + 餐次营养比例） ----------
@@ -348,7 +367,7 @@ fun HomeScreen(
                     text = "${state.waterMl}",
                     fontSize = 30.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF3FA9C9)
+                    color = QingJiGreenDark
                 )
                 Text(
                     text = " / $goal ml",
@@ -360,7 +379,7 @@ fun HomeScreen(
             Spacer(Modifier.height(6.dp))
             ThinProgressBar(
                 progress = state.waterMl.toFloat() / goal,
-                color = Color(0xFF7EC8E3)
+                color = QingJiGreen
             )
             Spacer(Modifier.height(10.dp))
             Text(text = "完成 $percent%", fontSize = 12.sp, color = TextSecondary)
@@ -380,19 +399,177 @@ fun HomeScreen(
     }
 }
 
-/** 水杯菜单里的一行。 */
+/**
+ * 快速记录喝水（v3.2）：点首页那根高水杯弹出来。
+ * 四档常用水量 + 自定义输入 + 记录时间 + 查看今日详情，
+ * 容器色/遮罩/把手和 AppBottomSheet 完全一致，不写死任何蓝色。
+ */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-private fun CupMenuRow(text: String, onClick: () -> Unit) {
-    Text(
-        text = text,
-        fontSize = 15.sp,
-        color = TextPrimary,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .clickable { onClick() }
-            .padding(vertical = 12.dp, horizontal = 4.dp)
-    )
+private fun QuickWaterSheet(
+    waterMl: Int,
+    goalMl: Int,
+    onAdd: (Int) -> Unit,
+    onOpenDetail: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    var customMl by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf("") }
+    val timeText = "${AppClock.today().monthValue}月${AppClock.today().dayOfMonth}日 " +
+        java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+
+    androidx.compose.material3.ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = CardWhite,
+        contentColor = TextPrimary,
+        scrimColor = Color.Black.copy(alpha = 0.28f),
+        dragHandle = {
+            Box(
+                modifier = Modifier
+                    .padding(vertical = 10.dp)
+                    .size(width = 36.dp, height = 4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(DividerColor)
+            )
+        }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 28.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(text = "💧", fontSize = 18.sp)
+                Spacer(Modifier.size(6.dp))
+                Text(
+                    text = "快速记录喝水",
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+                Spacer(Modifier.weight(1f))
+                Text(
+                    text = "已喝 $waterMl / 目标 ${goalMl}ml",
+                    fontSize = 11.sp,
+                    color = TextSecondary
+                )
+            }
+
+            Spacer(Modifier.height(14.dp))
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(150, 250, 350, 500).forEach { ml ->
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(QingJiGreenLight)
+                            .pressable { onAdd(ml); error = "" }
+                            .padding(vertical = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "${ml}ml",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = QingJiGreenDark,
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                androidx.compose.material3.OutlinedTextField(
+                    value = customMl,
+                    onValueChange = { customMl = it; error = "" },
+                    singleLine = true,
+                    placeholder = {
+                        Text(text = "输入自定义水量", fontSize = 12.sp, color = TextSecondary)
+                    },
+                    trailingIcon = {
+                        Text(
+                            text = "ml",
+                            fontSize = 12.sp,
+                            color = TextSecondary,
+                            modifier = Modifier.padding(end = 10.dp)
+                        )
+                    },
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                    ),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 52.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(QingJiGreen)
+                        .pressable {
+                            val ml = customMl.toIntOrNull()
+                            if (ml != null && ml in 1..3000) {
+                                onAdd(ml)
+                                customMl = ""
+                                error = ""
+                            } else {
+                                error = "填 1～3000 之间的数字"
+                            }
+                        }
+                        .padding(horizontal = 18.dp, vertical = 16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "记录",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color.White
+                    )
+                }
+            }
+            if (error.isNotBlank()) {
+                Spacer(Modifier.height(6.dp))
+                Text(text = error, fontSize = 11.sp, color = DangerRed)
+            }
+
+            Spacer(Modifier.height(12.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(PageBackground)
+                    .padding(horizontal = 12.dp, vertical = 11.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = "🕐", fontSize = 13.sp)
+                Spacer(Modifier.width(8.dp))
+                Text(text = timeText, fontSize = 13.sp, color = QingJiGreenDark)
+            }
+
+            Spacer(Modifier.height(12.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .border(1.dp, QingJiGreen, RoundedCornerShape(10.dp))
+                    .pressable { onOpenDetail() }
+                    .padding(vertical = 12.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "查看今日饮水详情",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = QingJiGreen
+                )
+            }
+        }
+    }
 }
 
 /** 标题旁边翻周用的小圆按钮。 */
@@ -410,7 +587,11 @@ private fun WeekArrow(text: String, onClick: () -> Unit) {
     }
 }
 
-/** 一周日期条：基于「当前选中的那天」所在的周，点哪天看哪天。 */
+/**
+ * 一周日期条：参考吃有数的样式 —— 没选中的是虚线圆圈，选中那天
+ * 变成主题浅色的圆角方块，下面带一颗主题色小点。
+ * 颜色全部取主题色，切换主题时一起变。
+ */
 @Composable
 private fun DateStrip(
     state: HomeUiState,
@@ -419,6 +600,12 @@ private fun DateStrip(
     val weekLabels = listOf("周一", "周二", "周三", "周四", "周五", "周六", "周日")
     val monday = state.date.minusDays((state.date.dayOfWeek.value - 1).toLong())
     val today = AppClock.today()
+
+    // drawBehind 的 lambda 不是 @Composable，颜色要在这里先取出来
+    val dashColor = DividerColor
+    val selectedBg = QingJiGreenLight
+    val selectedText = QingJiGreenDark
+    val dotColor = QingJiGreen
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -435,7 +622,6 @@ private fun DateStrip(
                     // 翻周时会左右抽动，固定住就不抖了
                     .width(42.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(if (selected) QingJiGreenLight else Color.Transparent)
                     .clickable(enabled = !isFuture) { onSelect(date) }
                     .padding(vertical = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -445,7 +631,7 @@ private fun DateStrip(
                     fontSize = 11.sp,
                     color = when {
                         isFuture -> DividerColor
-                        selected -> QingJiGreenDark
+                        selected -> selectedText
                         else -> TextSecondary
                     }
                 )
@@ -453,11 +639,25 @@ private fun DateStrip(
                 Box(
                     modifier = Modifier
                         .size(34.dp)
-                        .clip(CircleShape)
-                        .border(
-                            width = 1.dp,
-                            color = if (selected) QingJiGreen else DividerColor,
-                            shape = CircleShape
+                        .clip(RoundedCornerShape(11.dp))
+                        .background(if (selected) selectedBg else Color.Transparent)
+                        .then(
+                            if (selected) {
+                                Modifier
+                            } else {
+                                Modifier.drawBehind {
+                                    drawCircle(
+                                        color = dashColor,
+                                        radius = (size.minDimension - 2.dp.toPx()) / 2,
+                                        style = Stroke(
+                                            width = 1.dp.toPx(),
+                                            pathEffect = PathEffect.dashPathEffect(
+                                                floatArrayOf(5f, 5f)
+                                            )
+                                        )
+                                    )
+                                }
+                            }
                         ),
                     contentAlignment = Alignment.Center
                 ) {
@@ -467,11 +667,18 @@ private fun DateStrip(
                         fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
                         color = when {
                             isFuture -> DividerColor
-                            selected -> QingJiGreenDark
+                            selected -> selectedText
                             else -> TextPrimary
                         }
                     )
                 }
+                Spacer(Modifier.height(4.dp))
+                Box(
+                    modifier = Modifier
+                        .size(4.dp)
+                        .clip(CircleShape)
+                        .background(if (selected) dotColor else Color.Transparent)
+                )
             }
         }
     }
@@ -485,7 +692,6 @@ private fun DateStrip(
 @Composable
 private fun TodaySummaryCard(
     state: HomeUiState,
-    onAddWater: (Int) -> Unit,
     waterGoal: Int = 3200,
     showWater: Boolean = true,
     animateProgress: Boolean = true,
@@ -521,11 +727,13 @@ private fun TodaySummaryCard(
         rawProgress
     }
 
-    // 自定义杯子容量（M3.7）：除了三个快捷按钮，也能自己填毫升数
-    var showCustomWater by remember { mutableStateOf(false) }
-    var customMl by remember { mutableStateOf("") }
+    // 右侧高水杯上挂的完成度百分比
+    val waterPercent = (state.waterMl * 100 / goalWater.coerceAtLeast(1)).coerceIn(0, 100)
 
     SectionCard {
+        Row(modifier = Modifier.fillMaxWidth()) {
+            // 左栏：热量 / 营养素 / 断食条；右栏：一根贯穿卡片的高水杯
+            Column(modifier = Modifier.weight(1f)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -593,93 +801,8 @@ private fun TodaySummaryCard(
             )
         }
 
-        // 饮水模块可以在设置里关掉（不喝水的人看到的全是 0，反而碍眼）
-        if (showWater) {
-            Spacer(Modifier.height(14.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(text = "饮水", fontSize = 13.sp, color = TextSecondary)
-                    Spacer(Modifier.height(4.dp))
-                    Row(verticalAlignment = Alignment.Bottom) {
-                        Text(
-                            text = "${state.waterMl}",
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF3FA9C9)
-                        )
-                        Text(
-                            text = " / $goalWater ml",
-                            fontSize = 12.sp,
-                            color = TextSecondary,
-                            modifier = Modifier.padding(bottom = 3.dp)
-                        )
-                    }
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        text = if (state.waterMl >= goalWater) {
-                            "今天喝够了，杯子灌满啦"
-                        } else {
-                            "还差 ${goalWater - state.waterMl} ml"
-                        },
-                        fontSize = 11.sp,
-                        color = if (state.waterMl >= goalWater) QingJiGreen else TextSecondary
-                    )
-                }
-
-                // 计量杯：水位跟着今天的饮水涨，气泡越多说明喝得越多
-                WaterCup(
-                    ratio = state.waterMl.toFloat() / goalWater.coerceAtLeast(1),
-                    bubbleLevel = waterBubbles,
-                    modifier = Modifier.size(width = 58.dp, height = 78.dp),
-                    onClick = onCupClick
-                )
-            }
-
-            Spacer(Modifier.height(10.dp))
-
-            // 四颗按钮等宽铺开。
-            // 以前是自然宽度平铺，窄屏上「自定义」会被挤到第二行、甚至变成竖排字。
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(200, 300, 500).forEach { ml ->
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(QingJiGreenLight)
-                            .pressable { onAddWater(ml) }
-                            .padding(vertical = 7.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "+$ml",
-                            fontSize = 12.sp,
-                            color = QingJiGreenDark,
-                            maxLines = 1
-                        )
-                    }
-                }
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(CardWhite)
-                        .pressable { customMl = ""; showCustomWater = true }
-                        .padding(vertical = 7.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "自定义",
-                        fontSize = 11.sp,
-                        color = QingJiGreenDark,
-                        maxLines = 1
-                    )
-                }
-            }
-        }
+        // 饮水不再单独占一块 + 四颗快捷按钮：进度收进右侧的高水杯，
+        // 加水操作收进「快速记录喝水」弹层（点杯子打开），卡片更接近参考样式。
 
         // ---------- 轻断食条（放在「今日剩余」这张卡的最底下） ----------
         if (fastingEnabled) {
@@ -730,40 +853,48 @@ private fun TodaySummaryCard(
                 )
             }
         }
-    }
+            } // 左栏 Column 结束
 
-    if (showCustomWater) {
-        // 输入类弹窗统一走底部弹层：键盘弹出来不挤，主按钮也好按
-        com.qingji.app.ui.components.AppBottomSheet(
-            title = "自定义这一杯",
-            subtitle = "杯子容量按毫升填，例如 350",
-            confirmText = "记下",
-            onConfirm = {
-                val ml = customMl.toIntOrNull()
-                if (ml != null && ml in 1..3000) {
-                    onAddWater(ml)
-                    showCustomWater = false
+            // 右栏：一根贯穿整张卡的高水杯，中间挂完成度胶囊，下面写「已喝/目标」
+            if (showWater) {
+                Spacer(Modifier.width(12.dp))
+                Column(
+                    modifier = Modifier.width(76.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(
+                        modifier = Modifier.size(width = 74.dp, height = 190.dp),
+                        contentAlignment = Alignment.BottomCenter
+                    ) {
+                        WaterCup(
+                            ratio = state.waterMl.toFloat() / goalWater.coerceAtLeast(1),
+                            bubbleLevel = waterBubbles,
+                            modifier = Modifier.fillMaxSize(),
+                            onClick = onCupClick
+                        )
+                        Text(
+                            text = "$waterPercent%",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = QingJiGreenDark,
+                            modifier = Modifier
+                                .padding(bottom = 46.dp)
+                                .clip(RoundedCornerShape(999.dp))
+                                .background(QingJiGreenLight)
+                                .padding(horizontal = 9.dp, vertical = 3.dp)
+                        )
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = "${state.waterMl} / ${goalWater}ml",
+                        fontSize = 11.sp,
+                        color = TextSecondary,
+                        maxLines = 1
+                    )
                 }
-            },
-            onDismiss = { showCustomWater = false }
-        ) {
-            androidx.compose.material3.OutlinedTextField(
-                value = customMl,
-                onValueChange = { customMl = it },
-                singleLine = true,
-                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
-                ),
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(Modifier.height(6.dp))
-            Text(
-                text = "范围 1～3000 毫升；填错了点「记下」不会有反应，改一下再点",
-                fontSize = 11.sp,
-                color = TextSecondary
-            )
-        }
-    }
+            }
+        } // 外层 Row 结束
+    } // SectionCard 结束
 }
 
 /** 营养素一列：名称、进度、目标。 */
@@ -801,11 +932,12 @@ private fun MealCard(
     /** 是否在这一餐底部显示蛋白/碳水/脂肪的比例条（首页显示设置里可关） */
     showMacro: Boolean = true
 ) {
+    // 四餐不再各用橙/蓝/紫，统一取主题色的深浅档，切主题时一起变
     val badgeColor = when (type) {
-        MealRules.BREAKFAST -> Color(0xFFF5A623)
-        MealRules.LUNCH -> QingJiGreen
-        MealRules.DINNER -> Color(0xFF5B8DEF)
-        else -> Color(0xFF9B8AFB)
+        MealRules.BREAKFAST -> QingJiGreen
+        MealRules.LUNCH -> QingJiGreenDark
+        MealRules.DINNER -> QingJiGreen.copy(alpha = 0.72f)
+        else -> QingJiGreen.copy(alpha = 0.55f)
     }
     val subtitle = items.sumOf { it.kcal }.toInt()
 

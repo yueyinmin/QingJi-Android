@@ -18,7 +18,15 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.EditNote
+import androidx.compose.material.icons.outlined.History
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -42,14 +50,15 @@ import com.qingji.app.domain.FoodCategory
 import com.qingji.app.domain.FoodIcon
 import com.qingji.app.domain.MealRules
 import com.qingji.app.ui.components.HintBox
-import com.qingji.app.ui.components.PageTopBar
 import com.qingji.app.ui.theme.CardWhite
+import com.qingji.app.ui.theme.DangerRed
 import com.qingji.app.ui.theme.Dimens
 import com.qingji.app.ui.theme.DividerColor
 import com.qingji.app.ui.theme.PageBackground
 import com.qingji.app.ui.theme.QingJiGreen
 import com.qingji.app.ui.theme.QingJiGreenDark
 import com.qingji.app.ui.theme.QingJiGreenLight
+import com.qingji.app.ui.theme.pressable
 import com.qingji.app.ui.theme.TextPrimary
 import com.qingji.app.ui.theme.TextSecondary
 import com.qingji.app.ui.viewmodel.EatenFood
@@ -91,26 +100,95 @@ fun FoodLibraryScreen(
     var kitchenTab by remember { mutableStateOf(0) }
     var category by remember { mutableStateOf(FoodCategory.STAPLE) }
     var pick by remember { mutableStateOf<Food?>(null) }
+    var showSearch by remember { mutableStateOf(false) }
+    var query by remember { mutableStateOf("") }
+    var showFavorites by remember { mutableStateOf(false) }
 
-    Column(
+    // 「我的收藏」当成第 4 个 tab：原来三页的内容一行都不用动
+    val effectiveTab = if (showFavorites) 3 else tab
+    val title = if (showFavorites) "我的收藏" else when (tab) {
+        0 -> "标准食物库"
+        1 -> "自定义食物"
+        else -> "吃过的"
+    }
+    // 搜索：按名字包含匹配，空串不过滤
+    val matches: (String) -> Boolean = { name ->
+        query.isBlank() || name.contains(query.trim(), ignoreCase = true)
+    }
+
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(PageBackground)
     ) {
-        PageTopBar(title = "食物库", onBack = onBack)
+    Column(modifier = Modifier.fillMaxSize()) {
+        // 顶部标题栏：返回 / 居中标题 / 搜索（参考吃有数）
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(CardWhite)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "返回",
+                tint = TextPrimary,
+                modifier = Modifier
+                    .size(22.dp)
+                    .pressable { onBack() }
+            )
+            Text(
+                text = title,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.weight(1f)
+            )
+            Icon(
+                imageVector = Icons.Filled.Search,
+                contentDescription = "搜索食物",
+                tint = QingJiGreen,
+                modifier = Modifier
+                    .size(22.dp)
+                    .pressable { showSearch = !showSearch }
+            )
+        }
 
-        // ---------- 一级页签 ----------
-        Segmented(listOf("标准", "自定义", "吃过的"), tab) { tab = it }
+        if (showSearch) {
+            androidx.compose.material3.OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                singleLine = true,
+                placeholder = { Text(text = "搜食物名", fontSize = 12.sp, color = TextSecondary) },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Filled.Search,
+                        contentDescription = null,
+                        tint = QingJiGreen,
+                        modifier = Modifier.size(18.dp)
+                    )
+                },
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
+            )
+        }
+
         Spacer(Modifier.height(8.dp))
 
-        when (tab) {
+        // 内容区占满剩余高度，底栏才不会被列表挤出屏幕
+        Box(modifier = Modifier.weight(1f)) {
+        when (effectiveTab) {
             0 -> {
                 Segmented(listOf("家庭厨房", "外卖快餐"), kitchenTab) { kitchenTab = it }
                 Spacer(Modifier.height(8.dp))
 
                 if (kitchenTab == 0) {
                     // 家庭厨房：左边分类，右边列表
-                    val homeFoods = allFoods.filter { it.brand.isBlank() }
+                    val homeFoods = allFoods.filter { it.brand.isBlank() && matches(it.name) }
                     val available = FoodCategory.ALL.filter { cat ->
                         homeFoods.any { it.category == cat }
                     }
@@ -173,7 +251,7 @@ fun FoodLibraryScreen(
                     }
                 } else {
                     // 外卖快餐：按品牌分组
-                    val fastFoods = allFoods.filter { it.brand.isNotBlank() }
+                    val fastFoods = allFoods.filter { it.brand.isNotBlank() && matches(it.name) }
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -221,7 +299,7 @@ fun FoodLibraryScreen(
                 if (userFoods.isEmpty()) {
                     Text(text = "还没有自定义食物，左滑可以删除", fontSize = 13.sp, color = TextSecondary)
                 } else {
-                    userFoods.forEach { food ->
+                    userFoods.filter { matches(it.name) }.forEach { food ->
                         com.qingji.app.ui.components.SwipeToRevealDelete(
                             onDelete = { vm.deleteCustomFood(food) }
                         ) {
@@ -239,7 +317,7 @@ fun FoodLibraryScreen(
                 Spacer(Modifier.height(80.dp))
             }
 
-            else -> Column(
+            2 -> Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
@@ -249,7 +327,7 @@ fun FoodLibraryScreen(
                 if (eatenFoods.isEmpty()) {
                     HintBox(text = "还没有吃过记录。记几笔饮食之后，这里会按食物名聚合出你常吃的东西。")
                 } else {
-                    eatenFoods.forEach { item ->
+                    eatenFoods.filter { matches(it.name) }.forEach { item ->
                         EatenRow(item = item, onClick = {
                             // 「吃过的」也能直接加一餐：转成临时 Food 复用同一个弹窗
                             pick = Food(
@@ -262,8 +340,68 @@ fun FoodLibraryScreen(
                 }
                 Spacer(Modifier.height(80.dp))
             }
+
+            // ---------- 我的收藏（右下心形按钮切进来） ----------
+            3 -> Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = Dimens.ScreenPadding)
+            ) {
+                val favorites = (allFoods + userFoods)
+                    .filter { it.favorite && matches(it.name) }
+                    .distinctBy { it.name }
+                if (favorites.isEmpty()) {
+                    HintBox(text = "还没有收藏。在食物列表点一下右边的 ♡ 就能收藏，再点右下角心形可以只看收藏。")
+                } else {
+                    favorites.forEach { food ->
+                        FoodRow(
+                            name = food.name,
+                            kcalPer100g = food.kcalPer100g,
+                            favorite = true,
+                            risky = AllergenRules.isRisky(food.name, allergens),
+                            onFavorite = { vm.toggleFavorite(food) },
+                            onClick = { pick = food }
+                        )
+                    }
+                }
+                Spacer(Modifier.height(80.dp))
+            }
         }
+        } // 内容区 Box 结束
+
+        // ---------- 底栏：标准 / 自定义 / 吃过的 ----------
+        FoodLibraryBottomBar(
+            selected = if (showFavorites) -1 else tab,
+            onSelect = { index ->
+                tab = index
+                showFavorites = false
+            }
+        )
+    } // Column 结束
+
+    // ---------- 右下角收藏悬浮按钮 ----------
+    Box(
+        modifier = Modifier
+            .align(Alignment.BottomEnd)
+            .padding(end = 16.dp, bottom = 78.dp)
+            .size(52.dp)
+            .clip(CircleShape)
+            .background(if (showFavorites) QingJiGreenDark else QingJiGreen)
+            .pressable {
+                showFavorites = !showFavorites
+                showSearch = false
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = Icons.Filled.Favorite,
+            contentDescription = if (showFavorites) "返回食物库" else "只看收藏",
+            tint = Color.White,
+            modifier = Modifier.size(24.dp)
+        )
     }
+    } // 外层 Box 结束
 
     // ---------- 加到某一餐 ----------
     pick?.let { food ->
@@ -276,6 +414,53 @@ fun FoodLibraryScreen(
                 pick = null
             }
         )
+    }
+}
+
+/** 食物库底栏：三个页签 + 对应图标，选中的跟主题色。 */
+@Composable
+private fun FoodLibraryBottomBar(
+    selected: Int,
+    onSelect: (Int) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(CardWhite)
+            .padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        val items = listOf(
+            Triple("标准", Icons.Outlined.Description, 0),
+            Triple("自定义", Icons.Outlined.EditNote, 1),
+            Triple("吃过的", Icons.Outlined.History, 2)
+        )
+        items.forEach { (label, icon, index) ->
+            val active = selected == index
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(10.dp))
+                    .pressable { onSelect(index) }
+                    .padding(vertical = 4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = label,
+                    tint = if (active) QingJiGreen else TextSecondary,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(Modifier.height(3.dp))
+                Text(
+                    text = label,
+                    fontSize = 11.sp,
+                    color = if (active) QingJiGreen else TextSecondary,
+                    fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal
+                )
+            }
+        }
     }
 }
 
@@ -352,7 +537,7 @@ private fun FoodRow(
                         color = Color.White,
                         modifier = Modifier
                             .clip(RoundedCornerShape(4.dp))
-                            .background(Color(0xFFE05A5A))
+                            .background(DangerRed)
                             .padding(horizontal = 4.dp, vertical = 1.dp)
                     )
                 }
@@ -374,7 +559,7 @@ private fun FoodRow(
             Text(
                 text = if (favorite) "♥" else "♡",
                 fontSize = 17.sp,
-                color = if (favorite) Color(0xFFE0567A) else TextSecondary
+                color = if (favorite) QingJiGreen else TextSecondary
             )
         }
     }

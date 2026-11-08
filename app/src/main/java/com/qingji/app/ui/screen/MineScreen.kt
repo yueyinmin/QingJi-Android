@@ -481,14 +481,14 @@ private fun DataEntryCard(
         EntryRow(
             title = "我的目标",
             trailing = "减重计划",
-            iconColor = Color(0xFF9B8AFB),
+            iconColor = QingJiGreenDark,
             onClick = onOpenGoal
         )
         Spacer(Modifier.height(6.dp))
         EntryRow(
             title = "我的成就",
             trailing = if (totalCount > 0) "$unlockedCount/$totalCount" else "",
-            iconColor = Color(0xFF5B8DEF),
+            iconColor = QingJiGreen,
             onClick = onOpenAchievements
         )
     }

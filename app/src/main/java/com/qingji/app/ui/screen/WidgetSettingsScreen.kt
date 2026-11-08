@@ -94,13 +94,13 @@ fun WidgetSettingsScreen(onBack: () -> Unit) {
                 onAdd = { requestPin(context, QuickRecordWidgetReceiver::class.java) }
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    QuickCell("早餐", Color(0xFFF5A623))
+                    QuickCell("早餐", QingJiGreenDark)
                     QuickCell("体重", QingJiGreen)
                 }
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    QuickCell("喝水", Color(0xFF7EC8E3))
-                    QuickCell("拍照", Color(0xFF5B8DEF))
+                    QuickCell("喝水", QingJiGreen)
+                    QuickCell("拍照", QingJiGreen.copy(alpha = 0.72f))
                 }
             }
 

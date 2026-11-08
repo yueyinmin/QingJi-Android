@@ -286,7 +286,15 @@ fun QingJiAppRoot(
             onWeight = { navController.navigate(QingJiRoutes.Weight) },
             onImage = { navController.navigate(QingJiRoutes.ImageRecord) },
             onVoice = { navController.navigate(QingJiRoutes.VoiceRecord) },
-            onBarcode = { navController.navigate(QingJiRoutes.Barcode) }
+            onBarcode = { navController.navigate(QingJiRoutes.Barcode) },
+            // 记一杯水（默认 200ml，直接落库）；运动/体型照片都进进展页
+            onWater = {
+                scope.launch {
+                    appRepo.addWater(200, com.qingji.app.domain.AppClock.today())
+                }
+            },
+            onExercise = { navController.navigate(QingJiTab.Progress.route) },
+            onBodyPhoto = { navController.navigate(QingJiTab.Progress.route) }
         )
     }
 }
