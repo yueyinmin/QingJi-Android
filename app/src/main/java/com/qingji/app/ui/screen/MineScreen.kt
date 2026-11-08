@@ -88,7 +88,7 @@ import java.time.Period
  * 这一版补上了需求文档 M6 里原来「点了没反应」的三处：
  * 1. 我的目标：能改目标体重 / 活动量 / 减重模式，改完立刻重算热量预算；
  * 2. 我的成就：11 枚徽章按真实数据解锁，规则在 domain/Achievements.kt；
- * 3. 调用统计卡：补上「本月 AI 调用」这个真数字。
+ * 3. 调用统计卡：补上「本月 AI 调用」这个真数字（v3.2.5 起放在整页最下方）。
  * 另外头像支持选本地图，昵称读设置里填的。
  * ============================================================
  */
@@ -171,16 +171,17 @@ fun MineScreen(
 
         Spacer(Modifier.height(12.dp))
 
-        UsageCard(totalAi = totals["ai"] ?: 0, monthAi = monthAi)
-
-        Spacer(Modifier.height(12.dp))
-
         DataEntryCard(
             onOpenGoal = { showGoalDialog = true },
             onOpenAchievements = { showAchievementDialog = true },
             unlockedCount = achievements.count { it.unlocked },
             totalCount = achievements.size
         )
+
+        Spacer(Modifier.height(12.dp))
+
+        // 调用统计卡放整页最下方：平时不挡视线，想看 AI 调用次数往下滑到底即可
+        UsageCard(totalAi = totals["ai"] ?: 0, monthAi = monthAi)
 
         Spacer(Modifier.height(24.dp))
     }
