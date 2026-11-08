@@ -92,6 +92,10 @@ class QingJiRepository(private val context: Context) {
 
     suspend fun deletePhoto(id: Long) = db.progressPhotoDao().deleteById(id)
 
+    /** 当天的运动记录（首页热量缺口用） */
+    fun observeExerciseLogs(d: LocalDate): Flow<List<ExerciseLog>> =
+        observeExerciseRange(d, d)
+
     fun observeExerciseRange(from: LocalDate, to: LocalDate): Flow<List<ExerciseLog>> =
         db.exerciseLogDao().observeRange(from, to)
 

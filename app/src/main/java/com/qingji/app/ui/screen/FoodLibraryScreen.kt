@@ -271,8 +271,8 @@ fun FoodLibraryScreen(
             foodName = food.name,
             defaultGrams = food.defaultGrams,
             onDismiss = { pick = null },
-            onConfirm = { meal, grams ->
-                vm.addToMeal(food.name, food.kcalPer100g, grams, meal)
+            onConfirm = { meal, grams, dayOffset ->
+                vm.addToMeal(food.name, food.kcalPer100g, grams, meal, dayOffset)
                 pick = null
             }
         )
@@ -422,10 +422,11 @@ private fun AddToMealDialog(
     foodName: String,
     defaultGrams: Double,
     onDismiss: () -> Unit,
-    onConfirm: (String, Double) -> Unit
+    onConfirm: (String, Double, Int) -> Unit
 ) {
     var meal by remember { mutableStateOf(MealRules.guess()) }
     var grams by remember { mutableStateOf(defaultGrams.toInt().toString()) }
+    var dayOffset by remember { mutableStateOf(0L) }
 
     com.qingji.app.ui.components.AppBottomSheet(
         title = "加到哪一餐",
@@ -433,7 +434,7 @@ private fun AddToMealDialog(
         confirmText = "加入",
         onConfirm = {
             val g = grams.toDoubleOrNull()?.coerceIn(1.0, 3000.0) ?: defaultGrams
-            onConfirm(meal, g)
+            onConfirm(meal, g, dayOffset.toInt())
         },
         onDismiss = onDismiss
     ) {
@@ -449,6 +450,25 @@ private fun AddToMealDialog(
                         .background(if (selected) QingJiGreen else PageBackground)
                         .clickable { meal = type }
                         .padding(horizontal = 10.dp, vertical = 7.dp)
+                )
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(12.dp))
+        Text(text = "记到哪一天", fontSize = 12.sp, color = TextSecondary)
+        Spacer(Modifier.height(6.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            listOf(0L to "今天", 1L to "昨天", 2L to "前天").forEach { (offset, label) ->
+                val selected = dayOffset == offset
+                Text(
+                    text = label,
+                    fontSize = 12.sp,
+                    color = if (selected) Color.White else TextSecondary,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (selected) QingJiGreen else PageBackground)
+                        .clickable { dayOffset = offset }
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
                 )
             }
         }
