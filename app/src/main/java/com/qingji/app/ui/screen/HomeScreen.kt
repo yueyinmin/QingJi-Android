@@ -25,6 +25,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.Cake
+import androidx.compose.material.icons.outlined.NightsStay
+import androidx.compose.material.icons.outlined.Restaurant
+import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -179,6 +183,21 @@ fun HomeScreen(
                     .pressable { showDatePicker = true }
             )
             Spacer(Modifier.weight(1f))
+            // 右上角的连续天数小胶囊（参考图里也有这一个）
+            val joinedDays = state.profile?.let {
+                val created = java.time.LocalDate.ofEpochDay(it.createdAt / 86_400_000L)
+                (today.toEpochDay() - created.toEpochDay()).toInt() + 1
+            } ?: 1
+            Text(
+                text = "🔥 $joinedDays 连续天数",
+                fontSize = 11.sp,
+                color = QingJiGreenDark,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(CardWhite)
+                    .padding(horizontal = 10.dp, vertical = 5.dp)
+            )
+            Spacer(Modifier.width(6.dp))
             // 这一颗始终渲染，只切透明度。
             // 之前是 if 判断，出现时会把左边挤动 → 看起来像"跳了一下"。
             val showBack = state.date != today
@@ -254,7 +273,7 @@ fun HomeScreen(
                 Box(
                     modifier = Modifier
                         .size(34.dp)
-                        .clip(CircleShape)
+                        .clip(RoundedCornerShape(11.dp))
                         .background(QingJiGreenLight)
                         .pressable { onOpenFoodLibrary() },
                     contentAlignment = Alignment.Center
@@ -269,7 +288,7 @@ fun HomeScreen(
                 Box(
                     modifier = Modifier
                         .size(34.dp)
-                        .clip(CircleShape)
+                        .clip(RoundedCornerShape(11.dp))
                         .background(QingJiGreen)
                         .pressable { onAddRecord() },
                     contentAlignment = Alignment.Center
@@ -601,9 +620,11 @@ private fun DateStrip(
     val monday = state.date.minusDays((state.date.dayOfWeek.value - 1).toLong())
     val today = AppClock.today()
 
-    // drawBehind 的 lambda 不是 @Composable，颜色要在这里先取出来
-    val dashColor = DividerColor
-    val selectedBg = QingJiGreenLight
+    // drawBehind 的 lambda 不是 @Composable，颜色要在这里先取出来。
+    // 虚线圈不能用 DividerColor：它太淡，压在顶部浅色渐变上等于没画；
+    // 选中块也不能用 QingJiGreenLight：和渐变背景同色，看不出方块。
+    val dashColor = QingJiGreen.copy(alpha = 0.42f)
+    val selectedBg = QingJiGreen.copy(alpha = 0.16f)
     val selectedText = QingJiGreenDark
     val dotColor = QingJiGreen
 
@@ -650,9 +671,9 @@ private fun DateStrip(
                                         color = dashColor,
                                         radius = (size.minDimension - 2.dp.toPx()) / 2,
                                         style = Stroke(
-                                            width = 1.dp.toPx(),
+                                            width = 1.2.dp.toPx(),
                                             pathEffect = PathEffect.dashPathEffect(
-                                                floatArrayOf(5f, 5f)
+                                                floatArrayOf(6f, 5f)
                                             )
                                         )
                                     )
@@ -766,7 +787,25 @@ private fun TodaySummaryCard(
 
         Spacer(Modifier.height(10.dp))
 
-        ThinProgressBar(progress = animatedProgress)
+        // 进度条上叠一颗主题色小圆点，标出「吃到哪儿了」
+        Box(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            ThinProgressBar(progress = animatedProgress)
+            androidx.compose.foundation.layout.BoxWithConstraints(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                val dotX = (maxWidth - 8.dp) * animatedProgress.coerceIn(0f, 1f)
+                Box(
+                    modifier = Modifier
+                        .padding(start = dotX)
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(QingJiGreen)
+                )
+            }
+        }
         Spacer(Modifier.height(8.dp))
         // 预计热量缺口 = 每日预算 + 运动消耗 − 已吃（动得多缺口大）
         val gap = remainingKcal + state.exerciseKcal.toInt()
@@ -774,7 +813,8 @@ private fun TodaySummaryCard(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(text = "已吃 $eatenKcal 千卡", fontSize = 12.sp, color = TextSecondary)
+            // 参考图用「已吃/预算」的分数形式，比「已吃 xx 千卡」更省地方
+            Text(text = "$eatenKcal/$goalKcal", fontSize = 12.sp, color = TextSecondary)
             Text(
                 text = if (gap >= 0) "预计缺口 $gap 千卡" else "反超 ${-gap} 千卡",
                 fontSize = 12.sp,
@@ -791,13 +831,25 @@ private fun TodaySummaryCard(
         Spacer(Modifier.height(10.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             NutrientColumn(
-                "蛋白质", state.totalProtein.toInt(), profile?.proteinGoalG ?: 0, Modifier.weight(1f)
+                name = "蛋白质",
+                current = state.totalProtein.toInt(),
+                goal = profile?.proteinGoalG ?: 0,
+                dotColor = MacroProtein,
+                modifier = Modifier.weight(1f)
             )
             NutrientColumn(
-                "碳水", state.totalCarb.toInt(), profile?.carbGoalG ?: 0, Modifier.weight(1f)
+                name = "碳水",
+                current = state.totalCarb.toInt(),
+                goal = profile?.carbGoalG ?: 0,
+                dotColor = MacroCarb,
+                modifier = Modifier.weight(1f)
             )
             NutrientColumn(
-                "脂肪", state.totalFat.toInt(), profile?.fatGoalG ?: 0, Modifier.weight(1f)
+                name = "脂肪",
+                current = state.totalFat.toInt(),
+                goal = profile?.fatGoalG ?: 0,
+                dotColor = MacroFat,
+                modifier = Modifier.weight(1f)
             )
         }
 
@@ -859,11 +911,11 @@ private fun TodaySummaryCard(
             if (showWater) {
                 Spacer(Modifier.width(12.dp))
                 Column(
-                    modifier = Modifier.width(76.dp),
+                    modifier = Modifier.width(82.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Box(
-                        modifier = Modifier.size(width = 74.dp, height = 190.dp),
+                        modifier = Modifier.size(width = 78.dp, height = 190.dp),
                         contentAlignment = Alignment.BottomCenter
                     ) {
                         WaterCup(
@@ -885,9 +937,10 @@ private fun TodaySummaryCard(
                         )
                     }
                     Spacer(Modifier.height(6.dp))
+                    // 紧凑写法，窄屏也不会被截成「3200 /」
                     Text(
-                        text = "${state.waterMl} / ${goalWater}ml",
-                        fontSize = 11.sp,
+                        text = "${state.waterMl}/${goalWater}ml",
+                        fontSize = 10.sp,
                         color = TextSecondary,
                         maxLines = 1
                     )
@@ -903,8 +956,11 @@ private fun NutrientColumn(
     name: String,
     current: Int,
     goal: Int,
+    /** 进度条下面那颗小圆点，用跟主题走的三大营养素色 */
+    dotColor: Color,
     modifier: Modifier = Modifier
 ) {
+    val percent = if (goal == 0) 0 else current * 100 / goal
     Column(modifier = modifier) {
         Text(text = name, fontSize = 12.sp, color = TextSecondary)
         Spacer(Modifier.height(4.dp))
@@ -919,6 +975,18 @@ private fun NutrientColumn(
             progress = if (goal == 0) 0f else current.toFloat() / goal,
             barHeight = 4.dp
         )
+        // 参考图里每列下面还有百分比 + 一颗彩色小点
+        Spacer(Modifier.height(5.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(5.dp)
+                    .clip(CircleShape)
+                    .background(dotColor)
+            )
+            Spacer(Modifier.width(4.dp))
+            Text(text = "$percent%", fontSize = 10.sp, color = TextSecondary)
+        }
     }
 }
 
@@ -939,6 +1007,13 @@ private fun MealCard(
         MealRules.DINNER -> QingJiGreen.copy(alpha = 0.72f)
         else -> QingJiGreen.copy(alpha = 0.55f)
     }
+    // 参考图每餐都是一枚图形图标，以前这里只放「早/午/晚」一个字
+    val badgeIcon = when (type) {
+        MealRules.BREAKFAST -> Icons.Outlined.WbSunny
+        MealRules.LUNCH -> Icons.Outlined.Restaurant
+        MealRules.DINNER -> Icons.Outlined.NightsStay
+        else -> Icons.Outlined.Cake
+    }
     val subtitle = items.sumOf { it.kcal }.toInt()
 
     SectionCard(
@@ -958,11 +1033,11 @@ private fun MealCard(
                         .background(badgeColor.copy(alpha = 0.12f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = MealRules.label(type).take(1),
-                        fontSize = 13.sp,
-                        color = badgeColor,
-                        fontWeight = FontWeight.Medium
+                    Icon(
+                        imageVector = badgeIcon,
+                        contentDescription = null,
+                        tint = badgeColor,
+                        modifier = Modifier.size(16.dp)
                     )
                 }
                 Spacer(Modifier.size(10.dp))
