@@ -450,11 +450,15 @@ fun SettingsScreen(
             settings = settings,
             allDisabled = settings.allNotificationsDisabled,
             onSetAllDisabled = { vm.setAllNotificationsDisabled(it) },
-            onSetWeighReminder = { weekday, hour -> vm.setWeighWeekday(weekday, hour) },
+            onSetWeighReminder = { weekday, hour, minute -> vm.setWeighWeekday(weekday, hour, minute) },
             onSetFastingSwitch = { on -> askNotificationThen { vm.setFastingReminder(on) } },
-            onSetFastingHour = { hour -> vm.setFastingReminder(settings.fastingReminder, hour) },
+            onSetFastingTime = { hour, minute ->
+                vm.setFastingReminder(settings.fastingReminder, hour, minute, showToast = false)
+            },
             onSetKcalSwitch = { on -> askNotificationThen { vm.setKcalReminder(on) } },
-            onSetKcalHour = { hour -> vm.setKcalReminder(settings.kcalReminder, hour) },
+            onSetKcalTime = { hour, minute ->
+                vm.setKcalReminder(settings.kcalReminder, hour, minute, showToast = false)
+            },
             onBack = { dialog = null }
         )
 
@@ -1231,16 +1235,17 @@ private fun ReminderPage(
     settings: QingJiSettings,
     allDisabled: Boolean,
     onSetAllDisabled: (Boolean) -> Unit,
-    onSetWeighReminder: (Int, Int) -> Unit,
+    onSetWeighReminder: (Int, Int, Int) -> Unit,   // 星期、小时、分钟
     onSetFastingSwitch: (Boolean) -> Unit,
-    onSetFastingHour: (Int) -> Unit,
+    onSetFastingTime: (Int, Int) -> Unit,         // 小时、分钟
     onSetKcalSwitch: (Boolean) -> Unit,
-    onSetKcalHour: (Int) -> Unit,
+    onSetKcalTime: (Int, Int) -> Unit,            // 小时、分钟
     onBack: () -> Unit
 ) {
-    // 称重提醒的星期和小时在页面里先选好，点底部保存一次性写入
+    // 称重提醒的星期 / 小时 / 分钟在页面里先选好，点底部保存一次性写入
     var weekday by remember { mutableStateOf(settings.weighWeekday) }
     var weighHour by remember { mutableStateOf(settings.reminderHour) }
+    var weighMinute by remember { mutableStateOf(settings.reminderMinute) }
     val weekdayLabels = listOf("一", "二", "三", "四", "五", "六", "日")
 
     SettingsDetailScaffold(title = "通知与提醒", onBack = onBack) {
@@ -1287,12 +1292,15 @@ private fun ReminderPage(
                     }
                 }
                 Spacer(Modifier.height(12.dp))
-                Text(text = "几点提醒（点下面的时间用轮盘调）", fontSize = 13.sp, color = TextSecondary)
+                Text(text = "几点提醒（左边选小时、右边选分钟）", fontSize = 13.sp, color = TextSecondary)
                 Spacer(Modifier.height(8.dp))
                 com.qingji.app.ui.components.WheelTimePicker(
                     initialHour = weighHour,
-                    initialMinute = 0
-                ) { h, _ -> weighHour = h }
+                    initialMinute = weighMinute
+                ) { h, m ->
+                    weighHour = h
+                    weighMinute = m
+                }
             }
         }
         Spacer(Modifier.height(8.dp))
@@ -1302,7 +1310,7 @@ private fun ReminderPage(
                 .clip(RoundedCornerShape(Dimens.ItemCorner))
                 .background(QingJiGreen)
                 .pressable {
-                    onSetWeighReminder(weekday, weighHour)
+                    onSetWeighReminder(weekday, weighHour, weighMinute)
                     onBack()
                 }
                 .padding(vertical = 13.dp),
@@ -1323,12 +1331,12 @@ private fun ReminderPage(
             ) { onSetFastingSwitch(it) }
             RowDivider()
             Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
-                Text(text = "提醒时间（轮盘调整，实时保存）", fontSize = 13.sp, color = TextSecondary)
+                Text(text = "提醒时间（左边小时、右边分钟，松开即保存）", fontSize = 13.sp, color = TextSecondary)
                 Spacer(Modifier.height(8.dp))
                 com.qingji.app.ui.components.WheelTimePicker(
                     initialHour = settings.fastStartHour,
-                    initialMinute = 0
-                ) { h, _ -> onSetFastingHour(h) }
+                    initialMinute = settings.fastStartMinute
+                ) { h, m -> onSetFastingTime(h, m) }
             }
         }
 
@@ -1344,12 +1352,12 @@ private fun ReminderPage(
             ) { onSetKcalSwitch(it) }
             RowDivider()
             Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
-                Text(text = "提醒时间（轮盘调整，实时保存）", fontSize = 13.sp, color = TextSecondary)
+                Text(text = "提醒时间（左边小时、右边分钟，松开即保存）", fontSize = 13.sp, color = TextSecondary)
                 Spacer(Modifier.height(8.dp))
                 com.qingji.app.ui.components.WheelTimePicker(
                     initialHour = settings.kcalReminderHour,
-                    initialMinute = 0
-                ) { h, _ -> onSetKcalHour(h) }
+                    initialMinute = settings.kcalReminderMinute
+                ) { h, m -> onSetKcalTime(h, m) }
             }
         }
 

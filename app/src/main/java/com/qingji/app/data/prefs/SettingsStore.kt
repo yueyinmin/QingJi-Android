@@ -54,9 +54,15 @@ object SettingsKeys {
     val FASTING_EAT_END = intPreferencesKey("fasting_eat_end")
     val KCAL_REMINDER = booleanPreferencesKey("kcal_reminder")
     val REMINDER_HOUR = intPreferencesKey("reminder_hour")
+    /** 称重提醒分钟（v3.3.1：滚轮可选小时 + 分钟） */
+    val REMINDER_MINUTE = intPreferencesKey("reminder_minute")
     val WEIGH_WEEKDAY = intPreferencesKey("weigh_weekday")          // 1=周一 … 7=周日
     val FAST_START_HOUR = intPreferencesKey("fast_start_hour")      // 断食开始/结束时刻
+    /** 断食提醒分钟 */
+    val FAST_START_MINUTE = intPreferencesKey("fast_start_minute")
     val KCAL_REMINDER_HOUR = intPreferencesKey("kcal_reminder_hour")
+    /** 热量提醒分钟 */
+    val KCAL_REMINDER_MINUTE = intPreferencesKey("kcal_reminder_minute")
     val TIME_ZONE = stringPreferencesKey("record_timezone")
     val ICON_VARIANT = stringPreferencesKey("icon_variant")
     val SHOW_AI_ANALYSIS = booleanPreferencesKey("show_ai_analysis")
@@ -114,9 +120,13 @@ data class QingJiSettings(
     val fastingEatEndMinute: Int = 940,
     val kcalReminder: Boolean = false,
     val reminderHour: Int = 20,
+    /** 分钟默认 0：老用户没存过新键时，行为跟以前整点提醒完全一致 */
+    val reminderMinute: Int = 0,
     val weighWeekday: Int = 7,
     val fastStartHour: Int = 12,
+    val fastStartMinute: Int = 0,
     val kcalReminderHour: Int = 20,
+    val kcalReminderMinute: Int = 0,
     val timeZone: String = "Asia/Shanghai",
     val iconVariant: String = "default",
     val showAiAnalysis: Boolean = true,
@@ -168,9 +178,12 @@ object SettingsStore {
                     fastingEatEndMinute = p[SettingsKeys.FASTING_EAT_END] ?: 940,
                     kcalReminder = p[SettingsKeys.KCAL_REMINDER] ?: false,
                     reminderHour = p[SettingsKeys.REMINDER_HOUR] ?: 20,
+                    reminderMinute = p[SettingsKeys.REMINDER_MINUTE] ?: 0,
                     weighWeekday = p[SettingsKeys.WEIGH_WEEKDAY] ?: 7,
                     fastStartHour = p[SettingsKeys.FAST_START_HOUR] ?: 12,
+                    fastStartMinute = p[SettingsKeys.FAST_START_MINUTE] ?: 0,
                     kcalReminderHour = p[SettingsKeys.KCAL_REMINDER_HOUR] ?: 20,
+                    kcalReminderMinute = p[SettingsKeys.KCAL_REMINDER_MINUTE] ?: 0,
                     timeZone = p[SettingsKeys.TIME_ZONE] ?: "Asia/Shanghai",
                     iconVariant = p[SettingsKeys.ICON_VARIANT] ?: "default",
                     showAiAnalysis = p[SettingsKeys.SHOW_AI_ANALYSIS] ?: true,

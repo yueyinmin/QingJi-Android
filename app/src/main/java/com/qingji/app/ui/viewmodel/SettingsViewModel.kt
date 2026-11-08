@@ -172,38 +172,69 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------- 提醒 ----------
 
-    fun setWeighReminder(enabled: Boolean, hour: Int = settings.value.reminderHour) {
+    /** 把小时 + 分钟拼成 08:30 这样的提示文字。 */
+    private fun hhmm(hour: Int, minute: Int) =
+        "%02d:%02d".format(hour.coerceIn(0, 23), minute.coerceIn(0, 59))
+
+    fun setWeighReminder(
+        enabled: Boolean,
+        hour: Int = settings.value.reminderHour,
+        minute: Int = settings.value.reminderMinute
+    ) {
         viewModelScope.launch {
             SettingsStore.set(context, SettingsKeys.WEIGH_REMINDER, enabled)
             SettingsStore.set(context, SettingsKeys.REMINDER_HOUR, hour.coerceIn(0, 23))
+            SettingsStore.set(context, SettingsKeys.REMINDER_MINUTE, minute.coerceIn(0, 59))
             applyReminders()
-            toast(if (enabled) "称重提醒已开启（每天 $hour 点）" else "称重提醒已关闭")
+            toast(if (enabled) "称重提醒已开启（${hhmm(hour, minute)}）" else "称重提醒已关闭")
         }
     }
 
-    fun setWeighWeekday(weekday: Int, hour: Int = settings.value.reminderHour) {
+    fun setWeighWeekday(
+        weekday: Int,
+        hour: Int = settings.value.reminderHour,
+        minute: Int = settings.value.reminderMinute
+    ) {
         viewModelScope.launch {
             SettingsStore.set(context, SettingsKeys.WEIGH_WEEKDAY, weekday.coerceIn(1, 7))
             SettingsStore.set(context, SettingsKeys.REMINDER_HOUR, hour.coerceIn(0, 23))
+            SettingsStore.set(context, SettingsKeys.REMINDER_MINUTE, minute.coerceIn(0, 59))
             applyReminders()
         }
     }
 
-    fun setFastingReminder(enabled: Boolean, hour: Int = settings.value.fastStartHour) {
+    fun setFastingReminder(
+        enabled: Boolean,
+        hour: Int = settings.value.fastStartHour,
+        minute: Int = settings.value.fastStartMinute,
+        showToast: Boolean = true
+    ) {
         viewModelScope.launch {
             SettingsStore.set(context, SettingsKeys.FASTING_REMINDER, enabled)
             SettingsStore.set(context, SettingsKeys.FAST_START_HOUR, hour.coerceIn(0, 23))
+            SettingsStore.set(context, SettingsKeys.FAST_START_MINUTE, minute.coerceIn(0, 59))
             applyReminders()
-            toast(if (enabled) "断食提醒已开启（每天 $hour 点）" else "断食提醒已关闭")
+            // 滚轮每松一次手都会调这里，反复弹提示会刷屏；只有开关切换才提示
+            if (showToast) {
+                toast(if (enabled) "断食提醒已开启（每天 ${hhmm(hour, minute)}）" else "断食提醒已关闭")
+            }
         }
     }
 
-    fun setKcalReminder(enabled: Boolean, hour: Int = settings.value.kcalReminderHour) {
+    fun setKcalReminder(
+        enabled: Boolean,
+        hour: Int = settings.value.kcalReminderHour,
+        minute: Int = settings.value.kcalReminderMinute,
+        showToast: Boolean = true
+    ) {
         viewModelScope.launch {
             SettingsStore.set(context, SettingsKeys.KCAL_REMINDER, enabled)
             SettingsStore.set(context, SettingsKeys.KCAL_REMINDER_HOUR, hour.coerceIn(0, 23))
+            SettingsStore.set(context, SettingsKeys.KCAL_REMINDER_MINUTE, minute.coerceIn(0, 59))
             applyReminders()
-            toast(if (enabled) "热量提醒已开启（每天 $hour 点，当天没记录才提醒）" else "热量提醒已关闭")
+            if (showToast) {
+                toast(if (enabled) "热量提醒已开启（每天 ${hhmm(hour, minute)}，当天没记录才提醒）" else "热量提醒已关闭")
+            }
         }
     }
 

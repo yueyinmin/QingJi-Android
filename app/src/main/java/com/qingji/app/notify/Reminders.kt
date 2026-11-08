@@ -111,18 +111,19 @@ object Reminders {
 
     /** 设置一改就整体重排一次：开着的重设，关掉的取消。最简单也最不容易错。 */
     fun apply(context: Context, settings: QingJiSettings) {
+        // v3.3.1：滚轮可选小时 + 分钟，这里把分钟一起交给系统闹钟
         if (settings.weighReminder) {
-            scheduleDaily(context, TYPE_WEIGH, settings.reminderHour)
+            scheduleDaily(context, TYPE_WEIGH, settings.reminderHour, settings.reminderMinute)
         } else {
             cancel(context, TYPE_WEIGH)
         }
         if (settings.fastingReminder) {
-            scheduleDaily(context, TYPE_FASTING, settings.fastStartHour)
+            scheduleDaily(context, TYPE_FASTING, settings.fastStartHour, settings.fastStartMinute)
         } else {
             cancel(context, TYPE_FASTING)
         }
         if (settings.kcalReminder) {
-            scheduleDaily(context, TYPE_KCAL, settings.kcalReminderHour)
+            scheduleDaily(context, TYPE_KCAL, settings.kcalReminderHour, settings.kcalReminderMinute)
         } else {
             cancel(context, TYPE_KCAL)
         }
