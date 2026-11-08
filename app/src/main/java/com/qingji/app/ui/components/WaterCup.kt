@@ -14,6 +14,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
@@ -28,8 +29,8 @@ import kotlin.random.Random
  * 首页右侧那根高杯子：椭圆杯口 + 直筒杯壁 + 椭圆杯底，
  * 水位随饮水量动画上涨，杯壁有几道刻度线。
  *
- * 颜色全部取当前主题色：以前写死的浅蓝在切到暖橙/樱粉主题时
- * 会显得像另一个 App 的控件，现在跟着主题一起变。
+ * v3.2.2 起颜色可外部传入：首页传 MultiColor 那套固定水蓝，
+ * 让「喝水的东西永远是蓝的」；不传时仍跟随主题色（其它页面用）。
  * 注意颜色一定要在 Composable 体内读出来再传进 Canvas 的绘制 lambda，
  * 绘制 lambda 不是 @Composable，在里面读 State 不会触发重组。
  * ============================================================
@@ -41,16 +42,22 @@ fun WaterCup(
     /** 气泡量：0 关 / 1 少 / 2 标准 / 3 多 */
     bubbleLevel: Int,
     modifier: Modifier = Modifier,
-    onClick: () -> Unit = {}
+    onClick: () -> Unit = {},
+    /** 传 null = 跟主题色；传固定色 = 用多彩语义色（首页传一套水蓝） */
+    fillColor: Color? = null,
+    surfaceColor: Color? = null,
+    outlineColor: Color? = null,
+    bubbleTint: Color? = null,
+    tickTint: Color? = null
 ) {
     val safe = ratio.coerceIn(0f, 1f)
 
-    // 在 Composable 作用域里取色，主题色一变这里会重组、杯子跟着换色
-    val outline = QingJiGreen.copy(alpha = 0.42f)
-    val waterFill = QingJiGreenLight
-    val surface = QingJiGreen.copy(alpha = 0.5f)
-    val bubbleColor = QingJiGreen.copy(alpha = 0.28f)
-    val tickColor = QingJiGreen.copy(alpha = 0.22f)
+    // 在 Composable 作用域里取色（含默认值），主题色一变这里会重组
+    val outline = outlineColor ?: QingJiGreen.copy(alpha = 0.42f)
+    val waterFill = fillColor ?: QingJiGreenLight
+    val surface = surfaceColor ?: QingJiGreen.copy(alpha = 0.5f)
+    val bubbleColor = bubbleTint ?: QingJiGreen.copy(alpha = 0.28f)
+    val tickColor = tickTint ?: QingJiGreen.copy(alpha = 0.22f)
 
     // 水位上涨动画：刚记完一杯时能看见水面往上走
     val level by animateFloatAsState(

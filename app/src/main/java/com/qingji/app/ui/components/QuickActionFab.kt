@@ -20,16 +20,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.qingji.app.ui.theme.CardWhite
-import com.qingji.app.ui.theme.QingJiGreen
-import com.qingji.app.ui.theme.QingJiGreenDark
+import com.qingji.app.ui.theme.MultiColor
 
 /**
  * ============================================================
  * 右侧三个快捷圆按钮：喝水 / 记体重 / 拍照
  * ------------------------------------------------------------
  * 首页、进展、日记三个页面共用同一套，长得一样、行为一样。
- * v3.2.1 起换成矢量图形图标（以前是「水 / 秤 / 拍」三个字），
- * 三颗颜色统一取主题色的深浅档，切主题时跟着变。
+ * v3.2.1 起换成矢量图形图标（以前是「水 / 秤 / 拍」三个字）。
+ * v3.2.2 起三颗按参考图恢复固定多彩（蓝 / 紫 / 绿），
+ * 由 MultiColor 集中管理，不跟主题色开关变 —— 靠颜色区分功能。
  * ============================================================
  */
 @Composable
@@ -44,11 +44,12 @@ fun QuickActionColumn(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        QuickActionButton(icon = Icons.Outlined.WaterDrop, color = QingJiGreen, onClick = onWater)
-        QuickActionButton(icon = Icons.Outlined.MonitorWeight, color = QingJiGreenDark, onClick = onWeight)
+        // 参考图里三颗是蓝 / 紫 / 绿，按功能固定，不跟主题变
+        QuickActionButton(icon = Icons.Outlined.WaterDrop, color = MultiColor.QuickWater, onClick = onWater)
+        QuickActionButton(icon = Icons.Outlined.MonitorWeight, color = MultiColor.QuickBook, onClick = onWeight)
         QuickActionButton(
             icon = Icons.Outlined.PhotoCamera,
-            color = QingJiGreen.copy(alpha = 0.72f),
+            color = MultiColor.QuickCamera,
             onClick = onPhoto
         )
     }
