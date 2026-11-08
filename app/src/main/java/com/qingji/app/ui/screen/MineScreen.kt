@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,11 +26,17 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.material.icons.outlined.AccessibilityNew
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.Mic
+import androidx.compose.material.icons.outlined.MonitorWeight
+import androidx.compose.material.icons.outlined.PhotoCamera
+import androidx.compose.material.icons.outlined.QrCode
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -41,6 +48,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -58,6 +66,7 @@ import com.qingji.app.domain.NutritionCalculator
 import com.qingji.app.domain.WeightUnit
 import com.qingji.app.ui.components.SectionCard
 import com.qingji.app.ui.components.ThinProgressBar
+import com.qingji.app.ui.theme.CardWhite
 import com.qingji.app.ui.theme.DividerColor
 import com.qingji.app.ui.theme.PageBackground
 import com.qingji.app.ui.theme.QingJiGreen
@@ -196,7 +205,7 @@ fun MineScreen(
     }
 }
 
-/** 头像 + 性别年龄身高 + 加入天数 + 八格使用统计。 */
+/** 头像 + 性别年龄身高 + 加入天数 + 横条状使用情况统计。 */
 @Composable
 private fun ProfileCard(
     profile: UserProfile?,
@@ -276,26 +285,35 @@ private fun ProfileCard(
 
         Spacer(Modifier.height(10.dp))
 
+        // 每项带一个语义图标；颜色统一取主题色 QingJiGreen（getter 读 accentKey，
+        // 用户在设置里换主题色时这里会自动重组跟着变色）。
         val items = listOf(
-            "图像识别" to (totals["image"] ?: 0).toString(),
-            "文字识别" to (totals["text"] ?: 0).toString(),
-            "语音识别" to (totals["voice"] ?: 0).toString(),
-            "条码" to (totals["barcode"] ?: 0).toString(),
-            "AI 分析" to (totals["ai"] ?: 0).toString(),
-            "日记" to (totals["diary"] ?: 0).toString(),
-            "体型图" to (totals["body"] ?: 0).toString(),
-            "体重" to (totals["weight"] ?: 0).toString()
+            UsageStat("图像识别", (totals["image"] ?: 0).toString(), Icons.Outlined.PhotoCamera),
+            UsageStat("文字识别", (totals["text"] ?: 0).toString(), Icons.Outlined.Description),
+            UsageStat("语音识别", (totals["voice"] ?: 0).toString(), Icons.Outlined.Mic),
+            UsageStat("条码", (totals["barcode"] ?: 0).toString(), Icons.Outlined.QrCode),
+            UsageStat("AI 分析", (totals["ai"] ?: 0).toString(), Icons.Outlined.AutoAwesome),
+            UsageStat("日记", (totals["diary"] ?: 0).toString(), Icons.AutoMirrored.Outlined.MenuBook),
+            UsageStat("体型图", (totals["body"] ?: 0).toString(), Icons.Outlined.AccessibilityNew),
+            UsageStat("体重", (totals["weight"] ?: 0).toString(), Icons.Outlined.MonitorWeight)
         )
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            items.chunked(3).forEach { rowItems ->
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp))
+                .background(PageBackground)
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items.chunked(2).forEach { rowItems ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    rowItems.forEach { (label, value) ->
-                        StatCell(label = label, value = value, modifier = Modifier.weight(1f))
+                    rowItems.forEach { stat ->
+                        UsageStatRow(stat = stat, modifier = Modifier.weight(1f))
                     }
-                    repeat(3 - rowItems.size) {
+                    if (rowItems.size == 1) {
                         Spacer(modifier = Modifier.weight(1f))
                     }
                 }
@@ -310,35 +328,59 @@ private fun ProfileCard(
     }
 }
 
-/** 一格统计：上面图标位、中间数字、下面名称。 */
+/** 使用情况的一项：标签 + 次数 + 对应图标。 */
+private data class UsageStat(
+    val label: String,
+    val value: String,
+    val icon: ImageVector
+)
+
+/**
+ * 横条状统计条：左边主题色图标（带浅色图标底），中间名称，右边数字。
+ * 图标底色 QingJiGreenLight、图标和数字 QingJiGreen / QingJiGreenDark
+ * 都会随设置的主题色变化，不写死任何颜色。
+ */
 @Composable
-private fun StatCell(
-    label: String,
-    value: String,
+private fun UsageStatRow(
+    stat: UsageStat,
     modifier: Modifier = Modifier
 ) {
-    Column(
+    Row(
         modifier = modifier
+            .heightIn(min = 46.dp)
             .clip(RoundedCornerShape(10.dp))
-            .background(PageBackground)
-            .padding(vertical = 10.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .background(CardWhite)
+            .padding(horizontal = 9.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier
-                .size(16.dp)
-                .clip(RoundedCornerShape(4.dp))
-                .background(QingJiGreen.copy(alpha = 0.18f))
-        )
-        Spacer(Modifier.height(6.dp))
+                .size(28.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(QingJiGreenLight),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = stat.icon,
+                contentDescription = null,
+                tint = QingJiGreen,
+                modifier = Modifier.size(16.dp)
+            )
+        }
+        Spacer(Modifier.width(7.dp))
         Text(
-            text = value,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = TextPrimary
+            text = stat.label,
+            fontSize = 11.sp,
+            color = TextSecondary,
+            maxLines = 1,
+            modifier = Modifier.weight(1f)
         )
-        Spacer(Modifier.height(2.dp))
-        Text(text = label, fontSize = 11.sp, color = TextSecondary)
+        Text(
+            text = stat.value,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = QingJiGreenDark
+        )
     }
 }
 
