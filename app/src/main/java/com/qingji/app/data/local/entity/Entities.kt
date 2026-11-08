@@ -218,3 +218,20 @@ data class FastingLog(
     val completed: Boolean = false,
     val createdAt: Long = System.currentTimeMillis()
 )
+
+
+/**
+ * 表 13：运动库（预置 + 用户收藏）。
+ * 记运动时不再手填消耗——选一项运动 + 填时长，
+ * 消耗自动按「MET × 体重 × 时长」算出来。
+ */
+@Entity(tableName = "exercise_preset", indices = [Index("name")])
+data class ExercisePreset(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    /** MET 值（代谢当量）：消耗千卡 = MET × 体重kg × 时长h */
+    val met: Double,
+    /** 有氧 / 力量 / 柔韧 */
+    val category: String = "有氧",
+    val favorite: Boolean = false
+)

@@ -72,6 +72,8 @@ object SettingsKeys {
     val MAX_COOK_MINUTES = intPreferencesKey("max_cook_minutes")
     /** 是否在首页显示实时刷新率（调试/玩机用） */
     val SHOW_REFRESH_RATE = booleanPreferencesKey("show_refresh_rate")
+    /** 首次引导是否完成 */
+    val ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
     /** 偏好菜系，逗号分隔 */
     val CUISINES = stringPreferencesKey("cuisines")
     val WATER_BUBBLES = intPreferencesKey("water_bubbles")
@@ -118,6 +120,7 @@ data class QingJiSettings(
     val avoidFoods: String = "",
     val maxCookMinutes: Int = 0,
     val showRefreshRate: Boolean = false,
+    val onboardingDone: Boolean = false,
     val cuisines: String = "",
     val waterBubbles: Int = 2,
     val showMealMacro: Boolean = true,
@@ -168,6 +171,7 @@ object SettingsStore {
                     avoidFoods = p[SettingsKeys.AVOID_FOODS] ?: "",
                     maxCookMinutes = p[SettingsKeys.MAX_COOK_MINUTES] ?: 0,
                     showRefreshRate = p[SettingsKeys.SHOW_REFRESH_RATE] ?: false,
+                    onboardingDone = p[SettingsKeys.ONBOARDING_DONE] ?: false,
                     cuisines = p[SettingsKeys.CUISINES] ?: "",
                     waterBubbles = p[SettingsKeys.WATER_BUBBLES] ?: 2,
                     showMealMacro = p[SettingsKeys.SHOW_MEAL_MACRO] ?: true,

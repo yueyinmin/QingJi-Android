@@ -113,7 +113,7 @@ import com.qingji.app.widget.WeightWidgetReceiver
 
 /** 当前打开的是哪个弹窗。 */
 private enum class DialogKind {
-    MACRO, WATER_GOAL, DIET, TIMEZONE, UNIT, THEME, REMINDERS,
+    MACRO, WATER_GOAL, TIMEZONE, UNIT, THEME, REMINDERS,
     BOTTOM_TABS, PRIVACY, ICON, CACHE,
     ABOUT, PLATFORM, VERSION
 }
@@ -264,13 +264,6 @@ fun SettingsScreen(
                     value = "${settings.waterGoalMl}ml",
                     iconColor = Color(0xFF7EC8E3)
                 ) { dialog = DialogKind.WATER_GOAL }
-                RowDivider()
-                SettingValueRow(
-                    title = "食谱偏好",
-                    subtitle = "忌口、过敏原，会一起发给 AI",
-                    value = if (settings.dietPreference.isBlank()) "未设置" else "已设置",
-                    iconColor = Color(0xFFE5544B)
-                ) { dialog = DialogKind.DIET }
             }
             SettingsNote(
                 "「运动消耗补偿」这个开关会记住你的选择，但一期还没有运动记录模块，" +
@@ -462,15 +455,6 @@ fun SettingsScreen(
             suffix = "ml",
             hint = "常见范围 1500～3000 毫升",
             onSave = { vm.setWaterGoal(it.toIntOrNull() ?: 2000) },
-            onBack = { dialog = null }
-        )
-
-        DialogKind.DIET -> TextPreferencePage(
-            title = "食谱偏好",
-            subtitle = "写一句话就行，这段会随每次识别请求一起发给 AI",
-            label = "例如：不吃香菜、乳糖不耐、少油少盐",
-            initial = settings.dietPreference,
-            onSave = { vm.setDietPreference(it) },
             onBack = { dialog = null }
         )
 

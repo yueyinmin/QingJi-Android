@@ -256,4 +256,48 @@ object SeedData {
         defaultGrams = grams,
         source = "preset"               // 标明是预置数据，以后和用户自建的区分开
     )
+
+
+        /**
+         * 预置运动库（30 条常见项，MET 值取自《运动代谢当量》常见表）。
+         * 记运动时选一项 + 填时长，消耗自动按「MET × 体重 × 时长」算，
+         * 不再让用户自己填消耗数字。
+         */
+        fun presetExercise(name: String, met: Double, category: String) = com.qingji.app.data.local.entity.ExercisePreset(
+            name = name, met = met, category = category
+        )
+
+        val presetExercises: List<com.qingji.app.data.local.entity.ExercisePreset> = listOf(
+            presetExercise("快走 (5 km/h)", 3.5, "有氧"),
+            presetExercise("快走 (6 km/h)", 5.0, "有氧"),
+            presetExercise("上坡快走", 6.5, "有氧"),
+            presetExercise("跑步 (8 km/h)", 8.3, "有氧"),
+            presetExercise("跑步 (11 km/h)", 11.5, "有氧"),
+            presetExercise("跳绳", 12.0, "有氧"),
+            presetExercise("骑行 (19 km/h)", 8.0, "有氧"),
+            presetExercise("骑行 (23 km/h)", 10.0, "有氧"),
+            presetExercise("骑行 (26 km/h)", 12.0, "有氧"),
+            presetExercise("动感单车", 8.5, "有氧"),
+            presetExercise("划船机", 7.0, "有氧"),
+            presetExercise("仰泳", 7.0, "有氧"),
+            presetExercise("自由泳", 8.3, "有氧"),
+            presetExercise("蛙泳", 5.8, "有氧"),
+            presetExercise("爬楼梯", 8.0, "有氧"),
+            presetExercise("椭圆机", 5.0, "有氧"),
+            presetExercise("跑步机 (中速)", 7.0, "有氧"),
+            presetExercise("HIIT 高强度间歇", 10.0, "有氧"),
+            presetExercise("力量训练（轻）", 3.5, "力量"),
+            presetExercise("力量训练（重）", 6.0, "力量"),
+            presetExercise("俯卧撑", 4.0, "力量"),
+            presetExercise("深蹲", 5.0, "力量"),
+            presetExercise("平板支撑", 3.0, "力量"),
+            presetExercise("瑜伽", 2.5, "柔韧"),
+            presetExercise("拉伸", 2.3, "柔韧"),
+            presetExercise("普拉提", 3.0, "柔韧"),
+            presetExercise("羽毛球", 5.5, "有氧"),
+            presetExercise("乒乓球", 4.0, "有氧"),
+            presetExercise("篮球", 6.5, "有氧"),
+            presetExercise("足球", 7.0, "有氧")
+        )
+
 }

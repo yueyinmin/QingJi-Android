@@ -98,6 +98,7 @@ fun DiaryScreen(
     val sortMode by vm.sortMode.collectAsState()
     val scope = rememberCoroutineScope()
     var pendingDelete by remember { mutableStateOf<Diary?>(null) }
+    var showClearAll by remember { mutableStateOf(false) }
 
     // 进页面时先 false、紧接着置 true，右下角按钮就会播一次弹出动画。
     // 直接写 true 的话第一帧就是最终状态，没有动画可播。
@@ -125,12 +126,29 @@ fun DiaryScreen(
 
             // 和「进展」「我的」一样，用大标题开头，不再用带返回箭头的顶栏。
             // 四个主页面长得一致，切换时才不会觉得像换了另一个 App。
-            Text(
-                text = "日记",
-                fontSize = TextSizes.PageTitle,
-                fontWeight = FontWeight.Bold,
-                color = TextPrimary
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "日记",
+                    fontSize = TextSizes.PageTitle,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+                if (diaries.isNotEmpty()) {
+                    Text(
+                        text = "清空",
+                        fontSize = 13.sp,
+                        color = Color(0xFFD64545),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(999.dp))
+                            .clickable { showClearAll = true }
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
+                }
+            }
             Spacer(Modifier.height(14.dp))
             Spacer(Modifier.height(12.dp))
 
@@ -193,11 +211,6 @@ fun DiaryScreen(
             }
 
             Spacer(Modifier.height(14.dp))
-
-            // ---------- 玻璃罐 ----------
-            com.qingji.app.ui.components.AppearItem(index = 0) {
-                JarCard(count = diaries.size)
-            }
 
             Spacer(Modifier.height(14.dp))
 
@@ -298,7 +311,23 @@ fun DiaryScreen(
         )
     }
 
-    // ---------- 删除二次确认 ----------
+    // ---------- 清空全部确认 ----------
+    if (showClearAll) {
+        com.qingji.app.ui.components.AppDialog(
+            title = "清空全部日记？",
+            confirmText = "全部删除",
+            onConfirm = {
+                scope.launch { vm.clearAllDiaries() }
+                showClearAll = false
+            },
+            dismissText = "取消",
+            danger = true,
+            onDismiss = { showClearAll = false }
+        ) {
+            Text("会把所有日记都删掉，删了就找不回来了。建议先导出备份。", fontSize = 14.sp, color = TextPrimary)
+        }
+    }
+
     pendingDelete?.let { target ->
         com.qingji.app.ui.components.AppDialog(
             title = "删掉这篇日记？",

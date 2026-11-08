@@ -110,6 +110,20 @@ class QingJiRepository(private val context: Context) {
     fun observeFoodRange(from: LocalDate, to: LocalDate): Flow<List<FoodLog>> =
         db.foodLogDao().observeRange(from, to)
 
+    // ---------- 运动库 ----------
+
+    fun observeExercisePresets(): Flow<List<com.qingji.app.data.local.entity.ExercisePreset>> =
+        db.exercisePresetDao().observeAll()
+
+    suspend fun ensurePresetExercises() {
+        if (db.exercisePresetDao().count() == 0) {
+            db.exercisePresetDao().insertAll(SeedData.presetExercises)
+        }
+    }
+
+    suspend fun setExerciseFavorite(id: Long, favorite: Boolean) =
+        db.exercisePresetDao().setFavorite(id, favorite)
+
     // ---------- 食物库 ----------
 
     fun observeAllFoods(): Flow<List<Food>> = db.foodDao().observeAll()
@@ -484,6 +498,9 @@ class QingJiRepository(private val context: Context) {
         db.usageStatDao().increment(diary.date, "diary")
         return id
     }
+
+    /** 清空全部日记 */
+    suspend fun clearAllDiaries() = db.diaryDao().clearAll()
 
     suspend fun deleteDiary(id: Long) = db.diaryDao().deleteById(id)
 

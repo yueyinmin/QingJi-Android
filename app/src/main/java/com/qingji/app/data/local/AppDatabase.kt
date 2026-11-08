@@ -12,6 +12,7 @@ import com.qingji.app.data.local.dao.AiConfigDao
 import com.qingji.app.data.local.dao.BodyMeasureDao
 import com.qingji.app.data.local.dao.DiaryDao
 import com.qingji.app.data.local.dao.ExerciseLogDao
+import com.qingji.app.data.local.dao.ExercisePresetDao
 import com.qingji.app.data.local.dao.FastingLogDao
 import com.qingji.app.data.local.dao.FoodDao
 import com.qingji.app.data.local.dao.FoodLogDao
@@ -24,6 +25,7 @@ import com.qingji.app.data.local.entity.AiConfig
 import com.qingji.app.data.local.entity.BodyMeasure
 import com.qingji.app.data.local.entity.Diary
 import com.qingji.app.data.local.entity.ExerciseLog
+import com.qingji.app.data.local.entity.ExercisePreset
 import com.qingji.app.data.local.entity.FastingLog
 import com.qingji.app.data.local.entity.Food
 import com.qingji.app.data.local.entity.FoodLog
@@ -67,9 +69,10 @@ class Converters {
         BodyMeasure::class,
         ProgressPhoto::class,
         ExerciseLog::class,
-        FastingLog::class
+        FastingLog::class,
+        ExercisePreset::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -87,6 +90,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun progressPhotoDao(): ProgressPhotoDao
     abstract fun exerciseLogDao(): ExerciseLogDao
     abstract fun fastingLogDao(): FastingLogDao
+    abstract fun exercisePresetDao(): ExercisePresetDao
 
     companion object {
         /** 整个 App 只保留一个数据库实例，重复创建会出问题。 */
@@ -168,6 +172,24 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** 3 → 4：新增运动库表（预置运动 + MET 值）。 */
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `exercise_preset` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `name` TEXT NOT NULL,
+                        `met` REAL NOT NULL,
+                        `category` TEXT NOT NULL,
+                        `favorite` INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_exercise_preset_name` ON `exercise_preset` (`name`)")
+            }
+        }
+
         fun get(context: Context): AppDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
@@ -175,7 +197,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "qingji.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                     // 兜底：万一日后某个版本的迁移没写，宁可清表也不能让 App 打不开。
                     // 每加一次表结构，务必同时补 Migration，别依赖这一行。
                     .fallbackToDestructiveMigration()
