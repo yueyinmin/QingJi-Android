@@ -50,11 +50,17 @@ import java.time.LocalDate
  * 默认档案已经清除——App 里不该出现「不是用户自己填的数字」。
  * 这一页让用户一次填完：性别、身高、体重、目标体重、活动水平、饮水目标。
  * 每日预算按 Mifflin-St Jeor 公式现场算，不用用户自己查表。
+ *
+ * v3.4.0：补了一段选填的饮食偏好（忌口 / 过敏 / 偏好菜系）。
+ * 这些值存 DataStore，和设置页「饮食偏好与忌口」是同一份数据，
+ * 也会自动拼进以后每一次 AI 识别的规则里；不填不影响开始使用。
  */
 @Composable
 fun OnboardingScreen(
     onDone: () -> Unit,
-    onSave: (UserProfile) -> Unit
+    onSave: (UserProfile) -> Unit,
+    onSavePreferences: (allergens: String, avoidFoods: String, cuisines: String) -> Unit =
+        { _, _, _ -> }
 ) {
     var gender by remember { mutableStateOf("male") }
     var heightText by remember { mutableStateOf("170") }
@@ -64,6 +70,12 @@ fun OnboardingScreen(
     var activity by remember { mutableStateOf(2) }
     var waterText by remember { mutableStateOf("2000") }
     var errorText by remember { mutableStateOf("") }
+
+    // 饮食偏好：选填，点一下选中 / 再点取消
+    var allergenSet by remember { mutableStateOf(setOf<String>()) }
+    var avoidSet by remember { mutableStateOf(setOf<String>()) }
+    var cuisineSet by remember { mutableStateOf(setOf<String>()) }
+    var avoidText by remember { mutableStateOf("") }
 
     fun save() {
         val height = heightText.toDoubleOrNull()
@@ -103,6 +115,16 @@ fun OnboardingScreen(
                 fatGoalG = ((budget * 0.25) / 9).toInt(),
                 waterGoalMl = water ?: 2000
             )
+        )
+        // 逗号分隔存进已有的设置键；「其他忌口」是自由文本，按中英文逗号都拆一下
+        val extra = avoidText
+            .split(',', '，', '、')
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+        onSavePreferences(
+            allergenSet.joinToString(","),
+            (avoidSet.toList() + extra).distinct().joinToString(","),
+            cuisineSet.joinToString(",")
         )
         onDone()
     }
@@ -173,6 +195,49 @@ fun OnboardingScreen(
             Field("每日饮水目标（ml）", waterText, { waterText = it }, "2000")
         }
 
+        Spacer(Modifier.height(14.dp))
+
+        // ---------- 饮食偏好（选填） ----------
+        SectionCard {
+            Text(text = "饮食偏好（选填）", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "以后 AI 识别会自动避开这些；不填也能直接开始，设置页里随时能改。",
+                fontSize = 11.sp,
+                color = TextSecondary,
+                lineHeight = 17.sp
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(text = "过敏原", fontSize = 13.sp, color = TextSecondary)
+            Spacer(Modifier.height(6.dp))
+            PreferenceChips(
+                labels = listOf("花生", "海鲜", "牛奶", "鸡蛋"),
+                selected = allergenSet
+            ) { allergenSet = it }
+            Spacer(Modifier.height(12.dp))
+            Text(text = "忌口", fontSize = 13.sp, color = TextSecondary)
+            Spacer(Modifier.height(6.dp))
+            PreferenceChips(
+                labels = listOf("辛辣", "香菜", "油炸", "甜食"),
+                selected = avoidSet
+            ) { avoidSet = it }
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = avoidText,
+                onValueChange = { avoidText = it },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("其他忌口，用逗号隔开", fontSize = 12.sp, color = TextSecondary) }
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(text = "偏好菜系", fontSize = 13.sp, color = TextSecondary)
+            Spacer(Modifier.height(6.dp))
+            PreferenceChips(
+                labels = listOf("家常菜", "川菜", "粤菜", "面食", "轻食"),
+                selected = cuisineSet
+            ) { cuisineSet = it }
+        }
+
         if (errorText.isNotBlank()) {
             Spacer(Modifier.height(12.dp))
             Text(text = errorText, fontSize = 13.sp, color = Color(0xFFD64545))
@@ -191,6 +256,39 @@ fun OnboardingScreen(
             Text(text = "开始使用", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
         }
         Spacer(Modifier.height(40.dp))
+    }
+}
+
+/** 引导页里的多选标签：点一下选中、再点取消。 */
+@Composable
+private fun PreferenceChips(
+    labels: List<String>,
+    selected: Set<String>,
+    onChange: (Set<String>) -> Unit
+) {
+    labels.chunked(4).forEach { row ->
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            row.forEach { label ->
+                val on = label in selected
+                Text(
+                    text = label,
+                    fontSize = 12.sp,
+                    color = if (on) Color.White else TextSecondary,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (on) QingJiGreen else PageBackground)
+                        .clickable { onChange(if (on) selected - label else selected + label) }
+                        .padding(vertical = 7.dp)
+                )
+            }
+            repeat(4 - row.size) { Spacer(modifier = Modifier.weight(1f)) }
+        }
+        Spacer(Modifier.height(6.dp))
     }
 }
 

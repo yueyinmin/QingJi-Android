@@ -202,37 +202,85 @@ class QingJiRepository(private val context: Context) {
     fun observeFoodCount(): Flow<Int> = db.foodDao().observeCount()
 
     /**
-     * 把预置食物补齐（按名字去重，绝不覆盖用户自己录的）。
-     * 返回这次实际补进去多少条。
+     * 把预置食物补齐（v3.4.0：SeedData 老条目 + 654 条清单一起灌）。
      *
-     * 两处会调它：
-     * 1. App 启动时（QingJiApp）—— 全新安装灌全量，老版本升级只补新增的；
-     * 2. 搜索页发现一条食物都没有时，让用户手动点「恢复预置食物库」。
+     * 三条硬规则（后续需求文档 §4.2 的 F1/F2/F5）：
+     *  ① 清单里的「一级分类」直接采用，绝不调 guess()（那套规则只猜对 43.4%）；
+     *  ② 同名以清单数值/分类为准更新，但只更新 source == "preset" 的项，
+     *     用户自建食物、收藏状态、条码、创建时间一律不动；
+     *  ③ 现有库独有的条目保留，不删不改。
+     *
+     * 两处会调它：App 启动时（QingJiApp）、搜索页手动「恢复预置食物库」。
+     * 只往表里灌数据，不加字段，所以**不需要升 Room 版本**。
      */
     suspend fun ensurePresetFoods(): Int {
-        // 去重键用「名字 + 品牌」而不是只用名字：
-        // 肯德基和麦当劳都有「薯条」，只用名字会把后者当成重复项丢掉。
-        val existing = db.foodDao().findAll().map { it.name to it.brand }.toSet()
-        val missing = SeedData.presetFoods
-            .filter { (it.name to it.brand) !in existing }
-            // 插入前按名字自动归类，食物库左侧导航才有内容
-            .map { it.copy(category = com.qingji.app.domain.FoodCategory.guess(it.name, it.brand)) }
-        if (missing.isNotEmpty()) db.foodDao().insertAll(missing)
+        val dao = db.foodDao()
+        val existing = dao.findAll()
+        val byKey = existing.associateBy { it.name to it.brand }
 
-        // 老用户的数据是 v3 之前灌的，category 全是默认「其他」，这里补一次分类
+        // 老预置库里没带分类的，才让 guess() 兜底（清单覆盖不到的独有条目）
+        val legacy = SeedData.presetFoods.map { seed ->
+            if (seed.category.isBlank() || seed.category == com.qingji.app.domain.FoodCategory.OTHER) {
+                seed.copy(category = com.qingji.app.domain.FoodCategory.guess(seed.name, seed.brand))
+            } else seed
+        }
+        val fromCsv = com.qingji.app.data.local.FoodSeedImporter.parse()
+
+        // 同名以清单为准：后者覆盖前者；LinkedHashMap 保证顺序稳定
+        val merged = LinkedHashMap<Pair<String, String>, Food>()
+        (legacy + fromCsv).forEach { item -> merged[item.name to item.brand] = item }
+
+        val toWrite = mutableListOf<Food>()
+        var changed = 0
+        merged.values.forEach { item ->
+            val old = byKey[item.name to item.brand]
+            when {
+                old == null -> {
+                    toWrite.add(item)
+                    changed++
+                }
+                // 只更新预置项；用户自建的同名食物绝不覆盖
+                old.source == "preset" && differs(old, item) -> {
+                    toWrite.add(
+                        item.copy(
+                            id = old.id,
+                            favorite = old.favorite,
+                            createdAt = old.createdAt,
+                            barcode = old.barcode
+                        )
+                    )
+                    changed++
+                }
+                else -> Unit
+            }
+        }
+        if (toWrite.isNotEmpty()) dao.insertAll(toWrite)
+
+        // 极端老数据（category 为空）才兜底重猜
         backfillFoodCategory()
-        return missing.size
+        return changed
     }
 
+    /** 只比较导入会改的字段，避免收藏/时间不同导致每次启动都重写一遍库。 */
+    private fun differs(old: Food, new: Food): Boolean =
+        old.category != new.category ||
+            old.pinyin != new.pinyin ||
+            old.kcalPer100g != new.kcalPer100g ||
+            old.proteinPer100g != new.proteinPer100g ||
+            old.carbPer100g != new.carbPer100g ||
+            old.fatPer100g != new.fatPer100g ||
+            old.defaultGrams != new.defaultGrams
+
     /**
-     * 给还没有分类的食物补上分类。
-     * 只在启动时跑一次（只处理 category == "其他" 的），开销很小。
+     * 给「分类为空」的极端老数据补一次分类。
+     * v3.4.0 起不再重猜「其他」——油脂 / 调味那 20 条本来就属于「其他」，
+     * 以前每次启动都会被 guess() 改成别的类，这是 F3 的根因。
      */
     private suspend fun backfillFoodCategory() {
-        val all = db.foodDao().findAll()
-        val needsFix = all.filter { it.category == com.qingji.app.domain.FoodCategory.OTHER }
+        val dao = db.foodDao()
+        val needsFix = dao.findAll().filter { it.category.isBlank() }
         if (needsFix.isEmpty()) return
-        db.foodDao().insertAll(
+        dao.insertAll(
             needsFix.map {
                 it.copy(category = com.qingji.app.domain.FoodCategory.guess(it.name, it.brand))
             }
@@ -316,13 +364,48 @@ class QingJiRepository(private val context: Context) {
         db.usageStatDao().countByType(date, "ai") ?: 0
 
     /**
+     * v3.4.0：把用户在确认页改过的名字记下来，下次识别到同样的 AI 原名自动套用。
+     * 存的是 DataStore 里一个字符串，不建表、不升 Room 版本。
+     */
+    suspend fun rememberAiNameCorrections(pairs: List<Pair<String, String>>) {
+        if (pairs.isEmpty()) return
+        try {
+            var raw = SettingsStore.observe(context).first().aiNameCorrections
+            pairs.forEach { (from, to) ->
+                raw = com.qingji.app.domain.AiNameCorrections.put(raw, from, to)
+            }
+            SettingsStore.set(context, com.qingji.app.data.prefs.SettingsKeys.AI_NAME_CORRECTIONS, raw)
+        } catch (e: Exception) {
+            // 记不住纠错不影响这一餐正常保存，静默跳过
+        }
+    }
+
+    /**
      * 用本地食物库校正 AI 的识别结果。
      *
      * 逻辑：AI 说了「白米饭 150g」，本地库里有「米饭」→ 用本地库的 116 kcal/100g
      * 算出 174 kcal，而不是信模型自己编的数字。匹配不上才保留 AI 的值。
      * 顺带把克数和热量都做一次合理性兜底（防止 0 克、9999 克、每百克 2000 千卡）。
+     *
+     * v3.4.0：先套用用户的名字纠错，再拿改后的名字去本地库匹配，
+     * 否则「改了名却还是按 AI 原名算热量」会让人以为改了没用。
      */
     private suspend fun correctWithLocalFood(result: AiRecognitionResult): AiRecognitionResult {
+        val corrections = try {
+            SettingsStore.observe(context).first().aiNameCorrections
+        } catch (e: Exception) {
+            ""
+        }
+        val renamed = if (corrections.isBlank()) {
+            result
+        } else {
+            result.copy(
+                items = result.items.map {
+                    it.copy(name = com.qingji.app.domain.AiNameCorrections.apply(corrections, it.name))
+                }
+            )
+        }
+
         val candidates = try {
             db.foodDao().findAll().map {
                 it.name to Per100g(
@@ -335,9 +418,9 @@ class QingJiRepository(private val context: Context) {
         } catch (e: Exception) {
             emptyList()
         }
-        if (candidates.isEmpty()) return result
+        if (candidates.isEmpty()) return renamed
 
-        val items = result.items.map { item ->
+        val items = renamed.items.map { item ->
             val grams = NutritionMatch.saneGrams(item.grams)
             val hit = NutritionMatch.pick(item.name, candidates)
             if (hit != null) {
@@ -353,7 +436,7 @@ class QingJiRepository(private val context: Context) {
                 item.copy(grams = grams, kcal = NutritionMatch.saneKcal(item.kcal, grams))
             }
         }
-        return result.copy(items = items, totalKcal = items.sumOf { it.kcal })
+        return renamed.copy(items = items, totalKcal = items.sumOf { it.kcal })
     }
 
     /**

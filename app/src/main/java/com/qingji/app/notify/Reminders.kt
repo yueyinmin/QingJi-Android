@@ -27,10 +27,11 @@ import java.util.Calendar
  * 这个 App 只需要「每天某个点响一声」，系统自带的能力完全够用，
  * 少一个依赖就少一处编译不过、少 1MB 包体积。
  *
- * 三个提醒：
+ * 四类提醒（v3.4.0 加了喝水）：
  * - weigh   称重提醒：每周固定星期几 + 几点
  * - fasting 断食提醒：每天固定时间（开始/结束用同一时刻先占位）
  * - kcal    热量提醒：每天固定时间，如果当天一条饮食都没记才提醒
+ * - water   喝水提醒：每天固定时间，当天已经喝够目标就不提醒
  *
  * 注意：安卓为了省电会做「非精确」投递，闹钟可能晚几分钟，
  * 这对提醒类功能完全可接受（也免得被杀后台）。
@@ -41,6 +42,7 @@ object Reminders {
     const val TYPE_WEIGH = "weigh"
     const val TYPE_FASTING = "fasting"
     const val TYPE_KCAL = "kcal"
+    const val TYPE_WATER = "water"
 
     private const val CHANNEL_ID = "qingji_reminder"
     const val EXTRA_TYPE = "reminder_type"
@@ -55,15 +57,22 @@ object Reminders {
             "轻记提醒",
             NotificationManager.IMPORTANCE_DEFAULT
         ).apply {
-            description = "称重、断食、记饮食的到点提醒"
+            description = "称重、断食、记饮食、喝水的到点提醒"
         }
         manager.createNotificationChannel(channel)
     }
 
+    /**
+     * 每类提醒必须有单独的 requestCode。
+     * PendingIntent 的相等性判断不含 extras，复用同一个 code 会让两个闹钟互相覆盖。
+     * 以后再加提醒类型，这里也要显式加一行，别落到 else 兜底。
+     */
     private fun requestCode(type: String): Int = when (type) {
         TYPE_WEIGH -> 1001
         TYPE_FASTING -> 1002
-        else -> 1003
+        TYPE_KCAL -> 1003
+        TYPE_WATER -> 1004
+        else -> 1005
     }
 
     private fun alarmIntent(context: Context, type: String): PendingIntent {
@@ -127,6 +136,11 @@ object Reminders {
         } else {
             cancel(context, TYPE_KCAL)
         }
+        if (settings.waterReminder) {
+            scheduleDaily(context, TYPE_WATER, settings.waterReminderHour, settings.waterReminderMinute)
+        } else {
+            cancel(context, TYPE_WATER)
+        }
     }
 }
 
@@ -141,6 +155,9 @@ class ReminderReceiver : BroadcastReceiver() {
         } catch (e: Exception) {
             // 读设置失败就用默认值，至少别崩
         }
+
+        // 总开关以前只在设置页把菜单藏起来，闹钟到点照样会响；这里才是真正的闸。
+        if (settings.allNotificationsDisabled) return
 
         // 称重提醒是「每周固定星期几」：不是今天就直接返回，不打扰
         if (type == Reminders.TYPE_WEIGH) {
@@ -161,6 +178,21 @@ class ReminderReceiver : BroadcastReceiver() {
             if (hasLog) return
         }
 
+        // 喝水提醒：今天已经喝到目标就不打扰；查不到当作已达标，宁可不提醒
+        if (type == Reminders.TYPE_WATER) {
+            val reachedGoal = try {
+                runBlocking {
+                    val today = AppClock.today()
+                    val drank = com.qingji.app.data.repository.QingJiRepository(context)
+                        .observeWaterMl(today).first() ?: 0
+                    drank >= settings.waterGoalMl
+                }
+            } catch (e: Exception) {
+                true
+            }
+            if (reachedGoal) return
+        }
+
         showNotification(context, type)
     }
 
@@ -169,6 +201,7 @@ class ReminderReceiver : BroadcastReceiver() {
         val (title, body) = when (type) {
             Reminders.TYPE_WEIGH -> "该称体重了" to "花 30 秒记一下今天的体重，趋势才有意义"
             Reminders.TYPE_FASTING -> "断食时间到了" to "打开轻记看一眼今天的进度"
+            Reminders.TYPE_WATER -> "该喝水了" to "今天的水还没喝够，补一杯吧"
             else -> "今天还没记饮食" to "点开记一笔，一句话就能记完"
         }
 

@@ -115,6 +115,7 @@ fun HomeScreen(
     vm: HomeViewModel = viewModel()
 ) {
     val state by vm.uiState.collectAsState()
+    val weeklySummary by vm.weeklySummary.collectAsState()
     val today = AppClock.today()
 
     // 首页要读几项显示设置：饮水卡显隐、AI 分析按钮显隐、悬浮按钮开关
@@ -232,6 +233,7 @@ fun HomeScreen(
             showWater = settings.showWaterCard,
             animateProgress = settings.progressAnimation,
             waterBubbles = settings.waterBubbles,
+            exerciseCompensation = settings.exerciseCompensation,
             onCupClick = { showCupMenu = true },
             fastingEnabled = settings.fastingEnabled,
             fastingPlanHours = settings.fastingPlanHours,
@@ -326,6 +328,14 @@ fun HomeScreen(
                 )
             }
             Spacer(Modifier.height(10.dp))
+        }
+
+        // v3.4.0 R2：本周小结放四餐之后、底部留白之前（受「主题与显示」开关控制）
+        if (settings.showWeeklySummary) {
+            Spacer(Modifier.height(20.dp))
+            AppearItem(index = 6) {
+                com.qingji.app.ui.components.WeeklySummaryCard(summary = weeklySummary)
+            }
         }
 
         // 底部留白：给悬浮按钮腾位置，不然会盖住最后一餐
@@ -728,6 +738,8 @@ private fun TodaySummaryCard(
     animateProgress: Boolean = true,
     /** 水杯气泡量（设置里可调）：0 关 / 1 少 / 2 标准 / 3 多 */
     waterBubbles: Int = 2,
+    /** v3.4.0 R5：关掉后运动消耗不计入预计热量缺口 */
+    exerciseCompensation: Boolean = false,
     /** 点水杯时通知外面弹「首页设置 / 查看详情」的选择 */
     onCupClick: () -> Unit = {},
     /** 轻断食：开了才在卡片底部显示那条断食条 */
@@ -818,7 +830,9 @@ private fun TodaySummaryCard(
         }
         Spacer(Modifier.height(8.dp))
         // 预计热量缺口 = 每日预算 + 运动消耗 − 已吃（动得多缺口大）
-        val gap = remainingKcal + state.exerciseKcal.toInt()
+        // v3.4.0 R5：由「运动消耗补偿」开关决定运动要不要计入
+        val exerciseBonus = if (exerciseCompensation) state.exerciseKcal.toInt() else 0
+        val gap = remainingKcal + exerciseBonus
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween

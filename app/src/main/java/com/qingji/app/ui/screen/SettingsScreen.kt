@@ -264,9 +264,8 @@ fun SettingsScreen(
                 ) { dialog = DialogKind.WATER_GOAL }
             }
             SettingsNote(
-                "「运动消耗补偿」这个开关会记住你的选择，但一期还没有运动记录模块，" +
-                    "所以暂时没有消耗数据可以加回预算 —— 等运动模块做出来它会自动生效，" +
-                    "现在打开它不会影响每天的预算数字。"
+                "开启后，运动消耗会加回当天可吃额度（预计热量缺口跟着变）；" +
+                    "关掉则只按饮食记录计算，运动消耗不计入预算。"
             )
 
             // ================= 记录与识别 =================
@@ -301,7 +300,7 @@ fun SettingsScreen(
             SettingsCard {
                 SettingValueRow(
                     title = "通知与提醒",
-                    subtitle = "称重、断食、热量三类提醒的开关与时间",
+                    subtitle = "称重、断食、热量、喝水四类提醒的开关与时间",
                     value = "去设置",
                     iconColor = QingJiGreen
                 ) { dialog = DialogKind.REMINDERS }
@@ -459,6 +458,10 @@ fun SettingsScreen(
             onSetKcalTime = { hour, minute ->
                 vm.setKcalReminder(settings.kcalReminder, hour, minute, showToast = false)
             },
+            onSetWaterSwitch = { on -> askNotificationThen { vm.setWaterReminder(on) } },
+            onSetWaterTime = { hour, minute ->
+                vm.setWaterReminder(settings.waterReminder, hour, minute, showToast = false)
+            },
             onBack = { dialog = null }
         )
 
@@ -512,6 +515,7 @@ fun SettingsScreen(
             onSetWaterCard = { vm.setShowWaterCard(it) },
             onSetQuickButtons = { vm.setShowQuickButtons(it) },
             onSetProgressAnimation = { vm.setProgressAnimation(it) },
+            onSetWeeklySummary = { vm.setShowWeeklySummary(it) },
             onSetRefreshRate = { vm.setShowRefreshRate(it) },
             onSetFont = { vm.setCustomFontPath(it) },
             onBack = { dialog = null }
@@ -980,6 +984,7 @@ private fun ThemeSettingsPage(
     onSetWaterCard: (Boolean) -> Unit,
     onSetQuickButtons: (Boolean) -> Unit,
     onSetProgressAnimation: (Boolean) -> Unit,
+    onSetWeeklySummary: (Boolean) -> Unit,
     onSetRefreshRate: (Boolean) -> Unit,
     onSetFont: (String) -> Unit,
     onBack: () -> Unit
@@ -1064,6 +1069,12 @@ private fun ThemeSettingsPage(
                 subtitle = "关掉可以省一点点电",
                 checked = settings.progressAnimation
             ) { onSetProgressAnimation(it) }
+            RowDivider()
+            SwitchRow(
+                title = "本周小结",
+                subtitle = "首页底部显示近 7 天的一句话小结（纯本地计算，不调 AI）",
+                checked = settings.showWeeklySummary
+            ) { onSetWeeklySummary(it) }
             RowDivider()
             SwitchRow(
                 title = "每餐营养素比例",
@@ -1227,7 +1238,7 @@ private fun ThemeSettingsPage(
 }
 
 // ============================================================
-// 「通知与提醒」详情页：称重 / 断食 / 热量三类提醒集中在一页。
+// 「通知与提醒」详情页：称重 / 断食 / 热量 / 喝水四类提醒集中在一页。
 // 每类都是「开关 + 时间」在一起，不用再跳来跳去。
 // ============================================================
 @Composable
@@ -1240,6 +1251,8 @@ private fun ReminderPage(
     onSetFastingTime: (Int, Int) -> Unit,         // 小时、分钟
     onSetKcalSwitch: (Boolean) -> Unit,
     onSetKcalTime: (Int, Int) -> Unit,            // 小时、分钟
+    onSetWaterSwitch: (Boolean) -> Unit,
+    onSetWaterTime: (Int, Int) -> Unit,           // 小时、分钟
     onBack: () -> Unit
 ) {
     // 称重提醒的星期 / 小时 / 分钟在页面里先选好，点底部保存一次性写入
@@ -1358,6 +1371,27 @@ private fun ReminderPage(
                     initialHour = settings.kcalReminderHour,
                     initialMinute = settings.kcalReminderMinute
                 ) { h, m -> onSetKcalTime(h, m) }
+            }
+        }
+
+        Spacer(Modifier.height(Dimens.Gap))
+
+        // ---------- 喝水提醒（v3.4.0 第四类） ----------
+        DetailGroupTitle("喝水提醒")
+        SectionCard(contentPadding = 0.dp) {
+            SwitchRow(
+                title = "喝水提醒",
+                subtitle = "到点提醒补一杯；当天已经喝够目标就不打扰",
+                checked = settings.waterReminder
+            ) { onSetWaterSwitch(it) }
+            RowDivider()
+            Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                Text(text = "提醒时间（左边小时、右边分钟，松开即保存）", fontSize = 13.sp, color = TextSecondary)
+                Spacer(Modifier.height(8.dp))
+                com.qingji.app.ui.components.WheelTimePicker(
+                    initialHour = settings.waterReminderHour,
+                    initialMinute = settings.waterReminderMinute
+                ) { h, m -> onSetWaterTime(h, m) }
             }
         }
 

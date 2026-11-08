@@ -114,6 +114,8 @@ fun ProgressScreen(
 
     var showBodyMeasure by remember { mutableStateOf(false) }
     var showExercise by remember { mutableStateOf(false) }
+    // v3.4.0：进度照片「查看全部 / 前后对比」全屏图库
+    var showPhotoGallery by remember { mutableStateOf(false) }
 
     // 选进度照片：选完立刻拷进 App 私有目录，原图删了也不影响
     val photoContext = androidx.compose.ui.platform.LocalContext.current
@@ -205,6 +207,17 @@ fun ProgressScreen(
             onClick = onOpenWeight
         )
 
+        // v3.4.0 R3：目标达成预估（近 14 天趋势；数据不足时只给说明，不硬凑日期）
+        val forecast = com.qingji.app.domain.WeightForecastCalculator.forecast(
+            points = logs.map {
+                com.qingji.app.domain.WeightForecastCalculator.Point(it.date, it.weightKg)
+            },
+            currentWeight = currentWeight,
+            targetWeight = targetWeight,
+            today = AppClock.today()
+        )
+        com.qingji.app.ui.components.WeightForecastCard(forecast = forecast)
+
         // v3.2.4：整块「BMI 分级（中国标准）」刻度条 + 四档图例已去掉，
         // BMI 改成小仪表盘收进上面的「身体数据」卡片左下角。
         Spacer(Modifier.height(14.dp))
@@ -263,7 +276,8 @@ fun ProgressScreen(
             ProgressPhotoCard(
                 photos = photos,
                 onAdd = { pickPhoto.launch("image/*") },
-                onDelete = vm::deletePhoto
+                onDelete = vm::deletePhoto,
+                onViewAll = { showPhotoGallery = true }
             )
         }
 
@@ -303,6 +317,14 @@ fun ProgressScreen(
                 vm.addExercise(it)
             },
             onToggleFavorite = { id, fav -> vm.toggleExerciseFavorite(id, fav) }
+        )
+    }
+
+    // v3.4.0：全部进度照片 + 选两张做前后对比
+    if (showPhotoGallery) {
+        com.qingji.app.ui.components.ProgressPhotoGallery(
+            photos = photos,
+            onDismiss = { showPhotoGallery = false }
         )
     }
 }
@@ -1169,7 +1191,8 @@ private fun MeasureCell(label: String, value: Double?) {
 private fun ProgressPhotoCard(
     photos: List<com.qingji.app.data.local.entity.ProgressPhoto>,
     onAdd: () -> Unit,
-    onDelete: (Long) -> Unit
+    onDelete: (Long) -> Unit,
+    onViewAll: () -> Unit = {}
 ) {
     SectionCard {
         Row(
@@ -1191,16 +1214,33 @@ private fun ProgressPhotoCard(
                     color = TextSecondary
                 )
             }
-            Text(
-                text = "+ 添加",
-                fontSize = 12.sp,
-                color = QingJiGreenDark,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(Dimens.TinyCorner))
-                    .background(QingJiGreenLight)
-                    .pressable { onAdd() }
-                    .padding(horizontal = 10.dp, vertical = 6.dp)
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                if (photos.isNotEmpty()) {
+                    Text(
+                        text = "查看全部",
+                        fontSize = 12.sp,
+                        color = QingJiGreenDark,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(Dimens.TinyCorner))
+                            .background(QingJiGreenLight)
+                            .pressable { onViewAll() }
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                    )
+                }
+                Text(
+                    text = "+ 添加",
+                    fontSize = 12.sp,
+                    color = QingJiGreenDark,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(Dimens.TinyCorner))
+                        .background(QingJiGreenLight)
+                        .pressable { onAdd() }
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                )
+            }
         }
 
         Spacer(Modifier.height(10.dp))
@@ -1232,6 +1272,7 @@ private fun ProgressPhotoCard(
                                 .size(88.dp)
                                 .clip(RoundedCornerShape(Dimens.ItemCorner))
                                 .background(PageBackground)
+                                .clickable { onViewAll() }
                         )
                         Text(
                             text = "×",
