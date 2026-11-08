@@ -59,9 +59,11 @@ import java.time.LocalDateTime
  * 单列滚轮：labels 是要显示的文本，onSelected 回传当前停在中间那一项的下标。
  *
  * 前后各补 2 个空格子，是为了让第 0 项和最后一项也能滚到正中间。
- * 早期那版（WheelTimePicker 的私有 WheelColumn）用
+ * 早期那版（WheelTimePicker 的私有 WheelColumn，v3.3.1 已删除）用
  * 「firstVisibleItemIndex + 2」当中项，首尾会偏 2 格：选 30 分钟会跳成 32，
  * 日期默认会落到「前天」。这里改成补位写法，中心项就是 firstVisibleItemIndex。
+ * v3.3.1 起设置里的提醒时间（WheelTimePicker）也改用本组件，
+ * 全 App 只剩这一套滚轮逻辑，不再有两份实现各自维护。
  */
 @Composable
 fun NumberWheelColumn(
