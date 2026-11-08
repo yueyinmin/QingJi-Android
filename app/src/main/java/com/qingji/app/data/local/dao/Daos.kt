@@ -129,6 +129,10 @@ interface FoodDao {
     @Query("UPDATE food SET favorite = :favorite WHERE id = :id")
     suspend fun setFavorite(id: Long, favorite: Boolean)
 
+    /** 删除单个食物（自定义食物用） */
+    @Query("DELETE FROM food WHERE id = :id")
+    suspend fun deleteFood(id: Long)
+
     /** 导入前清空（预置食物会在导入后按名字补回来）。 */
     @Query("DELETE FROM food")
     suspend fun clearAll()

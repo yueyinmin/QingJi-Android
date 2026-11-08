@@ -858,6 +858,9 @@ private fun MealCard(
                     )
                     Spacer(Modifier.height(8.dp))
                 }
+                com.qingji.app.ui.components.SwipeToRevealDelete(
+                    onDelete = { onDelete(log.id) }
+                ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
@@ -900,18 +903,8 @@ private fun MealCard(
                         fontSize = 13.sp,
                         color = TextPrimary
                     )
-                    Spacer(Modifier.size(12.dp))
-                    Box(
-                        modifier = Modifier
-                            .size(24.dp)
-                            .clip(CircleShape)
-                            .background(PageBackground)
-                            .clickable { onDelete(log.id) },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(text = "×", fontSize = 16.sp, color = TextSecondary)
-                    }
                 }
+                }   // SwipeToRevealDelete content
                 Spacer(Modifier.height(8.dp))
             }
         }

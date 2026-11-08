@@ -267,11 +267,14 @@ fun DiaryScreen(
             } else {
                 diaries.forEachIndexed { index, diary ->
                     com.qingji.app.ui.components.AppearItem(index = index) {
-                        DiaryRow(
-                            diary = diary,
-                            onClick = { onOpenEdit(diary.id) },
+                        com.qingji.app.ui.components.SwipeToRevealDelete(
                             onDelete = { pendingDelete = diary }
-                        )
+                        ) {
+                            DiaryRow(
+                                diary = diary,
+                                onClick = { onOpenEdit(diary.id) }
+                            )
+                        }
                     }
                     Spacer(Modifier.height(8.dp))
                 }
@@ -381,7 +384,7 @@ private fun JarCard(count: Int) {
 
 /** 一条日记卡片。 */
 @Composable
-private fun DiaryRow(diary: Diary, onClick: () -> Unit, onDelete: () -> Unit) {
+private fun DiaryRow(diary: Diary, onClick: () -> Unit) {
     SectionCard(contentPadding = Dimens.CardPaddingCompact) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f).pressable { onClick() }) {
@@ -416,12 +419,6 @@ private fun DiaryRow(diary: Diary, onClick: () -> Unit, onDelete: () -> Unit) {
                     Text(text = extras.joinToString(" · "), fontSize = 11.sp, color = QingJiGreen)
                 }
             }
-            Text(
-                text = "×",
-                fontSize = 20.sp,
-                color = TextSecondary,
-                modifier = Modifier.clickable { onDelete() }.padding(horizontal = 8.dp)
-            )
         }
     }
 }
