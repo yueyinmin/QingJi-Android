@@ -157,17 +157,37 @@ fun SearchFoodScreen(
     // ---------- 填份量 + 选餐次的对话框 ----------
     val food = picked
     if (food != null) {
-        AlertDialog(
-            onDismissRequest = { picked = null },
-            title = { Text(food.name, fontSize = 17.sp, fontWeight = FontWeight.Bold) },
-            text = {
-                Column {
-                    Text(
-                        text = "每 100 克约 ${food.kcalPer100g.toInt()} 千卡 · 蛋白 ${food.proteinPer100g.toInt()}g",
-                        fontSize = 12.sp,
-                        color = TextSecondary
-                    )
-                    Spacer(Modifier.height(12.dp))
+        com.qingji.app.ui.components.AppBottomSheet(
+            title = food.name,
+            subtitle = "每 100 克约 ${food.kcalPer100g.toInt()} 千卡 · 蛋白 ${food.proteinPer100g.toInt()}g",
+            confirmText = "保存",
+            closeOnConfirm = false,
+            onConfirm = {
+                val grams = gramsText.toDoubleOrNull()
+                if (grams == null || grams <= 0) {
+                    errorText = "请填一个大于 0 的克数"
+                    return@AppBottomSheet
+                }
+                val targetDate = runCatching { java.time.LocalDate.parse(dateText.trim()) }.getOrNull()
+                if (targetDate == null) {
+                    errorText = "日期格式不对，要写成 2026-11-08 这样"
+                    return@AppBottomSheet
+                }
+                scope.launch {
+                    try {
+                        vm.addFood(food, grams, mealType, targetDate)
+                        picked = null
+                        Toast.makeText(context, "已记入${MealRules.label(mealType)}", Toast.LENGTH_SHORT).show()
+                        onBack()
+                    } catch (e: Exception) {
+                        errorText = "保存失败：${e.message ?: "未知原因"}，请再点一次"
+                    }
+                }
+            },
+            onDismiss = { picked = null }
+        ) {
+            Column {
+                    Spacer(Modifier.height(4.dp))
                     LabeledTextField(
                         label = "吃了多少克",
                         value = gramsText,
@@ -212,56 +232,9 @@ fun SearchFoodScreen(
                         HintBox(text = errorText, isError = true)
                     }
                 }
-            },
-            confirmButton = {
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(QingJiGreen)
-                        .clickable {
-                            val grams = gramsText.toDoubleOrNull()
-                            if (grams == null || grams <= 0) {
-                                errorText = "请填一个大于 0 的克数"
-                                return@clickable
-                            }
-                            val targetDate = runCatching { java.time.LocalDate.parse(dateText.trim()) }
-                                .getOrNull()
-                            if (targetDate == null) {
-                                errorText = "日期格式不对，要写成 2026-11-08 这样"
-                                return@clickable
-                            }
-                            scope.launch {
-                                // 以前这里没包 try/catch：一旦写库抛异常（数据库锁住、磁盘满），
-                                // 协程直接失败，对话框不关、页面不跳，用户看到的就是「点了保存没反应」。
-                                try {
-                                    vm.addFood(food, grams, mealType, targetDate)
-                                    picked = null
-                                    Toast.makeText(context, "已记入${MealRules.label(mealType)}", Toast.LENGTH_SHORT).show()
-                                    onBack()
-                                } catch (e: Exception) {
-                                    errorText = "保存失败：${e.message ?: "未知原因"}，请再点一次"
-                                }
-                            }
-                        }
-                        .padding(horizontal = 16.dp, vertical = 9.dp)
-                ) {
-                    Text("保存", color = androidx.compose.ui.graphics.Color.White, fontSize = 14.sp)
-                }
-            },
-            dismissButton = {
-                Text(
-                    text = "取消",
-                    fontSize = 14.sp,
-                    color = TextSecondary,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable { picked = null }
-                        .padding(horizontal = 12.dp, vertical = 9.dp)
-                )
             }
-        )
     }
-}
+    }
 
 /** 一条搜索结果：左边名称与拼音，右边每 100 克热量。 */
 @Composable
