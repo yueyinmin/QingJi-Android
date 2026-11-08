@@ -47,7 +47,6 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
 import kotlin.random.Random
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -448,12 +447,16 @@ private fun DiaryRow(diary: Diary, onClick: () -> Unit) {
  * 右下角的「写一篇」按钮。
  * 做成胶囊形而不是小圆点：上面有字，第一眼就知道是干什么的，
  * 不用像纯图标按钮那样猜。
+ *
+ * v3.2.6：去掉 10dp 投影。进页面时这颗按钮会播 spring 缩放 + 淡入的弹出动画，
+ * 阴影跟着一起缩放、淡入时边缘会抖一下，看着生硬（用户原话「阴影动画很生硬」）。
+ * 而且全 App 卡片都是 0 阴影（Common.kt 的 SectionCard），深色胶囊本身已够显眼。
+ * 弹入动画保留，只是不再有「阴影动画」这一段。
  */
 @Composable
 private fun WriteEntryFab(onClick: () -> Unit) {
     Row(
         modifier = Modifier
-            .shadow(elevation = 10.dp, shape = RoundedCornerShape(Dimens.PillCorner))
             .clip(RoundedCornerShape(Dimens.PillCorner))
             .background(QingJiGreenDark)
             .pressable { onClick() }
