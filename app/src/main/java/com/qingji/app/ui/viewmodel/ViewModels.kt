@@ -62,6 +62,8 @@ data class HomeUiState(
     val totalCarb: Double = 0.0,
     val totalFat: Double = 0.0,
     val waterMl: Int = 0,
+    /** 当天运动消耗（计入热量缺口） */
+    val exerciseKcal: Double = 0.0,
     val logs: List<FoodLog> = emptyList()
 )
 
@@ -83,8 +85,9 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
             repo.observeProfile(),
             repo.observeDailySummary(d),
             repo.observeFoodLogs(d),
-            repo.observeWaterMl(d)
-        ) { profile, summary, logs, water ->
+            repo.observeWaterMl(d),
+            repo.observeExerciseLogs(d)
+        ) { profile, summary, logs, water, exercises ->
             HomeUiState(
                 date = d,
                 profile = profile,
@@ -93,6 +96,8 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
                 totalCarb = summary?.totalCarb ?: 0.0,
                 totalFat = summary?.totalFat ?: 0.0,
                 waterMl = water ?: 0,
+                // 当天运动消耗：计入「预计热量缺口」（动得多缺口大）
+                exerciseKcal = exercises.sumOf { it.kcal },
                 logs = logs
             )
         }
@@ -694,13 +699,13 @@ class FoodLibraryViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { repo.deleteFood(food.id) }
     }
 
-    /** 把食物加到今天某一餐。 */
-    fun addToMeal(foodName: String, per100gKcal: Double, grams: Double, mealType: String) {
+    /** 把食物加到某一餐（dayOffset：0 今天 / 1 昨天 / 2 前天）。 */
+    fun addToMeal(foodName: String, per100gKcal: Double, grams: Double, mealType: String, dayOffset: Int = 0) {
         viewModelScope.launch {
             val kcal = per100gKcal * grams / 100.0
             repo.addFoodLog(
                 com.qingji.app.data.local.entity.FoodLog(
-                    date = AppClock.today(),
+                    date = AppClock.today().minusDays(dayOffset.toLong()),
                     mealType = mealType,
                     foodName = foodName,
                     grams = grams,

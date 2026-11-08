@@ -560,18 +560,23 @@ private fun TodaySummaryCard(
 
         ThinProgressBar(progress = animatedProgress)
         Spacer(Modifier.height(8.dp))
+        // 预计热量缺口 = 每日预算 + 运动消耗 − 已吃（动得多缺口大）
+        val gap = remainingKcal + state.exerciseKcal.toInt()
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(text = "已吃 $eatenKcal / $goalKcal", fontSize = 12.sp, color = TextSecondary)
+            Text(text = "已吃 $eatenKcal 千卡", fontSize = 12.sp, color = TextSecondary)
             Text(
-                text = if (remainingKcal >= 0) "预算还剩 $remainingKcal" else "超出 ${-remainingKcal}",
+                text = if (gap >= 0) "预计缺口 $gap 千卡" else "反超 ${-gap} 千卡",
                 fontSize = 12.sp,
-                color = if (remainingKcal >= 0) TextSecondary else DangerRed
+                color = if (gap >= 0) TextSecondary else DangerRed
             )
         }
 
+        Spacer(Modifier.height(14.dp))
+        // 灰线隔开「预计热量缺口」和「营养素」，但不分成两块卡片
+        androidx.compose.material3.HorizontalDivider(color = DividerColor)
         Spacer(Modifier.height(14.dp))
 
         Text(text = "营养素 (g)", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)

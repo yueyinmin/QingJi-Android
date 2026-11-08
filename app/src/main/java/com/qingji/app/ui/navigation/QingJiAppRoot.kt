@@ -280,7 +280,8 @@ fun QingJiAppRoot(
     if (showAddSheet) {
         AddRecordSheet(
             onDismiss = { showAddSheet = false },
-            onSearchFood = { navController.navigate(QingJiRoutes.SearchFood) },
+            // 食物库入口直接进食物库页（在那里选好加到某一餐）
+            onSearchFood = { navController.navigate(QingJiRoutes.FoodLibrary) },
             onTextAi = { navController.navigate(QingJiRoutes.TextAi) },
             onWeight = { navController.navigate(QingJiRoutes.Weight) },
             onImage = { navController.navigate(QingJiRoutes.ImageRecord) },

@@ -444,6 +444,8 @@ fun SettingsScreen(
 
         DialogKind.REMINDERS -> ReminderPage(
             settings = settings,
+            allDisabled = settings.allNotificationsDisabled,
+            onSetAllDisabled = { vm.setAllNotificationsDisabled(it) },
             onSetWeighReminder = { weekday, hour -> vm.setWeighWeekday(weekday, hour) },
             onSetFastingSwitch = { on -> askNotificationThen { vm.setFastingReminder(on) } },
             onSetFastingHour = { hour -> vm.setFastingReminder(settings.fastingReminder, hour) },
@@ -1130,6 +1132,8 @@ private fun ThemeSettingsPage(
 @Composable
 private fun ReminderPage(
     settings: QingJiSettings,
+    allDisabled: Boolean,
+    onSetAllDisabled: (Boolean) -> Unit,
     onSetWeighReminder: (Int, Int) -> Unit,
     onSetFastingSwitch: (Boolean) -> Unit,
     onSetFastingHour: (Int) -> Unit,
@@ -1143,6 +1147,22 @@ private fun ReminderPage(
     val weekdayLabels = listOf("一", "二", "三", "四", "五", "六", "日")
 
     SettingsDetailScaffold(title = "通知与提醒", onBack = onBack) {
+        // ---------- 总开关 ----------
+        SectionCard(contentPadding = 0.dp) {
+            SwitchRow(
+                title = "禁用所有通知",
+                subtitle = "打开后下面的所有提醒都不会再响，适合出差或休假",
+                checked = allDisabled
+            ) { onSetAllDisabled(it) }
+        }
+
+        if (allDisabled) {
+            Spacer(Modifier.height(Dimens.Gap))
+            com.qingji.app.ui.components.HintBox(text = "所有提醒已禁用。关掉上面的开关即可恢复。")
+            Spacer(Modifier.height(Dimens.FabSpace))
+            return@SettingsDetailScaffold
+        }
+
         // ---------- 称重提醒 ----------
         DetailGroupTitle("称重提醒")
         SectionCard {
@@ -1170,9 +1190,12 @@ private fun ReminderPage(
                     }
                 }
                 Spacer(Modifier.height(12.dp))
-                Text(text = "几点提醒", fontSize = 13.sp, color = TextSecondary)
+                Text(text = "几点提醒（点下面的时间用轮盘调）", fontSize = 13.sp, color = TextSecondary)
                 Spacer(Modifier.height(8.dp))
-                HourGrid(selected = weighHour) { weighHour = it }
+                com.qingji.app.ui.components.WheelTimePicker(
+                    initialHour = weighHour,
+                    initialMinute = 0
+                ) { h, _ -> weighHour = h }
             }
         }
         Spacer(Modifier.height(8.dp))
@@ -1203,9 +1226,12 @@ private fun ReminderPage(
             ) { onSetFastingSwitch(it) }
             RowDivider()
             Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
-                Text(text = "提醒时间", fontSize = 13.sp, color = TextSecondary)
+                Text(text = "提醒时间（轮盘调整，实时保存）", fontSize = 13.sp, color = TextSecondary)
                 Spacer(Modifier.height(8.dp))
-                HourGrid(selected = settings.fastStartHour) { onSetFastingHour(it) }
+                com.qingji.app.ui.components.WheelTimePicker(
+                    initialHour = settings.fastStartHour,
+                    initialMinute = 0
+                ) { h, _ -> onSetFastingHour(h) }
             }
         }
 
@@ -1221,9 +1247,12 @@ private fun ReminderPage(
             ) { onSetKcalSwitch(it) }
             RowDivider()
             Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
-                Text(text = "提醒时间", fontSize = 13.sp, color = TextSecondary)
+                Text(text = "提醒时间（轮盘调整，实时保存）", fontSize = 13.sp, color = TextSecondary)
                 Spacer(Modifier.height(8.dp))
-                HourGrid(selected = settings.kcalReminderHour) { onSetKcalHour(it) }
+                com.qingji.app.ui.components.WheelTimePicker(
+                    initialHour = settings.kcalReminderHour,
+                    initialMinute = 0
+                ) { h, _ -> onSetKcalHour(h) }
             }
         }
 
@@ -1235,26 +1264,3 @@ private fun ReminderPage(
     }
 }
 
-/** 0～23 点的小时网格，提醒时间选择用。 */
-@Composable
-private fun HourGrid(selected: Int, onSelect: (Int) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        (0..23).chunked(6).forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                row.forEach { hour ->
-                    val active = hour == selected
-                    Text(
-                        text = "%02d".format(hour),
-                        fontSize = 12.sp,
-                        color = if (active) Color.White else TextSecondary,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(if (active) QingJiGreen else PageBackground)
-                            .clickable { onSelect(hour) }
-                            .padding(horizontal = 10.dp, vertical = 6.dp)
-                    )
-                }
-            }
-        }
-    }
-}
