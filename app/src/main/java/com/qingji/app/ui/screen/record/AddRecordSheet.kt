@@ -20,7 +20,6 @@ import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.Mic
-import androidx.compose.material.icons.outlined.MonitorWeight
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.QrCode
 import androidx.compose.material.icons.outlined.WaterDrop
@@ -40,9 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.qingji.app.ui.theme.CardWhite
 import com.qingji.app.ui.theme.DividerColor
-import com.qingji.app.ui.theme.QingJiGreen
-import com.qingji.app.ui.theme.QingJiGreenDark
-import com.qingji.app.ui.theme.QingJiGreenLight
+import com.qingji.app.ui.theme.MultiColor
 import com.qingji.app.ui.theme.TextPrimary
 import com.qingji.app.ui.theme.TextSecondary
 import com.qingji.app.ui.theme.pressable
@@ -52,12 +49,15 @@ import com.qingji.app.ui.theme.pressable
  * 底部中间「+」弹出的记录面板（v3.2 按吃有数的排法重做）
  * ------------------------------------------------------------
  * 从上到下四层：
- * 1. 主题色渐变横幅「扫描食物」→ 拍照 AI 识别；
- * 2. 三张白色图标卡：语音输入 / 食物库 / 记录喝水；
- * 3. 两张浅底宽卡：记录运动 / 记录体重；
+ * 1. 柔和绿渐变横幅「扫描食物」→ 拍照 AI 识别；
+ * 2. 三张白色图标卡：语音输入（粉紫）/ 食物库（紫）/ 记录喝水（蓝）；
+ * 3. 两张浅底宽卡：记录运动（蓝）/ 记录体重（绿）；
  * 4. 体型照片链接 + 文字录入/条形码补充入口 + 悬浮关闭键。
  *
- * 颜色全部取当前主题色，不再像旧版那样六个入口各写死橙/青/蓝/粉/紫。
+ * v3.2.2：用户要「参考图那种多彩」，这里改回固定语义色，
+ * 颜色统一从 ui/theme/Color.kt 的 MultiColor 取，不随主题色开关变。
+ * 主题色仍然负责主按钮、选中态、顶部渐变等整体基调，
+ * 语义色负责「一眼分辨功能」，两条线互不打架。
  * 每个入口都有真实动作，没有「点了没反应」的摆设。
  * ============================================================
  */
@@ -105,14 +105,14 @@ fun AddRecordSheet(
                 .padding(horizontal = 18.dp)
                 .padding(bottom = 20.dp)
         ) {
-            // ---------- 1. 扫描食物横幅 ----------
+            // ---------- 1. 扫描食物横幅（参考图的柔和绿渐变） ----------
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(16.dp))
                     .background(
                         Brush.horizontalGradient(
-                            listOf(QingJiGreen, QingJiGreen.copy(alpha = 0.78f))
+                            listOf(MultiColor.ScanStart, MultiColor.ScanEnd)
                         )
                     )
                     .pressable { go(onImage) }
@@ -158,7 +158,7 @@ fun AddRecordSheet(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                         contentDescription = null,
-                        tint = QingJiGreenDark,
+                        tint = MultiColor.ScanArrow,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -166,21 +166,38 @@ fun AddRecordSheet(
 
             Spacer(Modifier.height(12.dp))
 
-            // ---------- 2. 三张白色图标卡 ----------
+            // ---------- 2. 三张白色图标卡（粉紫 / 紫 / 蓝） ----------
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SheetIconCard("语音输入", Icons.Outlined.Mic, Modifier.weight(1f)) { go(onVoice) }
-                SheetIconCard("食物库", Icons.AutoMirrored.Outlined.MenuBook, Modifier.weight(1f)) {
-                    go(onSearchFood)
-                }
-                SheetIconCard("记录喝水", Icons.Outlined.WaterDrop, Modifier.weight(1f)) { go(onWater) }
+                SheetIconCard(
+                    "语音输入",
+                    Icons.Outlined.Mic,
+                    MultiColor.Voice,
+                    Modifier.weight(1f)
+                ) { go(onVoice) }
+                SheetIconCard(
+                    "食物库",
+                    Icons.AutoMirrored.Outlined.MenuBook,
+                    MultiColor.FoodLibrary,
+                    Modifier.weight(1f)
+                ) { go(onSearchFood) }
+                SheetIconCard(
+                    "记录喝水",
+                    Icons.Outlined.WaterDrop,
+                    MultiColor.Drink,
+                    Modifier.weight(1f)
+                ) { go(onWater) }
             }
 
             Spacer(Modifier.height(10.dp))
 
-            // ---------- 3. 两张浅底宽卡 ----------
+            // ---------- 3. 两张浅底宽卡（蓝 / 绿） ----------
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SheetWideCard("记录运动", "🏃", Modifier.weight(1f)) { go(onExercise) }
-                SheetWideCard("记录体重", "⚖️", Modifier.weight(1f)) { go(onWeight) }
+                SheetWideCard("记录运动", "🏃", MultiColor.Exercise, Modifier.weight(1f)) {
+                    go(onExercise)
+                }
+                SheetWideCard("记录体重", "⚖️", MultiColor.Weight, Modifier.weight(1f)) {
+                    go(onWeight)
+                }
             }
 
             Spacer(Modifier.height(14.dp))
@@ -211,8 +228,18 @@ fun AddRecordSheet(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                MiniEntry("文字录入", Icons.Outlined.EditNote, Modifier.weight(1f)) { go(onTextAi) }
-                MiniEntry("扫条形码", Icons.Outlined.QrCode, Modifier.weight(1f)) { go(onBarcode) }
+                MiniEntry(
+                    "文字录入",
+                    Icons.Outlined.EditNote,
+                    MultiColor.TextAi,
+                    Modifier.weight(1f)
+                ) { go(onTextAi) }
+                MiniEntry(
+                    "扫条形码",
+                    Icons.Outlined.QrCode,
+                    MultiColor.Barcode,
+                    Modifier.weight(1f)
+                ) { go(onBarcode) }
             }
 
             Spacer(Modifier.height(18.dp))
@@ -243,11 +270,15 @@ fun AddRecordSheet(
     }
 }
 
-/** 白底描边的小方卡：一个主题色圆形图标 + 名称。 */
+/**
+ * 白底描边的小方卡：一个彩色圆形图标 + 名称。
+ * color 用固定语义色，圆底取 18% 透明度，图标用本色。
+ */
 @Composable
 private fun SheetIconCard(
     label: String,
     icon: ImageVector,
+    color: Color,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
@@ -264,13 +295,13 @@ private fun SheetIconCard(
             modifier = Modifier
                 .size(44.dp)
                 .clip(CircleShape)
-                .background(QingJiGreenLight),
+                .background(color.copy(alpha = 0.18f)),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = QingJiGreen,
+                tint = color,
                 modifier = Modifier.size(22.dp)
             )
         }
@@ -285,18 +316,22 @@ private fun SheetIconCard(
     }
 }
 
-/** 浅底的宽卡：左边标题 + 圆形「去记录」箭头，右边一个小插画。 */
+/**
+ * 浅底的宽卡：左边标题 + 圆形「去记录」箭头，右边一个小插画。
+ * 底色取 color 的 12% 透明度，标题/箭头/文字统一用本色。
+ */
 @Composable
 private fun SheetWideCard(
     title: String,
     emoji: String,
+    color: Color,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     Row(
         modifier = modifier
             .clip(RoundedCornerShape(14.dp))
-            .background(QingJiGreenLight.copy(alpha = 0.6f))
+            .background(color.copy(alpha = 0.12f))
             .pressable { onClick() }
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -306,7 +341,7 @@ private fun SheetWideCard(
                 text = title,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
-                color = TextPrimary,
+                color = color,
                 maxLines = 1
             )
             Spacer(Modifier.height(8.dp))
@@ -315,7 +350,7 @@ private fun SheetWideCard(
                     modifier = Modifier
                         .size(24.dp)
                         .clip(CircleShape)
-                        .background(QingJiGreen),
+                        .background(color),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -326,25 +361,29 @@ private fun SheetWideCard(
                     )
                 }
                 Spacer(Modifier.width(6.dp))
-                Text(text = "去记录", fontSize = 11.sp, color = QingJiGreenDark)
+                Text(text = "去记录", fontSize = 11.sp, color = color)
             }
         }
         Text(text = emoji, fontSize = 24.sp)
     }
 }
 
-/** 补充入口：文字录入 / 条形码，避免重排版把原有功能弄丢。 */
+/**
+ * 补充入口：文字录入 / 条形码，避免重排版把原有功能弄丢。
+ * 参考图里没有这两颗，所以用低饱和淡彩，不抢上面几块的视觉。
+ */
 @Composable
 private fun MiniEntry(
     label: String,
     icon: ImageVector,
+    color: Color,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     Row(
         modifier = modifier
             .clip(RoundedCornerShape(10.dp))
-            .background(QingJiGreenLight.copy(alpha = 0.45f))
+            .background(color.copy(alpha = 0.10f))
             .pressable { onClick() }
             .padding(horizontal = 10.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -353,10 +392,10 @@ private fun MiniEntry(
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = QingJiGreen,
+            tint = color,
             modifier = Modifier.size(15.dp)
         )
         Spacer(Modifier.width(6.dp))
-        Text(text = label, fontSize = 12.sp, color = QingJiGreenDark, maxLines = 1)
+        Text(text = label, fontSize = 12.sp, color = color, maxLines = 1)
     }
 }

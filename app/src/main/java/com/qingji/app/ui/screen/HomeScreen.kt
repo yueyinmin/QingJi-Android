@@ -71,6 +71,7 @@ import com.qingji.app.ui.theme.PageBackground
 import com.qingji.app.ui.theme.MacroCarb
 import com.qingji.app.ui.theme.MacroFat
 import com.qingji.app.ui.theme.MacroProtein
+import com.qingji.app.ui.theme.MultiColor
 import com.qingji.app.ui.theme.pressable
 import com.qingji.app.ui.theme.QingJiGreen
 import com.qingji.app.ui.theme.QingJiGreenDark
@@ -191,10 +192,10 @@ fun HomeScreen(
             Text(
                 text = "🔥 $joinedDays 连续天数",
                 fontSize = 11.sp,
-                color = QingJiGreenDark,
+                color = MultiColor.StreakText,
                 modifier = Modifier
                     .clip(RoundedCornerShape(999.dp))
-                    .background(CardWhite)
+                    .background(MultiColor.StreakBackground)
                     .padding(horizontal = 10.dp, vertical = 5.dp)
             )
             Spacer(Modifier.width(6.dp))
@@ -386,7 +387,7 @@ fun HomeScreen(
                     text = "${state.waterMl}",
                     fontSize = 30.sp,
                     fontWeight = FontWeight.Bold,
-                    color = QingJiGreenDark
+                    color = MultiColor.WaterText
                 )
                 Text(
                     text = " / $goal ml",
@@ -398,7 +399,7 @@ fun HomeScreen(
             Spacer(Modifier.height(6.dp))
             ThinProgressBar(
                 progress = state.waterMl.toFloat() / goal,
-                color = QingJiGreen
+                color = MultiColor.WaterFill
             )
             Spacer(Modifier.height(10.dp))
             Text(text = "完成 $percent%", fontSize = 12.sp, color = TextSecondary)
@@ -575,7 +576,7 @@ private fun QuickWaterSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(10.dp))
-                    .border(1.dp, QingJiGreen, RoundedCornerShape(10.dp))
+                    .border(1.dp, MultiColor.WaterText, RoundedCornerShape(10.dp))
                     .pressable { onOpenDetail() }
                     .padding(vertical = 12.dp),
                 contentAlignment = Alignment.Center
@@ -584,7 +585,7 @@ private fun QuickWaterSheet(
                     text = "查看今日饮水详情",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
-                    color = QingJiGreen
+                    color = MultiColor.WaterText
                 )
             }
         }
@@ -880,7 +881,7 @@ private fun TodaySummaryCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(999.dp))
-                    .background(QingJiGreenLight)
+                    .background(MultiColor.FastingBackground)
                     .clickable { onOpenFasting() }
                     .padding(horizontal = 14.dp, vertical = 9.dp),
                 horizontalArrangement = Arrangement.Center,
@@ -892,7 +893,7 @@ private fun TodaySummaryCard(
                     text = com.qingji.app.domain.FastingRules.planLabel(fastingPlanHours),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = QingJiGreenDark
+                    color = MultiColor.FastingText
                 )
                 Text(
                     text = if (fasting.active) {
@@ -901,7 +902,7 @@ private fun TodaySummaryCard(
                         " · 可以进食"
                     },
                     fontSize = 12.sp,
-                    color = QingJiGreenDark
+                    color = MultiColor.FastingText
                 )
             }
         }
@@ -922,17 +923,23 @@ private fun TodaySummaryCard(
                             ratio = state.waterMl.toFloat() / goalWater.coerceAtLeast(1),
                             bubbleLevel = waterBubbles,
                             modifier = Modifier.fillMaxSize(),
-                            onClick = onCupClick
+                            onClick = onCupClick,
+                            // 参考图里水是蓝色的：固定语义色，不跟主题变
+                            fillColor = MultiColor.WaterFill,
+                            surfaceColor = MultiColor.WaterSurface,
+                            outlineColor = MultiColor.WaterOutline,
+                            bubbleTint = Color.White.copy(alpha = 0.75f),
+                            tickTint = MultiColor.WaterOutline.copy(alpha = 0.6f)
                         )
                         Text(
                             text = "$waterPercent%",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
-                            color = QingJiGreenDark,
+                            color = MultiColor.WaterText,
                             modifier = Modifier
                                 .padding(bottom = 46.dp)
                                 .clip(RoundedCornerShape(999.dp))
-                                .background(QingJiGreenLight)
+                                .background(MultiColor.WaterFill.copy(alpha = 0.24f))
                                 .padding(horizontal = 9.dp, vertical = 3.dp)
                         )
                     }
@@ -1000,12 +1007,12 @@ private fun MealCard(
     /** 是否在这一餐底部显示蛋白/碳水/脂肪的比例条（首页显示设置里可关） */
     showMacro: Boolean = true
 ) {
-    // 四餐不再各用橙/蓝/紫，统一取主题色的深浅档，切主题时一起变
+    // 四餐恢复参考图的固定语义色：早餐橙 / 午餐绿 / 晚餐蓝 / 加餐紫
     val badgeColor = when (type) {
-        MealRules.BREAKFAST -> QingJiGreen
-        MealRules.LUNCH -> QingJiGreenDark
-        MealRules.DINNER -> QingJiGreen.copy(alpha = 0.72f)
-        else -> QingJiGreen.copy(alpha = 0.55f)
+        MealRules.BREAKFAST -> MultiColor.Breakfast
+        MealRules.LUNCH -> MultiColor.Lunch
+        MealRules.DINNER -> MultiColor.Dinner
+        else -> MultiColor.Snack
     }
     // 参考图每餐都是一枚图形图标，以前这里只放「早/午/晚」一个字
     val badgeIcon = when (type) {
