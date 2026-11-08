@@ -114,7 +114,7 @@ import com.qingji.app.widget.WeightWidgetReceiver
 /** 当前打开的是哪个弹窗。 */
 private enum class DialogKind {
     MACRO, WATER_GOAL, TIMEZONE, UNIT, THEME, REMINDERS,
-    BOTTOM_TABS, PRIVACY, ICON, CACHE,
+    BOTTOM_TABS, AI_LANG, PRIVACY, ICON, CACHE,
     ABOUT, PLATFORM, VERSION
 }
 
@@ -289,6 +289,13 @@ fun SettingsScreen(
                     "AI 的份量估算误差通常有 20%～40%，中餐尤其明显。" +
                         "所以每次识别完都会让你确认和微调，这是故意的，不是多此一举。"
                 )
+                RowDivider()
+                SettingValueRow(
+                    title = "AI 识别语言",
+                    subtitle = "识别结果返回的语言",
+                    value = if (settings.aiLanguage == "auto") "跟随输入" else "简体中文",
+                    iconColor = Color(0xFF26A69A)
+                ) { dialog = DialogKind.AI_LANG }
             }
 
             // ================= 提醒 =================
@@ -429,6 +436,18 @@ fun SettingsScreen(
     ) {
     val current = dialog!!
     when (current) {
+        DialogKind.AI_LANG -> OptionDetailPage(
+            title = "AI 识别语言",
+            subtitle = "默认强制简体中文——照片里的外国菜也会翻译成中文菜名",
+            options = listOf(
+                OptionItem("zh", "简体中文", "推荐：所有识别结果都是中文"),
+                OptionItem("auto", "跟随输入", "AI 模型自行判断，可能返回英文")
+            ),
+            selectedKey = settings.aiLanguage,
+            onPick = { vm.setAiLanguage(it); dialog = null },
+            onBack = { dialog = null }
+        )
+
         DialogKind.REMINDERS -> ReminderPage(
             settings = settings,
             onSetWeighReminder = { weekday, hour -> vm.setWeighWeekday(weekday, hour) },

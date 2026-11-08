@@ -124,6 +124,9 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     /** 水杯气泡量：0 关 / 1 少 / 2 标准 / 3 多 */
     fun setWaterBubbles(level: Int) = put(SettingsKeys.WATER_BUBBLES, level.coerceIn(0, 3))
 
+    /** AI 返回语言：zh 强制中文 / auto 跟随输入 */
+    fun setAiLanguage(lang: String) = put(SettingsKeys.AI_LANGUAGE, lang)
+
     /** 首页是否显示实时刷新率 */
     fun setShowRefreshRate(show: Boolean) = put(SettingsKeys.SHOW_REFRESH_RATE, show)
 
