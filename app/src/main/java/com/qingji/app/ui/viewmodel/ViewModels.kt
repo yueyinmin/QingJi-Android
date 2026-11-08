@@ -103,6 +103,46 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 
+    /**
+     * 近 7 天汇总：首页「本周小结」卡片用（v3.4.0 · R2）。
+     * 五股原始 Flow 在仓库层取区间，聚合放到纯逻辑类里算，界面只拿结论。
+     * 全部本地计算，不调 AI、不联网。
+     */
+    private val weekFrom: java.time.LocalDate = AppClock.today().minusDays(6)
+    private val weekTo: java.time.LocalDate = AppClock.today()
+    val weeklySummary: StateFlow<com.qingji.app.domain.WeeklySummaryCalculator.Summary> = combine(
+        repo.observeFoodRange(weekFrom, weekTo),
+        repo.observeWaterRange(weekFrom, weekTo),
+        repo.observeExerciseRange(weekFrom, weekTo),
+        repo.observeWeightLogs(),
+        repo.observeProfile()
+    ) { foods, waters, exercises, weights, profile ->
+        val list = (0..6).map { i ->
+            val d = weekFrom.plusDays(i.toLong())
+            com.qingji.app.domain.WeeklySummaryCalculator.Day(
+                date = d,
+                kcal = foods.filter { it.date == d }.sumOf { it.kcal },
+                exerciseKcal = exercises.filter { it.date == d }.sumOf { it.kcal },
+                waterMl = waters.filter { it.date == d }.sumOf { it.ml },
+                hasLog = foods.any { it.date == d }
+            )
+        }
+        val goal = profile?.dailyKcalGoal?.takeIf { it > 0 } ?: 2000
+        val waterGoal = profile?.waterGoalMl?.takeIf { it > 0 } ?: 2000
+        val inWeek = weights.filter { it.date >= weekFrom }
+        com.qingji.app.domain.WeeklySummaryCalculator.summarize(
+            days = list,
+            dailyGoal = goal,
+            waterGoal = waterGoal,
+            startWeight = inWeek.minByOrNull { it.date }?.weightKg,
+            endWeight = inWeek.maxByOrNull { it.date }?.weightKg
+        )
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        com.qingji.app.domain.WeeklySummaryCalculator.summarize(emptyList(), 2000, 2000, null, null)
+    )
+
     fun selectDate(d: LocalDate) {
         _date.value = d
     }
@@ -220,7 +260,12 @@ class TextAiViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun recognize(input: String, date: LocalDate): Result<AiRecognitionResult> =
         repo.recognizeText(input, date)
 
-    suspend fun save(logs: List<FoodLog>) {
+    /** v3.4.0：保存这一餐时顺手记下用户改过的名字，下次识别自动套用。 */
+    suspend fun save(
+        logs: List<FoodLog>,
+        nameCorrections: List<Pair<String, String>> = emptyList()
+    ) {
+        repo.rememberAiNameCorrections(nameCorrections)
         repo.addFoodLogs(logs)
     }
 }
@@ -470,7 +515,14 @@ class ImageRecordViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun recognize(base64Jpeg: String): Result<AiRecognitionResult> =
         repo.recognizeImage(base64Jpeg, AppClock.today())
 
-    suspend fun save(logs: List<FoodLog>) = repo.addFoodLogs(logs)
+    /** v3.4.0：拍照识别同样记名字纠错。 */
+    suspend fun save(
+        logs: List<FoodLog>,
+        nameCorrections: List<Pair<String, String>> = emptyList()
+    ) {
+        repo.rememberAiNameCorrections(nameCorrections)
+        repo.addFoodLogs(logs)
+    }
 }
 
 /** 条码（M3.4）。先本地后联网，查到就缓存进食物表，下次断网也能用。 */

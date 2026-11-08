@@ -154,6 +154,9 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     /** 首页每餐卡片是否显示营养素比例条 */
     fun setShowMealMacro(show: Boolean) = put(SettingsKeys.SHOW_MEAL_MACRO, show)
 
+    /** v3.4.0：首页底部「本周小结」显隐 */
+    fun setShowWeeklySummary(show: Boolean) = put(SettingsKeys.SHOW_WEEKLY_SUMMARY, show)
+
     fun setShowQuickButtons(show: Boolean) = put(SettingsKeys.SHOW_QUICK_BUTTONS, show)
 
     /** 底部导航显隐：首页不能关（关了就没地方可去了）。 */
@@ -238,11 +241,58 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** 任何提醒项一改，就把三个闹钟整体重排（开着的重设、关掉的取消）。 */
+    /** v3.4.0：第四类喝水提醒，当天喝够就不响。 */
+    fun setWaterReminder(
+        enabled: Boolean,
+        hour: Int = settings.value.waterReminderHour,
+        minute: Int = settings.value.waterReminderMinute,
+        showToast: Boolean = true
+    ) {
+        viewModelScope.launch {
+            SettingsStore.set(context, SettingsKeys.WATER_REMINDER, enabled)
+            SettingsStore.set(context, SettingsKeys.WATER_REMINDER_HOUR, hour.coerceIn(0, 23))
+            SettingsStore.set(context, SettingsKeys.WATER_REMINDER_MINUTE, minute.coerceIn(0, 59))
+            applyReminders()
+            if (showToast) {
+                toast(if (enabled) "喝水提醒已开启（每天 ${hhmm(hour, minute)}，喝够就不提醒）" else "喝水提醒已关闭")
+            }
+        }
+    }
+
+    /** 任何提醒项一改，就把四个闹钟整体重排（开着的重设、关掉的取消）。 */
     private suspend fun applyReminders() {
         val latest = SettingsStore.observe(context).first()
         Reminders.apply(context, latest)
     }
+
+    // ---------- 桌面小组件外观（v3.4.0） ----------
+
+    /**
+     * 改完必须主动刷新一次桌面；小组件是另一个进程，读不到 App 内存。
+     * Int / Boolean 分开写两个名字：泛型擦除后两个同名函数签名会撞车。
+     */
+    private fun putIntAndRefreshWidget(key: androidx.datastore.preferences.core.Preferences.Key<Int>, value: Int) {
+        viewModelScope.launch {
+            SettingsStore.set(context, key, value)
+            com.qingji.app.widget.WidgetRefresher.refresh(context)
+        }
+    }
+
+    private fun putBoolAndRefreshWidget(key: androidx.datastore.preferences.core.Preferences.Key<Boolean>, value: Boolean) {
+        viewModelScope.launch {
+            SettingsStore.set(context, key, value)
+            com.qingji.app.widget.WidgetRefresher.refresh(context)
+        }
+    }
+
+    fun setWidgetAlpha(percent: Int) =
+        putIntAndRefreshWidget(SettingsKeys.WIDGET_ALPHA, percent.coerceIn(30, 100))
+
+    fun setWidgetShowWater(show: Boolean) = putBoolAndRefreshWidget(SettingsKeys.WIDGET_SHOW_WATER, show)
+
+    fun setWidgetShowMacro(show: Boolean) = putBoolAndRefreshWidget(SettingsKeys.WIDGET_SHOW_MACRO, show)
+
+    fun setWidgetShowWeight(show: Boolean) = putBoolAndRefreshWidget(SettingsKeys.WIDGET_SHOW_WEIGHT, show)
 
     // ---------- 危险操作 ----------
 

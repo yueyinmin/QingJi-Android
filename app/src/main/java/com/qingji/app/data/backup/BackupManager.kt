@@ -71,10 +71,25 @@ class BackupManager(private val context: Context) {
         }
     }
 
-    /** 饮食记录 CSV（Excel 能开）。 */
-    suspend fun exportCsv(): Result<File> = withContext(Dispatchers.IO) {
+    /**
+     * 饮食记录 CSV（Excel 能开）。
+     *
+     * v3.4.0 加了按月 / 按餐次筛选：
+     * - month 为 null = 全部时间；
+     * - mealTypes 为空 = 全部餐次。
+     * 两个参数都有默认值，老调用 exportCsv() 行为完全不变。
+     *
+     * 这里仍然先 findAll() 再在内存里过滤，而不是改 DAO 加 SQL：
+     * 饮食记录是本地单机数据，量级很小，少一条 SQL 就少一处 Room 编译期校验风险。
+     */
+    suspend fun exportCsv(
+        month: java.time.YearMonth? = null,
+        mealTypes: Set<String> = emptySet()
+    ): Result<File> = withContext(Dispatchers.IO) {
         try {
-            val logs = db.foodLogDao().findAll()
+            val logs = db.foodLogDao().findAll().filter {
+                com.qingji.app.domain.ExportFilter.matches(it.date, it.mealType, month, mealTypes)
+            }
             val rows = logs.map {
                 BackupFormat.CsvRow(
                     date = it.date.toString(),
@@ -89,7 +104,9 @@ class BackupManager(private val context: Context) {
                 )
             }
             val name = BackupFormat.backupFileName(
-                "food-logs", "csv", BackupFormat.stamp(AppClock.now())
+                com.qingji.app.domain.ExportFilter.filePrefix(month),
+                "csv",
+                BackupFormat.stamp(AppClock.now())
             )
             val file = File(backupDir(), name)
             // 加 BOM：不加的话 Excel 打开中文会变乱码（这是国内最常见的坑）

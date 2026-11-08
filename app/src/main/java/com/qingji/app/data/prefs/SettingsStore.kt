@@ -91,6 +91,8 @@ object SettingsKeys {
     val WATER_BUBBLES = intPreferencesKey("water_bubbles")
     /** 首页每餐卡片是否显示蛋白/碳水/脂肪比例条 */
     val SHOW_MEAL_MACRO = booleanPreferencesKey("show_meal_macro")
+    /** 首页底部是否显示「本周小结」卡片（v3.4.0） */
+    val SHOW_WEEKLY_SUMMARY = booleanPreferencesKey("show_weekly_summary")
     val SHOW_QUICK_BUTTONS = booleanPreferencesKey("show_quick_buttons")
     val SHOW_PROGRESS_TAB = booleanPreferencesKey("show_progress_tab")
     val SHOW_DIARY_TAB = booleanPreferencesKey("show_diary_tab")
@@ -98,6 +100,20 @@ object SettingsKeys {
     val PROGRESS_ANIMATION = booleanPreferencesKey("progress_animation")
     val NICKNAME = stringPreferencesKey("nickname")
     val AVATAR_PATH = stringPreferencesKey("avatar_path")
+
+    // ---------- v3.4.0 新增 ----------
+    /** 喝水提醒开关（第四类提醒，默认关，老用户行为不变） */
+    val WATER_REMINDER = booleanPreferencesKey("water_reminder")
+    val WATER_REMINDER_HOUR = intPreferencesKey("water_reminder_hour")
+    val WATER_REMINDER_MINUTE = intPreferencesKey("water_reminder_minute")
+    /** 小组件卡片背景不透明度，存百分比 30..100（用 Int 避免引 float 键） */
+    val WIDGET_ALPHA = intPreferencesKey("widget_alpha")
+    /** 小组件展示内容：总览卡里的饮水 / 营养条，体重卡里的体重 */
+    val WIDGET_SHOW_WATER = booleanPreferencesKey("widget_show_water")
+    val WIDGET_SHOW_MACRO = booleanPreferencesKey("widget_show_macro")
+    val WIDGET_SHOW_WEIGHT = booleanPreferencesKey("widget_show_weight")
+    /** AI 识别纠错：每行「AI原名=>用户改后名」，纯文本，不建表 */
+    val AI_NAME_CORRECTIONS = stringPreferencesKey("ai_name_corrections")
 }
 
 /** 一次性读出的完整设置快照，给界面和 ViewModel 用。 */
@@ -143,13 +159,23 @@ data class QingJiSettings(
     val cuisines: String = "",
     val waterBubbles: Int = 2,
     val showMealMacro: Boolean = true,
+    val showWeeklySummary: Boolean = true,
     val showQuickButtons: Boolean = true,
     val showProgressTab: Boolean = true,
     val showDiaryTab: Boolean = true,
     val showMineTab: Boolean = true,
     val progressAnimation: Boolean = true,
     val nickname: String = "木林",
-    val avatarPath: String = ""
+    val avatarPath: String = "",
+    // ---------- v3.4.0 新增 ----------
+    val waterReminder: Boolean = false,
+    val waterReminderHour: Int = 15,
+    val waterReminderMinute: Int = 0,
+    val widgetAlpha: Int = 100,
+    val widgetShowWater: Boolean = true,
+    val widgetShowMacro: Boolean = true,
+    val widgetShowWeight: Boolean = true,
+    val aiNameCorrections: String = ""
 )
 
 object SettingsStore {
@@ -200,13 +226,22 @@ object SettingsStore {
                     cuisines = p[SettingsKeys.CUISINES] ?: "",
                     waterBubbles = p[SettingsKeys.WATER_BUBBLES] ?: 2,
                     showMealMacro = p[SettingsKeys.SHOW_MEAL_MACRO] ?: true,
+                    showWeeklySummary = p[SettingsKeys.SHOW_WEEKLY_SUMMARY] ?: true,
                     showQuickButtons = p[SettingsKeys.SHOW_QUICK_BUTTONS] ?: true,
                     showProgressTab = p[SettingsKeys.SHOW_PROGRESS_TAB] ?: true,
                     showDiaryTab = p[SettingsKeys.SHOW_DIARY_TAB] ?: true,
                     showMineTab = p[SettingsKeys.SHOW_MINE_TAB] ?: true,
                     progressAnimation = p[SettingsKeys.PROGRESS_ANIMATION] ?: true,
                     nickname = p[SettingsKeys.NICKNAME] ?: "木林",
-                    avatarPath = p[SettingsKeys.AVATAR_PATH] ?: ""
+                    avatarPath = p[SettingsKeys.AVATAR_PATH] ?: "",
+                    waterReminder = p[SettingsKeys.WATER_REMINDER] ?: false,
+                    waterReminderHour = p[SettingsKeys.WATER_REMINDER_HOUR] ?: 15,
+                    waterReminderMinute = p[SettingsKeys.WATER_REMINDER_MINUTE] ?: 0,
+                    widgetAlpha = (p[SettingsKeys.WIDGET_ALPHA] ?: 100).coerceIn(30, 100),
+                    widgetShowWater = p[SettingsKeys.WIDGET_SHOW_WATER] ?: true,
+                    widgetShowMacro = p[SettingsKeys.WIDGET_SHOW_MACRO] ?: true,
+                    widgetShowWeight = p[SettingsKeys.WIDGET_SHOW_WEIGHT] ?: true,
+                    aiNameCorrections = p[SettingsKeys.AI_NAME_CORRECTIONS] ?: ""
                 )
             }
 

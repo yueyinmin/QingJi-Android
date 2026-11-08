@@ -111,9 +111,16 @@ fun FoodLibraryScreen(
         1 -> "自定义食物"
         else -> "吃过的"
     }
-    // 搜索：按名字包含匹配，空串不过滤
+    // 搜索：名字包含，空串不过滤
     val matches: (String) -> Boolean = { name ->
-        query.isBlank() || name.contains(query.trim(), ignoreCase = true)
+        val q = query.trim()
+        q.isBlank() || name.contains(q, ignoreCase = true)
+    }
+    // v3.4.0 F8：食物库条目额外支持拼音首字母（sp → 薯片）。
+    // 「吃过的」是聚合数据、没有 pinyin 字段，那里仍按名字匹配。
+    val matchesFood: (com.qingji.app.data.local.entity.Food) -> Boolean = { food ->
+        val q = query.trim()
+        matches(food.name) || (q.isNotEmpty() && food.pinyin.startsWith(q, ignoreCase = true))
     }
 
     Box(
@@ -161,7 +168,7 @@ fun FoodLibraryScreen(
                 value = query,
                 onValueChange = { query = it },
                 singleLine = true,
-                placeholder = { Text(text = "搜食物名", fontSize = 12.sp, color = TextSecondary) },
+                placeholder = { Text(text = "搜食物名或拼音首字母（如 sp）", fontSize = 12.sp, color = TextSecondary) },
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Filled.Search,
@@ -177,6 +184,13 @@ fun FoodLibraryScreen(
             )
         }
 
+        // 免责：654 条营养值是初采估算（PRD 13.1 口径）
+        Text(
+            text = "营养值为常见值估算，仅供记录参考，不构成营养或医学建议",
+            fontSize = 11.sp,
+            color = TextSecondary,
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
         Spacer(Modifier.height(8.dp))
 
         // 内容区占满剩余高度，底栏才不会被列表挤出屏幕
@@ -188,7 +202,9 @@ fun FoodLibraryScreen(
 
                 if (kitchenTab == 0) {
                     // 家庭厨房：左边分类，右边列表
-                    val homeFoods = allFoods.filter { it.brand.isBlank() && matches(it.name) }
+                    val homeFoods = allFoods.filter {
+                        it.category != FoodCategory.FAST_FOOD && matchesFood(it)
+                    }
                     val available = FoodCategory.ALL.filter { cat ->
                         homeFoods.any { it.category == cat }
                     }
@@ -251,7 +267,9 @@ fun FoodLibraryScreen(
                     }
                 } else {
                     // 外卖快餐：按品牌分组
-                    val fastFoods = allFoods.filter { it.brand.isNotBlank() && matches(it.name) }
+                    val fastFoods = allFoods.filter {
+                        it.category == FoodCategory.FAST_FOOD && matchesFood(it)
+                    }
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -259,28 +277,28 @@ fun FoodLibraryScreen(
                             .padding(horizontal = Dimens.ScreenPadding)
                     ) {
                         if (fastFoods.isEmpty()) {
-                            HintBox(text = "还没有外卖数据。后续可以用 CSV 批量导入各品牌菜品。")
+                            HintBox(text = "还没有外卖快餐数据。")
                         } else {
-                            fastFoods.groupBy { it.brand }.forEach { (brand, list) ->
-                                Text(
-                                    text = brand,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = TextPrimary,
-                                    modifier = Modifier.padding(vertical = 8.dp)
+                            // v3.4.0：清单品牌列全部留空，外卖快餐改按一级分类分流，
+                            // 不再靠 brand 是否为空判断，也不再按品牌分组（F4）
+                            Text(
+                                text = "外卖 / 连锁常见份量",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = TextPrimary,
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            )
+                            fastFoods.forEach { food ->
+                                FoodRow(
+                                    name = food.name,
+                                    kcalPer100g = food.kcalPer100g,
+                                    favorite = food.favorite,
+                                    risky = AllergenRules.isRisky(food.name, allergens),
+                                    onFavorite = { vm.toggleFavorite(food) },
+                                    onClick = { pick = food }
                                 )
-                                list.forEach { food ->
-                                    FoodRow(
-                                        name = food.name,
-                                        kcalPer100g = food.kcalPer100g,
-                                        favorite = food.favorite,
-                                        risky = AllergenRules.isRisky(food.name, allergens),
-                                        onFavorite = { vm.toggleFavorite(food) },
-                                        onClick = { pick = food }
-                                    )
-                                }
-                                Spacer(Modifier.height(6.dp))
                             }
+                            Spacer(Modifier.height(6.dp))
                         }
                         Spacer(Modifier.height(80.dp))
                     }
@@ -299,7 +317,7 @@ fun FoodLibraryScreen(
                 if (userFoods.isEmpty()) {
                     Text(text = "还没有自定义食物，左滑可以删除", fontSize = 13.sp, color = TextSecondary)
                 } else {
-                    userFoods.filter { matches(it.name) }.forEach { food ->
+                    userFoods.filter { matchesFood(it) }.forEach { food ->
                         com.qingji.app.ui.components.SwipeToRevealDelete(
                             onDelete = { vm.deleteCustomFood(food) }
                         ) {
@@ -349,7 +367,7 @@ fun FoodLibraryScreen(
                     .padding(horizontal = Dimens.ScreenPadding)
             ) {
                 val favorites = (allFoods + userFoods)
-                    .filter { it.favorite && matches(it.name) }
+                    .filter { it.favorite && matchesFood(it) }
                     .distinctBy { it.name }
                 if (favorites.isEmpty()) {
                     HintBox(text = "还没有收藏。在食物列表点一下右边的 ♡ 就能收藏，再点右下角心形可以只看收藏。")

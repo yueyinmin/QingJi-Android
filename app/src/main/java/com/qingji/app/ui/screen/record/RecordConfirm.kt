@@ -66,6 +66,8 @@ data class EditableItem(
     val fatG: Double,
     val confidence: Double,
     val amountText: String = "",
+    /** v3.4.0：AI 最初给的名字，用来和最终保存的名字比对，记下用户的纠错。 */
+    val aiName: String = name,
     // 下面这组是「AI 最初给的那一份」，快捷倍数永远以它为基准，
     // 避免连点两次 2x 变成 4x。默认值取构造时传进来的当前值。
     val baseGrams: String = grams,
@@ -87,8 +89,19 @@ fun AiRecognitionResult.toEditableItems(): List<EditableItem> = items.map {
         carbG = it.carbG,
         fatG = it.fatG,
         confidence = it.confidence,
-        amountText = it.amountText
+        amountText = it.amountText,
+        aiName = it.name
     )
+}
+
+/**
+ * v3.4.0：挑出用户真的改过名字的条目，交给 ViewModel 记成纠错映射。
+ * 只改了克数 / 营养值的不会进来；空名字也不会被记（保存时本来就会被跳过）。
+ */
+fun List<EditableItem>.nameCorrections(): List<Pair<String, String>> = mapNotNull {
+    val from = it.aiName.trim()
+    val to = it.name.trim()
+    if (from.isEmpty() || to.isEmpty() || from == to) null else from to to
 }
 
 /** 可编辑列表 → 能写进 food_log 的记录；填得不合法的条目直接跳过。 */

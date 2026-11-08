@@ -120,6 +120,16 @@ fun QingJiAppRoot(
                         true
                     )
                 }
+            },
+            // v3.4.0：引导里填的饮食偏好写进设置，和设置页共用同一份数据
+            onSavePreferences = { allergens, avoidFoods, cuisines ->
+                scope.launch {
+                    val store = com.qingji.app.data.prefs.SettingsStore
+                    val keys = com.qingji.app.data.prefs.SettingsKeys
+                    store.set(context, keys.ALLERGENS, allergens)
+                    store.set(context, keys.AVOID_FOODS, avoidFoods)
+                    store.set(context, keys.CUISINES, cuisines)
+                }
             }
         )
         return

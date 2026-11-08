@@ -31,6 +31,7 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.qingji.app.MainActivity
+import com.qingji.app.data.prefs.SettingsStore
 import com.qingji.app.data.repository.QingJiRepository
 import com.qingji.app.domain.AppClock
 import com.qingji.app.domain.WeightUnit
@@ -49,6 +50,9 @@ import kotlinx.coroutines.flow.first
  * - 小组件是**另一个进程**，读不到 App 内存，数据必须现查数据库；
  * - 颜色只能写死（小组件里拿不到 App 的主题状态），这里统一用浅色卡片；
  * - 点「喝水」不打开 App，直接写库 +200ml，然后自己刷新自己。
+ *
+ * v3.4.0：外观（背景不透明度、展示哪些内容）也走同一条路 —— 直接读 DataStore，
+ * 不依赖 App 进程的内存状态。设置页改完会调 WidgetRefresher.refresh() 主动重绘。
  * ============================================================
  */
 
@@ -61,7 +65,10 @@ private val W_GREEN_LIGHT = Color(0xFFE8F5EF)
 private val W_BLUE_LIGHT = Color(0xFFE8F4FB)
 private val W_TRACK = Color(0xFFEEF0F2)
 
-private fun cardBg() = ColorProvider(W_CARD)
+/** 背景透明度：设置里存的是 30..100 的百分比，这里换成 Color 的 0..1 alpha。 */
+private fun cardBg(alphaPercent: Int = 100) =
+    ColorProvider(W_CARD.copy(alpha = (alphaPercent.coerceIn(30, 100) / 100f)))
+
 private fun textColor(color: Color = W_TEXT) = ColorProvider(color)
 
 /** 点小组件里任意按钮 → 打开 App 并直达某个页面。 */
@@ -86,6 +93,30 @@ private data class WidgetData(
     val latestWeight: Double? = null,
     val unit: String = "kg"
 )
+
+/** 小组件外观，和 Room 数据分开读，互不影响。 */
+private data class WidgetAppearance(
+    val alphaPercent: Int = 100,
+    val showWater: Boolean = true,
+    val showMacro: Boolean = true,
+    val showWeight: Boolean = true
+)
+
+/**
+ * 直接读 DataStore（跨进程可用），绝不能读 App 里的单例状态。
+ * 读失败就回到完全不透明 + 全部显示，桌面不会因此变空白。
+ */
+private suspend fun loadWidgetAppearance(context: Context): WidgetAppearance = try {
+    val s = SettingsStore.observe(context).first()
+    WidgetAppearance(
+        alphaPercent = s.widgetAlpha,
+        showWater = s.widgetShowWater,
+        showMacro = s.widgetShowMacro,
+        showWeight = s.widgetShowWeight
+    )
+} catch (e: Exception) {
+    WidgetAppearance()
+}
 
 /** 从数据库现查，查不到就给默认值 —— 小组件绝不能因为读库失败而变空白。 */
 private suspend fun loadWidgetData(context: Context): WidgetData {
@@ -120,11 +151,12 @@ private suspend fun loadWidgetData(context: Context): WidgetData {
 // ============================================================
 class QuickRecordWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
+        val appearance = loadWidgetAppearance(context)
         provideContent {
             Box(
                 modifier = GlanceModifier
                     .fillMaxSize()
-                    .background(cardBg())
+                    .background(cardBg(appearance.alphaPercent))
                     .cornerRadius(18.dp)
                     .padding(10.dp)
             ) {
@@ -232,11 +264,12 @@ private fun QuickTile(
 class OverviewWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val data = loadWidgetData(context)
+        val appearance = loadWidgetAppearance(context)
         provideContent {
             Box(
                 modifier = GlanceModifier
                     .fillMaxSize()
-                    .background(cardBg())
+                    .background(cardBg(appearance.alphaPercent))
                     .cornerRadius(18.dp)
                     .padding(14.dp)
                     .clickable(
@@ -276,23 +309,27 @@ class OverviewWidget : GlanceAppWidget() {
                             )
                         }
                         Column(horizontalAlignment = Alignment.Horizontal.End) {
-                            Text(
-                                text = "饮水 ${data.water}/${data.waterGoal}ml",
-                                style = TextStyle(color = textColor(W_SUB), fontSize = 10.sp)
-                            )
-                            Spacer(GlanceModifier.height(2.dp))
+                            if (appearance.showWater) {
+                                Text(
+                                    text = "饮水 ${data.water}/${data.waterGoal}ml",
+                                    style = TextStyle(color = textColor(W_SUB), fontSize = 10.sp)
+                                )
+                                Spacer(GlanceModifier.height(2.dp))
+                            }
                             Text(
                                 text = "点开看详情 ›",
                                 style = TextStyle(color = textColor(W_GREEN), fontSize = 10.sp)
                             )
                         }
                     }
-                    Spacer(GlanceModifier.height(8.dp))
-                    MiniBar("蛋白", data.protein, data.proteinGoal)
-                    Spacer(GlanceModifier.height(5.dp))
-                    MiniBar("碳水", data.carb, data.carbGoal)
-                    Spacer(GlanceModifier.height(5.dp))
-                    MiniBar("脂肪", data.fat, data.fatGoal)
+                    if (appearance.showMacro) {
+                        Spacer(GlanceModifier.height(8.dp))
+                        MiniBar("蛋白", data.protein, data.proteinGoal)
+                        Spacer(GlanceModifier.height(5.dp))
+                        MiniBar("碳水", data.carb, data.carbGoal)
+                        Spacer(GlanceModifier.height(5.dp))
+                        MiniBar("脂肪", data.fat, data.fatGoal)
+                    }
                 }
             }
         }
@@ -344,11 +381,12 @@ private fun MiniBar(label: String, current: Int, goal: Int) {
 class WeightWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val data = loadWidgetData(context)
+        val appearance = loadWidgetAppearance(context)
         provideContent {
             Box(
                 modifier = GlanceModifier
                     .fillMaxSize()
-                    .background(cardBg())
+                    .background(cardBg(appearance.alphaPercent))
                     .cornerRadius(18.dp)
                     .padding(horizontal = 14.dp, vertical = 10.dp)
             ) {
@@ -362,9 +400,13 @@ class WeightWidget : GlanceAppWidget() {
                             style = TextStyle(color = textColor(W_SUB), fontSize = 11.sp)
                         )
                         Text(
-                            text = data.latestWeight?.let {
-                                WeightUnit.formatWithSymbol(it, data.unit)
-                            } ?: "还没有记录",
+                            text = if (!appearance.showWeight) {
+                                "已隐藏"
+                            } else {
+                                data.latestWeight?.let {
+                                    WeightUnit.formatWithSymbol(it, data.unit)
+                                } ?: "还没有记录"
+                            },
                             style = TextStyle(
                                 color = textColor(W_TEXT),
                                 fontSize = 20.sp,

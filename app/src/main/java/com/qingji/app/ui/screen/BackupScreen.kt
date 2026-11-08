@@ -33,6 +33,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.qingji.app.data.backup.BackupManager
+import com.qingji.app.domain.AppClock
+import com.qingji.app.domain.ExportFilter
+import com.qingji.app.domain.MealRules
+import com.qingji.app.ui.components.AppBottomSheet
 import com.qingji.app.ui.components.PageTopBar
 import com.qingji.app.ui.components.PrimaryButton
 import com.qingji.app.ui.components.SectionCard
@@ -45,6 +49,7 @@ import com.qingji.app.ui.theme.TextPrimary
 import com.qingji.app.ui.theme.TextSecondary
 import kotlinx.coroutines.launch
 import java.io.File
+import java.time.YearMonth
 
 /**
  * ============================================================
@@ -69,6 +74,11 @@ fun BackupScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     var lastFile by remember { mutableStateOf<File?>(null) }
     var pendingUri by remember { mutableStateOf<Uri?>(null) }
     var importResult by remember { mutableStateOf<String?>(null) }
+
+    // v3.4.0：CSV 导出范围。null / 空集合都表示「不限」，老用户默认行为不变。
+    var exportMonth by remember { mutableStateOf<YearMonth?>(null) }
+    var exportMeals by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var showMonthPicker by remember { mutableStateOf(false) }
 
     // 选文件（导入用）。用 */* 是因为有些文件管理器把 .json 报成 octet-stream
     val pickFile = rememberLauncherForActivityResult(
@@ -125,7 +135,63 @@ fun BackupScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                     }
                 )
 
+                Spacer(Modifier.height(16.dp))
+
+                // ---------- CSV 导出范围（v3.4.0） ----------
+                Text(
+                    text = "CSV 导出范围",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextPrimary
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "只影响下面的饮食 CSV；全量 JSON 始终是全部数据。",
+                    fontSize = 11.sp,
+                    color = TextSecondary
+                )
                 Spacer(Modifier.height(8.dp))
+                Text(
+                    text = exportMonth?.let { "时间：${it.year} 年 ${it.monthValue} 月" }
+                        ?: "时间：全部（点这里选月份）",
+                    fontSize = 12.sp,
+                    color = QingJiGreenDark,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(QingJiGreenLight)
+                        .clickable { showMonthPicker = true }
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(text = "餐次（不选 = 全部）", fontSize = 11.sp, color = TextSecondary)
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    MealRules.ALL.forEach { meal ->
+                        val selected = meal in exportMeals
+                        Text(
+                            text = MealRules.label(meal),
+                            fontSize = 12.sp,
+                            color = if (selected) androidx.compose.ui.graphics.Color.White else TextSecondary,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (selected) QingJiGreen else QingJiGreenLight)
+                                .clickable {
+                                    exportMeals = if (selected) exportMeals - meal else exportMeals + meal
+                                }
+                                .padding(vertical = 8.dp)
+                        )
+                    }
+                }
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = "本次导出：${ExportFilter.describe(exportMonth, exportMeals)}",
+                    fontSize = 11.sp,
+                    color = TextSecondary
+                )
+
+                Spacer(Modifier.height(12.dp))
 
                 PrimaryButton(
                     text = if (busy) "正在导出…" else "导出饮食记录 CSV（Excel 能开）",
@@ -133,7 +199,7 @@ fun BackupScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                     onClick = {
                         busy = true
                         scope.launch {
-                            backup.exportCsv()
+                            backup.exportCsv(exportMonth, exportMeals)
                                 .onSuccess { file ->
                                     lastFile = file
                                     Toast.makeText(context, "已导出：${file.name}", Toast.LENGTH_SHORT).show()
@@ -238,7 +304,7 @@ fun BackupScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 listOf(
                     "API Key 不在备份里 —— Key 单独加密存在系统 Keystore，导出时根本读不到，所以新手机要重新填一次。",
                     "照片不跟着 JSON 走 —— 照片是文件路径，需要单独拷贝 files/images 目录。",
-                    "CSV 只导饮食记录 —— 方便你在 Excel 里做分析，但它不是备份，不能用来恢复。",
+                    "CSV 只导饮食记录 —— 可以按月份、按餐次筛选，方便在 Excel 里做分析，但它不是备份，不能用来恢复。",
                     "卸载 App 会清掉私有目录 —— 导出后请务必用「分享出去」把文件发到别的地方。"
                 ).forEach { line ->
                     Row(modifier = Modifier.padding(bottom = 6.dp)) {
@@ -249,6 +315,85 @@ fun BackupScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             }
 
             Spacer(Modifier.height(24.dp))
+        }
+    }
+
+    // 月份选择：年份左右翻 + 12 个月格子，外加「不限月份」
+    if (showMonthPicker) {
+        AppBottomSheet(
+            title = "选择导出月份",
+            subtitle = "只影响饮食记录 CSV，JSON 备份不受影响",
+            onDismiss = { showMonthPicker = false }
+        ) {
+            var viewYear by remember { mutableStateOf(exportMonth?.year ?: AppClock.today().year) }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "上一年",
+                    fontSize = 12.sp,
+                    color = QingJiGreenDark,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(QingJiGreenLight)
+                        .clickable { viewYear -= 1 }
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                )
+                Text(text = "$viewYear 年", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                Text(
+                    text = "下一年",
+                    fontSize = 12.sp,
+                    color = QingJiGreenDark,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(QingJiGreenLight)
+                        .clickable { viewYear += 1 }
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+            (1..12).chunked(4).forEach { row ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    row.forEach { m ->
+                        val selected = exportMonth == YearMonth.of(viewYear, m)
+                        Text(
+                            text = "${m}月",
+                            fontSize = 13.sp,
+                            color = if (selected) androidx.compose.ui.graphics.Color.White else TextPrimary,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (selected) QingJiGreen else QingJiGreenLight)
+                                .clickable {
+                                    exportMonth = YearMonth.of(viewYear, m)
+                                    showMonthPicker = false
+                                }
+                                .padding(vertical = 10.dp)
+                        )
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+            }
+            Text(
+                text = "不限月份（导出全部时间）",
+                fontSize = 13.sp,
+                color = QingJiGreenDark,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable {
+                        exportMonth = null
+                        showMonthPicker = false
+                    }
+                    .padding(vertical = 10.dp),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
         }
     }
 

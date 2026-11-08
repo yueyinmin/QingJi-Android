@@ -20,8 +20,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,6 +40,8 @@ import androidx.compose.ui.unit.sp
 import com.qingji.app.ui.components.HintBox
 import com.qingji.app.ui.components.PageTopBar
 import com.qingji.app.ui.components.SectionCard
+import com.qingji.app.ui.screen.settings.SwitchRow
+import com.qingji.app.ui.viewmodel.SettingsViewModel
 import com.qingji.app.ui.theme.CardWhite
 import com.qingji.app.ui.theme.Dimens
 import com.qingji.app.ui.theme.MacroCarb
@@ -62,8 +71,11 @@ import com.qingji.app.widget.WeightWidgetReceiver
  * ============================================================
  */
 @Composable
-fun WidgetSettingsScreen(onBack: () -> Unit) {
+fun WidgetSettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = viewModel()) {
     val context = LocalContext.current
+    val settings by vm.settings.collectAsState()
+    // 拖动时只改本地值，松手才写设置并刷新桌面，避免滑杆每动一格就重绘一次小组件
+    var alphaDraft by remember(settings.widgetAlpha) { mutableStateOf(settings.widgetAlpha.toFloat()) }
 
     Column(
         modifier = Modifier
@@ -87,11 +99,65 @@ fun WidgetSettingsScreen(onBack: () -> Unit) {
 
             Spacer(Modifier.height(Dimens.Gap))
 
+            // ---------- v3.4.0 外观自定义 ----------
+            SectionCard {
+                Text(
+                    text = "外观与展示内容",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextPrimary
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "改完会立刻刷新桌面上的小组件；下面的预览也会跟着变。",
+                    fontSize = 11.sp,
+                    color = TextSecondary
+                )
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = "背景不透明度：${settings.widgetAlpha}%",
+                    fontSize = 12.sp,
+                    color = TextPrimary
+                )
+                Slider(
+                    value = alphaDraft,
+                    onValueChange = { alphaDraft = it },
+                    onValueChangeFinished = { vm.setWidgetAlpha(alphaDraft.toInt()) },
+                    valueRange = 30f..100f,
+                    steps = 6,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    text = "数值越小越透，30% 时能看到桌面壁纸。",
+                    fontSize = 10.sp,
+                    color = TextSecondary
+                )
+                Spacer(Modifier.height(8.dp))
+                SwitchRow(
+                    title = "显示饮水进度",
+                    subtitle = "今日概览卡右上角的饮水数字",
+                    checked = settings.widgetShowWater
+                ) { vm.setWidgetShowWater(it) }
+                SwitchRow(
+                    title = "显示营养素进度条",
+                    subtitle = "今日概览卡里的蛋白 / 碳水 / 脂肪三条",
+                    checked = settings.widgetShowMacro
+                ) { vm.setWidgetShowMacro(it) }
+                SwitchRow(
+                    title = "显示体重数字",
+                    subtitle = "体重闪记卡；关掉后桌面上只显示「已隐藏」",
+                    checked = settings.widgetShowWeight
+                ) { vm.setWidgetShowWeight(it) }
+            }
+
+            Spacer(Modifier.height(Dimens.Gap))
+
             // 1. 快捷记录 2×2
             WidgetCard(
                 title = "快捷记录（2×2）",
                 desc = "早餐 / 体重 / 喝水 / 拍照，点一下直达",
-                onAdd = { requestPin(context, QuickRecordWidgetReceiver::class.java) }
+                onAdd = { requestPin(context, QuickRecordWidgetReceiver::class.java) },
+                previewAlpha = settings.widgetAlpha / 100f
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     QuickCell("早餐", QingJiGreenDark)
@@ -110,7 +176,8 @@ fun WidgetSettingsScreen(onBack: () -> Unit) {
             WidgetCard(
                 title = "今日概览（4×2）",
                 desc = "剩余热量 + 三条营养条 + 饮水",
-                onAdd = { requestPin(context, OverviewWidgetReceiver::class.java) }
+                onAdd = { requestPin(context, OverviewWidgetReceiver::class.java) },
+                previewAlpha = settings.widgetAlpha / 100f
             ) {
                 Text(text = "今日剩余", fontSize = 11.sp, color = TextSecondary)
                 Text(
@@ -135,7 +202,8 @@ fun WidgetSettingsScreen(onBack: () -> Unit) {
             WidgetCard(
                 title = "体重闪记（4×1）",
                 desc = "当前体重 + 记录按钮",
-                onAdd = { requestPin(context, WeightWidgetReceiver::class.java) }
+                onAdd = { requestPin(context, WeightWidgetReceiver::class.java) },
+                previewAlpha = settings.widgetAlpha / 100f
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -191,6 +259,7 @@ private fun WidgetCard(
     title: String,
     desc: String,
     onAdd: () -> Unit,
+    previewAlpha: Float = 1f,
     preview: @Composable () -> Unit
 ) {
     SectionCard {
@@ -227,7 +296,9 @@ private fun WidgetCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(14.dp))
-                .background(CardWhite)
+                // 底下一层浅色当「壁纸」，上面盖半透明白卡片，拖动滑杆时能直观看到透明效果
+                .background(QingJiGreenLight.copy(alpha = 0.55f))
+                .background(CardWhite.copy(alpha = previewAlpha.coerceIn(0.3f, 1f)))
                 .padding(12.dp)
         ) {
             Text(
