@@ -61,7 +61,11 @@ class MainActivity : ComponentActivity() {
             ) {
                 QingJiAppRoot(
                     startTarget = pendingTarget,
-                    startTargetRequestId = requestId
+                    startTargetRequestId = requestId,
+                    // v3.2.3：跳完就把目标清掉。以前它一直挂在 Activity 上，
+                    // 只要界面因换主题/转屏重新组合一次，就会被重新消费一遍，
+                    // 表现成「明明点了首页，最后又跑到别的页」。
+                    onTargetConsumed = { pendingTarget = null }
                 )
             }
         }
