@@ -82,6 +82,7 @@ import java.time.LocalDate
  * 4. 点饮水快捷按钮直接加 200 / 300 / 500 ml
  * ============================================================
  */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     onAddRecord: () -> Unit = {},
@@ -105,9 +106,11 @@ fun HomeScreen(
     val settings by remember { SettingsStore.observe(context) }
         .collectAsState(initial = QingJiSettings())
 
+    // 日期下拉面板
+    var showDatePicker by remember { mutableStateOf(false) }
+
     // 点水杯弹出的三级：先选做什么 → 首页设置 / 今日详情
     var showCupMenu by remember { mutableStateOf(false) }
-    var showCupSettings by remember { mutableStateOf(false) }
     var showCupDetail by remember { mutableStateOf(false) }
 
     Box(
@@ -131,21 +134,26 @@ fun HomeScreen(
                 .height(46.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // 标题本身可点，点开日历下拉（可以跨年选）；翻周箭头退役了
             Text(
                 text = "${state.date.monthValue}月${state.date.dayOfMonth}日",
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
-                color = TextPrimary
+                color = TextPrimary,
+                modifier = Modifier.clickable { showDatePicker = true }
             )
-            Spacer(Modifier.size(10.dp))
-            WeekArrow(text = "‹") {
-                val target = state.date.minusWeeks(1)
-                vm.selectDate(target)
-            }
-            WeekArrow(text = "›") {
-                val target = state.date.plusWeeks(1)
-                if (!target.isAfter(today)) vm.selectDate(target)
-            }
+            Spacer(Modifier.size(8.dp))
+            // 下拉指示：一个小胶囊，点它和点标题一样弹出日历
+            Text(
+                text = "📅 ▾",
+                fontSize = 13.sp,
+                color = QingJiGreenDark,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(QingJiGreenLight)
+                    .pressable { showDatePicker = true }
+                    .padding(horizontal = 10.dp, vertical = 5.dp)
+            )
             Spacer(Modifier.weight(1f))
             // 这一颗始终渲染，只切透明度。
             // 之前是 if 判断，出现时会把左边挤动 → 看起来像"跳了一下"。
@@ -260,6 +268,15 @@ fun HomeScreen(
         Spacer(Modifier.height(88.dp))
         }
 
+        // ---------- 实时刷新率徽章（主题与显示里开关，平时关掉） ----------
+        if (settings.showRefreshRate) {
+            com.qingji.app.ui.components.RefreshRateBadge(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 6.dp, end = 16.dp)
+            )
+        }
+
         // ---------- 右侧悬浮快捷按钮（M2 第 4 条，可在设置里关掉） ----------
         if (settings.showQuickButtons) {
             QuickActionColumn(
@@ -273,152 +290,93 @@ fun HomeScreen(
         }
     }
 
+    // ---------- 日期下拉：月历 + 年份切换 ----------
+    if (showDatePicker) {
+        com.qingji.app.ui.components.MonthPickerSheet(
+            selected = state.date,
+            onSelect = { vm.selectDate(it) },
+            onDismiss = { showDatePicker = false }
+        )
+    }
+
     // ---------- 点水杯：先选做什么 ----------
+    // 用底部弹层而不是弹窗：和「+ 记一笔」的记录面板是同一套交互语言
     if (showCupMenu) {
-        AlertDialog(
-            onDismissRequest = { showCupMenu = false },
-            title = { Text("饮水", fontSize = 17.sp) },
-            text = {
-                Column {
-                    CupMenuRow("首页显示设置") {
-                        showCupMenu = false
-                        showCupSettings = true
-                    }
-                    CupMenuRow("查看今日饮水详情") {
-                        showCupMenu = false
-                        showCupDetail = true
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showCupMenu = false }) {
-                    Text("关闭", color = TextSecondary)
+        androidx.compose.material3.ModalBottomSheet(
+            onDismissRequest = { showCupMenu = false }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 28.dp)
+            ) {
+                Text(
+                    text = "饮水",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "已喝 ${state.waterMl} ml / 目标 ${settings.waterGoalMl} ml",
+                    fontSize = 12.sp,
+                    color = TextSecondary
+                )
+                Spacer(Modifier.height(14.dp))
+                CupMenuRow("查看今日饮水详情") {
+                    showCupMenu = false
+                    showCupDetail = true
                 }
             }
-        )
+        }
     }
 
     // ---------- 首页显示设置（气泡量 + 餐次营养比例） ----------
-    if (showCupSettings) {
-        AlertDialog(
-            onDismissRequest = { showCupSettings = false },
-            title = { Text("首页显示设置", fontSize = 17.sp) },
-            text = {
-                Column {
-                    Text(text = "水杯气泡量", fontSize = 13.sp, color = TextSecondary)
-                    Spacer(Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        listOf(0 to "关", 1 to "少", 2 to "标准", 3 to "多").forEach { (level, label) ->
-                            val selected = settings.waterBubbles == level
-                            Text(
-                                text = label,
-                                fontSize = 12.sp,
-                                color = if (selected) Color.White else TextSecondary,
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(if (selected) QingJiGreen else PageBackground)
-                                    .clickable { vm.setWaterBubbles(level) }
-                                    .padding(horizontal = 14.dp, vertical = 7.dp)
-                            )
-                        }
-                    }
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        text = "气泡越少越省电；关掉就只剩水位",
-                        fontSize = 11.sp,
-                        color = TextSecondary
-                    )
-
-                    Spacer(Modifier.height(14.dp))
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { vm.setShowMealMacro(!settings.showMealMacro) }
-                            .padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = if (settings.showMealMacro) "☑" else "☐",
-                            fontSize = 15.sp,
-                            color = QingJiGreen
-                        )
-                        Spacer(Modifier.size(8.dp))
-                        Text(
-                            text = "每餐卡片显示营养素比例",
-                            fontSize = 13.sp,
-                            color = TextPrimary
-                        )
-                    }
-                    Text(
-                        text = "打开后，早/午/晚/加餐卡片底部会多一条蛋白·碳水·脂肪的彩色比例条",
-                        fontSize = 11.sp,
-                        color = TextSecondary
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showCupSettings = false }) {
-                    Text("完成", color = QingJiGreen)
-                }
-            }
-        )
-    }
-
     // ---------- 今日饮水详情 ----------
     if (showCupDetail) {
         val goal = settings.waterGoalMl.coerceAtLeast(1)
         val percent = (state.waterMl * 100 / goal).coerceIn(0, 100)
-        AlertDialog(
-            onDismissRequest = { showCupDetail = false },
-            title = { Text("今日饮水", fontSize = 17.sp) },
-            text = {
-                Column {
-                    Row(verticalAlignment = Alignment.Bottom) {
-                        Text(
-                            text = "${state.waterMl}",
-                            fontSize = 30.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF3FA9C9)
-                        )
-                        Text(
-                            text = " / $goal ml",
-                            fontSize = 13.sp,
-                            color = TextSecondary,
-                            modifier = Modifier.padding(bottom = 5.dp)
-                        )
-                    }
-                    Spacer(Modifier.height(6.dp))
-                    ThinProgressBar(
-                        progress = state.waterMl.toFloat() / goal,
-                        color = Color(0xFF7EC8E3)
-                    )
-                    Spacer(Modifier.height(10.dp))
-                    Text(
-                        text = "完成 $percent%",
-                        fontSize = 12.sp,
-                        color = TextSecondary
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = if (state.waterMl >= goal) {
-                            "今天已经达标，保持就行"
-                        } else {
-                            "还差 ${goal - state.waterMl} ml，大概 ${
-                                ((goal - state.waterMl) / 250.0).let { if (it < 1) 1 else it.toInt() }
-                            } 杯（250ml 一杯）"
-                        },
-                        fontSize = 13.sp,
-                        color = if (state.waterMl >= goal) QingJiGreen else TextPrimary
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showCupDetail = false }) {
-                    Text("知道了", color = QingJiGreen)
-                }
+        com.qingji.app.ui.components.AppBottomSheet(
+            title = "今日饮水",
+            subtitle = "水和饮食一样，记了才有趋势",
+            confirmText = "知道了",
+            onDismiss = { showCupDetail = false }
+        ) {
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(
+                    text = "${state.waterMl}",
+                    fontSize = 30.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF3FA9C9)
+                )
+                Text(
+                    text = " / $goal ml",
+                    fontSize = 13.sp,
+                    color = TextSecondary,
+                    modifier = Modifier.padding(bottom = 5.dp)
+                )
             }
-        )
+            Spacer(Modifier.height(6.dp))
+            ThinProgressBar(
+                progress = state.waterMl.toFloat() / goal,
+                color = Color(0xFF7EC8E3)
+            )
+            Spacer(Modifier.height(10.dp))
+            Text(text = "完成 $percent%", fontSize = 12.sp, color = TextSecondary)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = if (state.waterMl >= goal) {
+                    "今天已经达标，保持就行"
+                } else {
+                    "还差 ${goal - state.waterMl} ml，大概 ${
+                        ((goal - state.waterMl) / 250.0).let { if (it < 1) 1 else it.toInt() }
+                    } 杯（250ml 一杯）"
+                },
+                fontSize = 13.sp,
+                color = if (state.waterMl >= goal) QingJiGreen else TextPrimary
+            )
+        }
     }
 }
 
@@ -770,45 +728,36 @@ private fun TodaySummaryCard(
     }
 
     if (showCustomWater) {
-        AlertDialog(
-            onDismissRequest = { showCustomWater = false },
-            title = { Text("自定义这一杯", fontSize = 17.sp) },
-            text = {
-                Column {
-                    Text(
-                        text = "杯子容量按毫升填，例如 350",
-                        fontSize = 12.sp,
-                        color = TextSecondary
-                    )
-                    Spacer(Modifier.height(10.dp))
-                    androidx.compose.material3.OutlinedTextField(
-                        value = customMl,
-                        onValueChange = { customMl = it },
-                        singleLine = true,
-                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
+        // 输入类弹窗统一走底部弹层：键盘弹出来不挤，主按钮也好按
+        com.qingji.app.ui.components.AppBottomSheet(
+            title = "自定义这一杯",
+            subtitle = "杯子容量按毫升填，例如 350",
+            confirmText = "记下",
+            onConfirm = {
+                val ml = customMl.toIntOrNull()
+                if (ml != null && ml in 1..3000) {
+                    onAddWater(ml)
+                    showCustomWater = false
                 }
             },
-            confirmButton = {
-                TextButton(onClick = {
-                    val ml = customMl.toIntOrNull()
-                    if (ml != null && ml in 1..3000) {
-                        onAddWater(ml)
-                        showCustomWater = false
-                    } else {
-                        customMl = ""
-                    }
-                }) { Text("记下", color = QingJiGreen) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showCustomWater = false }) {
-                    Text("取消", color = TextSecondary)
-                }
-            }
-        )
+            onDismiss = { showCustomWater = false }
+        ) {
+            androidx.compose.material3.OutlinedTextField(
+                value = customMl,
+                onValueChange = { customMl = it },
+                singleLine = true,
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = "范围 1～3000 毫升；填错了点「记下」不会有反应，改一下再点",
+                fontSize = 11.sp,
+                color = TextSecondary
+            )
+        }
     }
 }
 
