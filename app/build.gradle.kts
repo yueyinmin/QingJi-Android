@@ -42,12 +42,15 @@ android {
 
     buildTypes {
         release {
-            // 正式包：混淆先关掉，等真正上架前再打开（打开后要注意 Room 实体不能被混淆）
-            isMinifyEnabled = false
+            // v2.7：打开 R8 优化——这是「不够顺滑」收益最大的一项，
+            // Compose 在 release 下比 debug 快 30~50%。自用包用 debug 签名。
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 
