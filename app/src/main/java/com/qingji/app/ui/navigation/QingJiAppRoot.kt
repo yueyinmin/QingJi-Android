@@ -32,6 +32,8 @@ import com.qingji.app.ui.screen.AiAnalysisScreen
 import com.qingji.app.ui.screen.AiConfigScreen
 import com.qingji.app.ui.screen.DiaryEditScreen
 import com.qingji.app.ui.screen.DiaryScreen
+import com.qingji.app.ui.screen.ExerciseConfirmScreen
+import com.qingji.app.ui.screen.ExercisePickerScreen
 import com.qingji.app.ui.screen.FastingScreen
 import com.qingji.app.ui.screen.FoodLibraryScreen
 import com.qingji.app.ui.screen.WidgetSettingsScreen
@@ -291,6 +293,30 @@ fun QingJiAppRoot(
                         onOpenDiary = { id -> navController.navigate(QingJiRoutes.diaryEdit(id)) }
                     )
                 }
+                // v3.3.0 运动模块：二级选运动 → 三级确认记录
+                composable(QingJiRoutes.ExercisePicker) {
+                    ExercisePickerScreen(
+                        onBack = { navController.popBackStack() },
+                        onPick = { id ->
+                            // 「更换」会 pop 回本页；再选别的运动时把旧的确认页弹掉，
+                            // 避免返回栈里堆一串确认页。
+                            navController.navigate(QingJiRoutes.exerciseConfirm(id)) {
+                                popUpTo(QingJiRoutes.ExercisePicker) { inclusive = false }
+                                launchSingleTop = true
+                            }
+                        }
+                    )
+                }
+                composable(
+                    route = QingJiRoutes.ExerciseConfirm,
+                    arguments = listOf(navArgument("presetId") { type = NavType.LongType })
+                ) { entry ->
+                    ExerciseConfirmScreen(
+                        presetId = entry.arguments?.getLong("presetId") ?: 0L,
+                        onBack = { navController.popBackStack() },
+                        onSaved = { navController.popBackStack(QingJiTab.Home.route, false) }
+                    )
+                }
             }
         }
     }
@@ -306,13 +332,14 @@ fun QingJiAppRoot(
             onImage = { navController.navigate(QingJiRoutes.ImageRecord) },
             onVoice = { navController.navigate(QingJiRoutes.VoiceRecord) },
             onBarcode = { navController.navigate(QingJiRoutes.Barcode) },
-            // 记一杯水（默认 200ml，直接落库）；运动/体型照片都进进展页
+            // 记一杯水（默认 200ml，直接落库）；体型照片进进展页
             onWater = {
                 scope.launch {
                     appRepo.addWater(200, com.qingji.app.domain.AppClock.today())
                 }
             },
-            onExercise = { navController.navigate(QingJiTab.Progress.route) },
+            // v3.3.0：记运动改走独立的「记录运动」二级页，不再只是跳进展页
+            onExercise = { navController.navigate(QingJiRoutes.ExercisePicker) },
             onBodyPhoto = { navController.navigate(QingJiTab.Progress.route) }
         )
     }

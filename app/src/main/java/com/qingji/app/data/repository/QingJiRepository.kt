@@ -128,6 +128,20 @@ class QingJiRepository(private val context: Context) {
     suspend fun setExerciseFavorite(id: Long, favorite: Boolean) =
         db.exercisePresetDao().setFavorite(id, favorite)
 
+    /** v3.3.0：右上角「新建」存一条自定义运动，用 category = 「自定义」做筛选标记。 */
+    suspend fun addCustomExercise(name: String, met: Double): Long =
+        db.exercisePresetDao().insertOne(
+            com.qingji.app.data.local.entity.ExercisePreset(
+                name = name,
+                met = met,
+                category = com.qingji.app.domain.ExerciseCalculator.CUSTOM_CATEGORY
+            )
+        )
+
+    /** v3.3.0：「最近」页签的数据源，界面里再去重、按这个顺序排。 */
+    fun observeRecentExercises(limit: Int = 60) =
+        db.exerciseLogDao().observeRecent(limit)
+
     // ---------- 食物库 ----------
 
     fun observeAllFoods(): Flow<List<Food>> = db.foodDao().observeAll()
