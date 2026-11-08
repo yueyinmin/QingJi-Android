@@ -7,15 +7,18 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.MonitorWeight
+import androidx.compose.material.icons.outlined.PhotoCamera
+import androidx.compose.material.icons.outlined.WaterDrop
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.qingji.app.ui.theme.CardWhite
 import com.qingji.app.ui.theme.QingJiGreen
 import com.qingji.app.ui.theme.QingJiGreenDark
@@ -24,11 +27,9 @@ import com.qingji.app.ui.theme.QingJiGreenDark
  * ============================================================
  * 右侧三个快捷圆按钮：喝水 / 记体重 / 拍照
  * ------------------------------------------------------------
- * 原来只写在首页里，删了首页就没了。抽出来之后
  * 首页、进展、日记三个页面共用同一套，长得一样、行为一样。
- *
- * 用文字（水 / 秤 / 拍）而不是图标：
- * 中文字一眼就懂，也不用为三个小图标再引一套资源。
+ * v3.2.1 起换成矢量图形图标（以前是「水 / 秤 / 拍」三个字），
+ * 三颗颜色统一取主题色的深浅档，切主题时跟着变。
  * ============================================================
  */
 @Composable
@@ -43,15 +44,18 @@ fun QuickActionColumn(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // 三个按钮统一取主题色的三档深浅，不再各自写死蓝/绿色
-        QuickActionButton(text = "水", color = QingJiGreen, onClick = onWater)
-        QuickActionButton(text = "秤", color = QingJiGreenDark, onClick = onWeight)
-        QuickActionButton(text = "拍", color = QingJiGreen.copy(alpha = 0.72f), onClick = onPhoto)
+        QuickActionButton(icon = Icons.Outlined.WaterDrop, color = QingJiGreen, onClick = onWater)
+        QuickActionButton(icon = Icons.Outlined.MonitorWeight, color = QingJiGreenDark, onClick = onWeight)
+        QuickActionButton(
+            icon = Icons.Outlined.PhotoCamera,
+            color = QingJiGreen.copy(alpha = 0.72f),
+            onClick = onPhoto
+        )
     }
 }
 
 @Composable
-private fun QuickActionButton(text: String, color: Color, onClick: () -> Unit) {
+private fun QuickActionButton(icon: ImageVector, color: Color, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .size(44.dp)
@@ -66,11 +70,11 @@ private fun QuickActionButton(text: String, color: Color, onClick: () -> Unit) {
                 .clip(CircleShape)
                 .background(color.copy(alpha = 0.16f))
         )
-        Text(
-            text = text,
-            fontSize = 14.sp,
-            color = color,
-            fontWeight = FontWeight.SemiBold
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = color,
+            modifier = Modifier.size(20.dp)
         )
     }
 }
