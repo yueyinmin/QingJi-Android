@@ -38,6 +38,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -505,6 +509,7 @@ fun SettingsScreen(
             onSetQuickButtons = { vm.setShowQuickButtons(it) },
             onSetProgressAnimation = { vm.setProgressAnimation(it) },
             onSetRefreshRate = { vm.setShowRefreshRate(it) },
+            onSetFont = { vm.setCustomFontPath(it) },
             onBack = { dialog = null }
         )
 
@@ -972,6 +977,7 @@ private fun ThemeSettingsPage(
     onSetQuickButtons: (Boolean) -> Unit,
     onSetProgressAnimation: (Boolean) -> Unit,
     onSetRefreshRate: (Boolean) -> Unit,
+    onSetFont: (String) -> Unit,
     onBack: () -> Unit
 ) {
     SettingsDetailScaffold(title = "主题与显示", onBack = onBack) {
@@ -1094,6 +1100,97 @@ private fun ThemeSettingsPage(
                 subtitle = "首页右上角浮一个小徽章显示实测 FPS，平时关掉",
                 checked = settings.showRefreshRate
             ) { onSetRefreshRate(it) }
+        }
+
+        Spacer(Modifier.height(Dimens.Gap))
+
+        // ---------- 字体 ----------
+        DetailGroupTitle("字体")
+        SectionCard {
+            val fontCtx = androidx.compose.ui.platform.LocalContext.current
+            val fontScope = rememberCoroutineScope()
+            var showFontSheet by remember { mutableStateOf(false) }
+            val fontPicker = androidx.activity.compose.rememberLauncherForActivityResult(
+                androidx.activity.result.contract.ActivityResultContracts.GetContent()
+            ) { uri ->
+                if (uri != null) {
+                    fontScope.launch {
+                        val saved = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            runCatching {
+                                val dir = java.io.File(fontCtx.filesDir, "fonts").apply { mkdirs() }
+                                val dest = java.io.File(dir, "custom_${System.currentTimeMillis()}.ttf")
+                                fontCtx.contentResolver.openInputStream(uri)?.use { input ->
+                                    java.io.FileOutputStream(dest).use { out -> input.copyTo(out) }
+                                }
+                                if (dest.length() > 0) dest.absolutePath else null
+                            }.getOrNull()
+                        }
+                        if (saved != null) onSetFont(saved)
+                        showFontSheet = false
+                    }
+                }
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showFontSheet = true }
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = "自定义字体", fontSize = 15.sp, color = TextPrimary)
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = if (settings.customFontPath.isBlank()) {
+                            "支持导入 ttf / otf 字体文件，整个 App 换字"
+                        } else {
+                            "已启用自定义字体"
+                        },
+                        fontSize = 11.sp,
+                        color = TextSecondary
+                    )
+                }
+                Text(
+                    text = if (settings.customFontPath.isBlank()) "去设置" else "已启用",
+                    fontSize = 13.sp,
+                    color = QingJiGreenDark
+                )
+            }
+
+            if (showFontSheet) {
+                com.qingji.app.ui.components.AppBottomSheet(
+                    title = "自定义字体",
+                    subtitle = "选一个 ttf 或 otf 文件，App 所有文字会换成它",
+                    onDismiss = { showFontSheet = false }
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(Dimens.ItemCorner))
+                            .background(QingJiGreen)
+                            .pressable { fontPicker.launch("font/*") }
+                            .padding(vertical = 13.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(text = "选择字体文件", fontSize = 15.sp, color = Color.White)
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(Dimens.ItemCorner))
+                            .background(PageBackground)
+                            .pressable {
+                                onSetFont("")
+                                showFontSheet = false
+                            }
+                            .padding(vertical = 13.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(text = "恢复系统默认字体", fontSize = 14.sp, color = TextSecondary)
+                    }
+                }
+            }
         }
 
         Spacer(Modifier.height(Dimens.Gap))
