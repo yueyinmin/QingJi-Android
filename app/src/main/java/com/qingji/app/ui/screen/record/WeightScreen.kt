@@ -168,31 +168,23 @@ fun WeightScreen(
 
     // ---------- ±5kg 二次确认 ----------
     if (confirmAsked) {
-        AlertDialog(
-            onDismissRequest = { confirmAsked = false },
-            title = { Text("确认一下体重", fontSize = 17.sp) },
-            text = {
-                Text(
-                    text = "上次是 ${lastWeightKg?.let { WeightUnit.formatWithSymbol(it, unit) }}，" +
-                        "这次填的是 ${weightText} $unitName，相差超过 5 公斤。\n\n" +
-                        "常见原因是把「斤」当成「公斤」，或者手滑多按了一位。确认无误再保存。",
-                    fontSize = 14.sp,
-                    color = TextPrimary
-                )
+        com.qingji.app.ui.components.AppDialog(
+            title = "确认一下体重",
+            confirmText = "确认保存",
+            onConfirm = {
+                confirmAsked = false
+                doSave()
             },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmAsked = false
-                    doSave()
-                }) {
-                    Text("确认保存", color = QingJiGreen)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmAsked = false }) {
-                    Text("再改改", color = TextSecondary)
-                }
-            }
-        )
+            dismissText = "再改改",
+            onDismiss = { confirmAsked = false }
+        ) {
+            Text(
+                text = "上次是 ${lastWeightKg?.let { WeightUnit.formatWithSymbol(it, unit) }}，" +
+                    "这次填的是 ${weightText} $unitName，相差超过 5 公斤。\n\n" +
+                    "常见原因是把「斤」当成「公斤」，或者手滑多按了一位。确认无误再保存。",
+                fontSize = 14.sp,
+                color = TextPrimary
+            )
+        }
     }
 }

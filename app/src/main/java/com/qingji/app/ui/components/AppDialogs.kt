@@ -56,6 +56,8 @@ fun AppBottomSheet(
     confirmText: String? = null,
     onConfirm: (() -> Unit)? = null,
     confirmEnabled: Boolean = true,
+    /** 校验失败不关弹窗的场景传 false（例如填错日期要用户改完再关） */
+    closeOnConfirm: Boolean = true,
     onDismiss: () -> Unit,
     content: @Composable ColumnScope.() -> Unit
 ) {
@@ -87,7 +89,7 @@ fun AppBottomSheet(
                         .background(if (confirmEnabled) QingJiGreen else QingJiGreen.copy(alpha = 0.4f))
                         .pressable(enabled = confirmEnabled) {
                             onConfirm()
-                            onDismiss()
+                            if (closeOnConfirm) onDismiss()
                         }
                         .padding(vertical = 13.dp),
                     contentAlignment = Alignment.Center

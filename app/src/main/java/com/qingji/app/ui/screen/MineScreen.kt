@@ -519,15 +519,21 @@ private fun GoalDialog(
     var mode by remember { mutableStateOf(NutritionCalculator.MODE_LOSE) }
     var error by remember { mutableStateOf("") }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("我的目标", fontSize = 17.sp) },
-        text = {
-            Column(
-                modifier = Modifier
-                    .heightIn(max = 420.dp)
-                    .verticalScroll(rememberScrollState())
-            ) {
+    com.qingji.app.ui.components.AppBottomSheet(
+        title = "我的目标",
+        confirmText = "保存并重算",
+        closeOnConfirm = false,
+        onConfirm = {
+            val kg = WeightUnit.parseToKg(targetText, unit)
+            if (kg == null) {
+                error = "目标体重填得不太对，检查一下数字"
+            } else {
+                onSave(kg, activity, mode)
+            }
+        },
+        onDismiss = onDismiss
+    ) {
+        Column {
                 Text(
                     text = "目标体重（${WeightUnit.symbol(unit)}）",
                     fontSize = 12.sp,
@@ -591,22 +597,8 @@ private fun GoalDialog(
                     fontSize = 11.sp,
                     color = TextSecondary
                 )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = {
-                val kg = WeightUnit.parseToKg(targetText, unit)
-                if (kg == null) {
-                    error = "目标体重填得不太对，检查一下数字"
-                } else {
-                    onSave(kg, activity, mode)
-                }
-            }) { Text("保存并重算", color = QingJiGreen) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消", color = TextSecondary) }
         }
-    )
+    }
 }
 
 @Composable
@@ -650,15 +642,11 @@ private fun AchievementDialog(
 ) {
     val unlocked = achievements.count { it.unlocked }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("我的成就（$unlocked/${achievements.size}）", fontSize = 17.sp) },
-        text = {
-            Column(
-                modifier = Modifier
-                    .heightIn(max = 420.dp)
-                    .verticalScroll(rememberScrollState())
-            ) {
+    com.qingji.app.ui.components.AppBottomSheet(
+        title = "我的成就（$unlocked/${achievements.size}）",
+        onDismiss = onDismiss
+    ) {
+        Column {
                 if (achievements.isEmpty()) {
                     Text("还在算…记一笔就会有了", fontSize = 13.sp, color = TextSecondary)
                 }
@@ -706,12 +694,8 @@ private fun AchievementDialog(
                         )
                     }
                 }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text("关闭", color = QingJiGreen) }
         }
-    )
+    }
 }
 
 /** 把用户选的头像拷进 App 私有目录，返回文件路径。 */
