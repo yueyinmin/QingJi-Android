@@ -130,6 +130,12 @@ class QingJiRepository(private val context: Context) {
 
     fun observeUserFoods(): Flow<List<Food>> = db.foodDao().observeUserFoods()
 
+    /** 删除自定义食物（预置库不允许删） */
+    suspend fun deleteFood(id: Long) {
+        val food = db.foodDao().findAll().firstOrNull { it.id == id } ?: return
+        if (food.source == "user") db.foodDao().deleteFood(id)
+    }
+
     suspend fun setFoodFavorite(id: Long, favorite: Boolean) =
         db.foodDao().setFavorite(id, favorite)
 

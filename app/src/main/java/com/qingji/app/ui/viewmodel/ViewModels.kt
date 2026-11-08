@@ -689,6 +689,11 @@ class FoodLibraryViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { repo.setFoodFavorite(food.id, !food.favorite) }
     }
 
+    /** 删除自定义食物（预置库不允许删） */
+    fun deleteCustomFood(food: com.qingji.app.data.local.entity.Food) {
+        viewModelScope.launch { repo.deleteFood(food.id) }
+    }
+
     /** 把食物加到今天某一餐。 */
     fun addToMeal(foodName: String, per100gKcal: Double, grams: Double, mealType: String) {
         viewModelScope.launch {

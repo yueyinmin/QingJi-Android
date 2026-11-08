@@ -219,17 +219,21 @@ fun FoodLibraryScreen(
                 HintBox(text = "这里是你自己加的食物。AI 识别出的食物可以在「用餐详情 → 更多」里存进这里。")
                 Spacer(Modifier.height(8.dp))
                 if (userFoods.isEmpty()) {
-                    Text(text = "还没有自定义食物", fontSize = 13.sp, color = TextSecondary)
+                    Text(text = "还没有自定义食物，左滑可以删除", fontSize = 13.sp, color = TextSecondary)
                 } else {
                     userFoods.forEach { food ->
-                        FoodRow(
-                            name = food.name,
-                            kcalPer100g = food.kcalPer100g,
-                            favorite = food.favorite,
-                            risky = AllergenRules.isRisky(food.name, allergens),
-                            onFavorite = { vm.toggleFavorite(food) },
-                            onClick = { pick = food }
-                        )
+                        com.qingji.app.ui.components.SwipeToRevealDelete(
+                            onDelete = { vm.deleteCustomFood(food) }
+                        ) {
+                            FoodRow(
+                                name = food.name,
+                                kcalPer100g = food.kcalPer100g,
+                                favorite = food.favorite,
+                                risky = AllergenRules.isRisky(food.name, allergens),
+                                onFavorite = { vm.toggleFavorite(food) },
+                                onClick = { pick = food }
+                            )
+                        }
                     }
                 }
                 Spacer(Modifier.height(80.dp))
