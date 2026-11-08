@@ -10,6 +10,7 @@ import com.qingji.app.data.local.entity.BodyMeasure
 import com.qingji.app.data.local.entity.ExerciseLog
 import com.qingji.app.data.local.entity.ProgressPhoto
 import com.qingji.app.data.local.entity.Diary
+import com.qingji.app.data.local.entity.ExercisePreset
 import com.qingji.app.data.local.entity.FastingLog
 import com.qingji.app.data.local.entity.Food
 import com.qingji.app.data.local.entity.FoodLog
@@ -406,4 +407,20 @@ interface FastingLogDao {
 
     @Query("SELECT * FROM fasting_log ORDER BY date DESC")
     suspend fun findAll(): List<FastingLog>
+}
+
+/** 运动库 DAO。 */
+@Dao
+interface ExercisePresetDao {
+    @Query("SELECT * FROM exercise_preset ORDER BY favorite DESC, name")
+    fun observeAll(): Flow<List<ExercisePreset>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(list: List<ExercisePreset>)
+
+    @Query("UPDATE exercise_preset SET favorite = :favorite WHERE id = :id")
+    suspend fun setFavorite(id: Long, favorite: Boolean)
+
+    @Query("SELECT COUNT(*) FROM exercise_preset")
+    suspend fun count(): Int
 }

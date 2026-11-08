@@ -14,6 +14,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavType
@@ -34,6 +36,7 @@ import com.qingji.app.ui.screen.FastingScreen
 import com.qingji.app.ui.screen.FoodLibraryScreen
 import com.qingji.app.ui.screen.WidgetSettingsScreen
 import com.qingji.app.ui.screen.FoodPreferenceScreen
+import com.qingji.app.ui.screen.OnboardingScreen
 import com.qingji.app.ui.screen.HomeScreen
 import com.qingji.app.ui.screen.MealDetailScreen
 import com.qingji.app.ui.screen.MineScreen
@@ -87,6 +90,29 @@ fun QingJiAppRoot(
     val context = LocalContext.current
     val settings by remember { SettingsStore.observe(context) }
         .collectAsState(initial = QingJiSettings())
+    val scope = rememberCoroutineScope()
+    val appRepo = remember { com.qingji.app.data.repository.QingJiRepository(context) }
+
+    // ============================================================
+    // 首次启动引导（v2.8）：默认档案已清除，第一次打开必须先填自己的数据
+    // ============================================================
+    if (!settings.onboardingDone) {
+        OnboardingScreen(
+            onSave = { profile ->
+                scope.launch { appRepo.saveProfile(profile) }
+            },
+            onDone = {
+                scope.launch {
+                    com.qingji.app.data.prefs.SettingsStore.set(
+                        context,
+                        com.qingji.app.data.prefs.SettingsKeys.ONBOARDING_DONE,
+                        true
+                    )
+                }
+            }
+        )
+        return
+    }
 
     Scaffold(
         containerColor = PageBackground,

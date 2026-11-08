@@ -25,6 +25,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.AlertDialog
@@ -294,11 +295,14 @@ fun ProgressScreen(
 
     if (showExercise) {
         ExerciseDialog(
+            presets = vm.exercisePresets.collectAsState().value,
+            weightKg = profile?.startWeight ?: 70.0,
             onDismiss = { showExercise = false },
             onConfirm = {
                 showExercise = false
                 vm.addExercise(it)
-            }
+            },
+            onToggleFavorite = { id, fav -> vm.toggleExerciseFavorite(id, fav) }
         )
     }
 }
@@ -1301,69 +1305,109 @@ private fun MeasureField(label: String, value: String, onChange: (String) -> Uni
 /** 运动录入弹窗。消耗可以自动按类型估，也能手改。 */
 @Composable
 private fun ExerciseDialog(
+    presets: List<com.qingji.app.data.local.entity.ExercisePreset>,
+    weightKg: Double,
     onDismiss: () -> Unit,
-    onConfirm: (com.qingji.app.data.local.entity.ExerciseLog) -> Unit
+    onConfirm: (com.qingji.app.data.local.entity.ExerciseLog) -> Unit,
+    onToggleFavorite: (Long, Boolean) -> Unit
 ) {
-    val types = listOf("走路", "跑步", "骑行", "力量", "游泳", "其他")
-    var type by remember { mutableStateOf(types.first()) }
+    var keyword by remember { mutableStateOf("") }
+    var tab by remember { mutableStateOf(0) }   // 0 常用（按MET降序）/ 1 收藏 / 2 全部
+    var picked by remember { mutableStateOf<com.qingji.app.data.local.entity.ExercisePreset?>(null) }
     var minutes by remember { mutableStateOf("30") }
-    var kcal by remember { mutableStateOf("") }
+
+    // 选中运动后进入「填时长」视图
+    if (picked != null) {
+        val item = picked!!
+        val met = item.met
+        val min = minutes.toIntOrNull()?.coerceIn(1, 600) ?: 30
+        val kcal = met * weightKg * (min / 60.0)
+        com.qingji.app.ui.components.AppBottomSheet(
+            title = item.name,
+            subtitle = "MET ${item.met} · 消耗按 MET × 体重 × 时长 自动估算",
+            confirmText = "记 ${min} 分钟（${kcal.toInt()} 千卡）",
+            onConfirm = {
+                onConfirm(
+                    com.qingji.app.data.local.entity.ExerciseLog(
+                        date = AppClock.today(),
+                        type = item.name,
+                        minutes = min,
+                        kcal = kcal
+                    )
+                )
+            },
+            onDismiss = { picked = null }
+        ) {
+            com.qingji.app.ui.components.LabeledTextField(
+                label = "运动时长（分钟）",
+                value = minutes,
+                onValueChange = { minutes = it },
+                hint = "30",
+                numberOnly = true
+            )
+        }
+        return
+    }
 
     com.qingji.app.ui.components.AppBottomSheet(
-        title = "记一次运动",
-        confirmText = "保存",
-        onConfirm = {
-            val min = minutes.toIntOrNull()?.coerceIn(1, 600) ?: 30
-            val burn = kcal.toDoubleOrNull()?.coerceIn(0.0, 5000.0) ?: (min * 6.0)
-            onConfirm(
-                com.qingji.app.data.local.entity.ExerciseLog(
-                    date = AppClock.today(),
-                    type = type,
-                    minutes = min,
-                    kcal = burn
-                )
-            )
-        },
+        title = "选择运动",
+        subtitle = "消耗会按 MET × 你的体重 × 时长 自动算好",
         onDismiss = onDismiss
     ) {
-        Column {
-            Text(text = "运动类型", fontSize = 13.sp, color = TextSecondary)
-                Spacer(Modifier.height(6.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    types.chunked(3).forEach { row ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            row.forEach { item ->
-                                val selected = item == type
-                                Text(
-                                    text = item,
-                                    fontSize = 12.sp,
-                                    color = if (selected) Color.White else TextSecondary,
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(Dimens.TinyCorner))
-                                        .background(if (selected) QingJiGreen else PageBackground)
-                                        .clickable { type = item }
-                                        .padding(horizontal = 12.dp, vertical = 7.dp)
-                                )
-                            }
+        OutlinedTextField(
+            value = keyword,
+            onValueChange = { keyword = it },
+            singleLine = true,
+            placeholder = { Text("搜索运动", fontSize = 13.sp, color = TextSecondary) },
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(Modifier.height(12.dp))
+        val filtered = presets.filter { item ->
+            val matchTab = when (tab) {
+                1 -> item.favorite
+                else -> true
+            }
+            matchTab && (keyword.isBlank() || item.name.contains(keyword.trim()))
+        }
+        Column(
+            modifier = Modifier
+                .height(360.dp)
+                .verticalScroll(rememberScrollState())
+        ) {
+            if (filtered.isEmpty()) {
+                Text(text = "没有匹配的运动", fontSize = 13.sp, color = TextSecondary)
+            } else {
+                filtered.forEach { item ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(Dimens.TinyCorner))
+                            .clickable { picked = item }
+                            .padding(vertical = 8.dp, horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(text = "🏃", fontSize = 17.sp)
+                        Spacer(Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(text = item.name, fontSize = 14.sp, color = TextPrimary)
+                            Text(
+                                text = "${item.category} · MET ${item.met}",
+                                fontSize = 11.sp,
+                                color = TextSecondary
+                            )
                         }
+                        Text(
+                            text = if (item.favorite) "♥" else "♡",
+                            fontSize = 16.sp,
+                            color = if (item.favorite) Color(0xFFE0567A) else TextSecondary,
+                            modifier = Modifier.clickable {
+                                onToggleFavorite(item.id, !item.favorite)
+                            }
+                        )
                     }
+                    Spacer(Modifier.height(4.dp))
                 }
-                Spacer(Modifier.height(12.dp))
-                LabeledTextField(
-                    label = "时长（分钟）",
-                    value = minutes,
-                    onValueChange = { minutes = it },
-                    hint = "30",
-                    numberOnly = true
-                )
-                Spacer(Modifier.height(10.dp))
-                LabeledTextField(
-                    label = "消耗（千卡，留空自动估）",
-                    value = kcal,
-                    onValueChange = { kcal = it },
-                    hint = "留空按 6 千卡/分钟估",
-                    decimalOnly = true
-                )
+            }
         }
     }
 }

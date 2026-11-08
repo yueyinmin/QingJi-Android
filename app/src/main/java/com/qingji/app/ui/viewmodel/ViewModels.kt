@@ -307,6 +307,15 @@ class ProgressViewModel(app: Application) : AndroidViewModel(app) {
 
     private val repo = QingJiRepository(app)
 
+    /** 运动库（预置 + 收藏置顶） */
+    val exercisePresets: StateFlow<List<com.qingji.app.data.local.entity.ExercisePreset>> =
+        repo.observeExercisePresets()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    fun toggleExerciseFavorite(id: Long, favorite: Boolean) {
+        viewModelScope.launch { repo.setExerciseFavorite(id, favorite) }
+    }
+
     private val _rangeDays = MutableStateFlow<Int?>(30)
     val rangeDays: StateFlow<Int?> = _rangeDays.asStateFlow()
 
@@ -558,6 +567,11 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setSort(mode: DiaryRules.SortMode) {
         _sortMode.value = mode
+    }
+
+    /** 清空全部日记 */
+    fun clearAllDiaries() {
+        viewModelScope.launch { repo.clearAllDiaries() }
     }
 
     suspend fun delete(id: Long) = repo.deleteDiary(id)

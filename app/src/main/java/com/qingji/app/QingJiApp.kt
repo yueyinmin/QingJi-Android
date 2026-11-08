@@ -32,12 +32,9 @@ class QingJiApp : Application() {
                 // 全新安装 → 全量灌入；老用户升级 → 只补「这次新加的食物」
                 // 按名字去重，绝不覆盖用户自己录过的食物，也不会插出重复项。
                 QingJiRepository(this@QingJiApp).ensurePresetFoods()
+                QingJiRepository(this@QingJiApp).ensurePresetExercises()
 
-                // 个人档案还没有 → 灌一条默认档案（数字和 M0 界面假数据对齐）
-                val db = database
-                if (db.userProfileDao().get() == null) {
-                    db.userProfileDao().save(SeedData.defaultProfile)
-                }
+                // v2.8：默认档案不再灌入——首次启动走引导页让用户填自己的数据。
             } catch (e: Exception) {
                 // 以前这里是裸协程，一旦写库失败（磁盘满、数据库损坏）异常没人接，
                 // 会直接抛到主线程把 App 干掉，表现就是「一打开就闪退」。
