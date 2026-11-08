@@ -423,10 +423,12 @@ private fun FastingSettingsDialog(
     var startMinute by remember { mutableStateOf(current.fastingEatStartMinute) }
     var endMinute by remember { mutableStateOf(current.fastingEatEndMinute) }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("轻断食设置", fontSize = 17.sp) },
-        text = {
+    com.qingji.app.ui.components.AppBottomSheet(
+        title = "轻断食设置",
+        confirmText = "保存",
+        onConfirm = { onSave(enabled, planHours, startMinute, endMinute) },
+        onDismiss = onDismiss
+    ) {
             Column(
                 modifier = Modifier
                     .height(420.dp)
@@ -510,16 +512,7 @@ private fun FastingSettingsDialog(
                     color = TextSecondary
                 )
             }
-        },
-        confirmButton = {
-            TextButton(onClick = { onSave(enabled, planHours, startMinute, endMinute) }) {
-                Text("保存", color = QingJiGreen)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消", color = TextSecondary) }
-        }
-    )
+    }
 }
 
 @Composable

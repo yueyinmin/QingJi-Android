@@ -302,11 +302,12 @@ fun MealDetailScreen(
 
     // ---------- 更多菜单 ----------
     if (showMenu) {
-        AlertDialog(
-            onDismissRequest = { showMenu = false },
-            title = { Text("更多操作", fontSize = 17.sp) },
-            text = {
-                Column {
+        com.qingji.app.ui.components.AppDialog(
+            title = "更多操作",
+            dismissText = "",
+            onDismiss = { showMenu = false }
+        ) {
+            Column {
                     MenuRow("改餐次和日期") { showMenu = false; showMove = true }
                     MenuRow("写日记") {
                         showMenu = false
@@ -329,11 +330,7 @@ fun MealDetailScreen(
                         }
                     }
                 }
-            },
-            confirmButton = {
-                TextButton(onClick = { showMenu = false }) { Text("关闭", color = TextSecondary) }
             }
-        )
     }
 
     // ---------- 改餐次 / 改日期 ----------
@@ -538,11 +535,21 @@ private fun MoveMealDialog(
     var dateText by remember { mutableStateOf(currentDate.toString()) }
     var error by remember { mutableStateOf("") }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("改餐次和日期", fontSize = 17.sp) },
-        text = {
-            Column {
+    com.qingji.app.ui.components.AppBottomSheet(
+        title = "改餐次和日期",
+        confirmText = "确定",
+        closeOnConfirm = false,
+        onConfirm = {
+            val d = runCatching { LocalDate.parse(dateText.trim()) }.getOrNull()
+            if (d == null) {
+                error = "日期格式不对，要写成 2026-11-08 这样"
+            } else {
+                onConfirm(d, meal)
+            }
+        },
+        onDismiss = onDismiss
+    ) {
+        Column {
                 Text(text = "记到哪一餐", fontSize = 13.sp, color = TextSecondary)
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -587,21 +594,7 @@ private fun MoveMealDialog(
                     HintBox(text = error, isError = true)
                 }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = {
-                val d = runCatching { LocalDate.parse(dateText.trim()) }.getOrNull()
-                if (d == null) {
-                    error = "日期格式不对，要写成 2026-11-08 这样"
-                } else {
-                    onConfirm(d, meal)
-                }
-            }) { Text("确定", color = QingJiGreen) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消", color = TextSecondary) }
         }
-    )
 }
 
 /** 重新识别：写说明 + 选口味做法。 */
@@ -619,15 +612,26 @@ private fun RefineDialog(
     var sauce by remember { mutableStateOf(false) }
     var raw by remember { mutableStateOf(false) }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("重新识别这一餐", fontSize = 17.sp) },
-        text = {
-            Column(
-                modifier = Modifier
-                    .heightIn(max = 420.dp)
-                    .verticalScroll(rememberScrollState())
-            ) {
+    com.qingji.app.ui.components.AppBottomSheet(
+        title = "重新识别这一餐",
+        confirmText = "开始识别",
+        onConfirm = {
+            onConfirm(
+                text,
+                com.qingji.app.domain.RefineOptions(
+                    note = text,
+                    sugar = sugar,
+                    oil = oil,
+                    salt = salt,
+                    cooking = cooking,
+                    sauce = sauce,
+                    raw = raw
+                )
+            )
+        },
+        onDismiss = onDismiss
+    ) {
+        Column {
                 LabeledTextField(
                     label = "补充说明（可以不写）",
                     value = text,
@@ -691,27 +695,7 @@ private fun RefineDialog(
                     Text(text = "食物是生的（凉拌/刺身/沙拉）", fontSize = 13.sp, color = TextPrimary)
                 }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = {
-                onConfirm(
-                    text,
-                    RefineOptions(
-                        note = text,
-                        sugar = sugar,
-                        oil = oil,
-                        salt = salt,
-                        cooking = cooking,
-                        sauce = sauce,
-                        raw = raw
-                    )
-                )
-            }) { Text("开始识别", color = QingJiGreen) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消", color = TextSecondary) }
         }
-    )
 }
 
 /** 一组单选项。 */

@@ -52,12 +52,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.qingji.app.BuildConfig
 import com.qingji.app.data.backup.BackupManager
 import com.qingji.app.data.prefs.QingJiSettings
-import com.qingji.app.ui.screen.settings.ConfirmDialog
 import com.qingji.app.ui.screen.settings.GroupTitle
-import com.qingji.app.ui.screen.settings.InfoDialog
-import com.qingji.app.ui.screen.settings.MacroRatioDialog
-import com.qingji.app.ui.screen.settings.NumberInputDialog
-import com.qingji.app.ui.screen.settings.OptionPickerDialog
 import com.qingji.app.ui.screen.settings.RowDivider
 import com.qingji.app.ui.screen.settings.SettingValueRow
 import com.qingji.app.ui.screen.settings.SettingsCard
@@ -73,7 +68,6 @@ import com.qingji.app.ui.screen.settings.InfoDetailPage
 import com.qingji.app.ui.screen.settings.DetailValueRow
 import com.qingji.app.ui.screen.settings.DetailGroupTitle
 import com.qingji.app.ui.screen.settings.DangerActionButton
-import com.qingji.app.ui.screen.settings.TextInputDialog
 import com.qingji.app.ui.screen.settings.hourOptions
 import com.qingji.app.ui.screen.settings.weekdayOptions
 import com.qingji.app.ui.theme.Dimens
@@ -598,296 +592,7 @@ fun SettingsScreen(
 // 几个组合弹窗
 // ============================================================
 
-/** 星期 + 小时一起选（称重提醒用）。 */
-@Composable
-private fun WeekdayAndHourDialog(
-    weekday: Int,
-    hour: Int,
-    onConfirm: (Int, Int) -> Unit,
-    onDismiss: () -> Unit
-) {
-    var selectedWeekday by remember { mutableStateOf(weekday) }
-    var selectedHour by remember { mutableStateOf(hour) }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("称重时间", fontSize = 17.sp) },
-        text = {
-            Column {
-                Text("星期几", fontSize = 12.sp, color = TextSecondary)
-                Spacer(Modifier.height(6.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    weekdayOptions().forEach { (value, label) ->
-                        val v = value.toInt()
-                        val selected = v == selectedWeekday
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(if (selected) QingJiGreen else PageBackground)
-                                .clickable { selectedWeekday = v }
-                                .padding(vertical = 8.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = label.removePrefix("周"),
-                                fontSize = 13.sp,
-                                color = if (selected) Color.White else TextSecondary
-                            )
-                        }
-                    }
-                }
-                Spacer(Modifier.height(14.dp))
-                Text("几点", fontSize = 12.sp, color = TextSecondary)
-                Spacer(Modifier.height(6.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    listOf(7, 8, 9, 12, 18, 20, 21).forEach { h ->
-                        val selected = h == selectedHour
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(if (selected) QingJiGreen else PageBackground)
-                                .clickable { selectedHour = h }
-                                .padding(vertical = 8.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "$h",
-                                fontSize = 13.sp,
-                                color = if (selected) Color.White else TextSecondary
-                            )
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { onConfirm(selectedWeekday, selectedHour) }) {
-                Text("保存", color = QingJiGreen)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消", color = TextSecondary) }
-        }
-    )
-}
-
-/** 底部导航显隐。首页不给关（关了没地方去）。 */
-@Composable
-private fun BottomTabsDialog(
-    settings: QingJiSettings,
-    onChange: (String, Boolean) -> Unit,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("底部导航", fontSize = 17.sp) },
-        text = {
-            Column {
-                Text(
-                    "关掉不常用的 Tab，底部只留你天天用的。首页固定保留。",
-                    fontSize = 12.sp,
-                    color = TextSecondary
-                )
-                Spacer(Modifier.height(8.dp))
-                SwitchRow(
-                    title = "进展",
-                    subtitle = "体重曲线与 BMI 仪表盘",
-                    checked = settings.showProgressTab
-                ) { onChange("progress", it) }
-                RowDivider()
-                SwitchRow(
-                    title = "日记",
-                    subtitle = "打卡格子与玻璃罐",
-                    checked = settings.showDiaryTab
-                ) { onChange("diary", it) }
-                RowDivider()
-                SwitchRow(
-                    title = "我的",
-                    subtitle = "统计、成就与设置入口",
-                    checked = settings.showMineTab
-                ) { onChange("mine", it) }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text("完成", color = QingJiGreen) }
-        }
-    )
-}
-
-/** 首页显示设置。 */
-@Composable
-private fun HomeDisplayDialog(
-    settings: QingJiSettings,
-    onAiAnalysis: (Boolean) -> Unit,
-    onWaterCard: (Boolean) -> Unit,
-    onBubbles: (Int) -> Unit,
-    onMealMacro: (Boolean) -> Unit,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("首页显示设置", fontSize = 17.sp) },
-        text = {
-            Column {
-                SwitchRow(
-                    title = "AI 分析按钮",
-                    subtitle = "不配 AI 的话可以关掉，省得点了报错",
-                    checked = settings.showAiAnalysis
-                ) { onAiAnalysis(it) }
-                RowDivider()
-                SwitchRow(
-                    title = "饮水卡",
-                    subtitle = "不记录喝水的可以关掉",
-                    checked = settings.showWaterCard
-                ) { onWaterCard(it) }
-                RowDivider()
-                Text(
-                    text = "水杯气泡量",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = TextPrimary,
-                    modifier = Modifier.padding(top = 10.dp)
-                )
-                Spacer(Modifier.height(6.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf(0 to "关", 1 to "少", 2 to "标准", 3 to "多").forEach { (level, label) ->
-                        val selected = settings.waterBubbles == level
-                        Text(
-                            text = label,
-                            fontSize = 12.sp,
-                            color = if (selected) Color.White else TextSecondary,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(if (selected) QingJiGreen else PageBackground)
-                                .clickable { onBubbles(level) }
-                                .padding(horizontal = 12.dp, vertical = 6.dp)
-                        )
-                    }
-                }
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = "气泡越少越省电，关掉只剩水位",
-                    fontSize = 11.sp,
-                    color = TextSecondary
-                )
-                RowDivider()
-                SwitchRow(
-                    title = "每餐营养素比例",
-                    subtitle = "早/午/晚/加餐卡片底部显示蛋白·碳水·脂肪比例条",
-                    checked = settings.showMealMacro
-                ) { onMealMacro(it) }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text("完成", color = QingJiGreen) }
-        }
-    )
-}
-
-/** 隐私与安全：说明 + 清数据（两级确认）。 */
-@Composable
-private fun PrivacyDialog(onClearData: () -> Unit, onDismiss: () -> Unit) {
-    var confirmStep by remember { mutableStateOf(false) }
-
-    if (confirmStep) {
-        ConfirmDialog(
-            title = "确定清空全部记录？",
-            body = "会删掉：所有饮食记录、体重记录、饮水、日记、使用统计和个人档案。\n" +
-                "不会删：设置项、API Key、食物库里你自己加的食物。\n\n" +
-                "这个操作不可撤销，删了就找不回来。建议先去「数据备份与导出」导一份 JSON。",
-            confirmText = "确认清空",
-            onConfirm = {
-                onClearData()
-                confirmStep = false
-            },
-            onDismiss = { confirmStep = false }
-        )
-    } else {
-        InfoDialog(
-            title = "隐私与安全",
-            body = "轻记没有账号、没有服务器、没有任何埋点统计：\n" +
-                "· 所有记录只存本机数据库（Room），卸载 App 就一起没了；\n" +
-                "· API Key 用系统 Keystore 加密存，不进数据库、不进备份、不进日志；\n" +
-                "· 照片存在 App 私有目录，其它 App 读不到；\n" +
-                "· 只有你点「识别」时才联网，请求直接发给你填的服务商。\n\n" +
-                "需要彻底清空时点下面的按钮，会有二次确认。",
-            onDismiss = onDismiss,
-            actionText = "清空本地记录",
-            onAction = { confirmStep = true }
-        )
-    }
-}
-
-/** 小组件引导：三个组件各一个「添加」按钮。 */
-@Composable
-private fun WidgetDialog(context: Context, onDismiss: () -> Unit) {
-    val items = listOf(
-        Triple("快捷记录（2×2）", "早餐 / 体重 / 喝水 / 拍照，点一下直达", QuickRecordWidgetReceiver::class.java),
-        Triple("今日概览（4×2）", "剩余热量 + 三条营养条 + 饮水", OverviewWidgetReceiver::class.java),
-        Triple("体重闪记（4×1）", "当前体重 + 记录按钮", WeightWidgetReceiver::class.java)
-    )
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("桌面小组件", fontSize = 17.sp) },
-        text = {
-            Column {
-                Text(
-                    text = "点「添加」会弹系统的固定请求（安卓 8 以上支持）。" +
-                        "没反应的话，长按桌面空白处 → 小组件 → 找到「轻记」。",
-                    fontSize = 12.sp,
-                    color = TextSecondary
-                )
-                Spacer(Modifier.height(12.dp))
-                items.forEach { (title, desc, receiver) ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(PageBackground)
-                            .padding(horizontal = 10.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(title, fontSize = 14.sp, color = TextPrimary)
-                            Text(desc, fontSize = 11.sp, color = TextSecondary)
-                        }
-                        Text(
-                            text = "添加",
-                            fontSize = 13.sp,
-                            color = QingJiGreen,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFFE8F5EF))
-                                .clickable { requestPinWidget(context, receiver) }
-                                .padding(horizontal = 12.dp, vertical = 6.dp)
-                        )
-                    }
-                    Spacer(Modifier.height(8.dp))
-                }
-                Text(
-                    text = "小提示：小米 / 华为 / OPPO 请在系统设置里给轻记「允许自启动 + 允许后台运行」，" +
-                        "否则小组件可能会停止刷新。",
-                    fontSize = 11.sp,
-                    color = Color(0xFFF5A623)
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text("关闭", color = QingJiGreen) }
-        }
-    )
-}
-
-/** 请求把小组件固定到桌面（系统会弹确认框）。 */
 private fun requestPinWidget(context: Context, receiver: Class<*>) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
         Toast.makeText(context, "系统版本太低，请长按桌面手动添加", Toast.LENGTH_SHORT).show()
@@ -947,77 +652,6 @@ private fun visibleTabsLabel(settings: QingJiSettings): String {
 }
 
 
-/** 主题色选择：五个色块，点一下全 App 立刻变。 */
-@Composable
-private fun ThemeColorDialog(
-    current: String,
-    onPick: (String) -> Unit,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("主题色", fontSize = 17.sp) },
-        text = {
-            Column {
-                Text(
-                    text = "换一个主色，按钮、进度条、三大营养素的配色都会跟着变",
-                    fontSize = 12.sp,
-                    color = TextSecondary
-                )
-                Spacer(Modifier.height(14.dp))
-                com.qingji.app.ui.theme.AccentThemes.ALL.chunked(3).forEach { row ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        row.forEach { spec ->
-                            val selected = spec.key == current
-                            Column(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .clickable { onPick(spec.key) }
-                                    .padding(vertical = 10.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(38.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(spec.lightMain)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    if (selected) {
-                                        Text(text = "✓", fontSize = 18.sp, color = Color.White)
-                                    }
-                                }
-                                Spacer(Modifier.height(6.dp))
-                                Text(
-                                    text = spec.label,
-                                    fontSize = 12.sp,
-                                    color = if (selected) Color(spec.lightMain) else TextSecondary,
-                                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
-                                )
-                            }
-                        }
-                        repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
-                    }
-                    Spacer(Modifier.height(6.dp))
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text("关闭", color = QingJiGreen) }
-        }
-    )
-}
-
-// ============================================================
-// 下面几个是「内容比较特殊、不能套通用壳子」的二级页面。
-// 风格和上面通用页一致：顶栏返回 + 卡片 + 底部主按钮。
-// ============================================================
-
-/** 营养素分配：三项百分比，加起来要到 100。 */
 @Composable
 private fun MacroRatioPage(
     proteinInit: Int,
@@ -1250,17 +884,24 @@ private fun PrivacyPage(
     }
 
     if (confirmStep) {
-        ConfirmDialog(
+        com.qingji.app.ui.components.AppDialog(
             title = "确定清空全部记录？",
-            body = "这个操作不可撤销，删了就找不回来。建议先去「数据备份与导出」导一份 JSON。",
             confirmText = "确认清空",
+            danger = true,
             onConfirm = {
                 confirmStep = false
                 onClearData()
                 onBack()
             },
+            dismissText = "取消",
             onDismiss = { confirmStep = false }
-        )
+        ) {
+            Text(
+                text = "这个操作不可撤销，删了就找不回来。建议先去「数据备份与导出」导一份 JSON。",
+                fontSize = 14.sp,
+                color = TextPrimary
+            )
+        }
     }
 }
 
