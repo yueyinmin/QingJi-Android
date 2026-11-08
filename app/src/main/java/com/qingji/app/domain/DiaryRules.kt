@@ -26,7 +26,7 @@ object DiaryRules {
 
     /**
      * 近 30 天的日期列表，从「29 天前」到「今天」，升序。
-     * 界面按 6 列 × 5 行铺，顺序和这里一致。
+     * v3.2.4：界面按真实日历 7 列（周一开头）铺，前面补空格对齐星期，顺序和这里一致。
      */
     fun cells(today: LocalDate, days: Int = 30): List<LocalDate> {
         val safeDays = days.coerceIn(1, 366)

@@ -181,14 +181,17 @@ fun QingJiAppRoot(
                 composable(QingJiTab.Progress.route) {
                     ProgressScreen(
                         onOpenWeight = { navController.navigate(QingJiRoutes.Weight) },
-                        onOpenImage = { navController.navigate(QingJiRoutes.ImageRecord) }
+                        onOpenImage = { navController.navigate(QingJiRoutes.ImageRecord) },
+                        // v3.2.4：悬浮栏第二颗换成食物库，这里接上跳转
+                        onOpenFoodLibrary = { navController.navigate(QingJiRoutes.FoodLibrary) }
                     )
                 }
                 composable(QingJiTab.Diary.route) {
                     DiaryScreen(
                         onOpenEdit = { id -> navController.navigate(QingJiRoutes.diaryEdit(id)) },
                         onOpenWeight = { navController.navigate(QingJiRoutes.Weight) },
-                        onOpenImage = { navController.navigate(QingJiRoutes.ImageRecord) }
+                        onOpenImage = { navController.navigate(QingJiRoutes.ImageRecord) },
+                        onOpenFoodLibrary = { navController.navigate(QingJiRoutes.FoodLibrary) }
                     )
                 }
                 composable(QingJiTab.Mine.route) {
