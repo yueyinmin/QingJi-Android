@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- M1 文字识别要直连用户自己配置的 AI 服务商；不配 Key 时完全不联网 -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- M3 语音识别用系统自带的 SpeechRecognizer，只在按下录音时才申请 -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- 拍照走系统相机 Intent，声明成「非必需」，没摄像头的设备也能装 -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <!-- M7 提醒：安卓 13（API 33）起发通知要先申请这个权限，设置页里会引导开启 -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- 手机重启后闹钟会被系统清空，收到开机广播重新排一次（否则提醒静默失效） -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <application
+        android:name=".QingJiApp"
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.QingJi">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@style/Theme.QingJi">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- 拍照时把临时图片交给系统相机，只授权这一个文件，不给整个目录 -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+        <!-- ============================================================
+             M8 桌面小组件：三个 Receiver，各自对应 res/xml 下的配置。
+             注意 android:name 必须和 Kotlin 类名完全一致，写错就加不到桌面。
+             ============================================================ -->
+        <receiver
+            android:name=".widget.QuickRecordWidgetReceiver"
+            android:exported="false"
+            android:label="@string/widget_quick_record">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/quick_record_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.OverviewWidgetReceiver"
+            android:exported="false"
+            android:label="@string/widget_overview">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/overview_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.WeightWidgetReceiver"
+            android:exported="false"
+            android:label="@string/widget_weight">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/weight_widget_info" />
+        </receiver>
+
+        <!-- ============================================================
+             M7 提醒：闹钟到点发通知；手机重启后重新排一遍
+             ============================================================ -->
+        <receiver
+            android:name=".notify.ReminderReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name=".notify.BootReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+    </application>
+
+</manifest>
