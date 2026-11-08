@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  2×2 快捷记录小组件。
+  updatePeriodMillis = 1800000（30 分钟）是安卓允许的最小周期，
+  系统为了省电最快也只能这样；App 内数据一变我们自己主动刷新（见 WidgetRefresher）。
+  initialLayout 用 Glance 自带的「加载中」布局，等数据到了再换成真界面。
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="110dp"
+    android:minHeight="110dp"
+    android:targetCellWidth="2"
+    android:targetCellHeight="2"
+    android:updatePeriodMillis="1800000"
+    android:initialLayout="@layout/glance_default_loading_layout"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen" />
