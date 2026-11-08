@@ -413,6 +413,14 @@ class QingJiRepository(private val context: Context) {
             if (avoidRule.isNotBlank()) {
                 append("\n").append(avoidRule).append("\n")
             }
+
+            // 语言（设置 → 记录与识别 → AI 识别语言）：默认强制简体中文
+            append("\n【输出语言】")
+            if (s.aiLanguage == "auto") {
+                append("输出语言跟随用户输入：用户用中文就全部用简体中文回答。\n")
+            } else {
+                append("所有输出（name、advice）必须使用简体中文，外国菜翻译成常用中文名。\n")
+            }
         }.trim()
     }
 

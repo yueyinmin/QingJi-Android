@@ -74,6 +74,8 @@ object SettingsKeys {
     val SHOW_REFRESH_RATE = booleanPreferencesKey("show_refresh_rate")
     /** 首次引导是否完成 */
     val ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
+    /** AI 返回语言：zh 强制简体中文 / auto 跟随用户输入 */
+    val AI_LANGUAGE = stringPreferencesKey("ai_language")
     /** 偏好菜系，逗号分隔 */
     val CUISINES = stringPreferencesKey("cuisines")
     val WATER_BUBBLES = intPreferencesKey("water_bubbles")
@@ -121,6 +123,7 @@ data class QingJiSettings(
     val maxCookMinutes: Int = 0,
     val showRefreshRate: Boolean = false,
     val onboardingDone: Boolean = false,
+    val aiLanguage: String = "zh",
     val cuisines: String = "",
     val waterBubbles: Int = 2,
     val showMealMacro: Boolean = true,
@@ -172,6 +175,7 @@ object SettingsStore {
                     maxCookMinutes = p[SettingsKeys.MAX_COOK_MINUTES] ?: 0,
                     showRefreshRate = p[SettingsKeys.SHOW_REFRESH_RATE] ?: false,
                     onboardingDone = p[SettingsKeys.ONBOARDING_DONE] ?: false,
+                    aiLanguage = p[SettingsKeys.AI_LANGUAGE] ?: "zh",
                     cuisines = p[SettingsKeys.CUISINES] ?: "",
                     waterBubbles = p[SettingsKeys.WATER_BUBBLES] ?: 2,
                     showMealMacro = p[SettingsKeys.SHOW_MEAL_MACRO] ?: true,
