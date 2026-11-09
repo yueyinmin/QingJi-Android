@@ -1,12 +1,11 @@
 package com.qingji.app.ui.screen
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.togetherWith
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -17,6 +16,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -183,16 +183,18 @@ fun OnboardingScreen(
         else -> true
     }
 
+    // v1.5.1：骨架重做——进度条固定顶部、按钮固定底部、中间内容独立滚动。
+    // 之前 AnimatedContent 的新旧两页同屏叠加（文字重叠 + 淡出残渣黑点），
+    // 现在改成「旧页立即消失、新页滑入」，和设置页二级页同一套入场动画。
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(PageBackground)
-            .verticalScroll(rememberScrollState())
             .padding(horizontal = 24.dp)
     ) {
         Spacer(Modifier.height(40.dp))
 
-        // ---------- 进度条 ----------
+        // ---------- 进度条（固定顶部） ----------
         LinearProgressIndicator(
             progress = { (step + 1f) / totalSteps },
             modifier = Modifier
@@ -210,19 +212,23 @@ fun OnboardingScreen(
         )
         Spacer(Modifier.height(24.dp))
 
-        // ---------- 一页一问（页间滑动 + 淡入动画，前进向左、后退向右） ----------
-        AnimatedContent(
-            targetState = step,
-            transitionSpec = {
-                val forward = targetState > initialState
-                (slideInHorizontally(tween(240)) { full -> if (forward) full / 4 else -full / 4 } +
-                    fadeIn(tween(240))) togetherWith
-                    (slideOutHorizontally(tween(180)) { full -> if (forward) -full / 4 else full / 4 } +
-                    fadeOut(tween(160)))
-            },
-            label = "onboardingPage"
-        ) { page ->
-            when (page) {
+        // ---------- 中间内容：独立滚动，占据剩余全部高度 ----------
+        Box(modifier = Modifier.weight(1f)) {
+            // 每次换页重新触发一次「滑入 + 淡入」；旧内容立即移除，不会叠加
+            val pageVisible = remember(step) {
+                MutableTransitionState(false).apply { targetState = true }
+            }
+            androidx.compose.animation.AnimatedVisibility(
+                visibleState = pageVisible,
+                enter = slideInHorizontally(tween(240)) { full -> full / 4 } + fadeIn(tween(240)),
+                exit = ExitTransition.None
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    when (step) {
             0 -> {
                 Text(text = "欢迎使用轻记", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
                 Spacer(Modifier.height(10.dp))
@@ -449,19 +455,27 @@ fun OnboardingScreen(
                     hint = "喜欢的菜系不在里面？自己加"
                 )
             }
+                }
+            }
         }
         }
 
+        // 全局错误提示（身体数据页的错误显示在页内，这里兜其他页）
         if (errorText.isNotBlank() && step != 4) {
             Spacer(Modifier.height(8.dp))
             Text(text = errorText, fontSize = 13.sp, color = Color(0xFFD64545))
         }
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(16.dp))
 
-        // ---------- 底部按钮 ----------
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            if (step in 1..7) {
+        // ---------- 底部按钮：固定在屏幕底端（v1.5.1） ----------
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (step in 1..9) {
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -498,7 +512,7 @@ fun OnboardingScreen(
                 )
             }
         }
-        Spacer(Modifier.height(40.dp))
+        Spacer(Modifier.height(12.dp))
     }
 }
 
