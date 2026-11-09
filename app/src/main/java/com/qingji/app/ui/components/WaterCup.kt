@@ -18,13 +18,18 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.qingji.app.ui.theme.QingJiGreen
 import com.qingji.app.ui.theme.QingJiGreenLight
 import kotlin.math.PI
@@ -33,22 +38,17 @@ import kotlin.random.Random
 
 /**
  * ============================================================
- * 饮水计量杯（v3.5.2 重构水杯动画，参考 ChatGPT 版交互演示的显示效果）
+ * 饮水计量杯（v1.2 按 ChatGPT 方案整套重做，主人确认「完全按 ChatGPT 那套连杯形一起换」）
  * ------------------------------------------------------------
- * 首页右侧那根高杯子：椭圆杯口 + 直筒杯壁 + 椭圆杯底 + 四道刻度。
+ * - 杯形：锥形（上宽下窄）+ 杯口椭圆 + 玻璃高光条，取代旧直筒杯；
+ * - 水面：**双层正弦波**（错相位、不同波长，主波 + 背景波），
+ *   加水时波浪振幅脉冲放大后衰减；
+ * - 杯内：**容量文字**画在杯中下部（水下白字 / 水上灰字），水位 1200ms 平滑过渡；
+ * - 气泡保留：固定种子保证位置不乱跳，只随时间上浮；
+ * - 旧的杯壁刻度按 ChatGPT 版去掉，`tickTint` 参数保留兼容但不再绘制。
  *
- * v3.5.2 只改「显示与动画」，参数签名不变，调用方零改动：
- * 1. 真正的波浪水面：水面顶部边缘是正弦波，随相位持续横向流动（原来只是一条静态椭圆线）；
- * 2. 水位过渡对齐参考实现的 1200ms（原 650ms 直线）；
- * 3. 每次饮水量变化（加水 / 撤销）时水面产生一次短暂波动后衰减——
- *    用一个 1→0 的脉冲 Animatable 放大波浪振幅实现，不需要调用方传任何「刚加了水」的信号；
- * 4. 气泡保留：固定种子保证位置不乱跳，只随时间上浮；
- * 5. 杯口椭圆保留（那是杯子的透视轮廓，不是水面）。
- *
- * v3.2.2 起颜色可外部传入：首页传 MultiColor 那套固定水蓝，
- * 让「喝水的东西永远是蓝的」；不传时仍跟随主题色（其它页面用）。
- * 注意颜色一定要在 Composable 体内读出来再传进 Canvas 的绘制 lambda，
- * 绘制 lambda 不是 @Composable，在里面读 State 不会触发重组。
+ * 参数签名向后兼容：老调用不传新参数行为正常。
+ * 颜色仍在 Composable 体内取好再进绘制 lambda（绘制 lambda 非 @Composable）。
  * ============================================================
  */
 @Composable
@@ -64,26 +64,27 @@ fun WaterCup(
     surfaceColor: Color? = null,
     outlineColor: Color? = null,
     bubbleTint: Color? = null,
-    tickTint: Color? = null
+    /** v1.2 起杯形重做后不再画刻度，参数仅为兼容保留 */
+    tickTint: Color? = null,
+    /** v1.2：杯内容量文字（如 "1000/2500 ml"），null 不显示 */
+    capacityText: String? = null
 ) {
     val safe = ratio.coerceIn(0f, 1f)
 
-    // 在 Composable 作用域里取色（含默认值），主题色一变这里会重组
     val outline = outlineColor ?: QingJiGreen.copy(alpha = 0.42f)
     val waterFill = fillColor ?: QingJiGreenLight
     val surface = surfaceColor ?: QingJiGreen.copy(alpha = 0.5f)
     val bubbleColor = bubbleTint ?: QingJiGreen.copy(alpha = 0.28f)
-    val tickColor = tickTint ?: QingJiGreen.copy(alpha = 0.22f)
+    val textNormal = outlineColor ?: Color(0xFF8A8F98)
 
-    // 水位上涨动画：对齐参考实现的 1200ms，用标准减速曲线，比直线过渡自然
+    // 水位上涨动画：1200ms 标准减速曲线
     val level by animateFloatAsState(
         targetValue = safe,
         animationSpec = tween(durationMillis = 1200, easing = FastOutSlowInEasing),
         label = "waterLevel"
     )
 
-    // 加水波动反馈：目标一变（排除首次组合）就把脉冲打到 1，再 1.1 秒衰减到 0。
-    // 波浪振幅 = 基础振幅 × (1 + 2.2 × 脉冲)，所以刚加水时浪头明显，随后慢慢平息。
+    // 加水波动反馈：目标一变（排除首次组合）就把脉冲打到 1，再 1.1 秒衰减到 0
     val pulse = remember { Animatable(0f) }
     var lastTarget by remember { mutableStateOf(safe) }
     LaunchedEffect(safe) {
@@ -94,7 +95,6 @@ fun WaterCup(
         }
     }
 
-    // 波浪 / 气泡共用的循环相位（0→1 循环流动）
     val transition = rememberInfiniteTransition(label = "water")
     val phase by transition.animateFloat(
         initialValue = 0f,
@@ -105,6 +105,8 @@ fun WaterCup(
         ),
         label = "waterPhase"
     )
+
+    val textMeasurer = rememberTextMeasurer()
 
     val maxBubbles = when (bubbleLevel) {
         0 -> 0
@@ -118,105 +120,150 @@ fun WaterCup(
         val w = size.width
         val h = size.height
         val stroke = 1.5.dp.toPx()
-        val mouth = (w * 0.22f).coerceAtMost(11.dp.toPx())   // 杯口椭圆的高度
+        val mouth = (w * 0.2f).coerceAtMost(10.dp.toPx())
         val top = mouth / 2 + stroke
-        val bottom = h - mouth / 2 - stroke
+        val bottom = h - stroke * 2
+        val centerX = w / 2f
+
+        // 锥形杯：顶部半宽 / 底部半宽（底部收窄到 72%）
+        val topHalf = w / 2f - stroke
+        val bottomHalf = topHalf * 0.72f
+
+        // 杯形 path：梯形（波浪 / 气泡 / 高光全部 clip 在这里面）
+        val cupPath = Path().apply {
+            moveTo(centerX - topHalf, top)
+            lineTo(centerX + topHalf, top)
+            lineTo(centerX + bottomHalf, bottom)
+            lineTo(centerX - bottomHalf, bottom)
+            close()
+        }
+
         val waterTop = bottom - (bottom - top) * level
+        val amp = 3.0.dp.toPx() * (1f + 3.2f * pulse.value)
+        val waveLen = w * 0.7f
+        val shift = phase * waveLen
+        val backShift = phase * waveLen * 1.18f + waveLen * 0.35f
 
-        // ---- 杯里的水：先画水，再画杯壁，边框才不会被盖住 ----
-        if (level > 0.02f) {
-            // 波浪参数：基础振幅很小（安静的水面），加水脉冲时放大两倍多
-            val baseAmp = 2.5.dp.toPx()
-            val amp = baseAmp * (1f + 2.2f * pulse.value)
-            val waveLen = w * 0.8f
-            val shift = phase * waveLen          // 相位驱动整条波向一侧流动
-            val step = w / 24f                    // 采样步长，24 段足够平滑
-
-            fun waveY(x: Float): Float =
-                waterTop + amp * sin(((x + shift) / waveLen) * 2.0 * PI).toFloat()
-
-            // 水体：顶部边缘是波浪线，下面闭合到杯底，整体填水色
-            val body = Path().apply {
-                moveTo(stroke, waveY(stroke))
-                var x = stroke
-                while (x < w - stroke) {
-                    x = (x + step).coerceAtMost(w - stroke)
-                    lineTo(x, waveY(x))
-                }
-                lineTo(w - stroke, bottom)
-                lineTo(stroke, bottom)
-                close()
+        fun wavePath(yTop: Float, amplitude: Float, sh: Float, len: Float, closeBottom: Boolean): Path {
+            val p = Path()
+            val n = 24
+            p.moveTo(centerX - topHalf, yTop + amplitude * sin(((centerX - topHalf + sh) / len) * 2.0 * PI).toFloat())
+            for (i in 1..n) {
+                val x = centerX - topHalf + (topHalf * 2) * i / n
+                val y = yTop + amplitude * sin(((x + sh) / len) * 2.0 * PI).toFloat()
+                p.lineTo(x, y)
             }
-            drawPath(body, waterFill)
-
-            // 水面波线：沿波浪描一条同色描边，让浪头看得见
-            val crest = Path().apply {
-                moveTo(stroke, waveY(stroke))
-                var x = stroke
-                while (x < w - stroke) {
-                    x = (x + step).coerceAtMost(w - stroke)
-                    lineTo(x, waveY(x))
-                }
+            if (closeBottom) {
+                p.lineTo(centerX + topHalf, bottom)
+                p.lineTo(centerX - topHalf, bottom)
+                p.close()
             }
-            drawPath(crest, surface, style = Stroke(width = stroke))
+            return p
+        }
 
-            // 气泡：固定种子保证位置不乱跳，只让 y 随时间上浮（从波浪下方升起）
+        // ---- 杯内：全部裁进锥形杯里 ----
+        clipPath(cupPath) {
+            if (level > 0.02f) {
+                // 背景波：稍浅、错相位、略高一点，制造层次
+                drawPath(
+                    wavePath(waterTop - 2.5.dp.toPx(), amp * 1.15f, backShift, waveLen * 0.85f, true),
+                    waterFill.copy(alpha = 0.45f)
+                )
+                // 主水体
+                drawPath(
+                    wavePath(waterTop, amp, shift, waveLen, true),
+                    waterFill
+                )
+                // 主波峰描线
+                drawPath(
+                    wavePath(waterTop, amp, shift, waveLen, false),
+                    surface,
+                    style = Stroke(width = stroke)
+                )
+            }
+
+            // 玻璃高光：两条白色竖圆角条
+            val hlTop = top + (bottom - top) * 0.12f
+            val hlBottom = bottom - (bottom - top) * 0.10f
+            drawRoundRect(
+                color = Color.White.copy(alpha = 0.5f),
+                topLeft = Offset(centerX - topHalf * 0.62f, hlTop),
+                size = Size(4.5.dp.toPx(), hlBottom - hlTop),
+                cornerRadius = CornerRadius(2.25.dp.toPx())
+            )
+            drawRoundRect(
+                color = Color.White.copy(alpha = 0.32f),
+                topLeft = Offset(centerX - topHalf * 0.42f, hlTop + 8.dp.toPx()),
+                size = Size(2.2.dp.toPx(), (hlBottom - hlTop) * 0.7f),
+                cornerRadius = CornerRadius(1.1.dp.toPx())
+            )
+
+            // 气泡：固定种子保证位置不乱跳，只随时间上浮
             val random = Random(seed = 20261108)
             val count = (maxBubbles * level).toInt()
             repeat(count) { index ->
-                val bx = w * (0.18f + 0.64f * random.nextFloat())
+                val bx = w * (0.32f + 0.4f * random.nextFloat())
                 val baseY = waterTop + (bottom - waterTop) * (0.1f + 0.8f * random.nextFloat())
                 val radius = (1.4f + random.nextFloat() * 1.6f).dp.toPx()
                 val offsetPhase = (phase + index * 0.17f) % 1f
                 val floatY = baseY - offsetPhase * 7.dp.toPx()
                 if (floatY > waterTop + radius) {
-                    drawCircle(
-                        color = bubbleColor,
-                        radius = radius,
-                        center = Offset(bx, floatY)
-                    )
+                    drawCircle(color = bubbleColor, radius = radius, center = Offset(bx, floatY))
                 }
             }
         }
 
-        // ---- 杯壁：杯口整椭圆 + 两侧竖线 + 杯底下半椭圆 ----
+        // ---- 杯口椭圆 + 锥形杯壁描边 ----
         drawOval(
             color = outline,
-            topLeft = Offset(stroke, stroke),
-            size = Size(w - stroke * 2, mouth),
+            topLeft = Offset(centerX - topHalf, top - mouth / 2),
+            size = Size(topHalf * 2, mouth),
             style = Stroke(width = stroke)
         )
         drawLine(
             color = outline,
-            start = Offset(stroke, top),
-            end = Offset(stroke, bottom),
+            start = Offset(centerX - topHalf, top),
+            end = Offset(centerX - bottomHalf, bottom),
             strokeWidth = stroke
         )
         drawLine(
             color = outline,
-            start = Offset(w - stroke, top),
-            end = Offset(w - stroke, bottom),
+            start = Offset(centerX + topHalf, top),
+            end = Offset(centerX + bottomHalf, bottom),
             strokeWidth = stroke
         )
-        drawArc(
+        drawLine(
             color = outline,
-            startAngle = 0f,
-            sweepAngle = 180f,
-            useCenter = false,
-            topLeft = Offset(stroke, bottom - mouth / 2),
-            size = Size(w - stroke * 2, mouth),
-            style = Stroke(width = stroke)
+            start = Offset(centerX - bottomHalf, bottom),
+            end = Offset(centerX + bottomHalf, bottom),
+            strokeWidth = stroke
         )
 
-        // ---- 杯壁刻度：四道短横，一眼能看出喝到第几格 ----
-        (1..4).forEach { i ->
-            val y = top + (bottom - top) * i / 5f
-            drawLine(
-                color = tickColor,
-                start = Offset(w - stroke - 12.dp.toPx(), y),
-                end = Offset(w - stroke - 3.dp.toPx(), y),
-                strokeWidth = 1.dp.toPx(),
-                pathEffect = PathEffect.dashPathEffect(floatArrayOf(4f, 3f))
+        // ---- 杯内容量文字：水下白字、水上灰字；太长自动缩字号 ----
+        if (!capacityText.isNullOrBlank() && level > 0.1f) {
+            val textY = top + (bottom - top) * 0.62f
+            val inWater = textY > waterTop
+            val t = ((textY - top) / (bottom - top)).coerceIn(0f, 1f)
+            val available = (topHalf + (bottomHalf - topHalf) * t) * 2 * 0.86f
+            var fontSize = 10.sp
+            var layout = textMeasurer.measure(
+                capacityText,
+                style = TextStyle(fontSize = fontSize, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium)
+            )
+            var guard = 0
+            while (layout.size.width > available && fontSize.value > 7f && guard < 6) {
+                fontSize = (fontSize.value - 1f).sp
+                layout = textMeasurer.measure(
+                    capacityText,
+                    style = TextStyle(fontSize = fontSize, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium)
+                )
+                guard++
+            }
+            val color = if (inWater) Color.White.copy(alpha = 0.92f) else textNormal.copy(alpha = 0.85f)
+            drawText(
+                textLayoutResult = layout,
+                color = color,
+                topLeft = Offset(centerX - layout.size.width / 2f, textY - layout.size.height / 2f)
             )
         }
     }

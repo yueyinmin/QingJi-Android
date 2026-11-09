@@ -36,10 +36,11 @@ android {
         applicationId = "com.qingji.app" // 手机上唯一标识，上架后不能改
         minSdk = 26                      // 最低支持 Android 8.0（覆盖 95% 以上设备）
         targetSdk = 35                   // 目标版本
-        // v1.1.2（2026-11-09）：三叶图标居中修正（叶子几何中心对准画布中心）+ 姿态顺时针 8°（叶子立起来，主人六方案中选定）；
-        // 开屏动画末帧同步同一变换。样式补丁：versionCode 112。
-        versionCode = 112
-        versionName = "1.1.2"
+        // v1.2（2026-11-09）：① 水杯整套按 ChatGPT 方案重做（锥形杯身 + 双层波 + 玻璃高光 + 杯内容量文字）；
+        // ② 日期月历弹层统一 AppBottomSheet 风格；③ 连续天数胶囊跟日期呼应；④ 今日记录去加号、体重移至加号位；
+        // ⑤ 悬浮栏下移贴底减少遮挡。功能次版本：versionCode 120。
+        versionCode = 120
+        versionName = "1.2"
     }
 
     buildTypes {
