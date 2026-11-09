@@ -190,8 +190,8 @@ fun HomeScreen(
                     .size(24.dp)
                     .pressable { showDatePicker = true }
             )
-            Spacer(Modifier.weight(1f))
-            // 右上角的连续天数小胶囊（参考图里也有这一个）
+            Spacer(Modifier.width(10.dp))
+            // v1.2：连续天数跟日期呼应（原来顶在最右侧，观感孤立）
             val joinedDays = state.profile?.let {
                 val created = java.time.LocalDate.ofEpochDay(it.createdAt / 86_400_000L)
                 (today.toEpochDay() - created.toEpochDay()).toInt() + 1
@@ -205,7 +205,7 @@ fun HomeScreen(
                     .background(MultiColor.StreakBackground)
                     .padding(horizontal = 10.dp, vertical = 5.dp)
             )
-            Spacer(Modifier.width(6.dp))
+            Spacer(Modifier.weight(1f))
             // 这一颗始终渲染，只切透明度。
             // 之前是 if 判断，出现时会把左边挤动 → 看起来像"跳了一下"。
             val showBack = state.date != today
@@ -279,42 +279,22 @@ fun HomeScreen(
                     )
                 }
             }
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+            // v1.2：右侧只留「记体重」一颗，挪到最右（原加号位置）——
+            // 加号与右下悬浮栏重叠，且「记一笔」入口在底栏中央 + 悬浮栏都有，这里纯属重复
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(RoundedCornerShape(11.dp))
+                    .background(QingJiGreen)
+                    .pressable { onOpenWeight() },
+                contentAlignment = Alignment.Center
             ) {
-                // 记体重：原来在右侧悬浮栏第二颗，现在换到这里
-                Box(
-                    modifier = Modifier
-                        .size(34.dp)
-                        .clip(RoundedCornerShape(11.dp))
-                        .background(QingJiGreenLight)
-                        .pressable { onOpenWeight() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.MonitorWeight,
-                        contentDescription = "记体重",
-                        tint = QingJiGreenDark,
-                        modifier = Modifier.size(17.dp)
-                    )
-                }
-                // 记一笔
-                Box(
-                    modifier = Modifier
-                        .size(34.dp)
-                        .clip(RoundedCornerShape(11.dp))
-                        .background(QingJiGreen)
-                        .pressable { onAddRecord() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Add,
-                        contentDescription = "记一笔",
-                        tint = Color.White,
-                        modifier = Modifier.size(19.dp)
-                    )
-                }
+                Icon(
+                    imageVector = Icons.Outlined.MonitorWeight,
+                    contentDescription = "记体重",
+                    tint = Color.White,
+                    modifier = Modifier.size(17.dp)
+                )
             }
         }
 
@@ -366,7 +346,8 @@ fun HomeScreen(
                 onPhoto = onOpenImage,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(end = 16.dp, bottom = 20.dp)
+                    // v1.2：往下贴到底栏上方，减少遮挡「今日记录」右侧按钮的窗口
+                    .padding(end = 16.dp, bottom = 10.dp)
             )
         }
     }
@@ -957,7 +938,8 @@ private fun TodaySummaryCard(
                             surfaceColor = MultiColor.WaterSurface,
                             outlineColor = MultiColor.WaterOutline,
                             bubbleTint = Color.White.copy(alpha = 0.75f),
-                            tickTint = MultiColor.WaterOutline.copy(alpha = 0.6f)
+                            // v1.2：杯内容量文字（ChatGPT 方案特征），水下白字 / 水上灰字
+                            capacityText = "${state.waterMl}/${goalWater} ml"
                         )
                         Text(
                             text = "$waterPercent%",

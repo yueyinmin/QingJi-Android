@@ -72,12 +72,15 @@ fun MonthPickerSheet(
     var viewMonth by remember { mutableIntStateOf(selected.monthValue) }
     var pickingYear by remember { mutableStateOf(false) }
 
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    // v1.2：容器换成全 App 统一的 AppBottomSheet（CardWhite + 把手 + 0.28 遮罩），
+    // 之前是裸 ModalBottomSheet，Material 默认配色和整体弹层风格不一致
+    AppBottomSheet(
+        title = "选择日期",
+        subtitle = "年份可点，跨年自由选；未来的日期不能记",
+        onDismiss = onDismiss
+    ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 28.dp)
+            modifier = Modifier.fillMaxWidth()
         ) {
             // ---------- 头部：翻月箭头 + 年月标题（年份可点） ----------
             Row(
