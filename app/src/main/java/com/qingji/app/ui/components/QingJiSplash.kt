@@ -95,6 +95,12 @@ fun QingJiLeafLogo(
 ) {
     Canvas(modifier = modifier) {
         val scale = size.width / 512f
+        // v1.1.2：叶子几何中心 (246.5,257) 必须对准画布中心，再整体顺时针转 8°
+        // （与桌面图标 ic_launcher_foreground.xml 完全同一套变换，主人在六个渲染方案里选定了 8°）
+        val centerX = size.width / 2f
+        val centerY = size.height / 2f
+        val centerOffsetX = centerX - 246.5f * scale
+        val centerOffsetY = centerY - 257f * scale
 
         fun drawLeaf(
             path: Path,
@@ -103,7 +109,13 @@ fun QingJiLeafLogo(
             startY: Float
         ) {
             withTransform({
+                // 1. 居中：把叶子中心平移到画布中心
+                translate(left = centerOffsetX, top = centerOffsetY)
+                // 2. 姿态：围绕画布中心（即叶子中心）顺时针转 8°
+                rotate(degrees = 8f, pivot = Offset(centerX, centerY))
+                // 3. 缩放到画布
                 scale(scale, scale, pivot = Offset.Zero)
+                // 4. 聚拢动画：progress=0 时叶片分散在各自方向
                 translate(
                     left = startX * (1f - progress),
                     top = startY * (1f - progress)
