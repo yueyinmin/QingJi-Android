@@ -2,6 +2,7 @@
 // app 模块构建脚本
 // 这个文件决定：App 叫什么、装到哪些手机上、用哪些库
 // ============================================================
+import java.io.File
 import java.util.Properties
 import org.gradle.api.tasks.testing.Test
 
@@ -28,6 +29,16 @@ localProps.getProperty("qingji.build.dir")?.let { dir ->
     if (dir.isNotBlank()) layout.buildDirectory.set(file(dir))
 }
 
+// ------------------------------------------------------------
+// 正式签名（v1.0.0 定版加密封装）：
+// 密钥和密码都放在 local.properties（已被 .gitignore 排除，不进仓库）。
+// 没有这份配置的电脑 → 自动回退 debug 签名，编译不受影响。
+// ------------------------------------------------------------
+val ksPath = localProps.getProperty("qingji.keystore.path")
+val ksPass = localProps.getProperty("qingji.keystore.password")
+val ksAlias = localProps.getProperty("qingji.keystore.alias") ?: "qingji"
+val hasReleaseKey = !ksPath.isNullOrBlank() && File(ksPath).exists() && !ksPass.isNullOrBlank()
+
 android {
     namespace = "com.qingji.app"         // 代码包名
     compileSdk = 35                      // 用哪个版本的安卓 SDK 编译
@@ -39,8 +50,21 @@ android {
         // v1.5（2026-11-09）：① 杯内计量数字整个去掉；② 引导新增昵称一问（不填随机「轻er~XXX」），共 10 步；
         // ③ 「我的」页资料卡与使用情况拆开、「数据（目标/成就）」挪到使用情况上方、使用情况加说明；④ 我的页和设置页都能改昵称；
         // ⑤ 进展页身体数据卡与目标预估卡之间补间距。功能次版本：versionCode 150。
-        versionCode = 150
-        versionName = "1.5"
+        // 正式版 v1.0.0 · 最终定版（2026-11-09）：versionName 三段式 1.0.0，versionCode 重置 100（主版本×100）。
+        // 未对外发布过，重置不影响任何人；已装旧包的手机需先卸载再装（签名也换了正式密钥，同样必须卸载重装）。
+        versionCode = 100
+        versionName = "1.0.0"
+    }
+
+    signingConfigs {
+        if (hasReleaseKey) {
+            create("release") {
+                storeFile = file(ksPath!!)
+                storePassword = ksPass
+                keyAlias = ksAlias
+                keyPassword = ksPass
+            }
+        }
     }
 
     buildTypes {
@@ -53,7 +77,11 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (hasReleaseKey) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
 
