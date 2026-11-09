@@ -205,6 +205,9 @@ fun ProgressScreen(
             onClick = onOpenWeight
         )
 
+        // v1.5：两卡之间补一格间距，之前直接贴在一起
+        Spacer(Modifier.height(Dimens.Gap))
+
         // v3.4.0 R3：目标达成预估（近 14 天趋势；数据不足时只给说明，不硬凑日期）
         val forecast = com.qingji.app.domain.WeightForecastCalculator.forecast(
             points = logs.map {

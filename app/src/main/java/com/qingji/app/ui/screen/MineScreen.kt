@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.AccessibilityNew
@@ -108,6 +109,7 @@ fun MineScreen(
     val settings by remember { SettingsStore.observe(context) }
         .collectAsState(initial = QingJiSettings())
 
+    var showNicknameSheet by remember { mutableStateOf(false) }
     var showGoalDialog by remember { mutableStateOf(false) }
     var showAchievementDialog by remember { mutableStateOf(false) }
 
@@ -162,11 +164,14 @@ fun MineScreen(
 
         Spacer(Modifier.height(16.dp))
 
-        ProfileCard(
+        // v1.5：资料卡（头像 + 昵称，点名字可改）与使用情况宫格拆成两卡，
+        // 「数据（我的目标 / 我的成就）」挪到使用情况上方
+        ProfileHeaderCard(
+            nickname = settings.nickname,
             profile = profile,
-            totals = totals,
             settings = settings,
-            onPickAvatar = { pickAvatar.launch("image/*") }
+            onPickAvatar = { pickAvatar.launch("image/*") },
+            onEditNickname = { showNicknameSheet = true }
         )
 
         Spacer(Modifier.height(12.dp))
@@ -180,10 +185,46 @@ fun MineScreen(
 
         Spacer(Modifier.height(12.dp))
 
+        // v1.5：使用情况单独成卡，附一句说明
+        UsageSectionCard(totals = totals)
+
+        Spacer(Modifier.height(12.dp))
+
         // 调用统计卡放整页最下方：平时不挡视线，想看 AI 调用次数往下滑到底即可
         UsageCard(totalAi = totals["ai"] ?: 0, monthAi = monthAi)
 
         Spacer(Modifier.height(24.dp))
+    }
+
+    // v1.5：改昵称（留空随机生成「轻er~XXX」）
+    if (showNicknameSheet) {
+        var nameInput by remember { mutableStateOf(settings.nickname) }
+        com.qingji.app.ui.components.AppBottomSheet(
+            title = "改个称呼",
+            subtitle = "留空就随机给你一个",
+            confirmText = "保存",
+            onConfirm = {
+                // MineViewModel 没有 setNickname，直接写 DataStore（与头像同一条路）
+                val finalName = nameInput.trim().ifBlank { "轻er~" + (100..999).random() }
+                scope.launch {
+                    com.qingji.app.data.prefs.SettingsStore.set(
+                        context,
+                        com.qingji.app.data.prefs.SettingsKeys.NICKNAME,
+                        finalName
+                    )
+                }
+                showNicknameSheet = false
+            },
+            onDismiss = { showNicknameSheet = false }
+        ) {
+            androidx.compose.material3.OutlinedTextField(
+                value = nameInput,
+                onValueChange = { nameInput = it },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("轻er~888", fontSize = 13.sp, color = TextSecondary) }
+            )
+        }
     }
 
     if (showGoalDialog) {
@@ -206,13 +247,14 @@ fun MineScreen(
     }
 }
 
-/** 头像 + 性别年龄身高 + 加入天数 + 横条状使用情况统计。 */
+/** v1.5：头像 + 昵称（点击可改名）+ 性别年龄身高 + 加入天数。 */
 @Composable
-private fun ProfileCard(
+private fun ProfileHeaderCard(
+    nickname: String,
     profile: UserProfile?,
-    totals: Map<String, Int>,
     settings: QingJiSettings,
-    onPickAvatar: () -> Unit
+    onPickAvatar: () -> Unit,
+    onEditNickname: () -> Unit
 ) {
     val genderText = if (profile?.gender == "female") "女" else "男"
     val age = profile?.birthday?.let { Period.between(it, AppClock.today()).years } ?: 0
@@ -253,12 +295,25 @@ private fun ProfileCard(
             }
 
             Column(modifier = Modifier.padding(start = 14.dp)) {
-                Text(
-                    text = settings.nickname,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary
-                )
+                // v1.5：昵称可点击改名
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = nickname,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary,
+                        modifier = Modifier.clickable { onEditNickname() }
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Icon(
+                        imageVector = Icons.Filled.Edit,
+                        contentDescription = "改昵称",
+                        tint = QingJiGreen,
+                        modifier = Modifier
+                            .size(14.dp)
+                            .clickable { onEditNickname() }
+                    )
+                }
                 Spacer(Modifier.height(4.dp))
                 Text(
                     text = "$genderText · ${if (age > 0) "${age}岁" else "未填生日"} · " +
@@ -268,15 +323,20 @@ private fun ProfileCard(
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = "加入轻记 $joinedDays 天 · 点头像可换图",
+                    text = "加入轻记 $joinedDays 天 · 点头像换图 · 点名字改名",
                     fontSize = 12.sp,
                     color = TextSecondary
                 )
             }
         }
 
-        Spacer(Modifier.height(16.dp))
+    }
+}
 
+/** v1.5：使用情况宫格单独成卡，附一句说明（数字是用户实际使用的记录）。 */
+@Composable
+private fun UsageSectionCard(totals: Map<String, Int>) {
+    SectionCard {
         Text(
             text = "使用情况",
             fontSize = 15.sp,
@@ -322,7 +382,7 @@ private fun ProfileCard(
         }
         Spacer(Modifier.height(8.dp))
         Text(
-            text = "数字是本机累计次数，喝水、记饮食、记体重都会计入",
+            text = "这里的数字就是你实际使用轻记的记录，方便回头看自己的习惯",
             fontSize = 11.sp,
             color = TextSecondary
         )

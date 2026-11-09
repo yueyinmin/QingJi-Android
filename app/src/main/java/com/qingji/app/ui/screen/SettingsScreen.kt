@@ -113,7 +113,7 @@ import com.qingji.app.widget.WeightWidgetReceiver
 /** 当前打开的是哪个弹窗。 */
 private enum class DialogKind {
     MACRO, WATER_GOAL, TIMEZONE, UNIT, THEME, REMINDERS,
-    BOTTOM_TABS, AI_LANG, UI_LANG, PRIVACY, ICON, CACHE,
+    BOTTOM_TABS, AI_LANG, UI_LANG, NICKNAME, PRIVACY, ICON, CACHE,
     ABOUT, PLATFORM, VERSION
 }
 
@@ -221,10 +221,17 @@ fun SettingsScreen(
             SettingsCard {
                 SettingValueRow(
                     title = s("个人资料"),
-                    subtitle = s("昵称、性别、生日、身高"),
+                    subtitle = s("性别、生日、身高、目标体重"),
                     value = settings.nickname,
                     iconColor = QingJiGreen
                 ) { onOpenProfile() }
+                RowDivider()
+                SettingValueRow(
+                    title = s("昵称"),
+                    subtitle = s("在「我的」页点头像旁的名字也能改"),
+                    value = settings.nickname,
+                    iconColor = QingJiGreen
+                ) { dialog = DialogKind.NICKNAME }
                 RowDivider()
                 SettingValueRow(
                     title = s("隐私与安全"),
@@ -454,6 +461,26 @@ fun SettingsScreen(
         )
 
         // v3.5.0：界面语言（核心页中英双语，未翻译条目回落中文）
+        // v1.5：昵称修改入口（「我的」页点头像旁的名字是同一套）
+        DialogKind.NICKNAME -> {
+            var nicknameInput by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(settings.nickname) }
+            com.qingji.app.ui.components.AppDialog(
+                title = s("改昵称"),
+                onDismiss = { dialog = null },
+                confirmText = s("保存"),
+                onConfirm = { vm.setNickname(nicknameInput) },
+                dismissText = s("取消")
+            ) {
+                androidx.compose.material3.OutlinedTextField(
+                    value = nicknameInput,
+                    onValueChange = { nicknameInput = it },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("轻er~888", fontSize = 13.sp, color = TextSecondary) }
+                )
+            }
+        }
+
         DialogKind.UI_LANG -> OptionDetailPage(
             title = s("界面语言"),
             subtitle = s("切换后立即生效，未翻译的条目仍显示中文"),

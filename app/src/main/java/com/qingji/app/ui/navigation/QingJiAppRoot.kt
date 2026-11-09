@@ -123,7 +123,7 @@ fun QingJiAppRoot(
             },
             // v3.4.0：引导里填的饮食偏好写进设置，和设置页共用同一份数据
             // v1.4：目标模式（lose/gain/keep）也在这里落库
-            onSavePreferences = { allergens, avoidFoods, cuisines, goalMode ->
+            onSavePreferences = { allergens, avoidFoods, cuisines, goalMode, nickname ->
                 scope.launch {
                     val store = com.qingji.app.data.prefs.SettingsStore
                     val keys = com.qingji.app.data.prefs.SettingsKeys
@@ -131,6 +131,7 @@ fun QingJiAppRoot(
                     store.set(context, keys.AVOID_FOODS, avoidFoods)
                     store.set(context, keys.CUISINES, cuisines)
                     store.set(context, keys.GOAL_MODE, goalMode)
+                    store.set(context, keys.NICKNAME, nickname)
                 }
             }
         )
