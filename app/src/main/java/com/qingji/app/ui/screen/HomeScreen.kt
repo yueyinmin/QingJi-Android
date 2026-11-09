@@ -190,8 +190,8 @@ fun HomeScreen(
                     .size(24.dp)
                     .pressable { showDatePicker = true }
             )
-            Spacer(Modifier.width(10.dp))
-            // v1.2：连续天数跟日期呼应（原来顶在最右侧，观感孤立）
+            Spacer(Modifier.weight(1f))
+            // v1.4：连续天数按主人要求放回最右侧；「回到今天」出现时排在它左边
             val joinedDays = state.profile?.let {
                 val created = java.time.LocalDate.ofEpochDay(it.createdAt / 86_400_000L)
                 (today.toEpochDay() - created.toEpochDay()).toInt() + 1
@@ -205,7 +205,7 @@ fun HomeScreen(
                     .background(MultiColor.StreakBackground)
                     .padding(horizontal = 10.dp, vertical = 5.dp)
             )
-            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.width(6.dp))
             // 这一颗始终渲染，只切透明度。
             // 之前是 if 判断，出现时会把左边挤动 → 看起来像"跳了一下"。
             val showBack = state.date != today
@@ -939,7 +939,8 @@ private fun TodaySummaryCard(
                             outlineColor = MultiColor.WaterOutline,
                             bubbleTint = Color.White.copy(alpha = 0.75f),
                             // v1.2：杯内容量文字（ChatGPT 方案特征），水下白字 / 水上灰字
-                            capacityText = "${state.waterMl}/${goalWater} ml"
+                            // v1.4：一口没喝时不显示「0/3200 ml」这种没营养的数字
+                            capacityText = if (state.waterMl > 0) "${state.waterMl}/${goalWater} ml" else null
                         )
                         Text(
                             text = "$waterPercent%",

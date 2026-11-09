@@ -1,5 +1,12 @@
 package com.qingji.app.ui.screen
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -54,22 +61,29 @@ import java.time.LocalDate
  * 之前是一整页塞十几个输入框，看着就累；现在一次只问一件事，
  * 下面给现成的选项，选不到的可以自己加标签（想加多少个都行）。
  *
- * 页序：欢迎 → 性别 → 身体数据 → 活动水平 → 饮水目标
- *      → 过敏原 → 忌口 → 偏好菜系 → 完成
+ * 页序：欢迎 → 目标（减重 / 增肌 / 保持）→ 性别 → 身体数据 → 活动水平
+ *      → 饮水目标 → 过敏原 → 忌口 → 偏好菜系 → 完成
  *
- * 每日预算仍按 Mifflin-St Jeor 现场算（TDEE − 300），不留默认值。
- * 偏好三项写入 DataStore（过敏原 / 忌口 / 菜系），和设置页共用一份数据。
+ * v1.4 改动：
+ * - 页间切换加滑动 + 淡入动画（AnimatedContent，前进向左、后退向右）；
+ * - 第一页不再单独放「开始」，统一用底部的下一步；
+ * - 新增目标模式一问：减重（TDEE − 300）/ 增肌（TDEE + 200，蛋白 1.8g/kg）/
+ *   保持（TDEE 不变，蛋白 1.2g/kg），模式存 DataStore `goal_mode`，
+ *   目标体重的校验也按模式区分（减重要更轻、增肌要更重）。
+ *
+ * 偏好三项写入 DataStore（过敏原 / 忌口 / 菜系 / 目标模式），和设置页共用一份数据。
  * ============================================================
  */
 @Composable
 fun OnboardingScreen(
     onDone: () -> Unit,
     onSave: (UserProfile) -> Unit,
-    onSavePreferences: (allergens: String, avoidFoods: String, cuisines: String) -> Unit =
-        { _, _, _ -> }
+    onSavePreferences: (allergens: String, avoidFoods: String, cuisines: String, goalMode: String) -> Unit =
+        { _, _, _, _ -> }
 ) {
     // ---------- 所有答案 ----------
     var step by rememberSaveable { mutableIntStateOf(0) }
+    var goalMode by rememberSaveable { mutableStateOf("lose") }
     var gender by rememberSaveable { mutableStateOf("male") }
     var heightText by rememberSaveable { mutableStateOf("170") }
     var weightText by rememberSaveable { mutableStateOf("") }
@@ -86,7 +100,7 @@ fun OnboardingScreen(
     var cuisineAdded by rememberSaveable { mutableStateOf(listOf<String>()) }
     var errorText by remember { mutableStateOf("") }
 
-    val totalSteps = 8
+    val totalSteps = 9
 
     // ---------- 保存：最后一步触发 ----------
     fun finish() {
@@ -97,13 +111,21 @@ fun OnboardingScreen(
         val water = waterText.toIntOrNull()
         if (height == null || weight == null || target == null || age == null || age !in 10..100) {
             errorText = "身高、体重、目标、年龄都要是有效数字"
-            step = 2
+            step = 3
             return
         }
-        if (target >= weight) {
-            errorText = "目标体重要比现在轻一点，减重才有得减"
-            step = 2
-            return
+        // 校验按目标模式区分：减重要更轻、增肌要更重、保持不限
+        when (goalMode) {
+            "lose" -> if (target >= weight) {
+                errorText = "减重模式下，目标体重要比现在轻一点"
+                step = 3
+                return
+            }
+            "gain" -> if (target <= weight) {
+                errorText = "增肌模式下，目标体重要比现在重一点"
+                step = 3
+                return
+            }
         }
         // Mifflin-St Jeor 简化：男性 10w+6.25h-5a+5，女性 -161
         val bmr = if (gender == "male") {
@@ -112,7 +134,14 @@ fun OnboardingScreen(
             10 * weight + 6.25 * height - 5 * age - 161
         }
         val factor = when (activity) { 1 -> 1.2; 2 -> 1.375; 3 -> 1.55; else -> 1.725 }
-        val budget = (bmr * factor - 300).toInt().coerceIn(1200, 5000)
+        // 预算按模式：减重 TDEE − 300；增肌 TDEE + 200（盈余长肌肉）；保持 TDEE 原样
+        val budget = when (goalMode) {
+            "gain" -> (bmr * factor + 200).toInt().coerceIn(1400, 6000)
+            "keep" -> (bmr * factor).toInt().coerceIn(1200, 5500)
+            else -> (bmr * factor - 300).toInt().coerceIn(1200, 5000)
+        }
+        // 蛋白目标也随模式：增肌 1.8g/kg、保持 1.2g/kg、减重 1.5g/kg
+        val proteinPerKg = when (goalMode) { "gain" -> 1.8; "keep" -> 1.2; else -> 1.5 }
 
         onSave(
             UserProfile(
@@ -124,7 +153,7 @@ fun OnboardingScreen(
                 targetWeight = target,
                 activityLevel = activity,
                 dailyKcalGoal = budget,
-                proteinGoalG = (weight * 1.5).toInt(),
+                proteinGoalG = (weight * proteinPerKg).toInt(),
                 carbGoalG = ((budget * 0.4) / 4).toInt(),
                 fatGoalG = ((budget * 0.25) / 9).toInt(),
                 waterGoalMl = water ?: 2000
@@ -133,18 +162,19 @@ fun OnboardingScreen(
         onSavePreferences(
             allergenSet.joinToString(","),
             avoidSet.joinToString(","),
-            cuisineSet.joinToString(",")
+            cuisineSet.joinToString(","),
+            goalMode
         )
         onDone()
     }
 
     // ---------- 每步的校验 ----------
     fun canGoNext(): Boolean = when (step) {
-        2 -> heightText.toDoubleOrNull() != null &&
+        3 -> heightText.toDoubleOrNull() != null &&
             weightText.toDoubleOrNull() != null &&
             targetText.toDoubleOrNull() != null &&
             ageText.toIntOrNull() != null
-        4 -> (waterText.toIntOrNull() ?: 0) > 0
+        5 -> (waterText.toIntOrNull() ?: 0) > 0
         else -> true
     }
 
@@ -175,8 +205,19 @@ fun OnboardingScreen(
         )
         Spacer(Modifier.height(24.dp))
 
-        // ---------- 一页一问 ----------
-        when (step) {
+        // ---------- 一页一问（页间滑动 + 淡入动画，前进向左、后退向右） ----------
+        AnimatedContent(
+            targetState = step,
+            transitionSpec = {
+                val forward = targetState > initialState
+                (slideInHorizontally(tween(240)) { full -> if (forward) full / 4 else -full / 4 } +
+                    fadeIn(tween(240))) togetherWith
+                    (slideOutHorizontally(tween(180)) { full -> if (forward) -full / 4 else full / 4 } +
+                    fadeOut(tween(160)))
+            },
+            label = "onboardingPage"
+        ) { page ->
+            when (page) {
             0 -> {
                 Text(text = "欢迎使用轻记", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
                 Spacer(Modifier.height(10.dp))
@@ -184,21 +225,48 @@ fun OnboardingScreen(
                     text = "先填几个数字，每天的热量和营养目标都会按你的情况算，不留任何默认值。",
                     fontSize = 14.sp, color = TextSecondary, lineHeight = 22.sp
                 )
-                Spacer(Modifier.height(32.dp))
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(Dimens.ItemCorner))
-                        .background(QingJiGreen)
-                        .pressable { step = 1 }
-                        .padding(vertical = 15.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(text = "开始", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+            }
+
+            // v1.4：目标模式一问（减重 / 增肌 / 保持），影响热量预算、蛋白目标和目标体重校验
+            1 -> QuestionPage(
+                title = "这次的目标是？",
+                subtitle = "决定每天的热量预算：减重少给一点，增肌多给一点"
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    listOf(
+                        Triple("lose", "减重", "甩掉多余的体重和脂肪"),
+                        Triple("gain", "增肌", "涨体重涨肌肉，线条更明显"),
+                        Triple("keep", "保持", "现在挺好的，稳住就行")
+                    ).forEach { (key, label, desc) ->
+                        val selected = goalMode == key
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(if (selected) QingJiGreenLight else Color.White)
+                                .clickable { goalMode = key }
+                                .padding(vertical = 18.dp, horizontal = 18.dp)
+                        ) {
+                            Column {
+                                Text(
+                                    text = label,
+                                    fontSize = 17.sp,
+                                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                                    color = if (selected) QingJiGreenDark else TextPrimary
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    text = desc,
+                                    fontSize = 12.sp,
+                                    color = if (selected) QingJiGreenDark else TextSecondary
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
-            1 -> QuestionPage(
+            2 -> QuestionPage(
                 title = "你的性别是？",
                 subtitle = "热量公式里会用到这一项"
             ) {
@@ -225,7 +293,7 @@ fun OnboardingScreen(
                 }
             }
 
-            2 -> QuestionPage(
+            3 -> QuestionPage(
                 title = "身体数据",
                 subtitle = "填真实数字就行，之后随时能在「我的」里改"
             ) {
@@ -244,7 +312,7 @@ fun OnboardingScreen(
                 }
             }
 
-            3 -> QuestionPage(
+            4 -> QuestionPage(
                 title = "平时活动量大吗？",
                 subtitle = "影响每天能吃多少的热量预算"
             ) {
@@ -274,7 +342,7 @@ fun OnboardingScreen(
                 }
             }
 
-            4 -> QuestionPage(
+            5 -> QuestionPage(
                 title = "每天想喝多少水？",
                 subtitle = "喝水提醒和进度条都按这个算"
             ) {
@@ -312,7 +380,7 @@ fun OnboardingScreen(
                 )
             }
 
-            5 -> QuestionPage(
+            6 -> QuestionPage(
                 title = "有哪些过敏原？",
                 subtitle = "选出来的会提醒 AI 帮你避开，没有就跳过"
             ) {
@@ -329,7 +397,7 @@ fun OnboardingScreen(
                 )
             }
 
-            6 -> QuestionPage(
+            7 -> QuestionPage(
                 title = "有什么忌口？",
                 subtitle = "不想吃的挑出来，AI 记录时会帮你注意"
             ) {
@@ -346,7 +414,7 @@ fun OnboardingScreen(
                 )
             }
 
-            7 -> QuestionPage(
+            8 -> QuestionPage(
                 title = "平时爱吃哪类菜？",
                 subtitle = "选几个常吃的，AI 识别会更懂你的口味"
             ) {
@@ -363,8 +431,9 @@ fun OnboardingScreen(
                 )
             }
         }
+        }
 
-        if (errorText.isNotBlank() && step != 2) {
+        if (errorText.isNotBlank() && step != 3) {
             Spacer(Modifier.height(8.dp))
             Text(text = errorText, fontSize = 13.sp, color = Color(0xFFD64545))
         }

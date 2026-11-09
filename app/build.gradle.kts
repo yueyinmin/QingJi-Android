@@ -36,11 +36,11 @@ android {
         applicationId = "com.qingji.app" // 手机上唯一标识，上架后不能改
         minSdk = 26                      // 最低支持 Android 8.0（覆盖 95% 以上设备）
         targetSdk = 35                   // 目标版本
-        // v1.3（2026-11-09）：① 修食物库页签被分类栏遮挡（内容区 Box→Column，外卖/家庭厨房页签恢复可见）；
-        // ② 引导重做成「一页一问」向导（8 步 + 进度条，偏好三页支持自定义标签、数量不限）；③ 提示文案全部去 AI 味。
-        // 功能次版本：versionCode 130。
-        versionCode = 130
-        versionName = "1.3"
+        // v1.4（2026-11-09）：① 引导页间滑动淡入动画 + 第一页去重复「开始」；② 新增目标模式（减重 TDEE-300 / 增肌 TDEE+200 / 保持，
+        //   蛋白 1.5/1.8/1.2 g/kg，目标体重校验按模式）；③ 杯内容量文字水位 0 时不显示；④ 连续天数放回最右侧；
+        //   ⑤ 悬浮栏按钮 44→52dp。功能次版本：versionCode 140。
+        versionCode = 140
+        versionName = "1.4"
     }
 
     buildTypes {

@@ -71,7 +71,7 @@ fun QuickActionColumn(
 private fun QuickActionButton(icon: ImageVector, color: Color, onClick: () -> Unit) {
     Box(
         modifier = Modifier
-            .size(44.dp)
+            .size(52.dp)
             .clip(CircleShape)
             .background(CardWhite)
             .clickable { onClick() },
@@ -79,7 +79,7 @@ private fun QuickActionButton(icon: ImageVector, color: Color, onClick: () -> Un
     ) {
         Box(
             modifier = Modifier
-                .size(44.dp)
+                .size(52.dp)
                 .clip(CircleShape)
                 .background(color.copy(alpha = 0.16f))
         )
@@ -87,7 +87,7 @@ private fun QuickActionButton(icon: ImageVector, color: Color, onClick: () -> Un
             imageVector = icon,
             contentDescription = null,
             tint = color,
-            modifier = Modifier.size(20.dp)
+            modifier = Modifier.size(24.dp)
         )
     }
 }
