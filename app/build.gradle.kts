@@ -52,8 +52,9 @@ android {
         // ⑤ 进展页身体数据卡与目标预估卡之间补间距。功能次版本：versionCode 150。
         // 正式版 v1.0.0 · 最终定版（2026-11-09）：versionName 三段式 1.0.0，versionCode 重置 100（主版本×100）。
         // 未对外发布过，重置不影响任何人；已装旧包的手机需先卸载再装（签名也换了正式密钥，同样必须卸载重装）。
-        versionCode = 100
-        versionName = "1.0.0"
+        // 定版后的界面修复走 v1.0.x 补丁：v1.0.1 = 101（引导页骨架重做）。
+        versionCode = 101
+        versionName = "1.0.1"
     }
 
     signingConfigs {
