@@ -36,10 +36,10 @@ android {
         applicationId = "com.qingji.app" // 手机上唯一标识，上架后不能改
         minSdk = 26                      // 最低支持 Android 8.0（覆盖 95% 以上设备）
         targetSdk = 35                   // 目标版本
-        // v1.1.1（2026-11-09）：修复左滑删除组件前景缺白底——红色删除区恒透出（首页首次出现食物条目时整条被红盖住）。
-        // 补丁版：versionCode 111。
-        versionCode = 111
-        versionName = "1.1.1"
+        // v1.1.2（2026-11-09）：三叶图标居中修正（叶子几何中心对准画布中心）+ 姿态顺时针 8°（叶子立起来，主人六方案中选定）；
+        // 开屏动画末帧同步同一变换。样式补丁：versionCode 112。
+        versionCode = 112
+        versionName = "1.1.2"
     }
 
     buildTypes {
