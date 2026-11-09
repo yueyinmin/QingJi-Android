@@ -28,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.qingji.app.ui.theme.CardWhite
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -76,7 +77,7 @@ fun SwipeToRevealDelete(
             modifier = Modifier
                 .matchParentSize()
                 .background(
-                    if (revealed) Color(0xFFD64545) else Color(0xFFD64545).copy(alpha = 0.85f),
+                    Color(0xFFD64545),
                     RoundedCornerShape(cornerRadius)
                 )
                 .clickable(enabled = revealed) { onDelete() },
@@ -92,9 +93,14 @@ fun SwipeToRevealDelete(
         }
 
         // ---------- 前景：内容本体，横向拖动 ----------
+        // v1.1.1 修复：前景必须自带不透明底色（CardWhite）。
+        // 之前前景是透明的，红色删除区恒透出来——首页第一次出现食物条目时
+        // 表现成「整条红色盖住文字」，像误触发了删除。
+        // 加了底色后：正常态白底盖红，只有左滑移开才露出红色删除区。
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .background(CardWhite)
                 .offset { IntOffset(offsetX.value.roundToInt(), 0) }
                 .pointerInput(Unit) {
                     detectHorizontalDragGestures(

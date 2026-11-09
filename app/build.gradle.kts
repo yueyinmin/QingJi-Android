@@ -36,10 +36,10 @@ android {
         applicationId = "com.qingji.app" // 手机上唯一标识，上架后不能改
         minSdk = 26                      // 最低支持 Android 8.0（覆盖 95% 以上设备）
         targetSdk = 35                   // 目标版本
-        // v1.1（2026-11-09）：新增冷启动开屏动画（三叶聚拢）+ 全新三叶应用图标（与开屏同一路径）+ 首页状态栏跟随渐变刷色。
-        // versionCode 沿用 主版本×100：v1.1 → 110，只增不减。
-        versionCode = 110
-        versionName = "1.1"
+        // v1.1.1（2026-11-09）：修复左滑删除组件前景缺白底——红色删除区恒透出（首页首次出现食物条目时整条被红盖住）。
+        // 补丁版：versionCode 111。
+        versionCode = 111
+        versionName = "1.1.1"
     }
 
     buildTypes {
