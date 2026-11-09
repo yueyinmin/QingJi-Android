@@ -63,7 +63,16 @@ private val W_SUB = Color(0xFF8A8F98)
 private val W_GREEN = Color(0xFF1F8A70)
 private val W_GREEN_LIGHT = Color(0xFFE8F5EF)
 private val W_BLUE_LIGHT = Color(0xFFE8F4FB)
-private val W_TRACK = Color(0xFFEEF0F2)
+
+/**
+ * 三大营养素固定色（v3.5.1 与设置页预览对齐）。
+ * 小组件是另一个进程，读不到 App 内存里的主题状态（QingJiThemeState），
+ * 所以不能用 ui.theme 的 MacroProtein 等 getter，取默认主题（green）的三个值写死：
+ * 蛋白蓝 / 碳水绿 / 脂肪橙黄——和「桌面小组件」页预览里那三条一个颜色。
+ */
+private val W_MACRO_PROTEIN = Color(0xFF5B8DEF)
+private val W_MACRO_CARB = Color(0xFF1F8A70)
+private val W_MACRO_FAT = Color(0xFFF5A623)
 
 /** 背景透明度：设置里存的是 30..100 的百分比，这里换成 Color 的 0..1 alpha。 */
 private fun cardBg(alphaPercent: Int = 100) =
@@ -279,56 +288,72 @@ class OverviewWidget : GlanceAppWidget() {
                         )
                     )
             ) {
+                // v3.5.1：布局与「桌面小组件」页预览对齐——
+                // 大数字 + 三个并排彩色营养短条 + 左下角饮水，去掉旧的右侧数字与全宽白条
                 Column(modifier = GlanceModifier.fillMaxSize()) {
-                    Row(
-                        modifier = GlanceModifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.Vertical.CenterVertically
-                    ) {
-                        Column(modifier = GlanceModifier.defaultWeight()) {
-                            Text(
-                                text = "今日剩余",
-                                style = TextStyle(color = textColor(W_SUB), fontSize = 11.sp)
+                    Text(
+                        text = "今日剩余",
+                        style = TextStyle(color = textColor(W_SUB), fontSize = 11.sp)
+                    )
+                    Row(verticalAlignment = Alignment.Vertical.Bottom) {
+                        Text(
+                            text = "${data.goalKcal - data.eatenKcal}",
+                            style = TextStyle(
+                                color = textColor(
+                                    if (data.goalKcal - data.eatenKcal < 0) {
+                                        Color(0xFFE5544B)
+                                    } else {
+                                        W_TEXT
+                                    }
+                                ),
+                                fontSize = 26.sp,
+                                fontWeight = FontWeight.Bold
                             )
-                            Text(
-                                text = "${data.goalKcal - data.eatenKcal}",
-                                style = TextStyle(
-                                    color = textColor(
-                                        if (data.goalKcal - data.eatenKcal < 0) {
-                                            Color(0xFFE5544B)
-                                        } else {
-                                            W_TEXT
-                                        }
-                                    ),
-                                    fontSize = 26.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
+                        )
+                        Spacer(GlanceModifier.width(4.dp))
+                        Text(
+                            text = "千卡",
+                            style = TextStyle(color = textColor(W_SUB), fontSize = 13.sp),
+                            modifier = GlanceModifier.padding(bottom = 5.dp)
+                        )
+                    }
+
+                    if (appearance.showMacro) {
+                        Spacer(GlanceModifier.height(10.dp))
+                        Row(modifier = GlanceModifier.fillMaxWidth()) {
+                            MacroBar(
+                                label = "蛋白",
+                                current = data.protein,
+                                goal = data.proteinGoal,
+                                color = W_MACRO_PROTEIN,
+                                modifier = GlanceModifier.defaultWeight()
                             )
-                            Text(
-                                text = "千卡 · 已吃 ${data.eatenKcal} / ${data.goalKcal}",
-                                style = TextStyle(color = textColor(W_SUB), fontSize = 10.sp)
+                            Spacer(GlanceModifier.width(8.dp))
+                            MacroBar(
+                                label = "碳水",
+                                current = data.carb,
+                                goal = data.carbGoal,
+                                color = W_MACRO_CARB,
+                                modifier = GlanceModifier.defaultWeight()
                             )
-                        }
-                        Column(horizontalAlignment = Alignment.Horizontal.End) {
-                            if (appearance.showWater) {
-                                Text(
-                                    text = "饮水 ${data.water}/${data.waterGoal}ml",
-                                    style = TextStyle(color = textColor(W_SUB), fontSize = 10.sp)
-                                )
-                                Spacer(GlanceModifier.height(2.dp))
-                            }
-                            Text(
-                                text = "点开看详情 ›",
-                                style = TextStyle(color = textColor(W_GREEN), fontSize = 10.sp)
+                            Spacer(GlanceModifier.width(8.dp))
+                            MacroBar(
+                                label = "脂肪",
+                                current = data.fat,
+                                goal = data.fatGoal,
+                                color = W_MACRO_FAT,
+                                modifier = GlanceModifier.defaultWeight()
                             )
                         }
                     }
-                    if (appearance.showMacro) {
-                        Spacer(GlanceModifier.height(8.dp))
-                        MiniBar("蛋白", data.protein, data.proteinGoal)
-                        Spacer(GlanceModifier.height(5.dp))
-                        MiniBar("碳水", data.carb, data.carbGoal)
-                        Spacer(GlanceModifier.height(5.dp))
-                        MiniBar("脂肪", data.fat, data.fatGoal)
+
+                    Spacer(GlanceModifier.defaultWeight())
+
+                    if (appearance.showWater) {
+                        Text(
+                            text = "饮水 ${data.water} / ${data.waterGoal} ml",
+                            style = TextStyle(color = textColor(W_SUB), fontSize = 10.sp)
+                        )
                     }
                 }
             }
@@ -336,41 +361,42 @@ class OverviewWidget : GlanceAppWidget() {
     }
 }
 
-/** 一条迷你营养条：左边名称 + 数字，下面一条进度。 */
+/**
+ * 一条彩色营养短条（对齐预览样式）：标签小字在上，下面一条细彩条，
+ * 淡色做轨道、同色做进度；和预览一致，不显示数字。
+ */
 @Composable
-private fun MiniBar(label: String, current: Int, goal: Int) {
+private fun MacroBar(
+    label: String,
+    current: Int,
+    goal: Int,
+    color: Color,
+    modifier: GlanceModifier = GlanceModifier
+) {
     val progress = if (goal <= 0) 0f else (current.toFloat() / goal).coerceIn(0f, 1f)
-    Column(modifier = GlanceModifier.fillMaxWidth()) {
-        Row(
-            modifier = GlanceModifier.fillMaxWidth(),
-            verticalAlignment = Alignment.Vertical.CenterVertically
+    val barWidth = 64.dp
+    Column(modifier = modifier) {
+        Text(
+            text = label,
+            style = TextStyle(color = textColor(W_SUB), fontSize = 10.sp)
+        )
+        Spacer(GlanceModifier.height(3.dp))
+        Box(
+            modifier = GlanceModifier
+                .fillMaxWidth()
+                .height(5.dp)
+                .background(ColorProvider(color.copy(alpha = 0.25f)))
+                .cornerRadius(2.5.dp)
         ) {
-            Text(
-                text = label,
-                style = TextStyle(color = textColor(W_SUB), fontSize = 10.sp),
-                modifier = GlanceModifier.width(28.dp)
-            )
-            Box(
-                modifier = GlanceModifier
-                    .defaultWeight()
-                    .height(4.dp)
-                    .background(ColorProvider(W_TRACK))
-                    .cornerRadius(2.dp)
-            ) {
-                if (progress > 0f) {
-                    Box(
-                        modifier = GlanceModifier
-                            .width((96 * progress).dp)
-                            .height(4.dp)
-                            .background(ColorProvider(W_GREEN))
-                            .cornerRadius(2.dp)
-                    ) {}
-                }
+            if (progress > 0f) {
+                Box(
+                    modifier = GlanceModifier
+                        .width(barWidth * progress)
+                        .height(5.dp)
+                        .background(ColorProvider(color))
+                        .cornerRadius(2.5.dp)
+                ) {}
             }
-            Text(
-                text = " $current/${goal}g",
-                style = TextStyle(color = textColor(W_TEXT), fontSize = 10.sp)
-            )
         }
     }
 }
