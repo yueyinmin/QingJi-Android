@@ -135,8 +135,18 @@ fun QingJiAppRoot(
         return
     }
 
+    // 正式版 v1.1：首页顶部是主题色渐变头，状态栏必须让渐变延伸到屏幕最顶端，
+    // 否则状态栏一条灰白 + 下面浅绿，观感割裂。
+    // 做法是首页路由时把 Scaffold 的 contentWindowInsets 归零（状态栏 inset 交给
+    // HomeScreen 自己的 statusBarsPadding 处理），其他页面维持系统默认不动。
+    val onHome = currentRoute == QingJiTab.Home.route
     Scaffold(
         containerColor = PageBackground,
+        contentWindowInsets = if (onHome) {
+            androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0)
+        } else {
+            androidx.compose.material3.ScaffoldDefaults.contentWindowInsets
+        },
         bottomBar = {
             if (showBottomBar) {
                 QingJiBottomBar(

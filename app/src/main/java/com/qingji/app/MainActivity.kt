@@ -59,6 +59,16 @@ class MainActivity : ComponentActivity() {
                 themeMode = settings.themeMode,
                 accentKey = settings.themeColor
             ) {
+                // 正式版 v1.1：冷启动开屏动画（三叶聚拢）。
+                // rememberSaveable 记住「播过了」，旋转 / 重组 / 进程内重建都不会重播；
+                // 只有真正冷启动（进程被杀后重新打开）才播一次。
+                var splashDone by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+                if (!splashDone) {
+                    com.qingji.app.ui.components.QingJiSplash(
+                        onAnimationFinished = { splashDone = true }
+                    )
+                    return@QingJiTheme
+                }
                 // v3.5.0：界面语言放进 CompositionLocal，核心页的 s() 据此取文案；
                 // 切语言只写 DataStore，这里跟着重组，不需要重启 Activity
                 androidx.compose.runtime.CompositionLocalProvider(
