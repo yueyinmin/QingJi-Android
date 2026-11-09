@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.PhotoCamera
+import androidx.compose.material.icons.outlined.MonitorWeight
 import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
@@ -34,11 +35,14 @@ import com.qingji.app.ui.theme.MultiColor
  * v3.2.4：第二颗「记体重」和首页「今日记录」右侧的「食物库」互换位置，
  * 所以这里统一改成书图标 + 打开食物库；记体重挪到首页标题行右侧。
  * 三个页面一起换，避免同一个悬浮栏在不同页面长得不一样。
+ * v1.0.2：「记体重」回到悬浮栏第二颗（主人要求），现在四颗：
+ * 喝水（蓝）/ 记体重（绿）/ 食物库（紫）/ 拍照（青），首页、进展、日记共用。
  * ============================================================
  */
 @Composable
 fun QuickActionColumn(
     onWater: () -> Unit,
+    onWeight: () -> Unit,
     onOpenFoodLibrary: () -> Unit,
     onPhoto: () -> Unit,
     modifier: Modifier = Modifier
@@ -53,6 +57,11 @@ fun QuickActionColumn(
             icon = Icons.Outlined.WaterDrop,
             color = MultiColor.QuickWater,
             onClick = onWater
+        )
+        QuickActionButton(
+            icon = Icons.Outlined.MonitorWeight,
+            color = MultiColor.QuickWater,
+            onClick = onWeight
         )
         QuickActionButton(
             icon = Icons.AutoMirrored.Outlined.MenuBook,

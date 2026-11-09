@@ -326,6 +326,7 @@ fun DiaryScreen(
         // 往上挪 84dp，避免和右下角「写一篇」叠在一起。
         QuickActionColumn(
             onWater = { vm.addWater(200) },
+            onWeight = onOpenWeight,
             onOpenFoodLibrary = onOpenFoodLibrary,
             onPhoto = onOpenImage,
             modifier = Modifier

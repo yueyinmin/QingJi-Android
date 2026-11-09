@@ -191,7 +191,22 @@ fun HomeScreen(
                     .pressable { showDatePicker = true }
             )
             Spacer(Modifier.weight(1f))
-            // v1.4：连续天数按主人要求放回最右侧；「回到今天」出现时排在它左边
+            // 这一颗始终渲染，只切透明度。
+            // 之前是 if 判断，出现时会把左边挤动 → 看起来像"跳了一下"。
+            val showBack = state.date != today
+            Text(
+                text = s("回到今天"),
+                fontSize = 12.sp,
+                color = QingJiGreenDark,
+                modifier = Modifier
+                    .alpha(if (showBack) 1f else 0f)
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(if (showBack) QingJiGreenLight else Color.Transparent)
+                    .clickable(enabled = showBack) { vm.backToToday() }
+                    .padding(horizontal = 10.dp, vertical = 5.dp)
+            )
+            Spacer(Modifier.width(6.dp))
+            // v1.0.2：顶栏右侧一列依次是——回到今天、连续天数、目标状态
             val joinedDays = state.profile?.let {
                 val created = java.time.LocalDate.ofEpochDay(it.createdAt / 86_400_000L)
                 (today.toEpochDay() - created.toEpochDay()).toInt() + 1
@@ -206,18 +221,17 @@ fun HomeScreen(
                     .padding(horizontal = 10.dp, vertical = 5.dp)
             )
             Spacer(Modifier.width(6.dp))
-            // 这一颗始终渲染，只切透明度。
-            // 之前是 if 判断，出现时会把左边挤动 → 看起来像"跳了一下"。
-            val showBack = state.date != today
             Text(
-                text = s("回到今天"),
-                fontSize = 12.sp,
+                text = when (settings.goalMode) {
+                    "gain" -> s("增肌")
+                    "keep" -> s("保持")
+                    else -> s("减肥")
+                },
+                fontSize = 11.sp,
                 color = QingJiGreenDark,
                 modifier = Modifier
-                    .alpha(if (showBack) 1f else 0f)
                     .clip(RoundedCornerShape(999.dp))
-                    .background(if (showBack) QingJiGreenLight else Color.Transparent)
-                    .clickable(enabled = showBack) { vm.backToToday() }
+                    .background(QingJiGreenLight)
                     .padding(horizontal = 10.dp, vertical = 5.dp)
             )
         }
@@ -279,23 +293,7 @@ fun HomeScreen(
                     )
                 }
             }
-            // v1.2：右侧只留「记体重」一颗，挪到最右（原加号位置）——
-            // 加号与右下悬浮栏重叠，且「记一笔」入口在底栏中央 + 悬浮栏都有，这里纯属重复
-            Box(
-                modifier = Modifier
-                    .size(34.dp)
-                    .clip(RoundedCornerShape(11.dp))
-                    .background(QingJiGreen)
-                    .pressable { onOpenWeight() },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.MonitorWeight,
-                    contentDescription = "记体重",
-                    tint = Color.White,
-                    modifier = Modifier.size(17.dp)
-                )
-            }
+            // v1.0.2：「记体重」挪进右下悬浮栏，这里右侧不再放按钮
         }
 
         Spacer(Modifier.height(10.dp))
@@ -339,9 +337,10 @@ fun HomeScreen(
         // ---------- 右侧悬浮快捷按钮（M2 第 4 条，可在设置里关掉） ----------
         if (settings.showQuickButtons) {
             QuickActionColumn(
-                // v3.2.4：点水滴 = 和点水杯一样弹出「快速记录喝水」菜单，
-                // 不再直接 +200ml；第二颗已换成食物库（记体重挪到标题行右侧）。
+                // v3.2.4：点水滴 = 和点水杯一样弹出「快速记录喝水」菜单。
+                // v1.0.2：「记体重」从今日记录行挪回悬浮栏（第二颗）。
                 onWater = { showCupMenu = true },
+                onWeight = { onOpenWeight() },
                 onOpenFoodLibrary = onOpenFoodLibrary,
                 onPhoto = onOpenImage,
                 modifier = Modifier
@@ -768,16 +767,8 @@ private fun TodaySummaryCard(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // v1.0.2：目标状态（减肥/增肌/保持）挪到顶栏连续天数右边了
             Text(text = s("今日剩余"), fontSize = 14.sp, color = TextSecondary)
-            Text(
-                text = s("减肥"),
-                fontSize = 12.sp,
-                color = QingJiGreenDark,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(QingJiGreenLight)
-                    .padding(horizontal = 10.dp, vertical = 3.dp)
-            )
         }
 
         Spacer(Modifier.height(6.dp))
