@@ -36,8 +36,11 @@ android {
         applicationId = "com.qingji.app" // 手机上唯一标识，上架后不能改
         minSdk = 26                      // 最低支持 Android 8.0（覆盖 95% 以上设备）
         targetSdk = 35                   // 目标版本
-        versionCode = 352                  // 内部版本号：主版本×100 + 次版本×10 + 补丁（v2.6.1 = 261）
-        versionName = "3.5.2"             // 2026-11-09：水杯动画重构（持续波浪水面 + 1200ms 水位过渡 + 加水波动反馈），只动显示不改交互
+        // 正式版定版（2026-11-09）：v3.5.2 迭代收口，versionName 定为 1.0。
+        // versionCode 不重置——Android 只允许覆盖安装 versionCode 更大的包，
+        // 重置成 100 会装不上，必须卸载重装且本地数据全丢；继续沿用递增。
+        versionCode = 353
+        versionName = "1.0"               // 正式版 v1.0：功能全景见《开发总结-正式版v1.0.md》
     }
 
     buildTypes {
