@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#1F8A70</color>
+    <!-- 图标背景：浅薄荷，与开屏动画背景一致，衬三层绿叶 -->
+    <color name="ic_launcher_background">#F1F6F3</color>
 </resources>

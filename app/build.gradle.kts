@@ -36,12 +36,10 @@ android {
         applicationId = "com.qingji.app" // 手机上唯一标识，上架后不能改
         minSdk = 26                      // 最低支持 Android 8.0（覆盖 95% 以上设备）
         targetSdk = 35                   // 目标版本
-        // 正式版定版（2026-11-09）：versionName 1.0 / versionCode 100（沿用 主版本×100 规则）。
-        // 本 App 未对外发布、仅主人自用测试，versionCode 重置无用户影响；
-        // 唯一代价：已装旧包（code 35x）的手机要先卸载再装，本地数据清空。
-        // 此后规则不变：versionCode 只增不减（100 起）。
-        versionCode = 100
-        versionName = "1.0"               // 正式版 v1.0：功能全景见《开发总结-正式版v1.0.md》
+        // v1.1（2026-11-09）：新增冷启动开屏动画（三叶聚拢）+ 全新三叶应用图标（与开屏同一路径）+ 首页状态栏跟随渐变刷色。
+        // versionCode 沿用 主版本×100：v1.1 → 110，只增不减。
+        versionCode = 110
+        versionName = "1.1"
     }
 
     buildTypes {

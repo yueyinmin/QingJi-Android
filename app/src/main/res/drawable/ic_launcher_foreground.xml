@@ -1,19 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 应用图标前景：一个简化的碗形，白色线条，居中 -->
+<!-- 应用图标前景：三层叶片（与开屏动画 QingJiSplash.kt 同一套路径数据）。
+     512×512 坐标系整体缩放 0.6 并以叶子中心 (246.5, 257) 为基准，
+     保证落在自适应图标 66/108 的安全圆内不被桌面裁切。 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M30,52 h48 a4,4 0 0 1 4,4 a28,28 0 0 1 -56,0 a4,4 0 0 1 4,-4 z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M44,40 a10,6 0 1 0 20,0 a10,6 0 1 0 -20,0 z" />
-    <path
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="3"
-        android:strokeLineCap="round"
-        android:pathData="M54,26 v-6" />
+    android:viewportWidth="512"
+    android:viewportHeight="512">
+    <group
+        android:scaleX="0.6"
+        android:scaleY="0.6"
+        android:pivotX="246.5"
+        android:pivotY="257">
+        <!-- 第一层：浅绿大叶 -->
+        <path
+            android:fillColor="#BCEBD9"
+            android:pathData="M102,337 C88,245 122,148 207,117 C257,99 317,99 363,105 C381,108 385,116 385,135 C391,230 354,345 276,382 C207,415 133,389 102,337 Z" />
+        <!-- 第二层：中绿 -->
+        <path
+            android:fillColor="#62C9A2"
+            android:pathData="M102,337 C151,282 271,241 385,207 C381,279 354,345 276,382 C207,415 133,389 102,337 Z" />
+        <!-- 第三层：深绿小叶 -->
+        <path
+            android:fillColor="#4EB18D"
+            android:pathData="M102,337 C167,296 270,288 365,301 C343,348 310,381 276,382 C207,415 133,389 102,337 Z" />
+    </group>
 </vector>
