@@ -288,6 +288,7 @@ fun ProgressScreen(
     // 和首页一样的三个快捷按钮：在进展页也能顺手记水、记体重、拍照
     QuickActionColumn(
         onWater = { vm.addWater(200) },
+        onWeight = onOpenWeight,
         onOpenFoodLibrary = onOpenFoodLibrary,
         onPhoto = onOpenImage,
         modifier = Modifier
