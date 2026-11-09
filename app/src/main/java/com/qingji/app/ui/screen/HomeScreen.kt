@@ -543,7 +543,7 @@ private fun QuickWaterSheet(
                                 customMl = ""
                                 error = ""
                             } else {
-                                error = "填 1～3000 之间的数字"
+                                error = "1 到 3000 之间都行"
                             }
                         }
                         .padding(horizontal = 18.dp, vertical = 16.dp),

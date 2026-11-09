@@ -323,7 +323,7 @@ fun ImageRecordScreen(
                                 imagePath = imageInfo?.path
                             )
                             if (logs.isEmpty()) {
-                                errorText = "每条都要有名称和大于 0 的克数"
+                                errorText = "每条都要有名字，克数要大于 0"
                             } else {
                                 vm.save(logs, items.nameCorrections())
                                 onBack()
