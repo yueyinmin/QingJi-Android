@@ -89,8 +89,8 @@ private val EN: Map<String, String> = mapOf(
     "加到哪一餐" to "Add to which meal",
     "记到哪一天" to "Log to which day",
     "份量（克）" to "Portion (g)",
-    "营养值为常见值估算，仅供记录参考，不构成营养或医学建议" to
-        "Nutrition values are common estimates for logging only, not nutritional or medical advice",
+    "食物热量按常见值估算，日常记账够用，别当营养学依据" to
+        "Calories are typical estimates, good for logging but not nutritional or medical advice",
 
     // ---------- 设置 · 分组 ----------
     "账号与安全" to "Account & privacy",

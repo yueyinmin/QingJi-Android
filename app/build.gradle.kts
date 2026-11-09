@@ -36,11 +36,11 @@ android {
         applicationId = "com.qingji.app" // 手机上唯一标识，上架后不能改
         minSdk = 26                      // 最低支持 Android 8.0（覆盖 95% 以上设备）
         targetSdk = 35                   // 目标版本
-        // v1.2（2026-11-09）：① 水杯整套按 ChatGPT 方案重做（锥形杯身 + 双层波 + 玻璃高光 + 杯内容量文字）；
-        // ② 日期月历弹层统一 AppBottomSheet 风格；③ 连续天数胶囊跟日期呼应；④ 今日记录去加号、体重移至加号位；
-        // ⑤ 悬浮栏下移贴底减少遮挡。功能次版本：versionCode 120。
-        versionCode = 120
-        versionName = "1.2"
+        // v1.3（2026-11-09）：① 修食物库页签被分类栏遮挡（内容区 Box→Column，外卖/家庭厨房页签恢复可见）；
+        // ② 引导重做成「一页一问」向导（8 步 + 进度条，偏好三页支持自定义标签、数量不限）；③ 提示文案全部去 AI 味。
+        // 功能次版本：versionCode 130。
+        versionCode = 130
+        versionName = "1.3"
     }
 
     buildTypes {

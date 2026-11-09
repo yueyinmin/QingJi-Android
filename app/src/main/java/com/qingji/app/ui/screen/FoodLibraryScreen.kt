@@ -187,7 +187,7 @@ fun FoodLibraryScreen(
 
         // 免责：654 条营养值是初采估算（PRD 13.1 口径）
         Text(
-            text = s("营养值为常见值估算，仅供记录参考，不构成营养或医学建议"),
+            text = s("食物热量按常见值估算，日常记账够用，别当营养学依据"),
             fontSize = 11.sp,
             color = TextSecondary,
             modifier = Modifier.padding(horizontal = 16.dp)
@@ -195,7 +195,7 @@ fun FoodLibraryScreen(
         Spacer(Modifier.height(8.dp))
 
         // 内容区占满剩余高度，底栏才不会被列表挤出屏幕
-        Box(modifier = Modifier.weight(1f)) {
+        Column(modifier = Modifier.weight(1f)) {
         when (effectiveTab) {
             0 -> {
                 Segmented(listOf(s("家庭厨房"), s("外卖快餐")), kitchenTab) { kitchenTab = it }
@@ -213,7 +213,7 @@ fun FoodLibraryScreen(
                         category = available.first()
                     }
 
-                    Row(modifier = Modifier.fillMaxSize()) {
+                    Row(modifier = Modifier.fillMaxWidth().weight(1f)) {
                         Column(
                             modifier = Modifier
                                 .width(88.dp)
@@ -273,12 +273,13 @@ fun FoodLibraryScreen(
                     }
                     Column(
                         modifier = Modifier
-                            .fillMaxSize()
+                            .fillMaxWidth()
+                            .weight(1f)
                             .verticalScroll(rememberScrollState())
                             .padding(horizontal = Dimens.ScreenPadding)
                     ) {
                         if (fastFoods.isEmpty()) {
-                            HintBox(text = "还没有外卖快餐数据。")
+                            HintBox(text = "外卖快餐暂时还没有数据")
                         } else {
                             // v3.4.0：清单品牌列全部留空，外卖快餐改按一级分类分流，
                             // 不再靠 brand 是否为空判断，也不再按品牌分组（F4）
@@ -308,12 +309,13 @@ fun FoodLibraryScreen(
 
             1 -> Column(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .fillMaxWidth()
+                    .weight(1f)
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = Dimens.ScreenPadding)
             ) {
                 Spacer(Modifier.height(4.dp))
-                HintBox(text = "这里是你自己加的食物。AI 识别出的食物可以在「用餐详情 → 更多」里存进这里。")
+                HintBox(text = "你自己加的食物都在这里；AI 识别过的也能从「用餐详情 → 更多」存进来")
                 Spacer(Modifier.height(8.dp))
                 if (userFoods.isEmpty()) {
                     Text(text = "还没有自定义食物，左滑可以删除", fontSize = 13.sp, color = TextSecondary)
@@ -338,13 +340,14 @@ fun FoodLibraryScreen(
 
             2 -> Column(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .fillMaxWidth()
+                    .weight(1f)
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = Dimens.ScreenPadding)
             ) {
                 Spacer(Modifier.height(4.dp))
                 if (eatenFoods.isEmpty()) {
-                    HintBox(text = "还没有吃过记录。记几笔饮食之后，这里会按食物名聚合出你常吃的东西。")
+                    HintBox(text = "记几笔之后，常吃的东西会自动出现在这里")
                 } else {
                     eatenFoods.filter { matches(it.name) }.forEach { item ->
                         EatenRow(item = item, onClick = {
@@ -363,7 +366,8 @@ fun FoodLibraryScreen(
             // ---------- 我的收藏（右下心形按钮切进来） ----------
             3 -> Column(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .fillMaxWidth()
+                    .weight(1f)
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = Dimens.ScreenPadding)
             ) {
@@ -371,7 +375,7 @@ fun FoodLibraryScreen(
                     .filter { it.favorite && matchesFood(it) }
                     .distinctBy { it.name }
                 if (favorites.isEmpty()) {
-                    HintBox(text = "还没有收藏。在食物列表点一下右边的 ♡ 就能收藏，再点右下角心形可以只看收藏。")
+                    HintBox(text = "点列表右边的 ♡ 收藏；右下角的心形可以只看收藏")
                 } else {
                     favorites.forEach { food ->
                         FoodRow(
@@ -387,7 +391,7 @@ fun FoodLibraryScreen(
                 Spacer(Modifier.height(80.dp))
             }
         }
-        } // 内容区 Box 结束
+        } // 内容区 Column 结束
 
         // ---------- 底栏：标准 / 自定义 / 吃过的 ----------
         FoodLibraryBottomBar(

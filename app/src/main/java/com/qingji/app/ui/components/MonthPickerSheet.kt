@@ -261,7 +261,7 @@ fun MonthPickerSheet(
 
             Spacer(Modifier.height(10.dp))
             Text(
-                text = "未来的日期不能记（还没发生的事情记了也不算数）",
+                text = "未来还没到，先记眼前的吧",
                 fontSize = 10.sp,
                 color = TextSecondary,
                 modifier = Modifier.fillMaxWidth(),
