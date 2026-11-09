@@ -114,6 +114,8 @@ object SettingsKeys {
     val WIDGET_SHOW_WEIGHT = booleanPreferencesKey("widget_show_weight")
     /** AI 识别纠错：每行「AI原名=>用户改后名」，纯文本，不建表 */
     val AI_NAME_CORRECTIONS = stringPreferencesKey("ai_name_corrections")
+    /** 界面语言：zh 简体中文（默认）/ en English。只影响核心页文案，未翻译条目回落中文 */
+    val UI_LANGUAGE = stringPreferencesKey("ui_language")
 }
 
 /** 一次性读出的完整设置快照，给界面和 ViewModel 用。 */
@@ -175,7 +177,8 @@ data class QingJiSettings(
     val widgetShowWater: Boolean = true,
     val widgetShowMacro: Boolean = true,
     val widgetShowWeight: Boolean = true,
-    val aiNameCorrections: String = ""
+    val aiNameCorrections: String = "",
+    val uiLanguage: String = "zh"
 )
 
 object SettingsStore {
@@ -241,7 +244,8 @@ object SettingsStore {
                     widgetShowWater = p[SettingsKeys.WIDGET_SHOW_WATER] ?: true,
                     widgetShowMacro = p[SettingsKeys.WIDGET_SHOW_MACRO] ?: true,
                     widgetShowWeight = p[SettingsKeys.WIDGET_SHOW_WEIGHT] ?: true,
-                    aiNameCorrections = p[SettingsKeys.AI_NAME_CORRECTIONS] ?: ""
+                    aiNameCorrections = p[SettingsKeys.AI_NAME_CORRECTIONS] ?: "",
+                    uiLanguage = p[SettingsKeys.UI_LANGUAGE] ?: "zh"
                 )
             }
 

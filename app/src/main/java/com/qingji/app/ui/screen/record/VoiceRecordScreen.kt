@@ -84,6 +84,9 @@ fun VoiceRecordScreen(
     var errorText by remember { mutableStateOf("") }
     var mealType by remember { mutableStateOf(MealRules.guess()) }
     val items = remember { mutableStateListOf<EditableItem>() }
+    // v3.5.0：记到哪一天可选（默认今天），复用日期/时/分三列滚轮
+    var recordDate by remember { mutableStateOf(AppClock.today()) }
+    var showDatePicker by remember { mutableStateOf(false) }
 
     // 有些手机（尤其没装谷歌/厂商语音服务的）根本起不来 SpeechRecognizer。
     // 先问一句能不能用，不能用就走系统识别界面兜底。
@@ -255,6 +258,8 @@ fun VoiceRecordScreen(
                 Spacer(Modifier.height(6.dp))
                 MealSelector(selected = mealType, onSelect = { mealType = it })
                 Spacer(Modifier.height(12.dp))
+                RecordDateRow(date = recordDate, onClick = { showDatePicker = true })
+                Spacer(Modifier.height(12.dp))
                 PrimaryButton(
                     text = if (isLoading) "拆条中…" else "用 AI 拆成食物条目",
                     enabled = !isLoading && recognizedText.isNotBlank(),
@@ -323,7 +328,7 @@ fun VoiceRecordScreen(
                     count = items.size,
                     onSave = {
                         scope.launch {
-                            val logs = items.toFoodLogs(mealType, "voice")
+                            val logs = items.toFoodLogs(mealType, "voice", date = recordDate)
                             if (logs.isEmpty()) {
                                 errorText = "每条都要有名称和大于 0 的克数"
                             } else {
@@ -337,5 +342,14 @@ fun VoiceRecordScreen(
 
             Spacer(Modifier.height(24.dp))
         }
+    }
+
+    // v3.5.0：日期/时/分三列滚轮（复用运动模块组件，最多回看最近 7 天）
+    if (showDatePicker) {
+        com.qingji.app.ui.components.ExerciseDateTimeWheelSheet(
+            initial = recordDate.atTime(12, 0),
+            onConfirm = { recordDate = it.toLocalDate() },
+            onDismiss = { showDatePicker = false }
+        )
     }
 }

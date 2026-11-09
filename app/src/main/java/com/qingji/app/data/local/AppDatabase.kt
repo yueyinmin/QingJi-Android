@@ -72,7 +72,7 @@ class Converters {
         FastingLog::class,
         ExercisePreset::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -190,6 +190,29 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * 4 → 5：营养素目标细分（v3.5.0）。
+         * 三个表各加列，全是「NOT NULL + DEFAULT」； Entity 上同时标了 @ColumnInfo(defaultValue=...)，
+         * 两边的 DEFAULT 字面量必须逐字一致（0.0 / 25 / 2000 / 800），否则 Room 运行时校验
+         * schema 不匹配会触发清库兜底。改任何一边都要同步另一边并核对 schemas/5.json。
+         */
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // 食物库：每 100g 的膳食纤维（g）/ 钠（mg）/ 钙（mg）；现有清单暂无数据，先落 0
+                db.execSQL("ALTER TABLE `food` ADD COLUMN `fiberPer100g` REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE `food` ADD COLUMN `sodiumMgPer100g` REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE `food` ADD COLUMN `calciumMgPer100g` REAL NOT NULL DEFAULT 0.0")
+                // 饮食记录：与 Food 对应三列
+                db.execSQL("ALTER TABLE `food_log` ADD COLUMN `fiberG` REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE `food_log` ADD COLUMN `sodiumMg` REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE `food_log` ADD COLUMN `calciumMg` REAL NOT NULL DEFAULT 0.0")
+                // 用户档案：三个每日目标，默认按《中国居民膳食指南》成人参考值
+                db.execSQL("ALTER TABLE `user_profile` ADD COLUMN `fiberGoalG` INTEGER NOT NULL DEFAULT 25")
+                db.execSQL("ALTER TABLE `user_profile` ADD COLUMN `sodiumGoalMg` INTEGER NOT NULL DEFAULT 2000")
+                db.execSQL("ALTER TABLE `user_profile` ADD COLUMN `calciumGoalMg` INTEGER NOT NULL DEFAULT 800")
+            }
+        }
+
         fun get(context: Context): AppDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
@@ -197,7 +220,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "qingji.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     // 兜底：万一日后某个版本的迁移没写，宁可清表也不能让 App 打不开。
                     // 每加一次表结构，务必同时补 Migration，别依赖这一行。
                     .fallbackToDestructiveMigration()

@@ -1,5 +1,6 @@
 package com.qingji.app.data.local.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -32,6 +33,17 @@ data class UserProfile(
     val carbGoalG: Int = 0,              // 每日碳水目标克数
     val fatGoalG: Int = 0,               // 每日脂肪目标克数
     val waterGoalMl: Int = 2000,         // 每日饮水目标毫升
+    // v3.5.0 营养素目标细分。defaultValue 必须和 MIGRATION_4_5 里的 DEFAULT 完全一致，
+    // 否则 Room 运行时校验 schema 会不匹配，触发清库兜底。
+    /** 每日膳食纤维目标（克），参考膳食指南成人约 25g */
+    @ColumnInfo(defaultValue = "25")
+    val fiberGoalG: Int = 25,
+    /** 每日钠目标（毫克），参考指南成人 < 2000mg */
+    @ColumnInfo(defaultValue = "2000")
+    val sodiumGoalMg: Int = 2000,
+    /** 每日钙目标（毫克），参考指南成人约 800mg */
+    @ColumnInfo(defaultValue = "800")
+    val calciumGoalMg: Int = 800,
     val unit: String = "kg",             // 展示单位：kg / jin（斤）
     val createdAt: Long = System.currentTimeMillis()
 )
@@ -70,6 +82,13 @@ data class Food(
     val proteinPer100g: Double = 0.0,
     val carbPer100g: Double = 0.0,
     val fatPer100g: Double = 0.0,
+    // v3.5.0 营养素细分（654 条清单暂无这三列数据，先落字段为 0，以后补数据不用再迁移）
+    @ColumnInfo(defaultValue = "0.0")
+    val fiberPer100g: Double = 0.0,
+    @ColumnInfo(defaultValue = "0.0")
+    val sodiumMgPer100g: Double = 0.0,
+    @ColumnInfo(defaultValue = "0.0")
+    val calciumMgPer100g: Double = 0.0,
     val defaultGrams: Double = 100.0,    // 默认一份是多少克
     val source: String = "preset",       // preset / user / api / openfoodfacts
     /** 食物库左侧导航的分类：主食 / 面食 / 家常菜 / 肉类 … 灌库时按名字自动归类 */
@@ -99,6 +118,13 @@ data class FoodLog(
     val proteinG: Double = 0.0,
     val carbG: Double = 0.0,
     val fatG: Double = 0.0,
+    // v3.5.0：与 Food 的三列对应；来源数据没有时就是 0
+    @ColumnInfo(defaultValue = "0.0")
+    val fiberG: Double = 0.0,
+    @ColumnInfo(defaultValue = "0.0")
+    val sodiumMg: Double = 0.0,
+    @ColumnInfo(defaultValue = "0.0")
+    val calciumMg: Double = 0.0,
     val source: String = "manual",       // text / image / voice / barcode / manual
     val aiConfidence: Double? = null,    // AI 给的置信度，低于 0.6 界面要提示核对
     val imagePath: String? = null,       // 照片存 App 私有目录，这里只记路径

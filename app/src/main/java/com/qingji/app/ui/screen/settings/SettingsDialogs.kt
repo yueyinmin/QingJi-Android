@@ -16,10 +16,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -33,7 +31,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.qingji.app.ui.theme.CardWhite
-import com.qingji.app.ui.theme.DangerRed
 import com.qingji.app.ui.theme.PageBackground
 import com.qingji.app.ui.theme.QingJiGreen
 import com.qingji.app.ui.theme.TextPrimary
@@ -66,7 +63,12 @@ private fun MacroField(label: String, value: String, onChange: (String) -> Unit)
     }
 }
 
-/** 二次确认（清数据这种不可撤销的操作必须走它）。 */
+/**
+ * 二次确认（清数据这种不可撤销的操作必须走它）。
+ *
+ * v3.5.0：容器从裸 Material AlertDialog 迁到全 App 统一的 AppDialog
+ * （20dp 圆角、CardWhite 底、胶囊按钮），签名保持不变，调用点零改动。
+ */
 @Composable
 fun ConfirmDialog(
     title: String,
@@ -76,19 +78,16 @@ fun ConfirmDialog(
     onDismiss: () -> Unit,
     danger: Boolean = true
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title, fontSize = 17.sp) },
-        text = { Text(body, fontSize = 13.sp, color = TextPrimary, lineHeight = 21.sp) },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text(confirmText, color = if (danger) DangerRed else QingJiGreen)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消", color = TextSecondary) }
-        }
-    )
+    com.qingji.app.ui.components.AppDialog(
+        title = title,
+        onDismiss = onDismiss,
+        confirmText = confirmText,
+        onConfirm = onConfirm,
+        dismissText = "取消",
+        danger = danger
+    ) {
+        Text(body, fontSize = 13.sp, color = TextPrimary, lineHeight = 21.sp)
+    }
 }
 
 /** 设置页里的一行：左边标题+副标题，右边当前值 + 箭头。 */

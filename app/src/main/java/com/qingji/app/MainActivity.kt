@@ -59,14 +59,20 @@ class MainActivity : ComponentActivity() {
                 themeMode = settings.themeMode,
                 accentKey = settings.themeColor
             ) {
-                QingJiAppRoot(
-                    startTarget = pendingTarget,
-                    startTargetRequestId = requestId,
-                    // v3.2.3：跳完就把目标清掉。以前它一直挂在 Activity 上，
-                    // 只要界面因换主题/转屏重新组合一次，就会被重新消费一遍，
-                    // 表现成「明明点了首页，最后又跑到别的页」。
-                    onTargetConsumed = { pendingTarget = null }
-                )
+                // v3.5.0：界面语言放进 CompositionLocal，核心页的 s() 据此取文案；
+                // 切语言只写 DataStore，这里跟着重组，不需要重启 Activity
+                androidx.compose.runtime.CompositionLocalProvider(
+                    com.qingji.app.ui.i18n.LocalUiLang provides settings.uiLanguage
+                ) {
+                    QingJiAppRoot(
+                        startTarget = pendingTarget,
+                        startTargetRequestId = requestId,
+                        // v3.2.3：跳完就把目标清掉。以前它一直挂在 Activity 上，
+                        // 只要界面因换主题/转屏重新组合一次，就会被重新消费一遍，
+                        // 表现成「明明点了首页，最后又跑到别的页」。
+                        onTargetConsumed = { pendingTarget = null }
+                    )
+                }
             }
         }
     }

@@ -99,6 +99,7 @@ fun MealDetailScreen(
     }
 
     val state by vm.state.collectAsState()
+    val profile by vm.profile.collectAsState()
     val scope = rememberCoroutineScope()
     val context = androidx.compose.ui.platform.LocalContext.current
 
@@ -156,7 +157,7 @@ fun MealDetailScreen(
             Spacer(Modifier.height(Dimens.Gap))
 
             // ---------- 汇总 ----------
-            MealSummaryCard(state)
+            MealSummaryCard(state, profile)
 
             Spacer(Modifier.height(Dimens.Gap))
 
@@ -377,9 +378,12 @@ fun MealDetailScreen(
     }
 }
 
-/** 顶部汇总：总热量 + 三条营养素。 */
+/** 顶部汇总：总热量 + 三条营养素 + 纤维/钠/钙细分（v3.5.0）。 */
 @Composable
-private fun MealSummaryCard(state: com.qingji.app.ui.viewmodel.MealDetailState) {
+private fun MealSummaryCard(
+    state: com.qingji.app.ui.viewmodel.MealDetailState,
+    profile: com.qingji.app.data.local.entity.UserProfile?
+) {
     SectionCard {
         Text(
             text = "总热量",
@@ -419,8 +423,49 @@ private fun MealSummaryCard(state: com.qingji.app.ui.viewmodel.MealDetailState) 
         NutrientRow("碳水", state.carb, state.carb * 4 / total, MacroCarb)
         Spacer(Modifier.height(8.dp))
         NutrientRow("脂肪", state.fat, state.fat * 9 / total, MacroFat)
+
+        // v3.5.0：膳食纤维 / 钠 / 钙。来源数据暂时没有，全 0 时诚实显示「暂无数据」
+        Spacer(Modifier.height(12.dp))
+        if (state.hasMicronutrient) {
+            MicronutrientRow("膳食纤维", state.fiber, (profile?.fiberGoalG ?: 25).toDouble(), "g")
+            Spacer(Modifier.height(6.dp))
+            MicronutrientRow("钠", state.sodiumMg, (profile?.sodiumGoalMg ?: 2000).toDouble(), "mg")
+            Spacer(Modifier.height(6.dp))
+            MicronutrientRow("钙", state.calciumMg, (profile?.calciumGoalMg ?: 800).toDouble(), "mg")
+        } else {
+            Text(
+                text = "膳食纤维 / 钠 / 钙：暂无数据（食物库还没收录这三项数值，目标可在设置 → 营养素分配里先定）",
+                fontSize = 11.sp,
+                color = TextSecondary,
+                lineHeight = 16.sp
+            )
+        }
     }
 }
+
+/** 纤维 / 钠 / 钙一行：摄入 / 目标，不画进度条（多数时候没数据，画条会误导）。 */
+@Composable
+private fun MicronutrientRow(name: String, valueMg: Double, goalMg: Double, unit: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = name,
+            fontSize = 12.sp,
+            color = TextSecondary,
+            modifier = Modifier.size(width = 52.dp, height = 16.dp)
+        )
+        Spacer(Modifier.weight(1f))
+        Text(
+            text = "${one(valueMg)} / ${one(goalMg)} $unit",
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            color = TextPrimary
+        )
+    }
+}
+
+private fun one(v: Double): String =
+    if (v == v.toLong().toDouble()) v.toLong().toString()
+    else String.format(java.util.Locale.US, "%.1f", v)
 
 @Composable
 private fun NutrientRow(name: String, grams: Double, ratio: Double, color: Color) {

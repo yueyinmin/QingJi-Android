@@ -61,6 +61,9 @@ fun TextAiScreen(
     var advice by remember { mutableStateOf("") }
     var needClarify by remember { mutableStateOf(false) }
     val items = remember { mutableStateListOf<EditableItem>() }
+    // v3.5.0：记到哪一天可选（默认今天），复用运动模块那套日期/时/分三列滚轮
+    var recordDate by remember { mutableStateOf(AppClock.today()) }
+    var showDatePicker by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -97,6 +100,8 @@ fun TextAiScreen(
                 Text(text = "记到哪一餐", fontSize = 13.sp, color = TextSecondary)
                 Spacer(Modifier.height(6.dp))
                 MealSelector(selected = mealType, onSelect = { mealType = it })
+                Spacer(Modifier.height(12.dp))
+                RecordDateRow(date = recordDate, onClick = { showDatePicker = true })
                 Spacer(Modifier.height(12.dp))
                 PrimaryButton(
                     text = if (isLoading) "识别中…" else "开始识别",
@@ -158,7 +163,7 @@ fun TextAiScreen(
                     count = items.size,
                     onSave = {
                         scope.launch {
-                            val logs = items.toFoodLogs(mealType, "text")
+                            val logs = items.toFoodLogs(mealType, "text", date = recordDate)
                             if (logs.isEmpty()) {
                                 errorText = "每条都要有名称和大于 0 的克数"
                             } else {
@@ -174,5 +179,14 @@ fun TextAiScreen(
 
             Spacer(Modifier.height(24.dp))
         }
+    }
+
+    // v3.5.0：日期/时/分三列滚轮（复用运动模块组件，最多回看最近 7 天）
+    if (showDatePicker) {
+        com.qingji.app.ui.components.ExerciseDateTimeWheelSheet(
+            initial = recordDate.atTime(12, 0),
+            onConfirm = { recordDate = it.toLocalDate() },
+            onDismiss = { showDatePicker = false }
+        )
     }
 }

@@ -50,6 +50,7 @@ import com.qingji.app.domain.FoodCategory
 import com.qingji.app.domain.FoodIcon
 import com.qingji.app.domain.MealRules
 import com.qingji.app.ui.components.HintBox
+import com.qingji.app.ui.i18n.s
 import com.qingji.app.ui.theme.CardWhite
 import com.qingji.app.ui.theme.DangerRed
 import com.qingji.app.ui.theme.Dimens
@@ -106,10 +107,10 @@ fun FoodLibraryScreen(
 
     // 「我的收藏」当成第 4 个 tab：原来三页的内容一行都不用动
     val effectiveTab = if (showFavorites) 3 else tab
-    val title = if (showFavorites) "我的收藏" else when (tab) {
-        0 -> "标准食物库"
-        1 -> "自定义食物"
-        else -> "吃过的"
+    val title = if (showFavorites) s("我的收藏") else when (tab) {
+        0 -> s("标准食物库")
+        1 -> s("自定义食物")
+        else -> s("吃过的")
     }
     // 搜索：名字包含，空串不过滤
     val matches: (String) -> Boolean = { name ->
@@ -139,7 +140,7 @@ fun FoodLibraryScreen(
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "返回",
+                contentDescription = s("返回"),
                 tint = TextPrimary,
                 modifier = Modifier
                     .size(22.dp)
@@ -155,7 +156,7 @@ fun FoodLibraryScreen(
             )
             Icon(
                 imageVector = Icons.Filled.Search,
-                contentDescription = "搜索食物",
+                contentDescription = s("搜索食物"),
                 tint = QingJiGreen,
                 modifier = Modifier
                     .size(22.dp)
@@ -168,7 +169,7 @@ fun FoodLibraryScreen(
                 value = query,
                 onValueChange = { query = it },
                 singleLine = true,
-                placeholder = { Text(text = "搜食物名或拼音首字母（如 sp）", fontSize = 12.sp, color = TextSecondary) },
+                placeholder = { Text(text = s("搜食物名或拼音首字母（如 sp）"), fontSize = 12.sp, color = TextSecondary) },
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Filled.Search,
@@ -186,7 +187,7 @@ fun FoodLibraryScreen(
 
         // 免责：654 条营养值是初采估算（PRD 13.1 口径）
         Text(
-            text = "营养值为常见值估算，仅供记录参考，不构成营养或医学建议",
+            text = s("营养值为常见值估算，仅供记录参考，不构成营养或医学建议"),
             fontSize = 11.sp,
             color = TextSecondary,
             modifier = Modifier.padding(horizontal = 16.dp)
@@ -197,7 +198,7 @@ fun FoodLibraryScreen(
         Box(modifier = Modifier.weight(1f)) {
         when (effectiveTab) {
             0 -> {
-                Segmented(listOf("家庭厨房", "外卖快餐"), kitchenTab) { kitchenTab = it }
+                Segmented(listOf(s("家庭厨房"), s("外卖快餐")), kitchenTab) { kitchenTab = it }
                 Spacer(Modifier.height(8.dp))
 
                 if (kitchenTab == 0) {
@@ -282,7 +283,7 @@ fun FoodLibraryScreen(
                             // v3.4.0：清单品牌列全部留空，外卖快餐改按一级分类分流，
                             // 不再靠 brand 是否为空判断，也不再按品牌分组（F4）
                             Text(
-                                text = "外卖 / 连锁常见份量",
+                                text = s("外卖 / 连锁常见份量"),
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = TextPrimary,
@@ -414,7 +415,7 @@ fun FoodLibraryScreen(
     ) {
         Icon(
             imageVector = Icons.Filled.Favorite,
-            contentDescription = if (showFavorites) "返回食物库" else "只看收藏",
+            contentDescription = if (showFavorites) s("返回食物库") else s("只看收藏"),
             tint = Color.White,
             modifier = Modifier.size(24.dp)
         )
@@ -450,9 +451,9 @@ private fun FoodLibraryBottomBar(
         verticalAlignment = Alignment.CenterVertically
     ) {
         val items = listOf(
-            Triple("标准", Icons.Outlined.Description, 0),
-            Triple("自定义", Icons.Outlined.EditNote, 1),
-            Triple("吃过的", Icons.Outlined.History, 2)
+            Triple(s("标准"), Icons.Outlined.Description, 0),
+            Triple(s("自定义"), Icons.Outlined.EditNote, 1),
+            Triple(s("吃过的"), Icons.Outlined.History, 2)
         )
         items.forEach { (label, icon, index) ->
             val active = selected == index
@@ -632,9 +633,9 @@ private fun AddToMealDialog(
     var dayOffset by remember { mutableStateOf(0L) }
 
     com.qingji.app.ui.components.AppBottomSheet(
-        title = "加到哪一餐",
+        title = s("加到哪一餐"),
         subtitle = foodName,
-        confirmText = "加入",
+        confirmText = s("加入"),
         onConfirm = {
             val g = grams.toDoubleOrNull()?.coerceIn(1.0, 3000.0) ?: defaultGrams
             onConfirm(meal, g, dayOffset.toInt())
@@ -658,10 +659,10 @@ private fun AddToMealDialog(
         }
         Spacer(Modifier.height(12.dp))
         Spacer(Modifier.height(12.dp))
-        Text(text = "记到哪一天", fontSize = 12.sp, color = TextSecondary)
+        Text(text = s("记到哪一天"), fontSize = 12.sp, color = TextSecondary)
         Spacer(Modifier.height(6.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            listOf(0L to "今天", 1L to "昨天", 2L to "前天").forEach { (offset, label) ->
+            listOf(0L to s("今天"), 1L to s("昨天"), 2L to s("前天")).forEach { (offset, label) ->
                 val selected = dayOffset == offset
                 Text(
                     text = label,
@@ -677,7 +678,7 @@ private fun AddToMealDialog(
         }
         Spacer(Modifier.height(12.dp))
         com.qingji.app.ui.components.LabeledTextField(
-            label = "份量（克）",
+            label = s("份量（克）"),
             value = grams,
             onValueChange = { grams = it },
             hint = "100",

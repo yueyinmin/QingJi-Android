@@ -35,6 +35,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.qingji.app.data.local.entity.Food
 import com.qingji.app.data.remote.ImageRecorder
 import com.qingji.app.domain.BarcodeRules
+import com.qingji.app.domain.AppClock
 import com.qingji.app.domain.MealRules
 import com.qingji.app.ui.components.HintBox
 import com.qingji.app.ui.components.LabeledTextField
@@ -80,6 +81,9 @@ fun BarcodeScreen(
     var food by remember { mutableStateOf<Food?>(null) }
     var gramsText by remember { mutableStateOf("100") }
     var mealType by remember { mutableStateOf(MealRules.guess()) }
+    // v3.5.0：记到哪一天可选（默认今天），复用日期/时/分三列滚轮
+    var recordDate by remember { mutableStateOf(AppClock.today()) }
+    var showDatePicker by remember { mutableStateOf(false) }
 
     // 手动录入兜底表单
     var showManual by remember { mutableStateOf(false) }
@@ -227,6 +231,8 @@ fun BarcodeScreen(
                     Spacer(Modifier.height(6.dp))
                     MealSelector(selected = mealType, onSelect = { mealType = it })
                     Spacer(Modifier.height(12.dp))
+                    RecordDateRow(date = recordDate, onClick = { showDatePicker = true })
+                    Spacer(Modifier.height(12.dp))
                     PrimaryButton(
                         text = "保存这一笔",
                         onClick = {
@@ -236,7 +242,7 @@ fun BarcodeScreen(
                                 return@PrimaryButton
                             }
                             scope.launch {
-                                vm.add(item, grams, mealType)
+                                vm.add(item, grams, mealType, recordDate)
                                 onBack()
                             }
                         }
@@ -286,5 +292,14 @@ fun BarcodeScreen(
 
             Spacer(Modifier.height(24.dp))
         }
+    }
+
+    // v3.5.0：日期/时/分三列滚轮（复用运动模块组件，最多回看最近 7 天）
+    if (showDatePicker) {
+        com.qingji.app.ui.components.ExerciseDateTimeWheelSheet(
+            initial = recordDate.atTime(12, 0),
+            onConfirm = { recordDate = it.toLocalDate() },
+            onDismiss = { showDatePicker = false }
+        )
     }
 }
