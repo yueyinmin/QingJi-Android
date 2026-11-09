@@ -169,7 +169,7 @@ data class QingJiSettings(
     val showDiaryTab: Boolean = true,
     val showMineTab: Boolean = true,
     val progressAnimation: Boolean = true,
-    val nickname: String = "木林",
+    val nickname: String = "轻er~",
     val avatarPath: String = "",
     // ---------- v3.4.0 新增 ----------
     val waterReminder: Boolean = false,
@@ -239,7 +239,7 @@ object SettingsStore {
                     showDiaryTab = p[SettingsKeys.SHOW_DIARY_TAB] ?: true,
                     showMineTab = p[SettingsKeys.SHOW_MINE_TAB] ?: true,
                     progressAnimation = p[SettingsKeys.PROGRESS_ANIMATION] ?: true,
-                    nickname = p[SettingsKeys.NICKNAME] ?: "木林",
+                    nickname = p[SettingsKeys.NICKNAME] ?: "轻er~",
                     avatarPath = p[SettingsKeys.AVATAR_PATH] ?: "",
                     waterReminder = p[SettingsKeys.WATER_REMINDER] ?: false,
                     waterReminderHour = p[SettingsKeys.WATER_REMINDER_HOUR] ?: 15,

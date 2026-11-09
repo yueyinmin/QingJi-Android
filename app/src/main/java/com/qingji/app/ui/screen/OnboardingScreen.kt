@@ -78,12 +78,14 @@ import java.time.LocalDate
 fun OnboardingScreen(
     onDone: () -> Unit,
     onSave: (UserProfile) -> Unit,
-    onSavePreferences: (allergens: String, avoidFoods: String, cuisines: String, goalMode: String) -> Unit =
-        { _, _, _, _ -> }
+    onSavePreferences: (
+        allergens: String, avoidFoods: String, cuisines: String, goalMode: String, nickname: String
+    ) -> Unit = { _, _, _, _, _ -> }
 ) {
     // ---------- 所有答案 ----------
     var step by rememberSaveable { mutableIntStateOf(0) }
     var goalMode by rememberSaveable { mutableStateOf("lose") }
+    var nickInput by rememberSaveable { mutableStateOf("") }
     var gender by rememberSaveable { mutableStateOf("male") }
     var heightText by rememberSaveable { mutableStateOf("170") }
     var weightText by rememberSaveable { mutableStateOf("") }
@@ -100,7 +102,7 @@ fun OnboardingScreen(
     var cuisineAdded by rememberSaveable { mutableStateOf(listOf<String>()) }
     var errorText by remember { mutableStateOf("") }
 
-    val totalSteps = 9
+    val totalSteps = 10
 
     // ---------- 保存：最后一步触发 ----------
     fun finish() {
@@ -111,19 +113,19 @@ fun OnboardingScreen(
         val water = waterText.toIntOrNull()
         if (height == null || weight == null || target == null || age == null || age !in 10..100) {
             errorText = "身高、体重、目标、年龄都要是有效数字"
-            step = 3
+            step = 4
             return
         }
         // 校验按目标模式区分：减重要更轻、增肌要更重、保持不限
         when (goalMode) {
             "lose" -> if (target >= weight) {
                 errorText = "减重模式下，目标体重要比现在轻一点"
-                step = 3
+                step = 4
                 return
             }
             "gain" -> if (target <= weight) {
                 errorText = "增肌模式下，目标体重要比现在重一点"
-                step = 3
+                step = 4
                 return
             }
         }
@@ -159,22 +161,25 @@ fun OnboardingScreen(
                 waterGoalMl = water ?: 2000
             )
         )
+        // 昵称：填了用填的，没填随机生成「轻er~XXX」
+        val nickname = nickInput.trim().ifBlank { "轻er~" + (100..999).random() }
         onSavePreferences(
             allergenSet.joinToString(","),
             avoidSet.joinToString(","),
             cuisineSet.joinToString(","),
-            goalMode
+            goalMode,
+            nickname
         )
         onDone()
     }
 
     // ---------- 每步的校验 ----------
     fun canGoNext(): Boolean = when (step) {
-        3 -> heightText.toDoubleOrNull() != null &&
+        4 -> heightText.toDoubleOrNull() != null &&
             weightText.toDoubleOrNull() != null &&
             targetText.toDoubleOrNull() != null &&
             ageText.toIntOrNull() != null
-        5 -> (waterText.toIntOrNull() ?: 0) > 0
+        6 -> (waterText.toIntOrNull() ?: 0) > 0
         else -> true
     }
 
@@ -227,8 +232,22 @@ fun OnboardingScreen(
                 )
             }
 
-            // v1.4：目标模式一问（减重 / 增肌 / 保持），影响热量预算、蛋白目标和目标体重校验
+            // v1.5：昵称一问，不填就随机生成「轻er~XXX」
             1 -> QuestionPage(
+                title = "怎么称呼你？",
+                subtitle = "不填也行，我们随手给你起一个"
+            ) {
+                OutlinedTextField(
+                    value = nickInput,
+                    onValueChange = { nickInput = it },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("轻er~888", fontSize = 15.sp, color = TextSecondary) }
+                )
+            }
+
+            // v1.4：目标模式一问（减重 / 增肌 / 保持），影响热量预算、蛋白目标和目标体重校验
+            2 -> QuestionPage(
                 title = "这次的目标是？",
                 subtitle = "决定每天的热量预算：减重少给一点，增肌多给一点"
             ) {
@@ -266,7 +285,7 @@ fun OnboardingScreen(
                 }
             }
 
-            2 -> QuestionPage(
+            3 -> QuestionPage(
                 title = "你的性别是？",
                 subtitle = "热量公式里会用到这一项"
             ) {
@@ -293,7 +312,7 @@ fun OnboardingScreen(
                 }
             }
 
-            3 -> QuestionPage(
+            4 -> QuestionPage(
                 title = "身体数据",
                 subtitle = "填真实数字就行，之后随时能在「我的」里改"
             ) {
@@ -312,7 +331,7 @@ fun OnboardingScreen(
                 }
             }
 
-            4 -> QuestionPage(
+            5 -> QuestionPage(
                 title = "平时活动量大吗？",
                 subtitle = "影响每天能吃多少的热量预算"
             ) {
@@ -342,7 +361,7 @@ fun OnboardingScreen(
                 }
             }
 
-            5 -> QuestionPage(
+            6 -> QuestionPage(
                 title = "每天想喝多少水？",
                 subtitle = "喝水提醒和进度条都按这个算"
             ) {
@@ -380,7 +399,7 @@ fun OnboardingScreen(
                 )
             }
 
-            6 -> QuestionPage(
+            7 -> QuestionPage(
                 title = "有哪些过敏原？",
                 subtitle = "选出来的会提醒 AI 帮你避开，没有就跳过"
             ) {
@@ -397,7 +416,7 @@ fun OnboardingScreen(
                 )
             }
 
-            7 -> QuestionPage(
+            8 -> QuestionPage(
                 title = "有什么忌口？",
                 subtitle = "不想吃的挑出来，AI 记录时会帮你注意"
             ) {
@@ -414,7 +433,7 @@ fun OnboardingScreen(
                 )
             }
 
-            8 -> QuestionPage(
+            9 -> QuestionPage(
                 title = "平时爱吃哪类菜？",
                 subtitle = "选几个常吃的，AI 识别会更懂你的口味"
             ) {
@@ -433,7 +452,7 @@ fun OnboardingScreen(
         }
         }
 
-        if (errorText.isNotBlank() && step != 3) {
+        if (errorText.isNotBlank() && step != 4) {
             Spacer(Modifier.height(8.dp))
             Text(text = errorText, fontSize = 13.sp, color = Color(0xFFD64545))
         }

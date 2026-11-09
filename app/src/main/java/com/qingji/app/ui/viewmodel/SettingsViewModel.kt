@@ -187,7 +187,11 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun setNickname(name: String) = put(SettingsKeys.NICKNAME, name.trim().ifBlank { "木林" })
+    /** v1.5：昵称留空时随机生成「轻er~XXX」，不再统一叫木林。 */
+    fun setNickname(name: String) = put(
+        SettingsKeys.NICKNAME,
+        name.trim().ifBlank { "轻er~" + (100..999).random() }
+    )
 
     fun setAvatarPath(path: String) = put(SettingsKeys.AVATAR_PATH, path)
 

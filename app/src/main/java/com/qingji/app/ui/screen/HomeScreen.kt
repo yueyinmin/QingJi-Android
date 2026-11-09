@@ -938,9 +938,7 @@ private fun TodaySummaryCard(
                             surfaceColor = MultiColor.WaterSurface,
                             outlineColor = MultiColor.WaterOutline,
                             bubbleTint = Color.White.copy(alpha = 0.75f),
-                            // v1.2：杯内容量文字（ChatGPT 方案特征），水下白字 / 水上灰字
-                            // v1.4：一口没喝时不显示「0/3200 ml」这种没营养的数字
-                            capacityText = if (state.waterMl > 0) "${state.waterMl}/${goalWater} ml" else null
+                            // v1.5：杯内容量数字整个去掉（主人不要杯内计量数字）
                         )
                         Text(
                             text = "$waterPercent%",
