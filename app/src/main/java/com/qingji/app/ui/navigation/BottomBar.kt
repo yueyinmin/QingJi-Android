@@ -95,7 +95,7 @@ fun QingJiBottomBar(
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Add,
-                        contentDescription = "记一笔",
+                        contentDescription = com.qingji.app.ui.i18n.s("记一笔"),
                         tint = Color.White,
                         modifier = Modifier.size(28.dp)
                     )
@@ -157,7 +157,7 @@ private fun BottomTabItem(
         ) {
             Icon(
                 imageVector = tab.icon,
-                contentDescription = tab.label,
+                contentDescription = com.qingji.app.ui.i18n.s(tab.label),
                 tint = tint,
                 modifier = Modifier
                     .size(22.dp)
@@ -168,7 +168,7 @@ private fun BottomTabItem(
             )
         }
         Text(
-            text = tab.label,
+            text = com.qingji.app.ui.i18n.s(tab.label),
             fontSize = 11.sp,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
             color = tint,

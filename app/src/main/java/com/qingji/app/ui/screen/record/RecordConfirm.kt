@@ -331,3 +331,36 @@ private fun SmallField(
         )
     }
 }
+
+/**
+ * 「记到哪一天」一行（v3.5.0）：默认今天，点右侧文字弹出日期/时/分三列滚轮。
+ * 文字 / 拍照 / 语音三条识别链路共用；弹层本身直接复用运动模块的
+ * ExerciseDateTimeWheelSheet（最多回看最近 7 天）。
+ */
+@Composable
+fun RecordDateRow(date: LocalDate, onClick: () -> Unit) {
+    val today = AppClock.today()
+    val label = when (date) {
+        today -> "今天"
+        today.minusDays(1) -> "昨天"
+        today.minusDays(2) -> "前天"
+        else -> "${date.monthValue} 月 ${date.dayOfMonth} 日"
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(text = "记到哪一天", fontSize = 13.sp, color = TextSecondary)
+        Spacer(Modifier.weight(1f))
+        Text(
+            text = "$label ›",
+            fontSize = 13.sp,
+            color = QingJiGreenDark,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .clickable { onClick() }
+                .padding(horizontal = 8.dp, vertical = 4.dp)
+        )
+    }
+}

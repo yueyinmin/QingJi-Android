@@ -568,11 +568,12 @@ class BarcodeViewModel(app: Application) : AndroidViewModel(app) {
         return food
     }
 
-    suspend fun add(food: Food, grams: Double, mealType: String) {
+    /** v3.5.0：日期可选（默认今天），其余行为不变。 */
+    suspend fun add(food: Food, grams: Double, mealType: String, date: LocalDate = AppClock.today()) {
         val ratio = grams / 100.0
         repo.addFoodLog(
             FoodLog(
-                date = AppClock.today(),
+                date = date,
                 mealType = mealType,
                 foodName = food.name,
                 grams = grams,

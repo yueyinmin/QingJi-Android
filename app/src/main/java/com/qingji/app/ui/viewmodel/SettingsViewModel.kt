@@ -105,6 +105,21 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** v3.5.0：膳食纤维 / 钠 / 钙三个每日目标，存档案表（Room version 5 加的列）。 */
+    fun setNutrientGoals(fiberGoalG: Int, sodiumGoalMg: Int, calciumGoalMg: Int) {
+        viewModelScope.launch {
+            val current = profile.value ?: return@launch
+            repo.saveProfile(
+                current.copy(
+                    fiberGoalG = fiberGoalG.coerceIn(0, 200),
+                    sodiumGoalMg = sodiumGoalMg.coerceIn(0, 10000),
+                    calciumGoalMg = calciumGoalMg.coerceIn(0, 5000)
+                )
+            )
+            toast("膳食纤维 / 钠 / 钙目标已保存")
+        }
+    }
+
     fun setExerciseCompensation(enabled: Boolean) =
         put(SettingsKeys.EXERCISE_COMPENSATION, enabled)
 
@@ -132,6 +147,9 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
 
     /** AI 返回语言：zh 强制中文 / auto 跟随输入 */
     fun setAiLanguage(lang: String) = put(SettingsKeys.AI_LANGUAGE, lang)
+
+    /** v3.5.0：界面语言 zh / en。切换即时重组生效，无需重启。 */
+    fun setUiLanguage(lang: String) = put(SettingsKeys.UI_LANGUAGE, if (lang == "en") "en" else "zh")
 
     /** 首页是否显示实时刷新率 */
     fun setShowRefreshRate(show: Boolean) = put(SettingsKeys.SHOW_REFRESH_RATE, show)

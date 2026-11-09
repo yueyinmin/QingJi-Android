@@ -65,6 +65,7 @@ import com.qingji.app.ui.components.QuickActionColumn
 import com.qingji.app.ui.components.SectionCard
 import com.qingji.app.ui.components.WaterCup
 import com.qingji.app.ui.components.ThinProgressBar
+import com.qingji.app.ui.i18n.s
 import com.qingji.app.ui.theme.CardWhite
 import com.qingji.app.ui.theme.DangerRed
 import com.qingji.app.ui.theme.DividerColor
@@ -205,7 +206,7 @@ fun HomeScreen(
             // 之前是 if 判断，出现时会把左边挤动 → 看起来像"跳了一下"。
             val showBack = state.date != today
             Text(
-                text = "回到今天",
+                text = s("回到今天"),
                 fontSize = 12.sp,
                 color = QingJiGreenDark,
                 modifier = Modifier
@@ -255,7 +256,7 @@ fun HomeScreen(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = if (state.date == today) "今日记录" else "当日记录",
+                    text = if (state.date == today) s("今日记录") else s("当日记录"),
                     fontSize = TextSizes.CardTitle,
                     fontWeight = FontWeight.SemiBold,
                     color = TextPrimary
@@ -396,9 +397,9 @@ fun HomeScreen(
         val goal = settings.waterGoalMl.coerceAtLeast(1)
         val percent = (state.waterMl * 100 / goal).coerceIn(0, 100)
         com.qingji.app.ui.components.AppBottomSheet(
-            title = "今日饮水",
-            subtitle = "水和饮食一样，记了才有趋势",
-            confirmText = "知道了",
+            title = s("今日饮水"),
+            subtitle = s("水和饮食一样，记了才有趋势"),
+            confirmText = s("知道了"),
             onDismiss = { showCupDetail = false }
         ) {
             Row(verticalAlignment = Alignment.Bottom) {
@@ -482,7 +483,7 @@ private fun QuickWaterSheet(
                 Text(text = "💧", fontSize = 18.sp)
                 Spacer(Modifier.size(6.dp))
                 Text(
-                    text = "快速记录喝水",
+                    text = s("快速记录喝水"),
                     fontSize = 17.sp,
                     fontWeight = FontWeight.Bold,
                     color = TextPrimary
@@ -527,7 +528,7 @@ private fun QuickWaterSheet(
                     onValueChange = { customMl = it; error = "" },
                     singleLine = true,
                     placeholder = {
-                        Text(text = "输入自定义水量", fontSize = 12.sp, color = TextSecondary)
+                        Text(text = s("输入自定义水量"), fontSize = 12.sp, color = TextSecondary)
                     },
                     trailingIcon = {
                         Text(
@@ -564,7 +565,7 @@ private fun QuickWaterSheet(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "记录",
+                        text = s("记录"),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Medium,
                         color = Color.White
@@ -601,7 +602,7 @@ private fun QuickWaterSheet(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "查看今日饮水详情",
+                    text = s("查看今日饮水详情"),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                     color = MultiColor.WaterText
@@ -636,7 +637,7 @@ private fun DateStrip(
     state: HomeUiState,
     onSelect: (LocalDate) -> Unit
 ) {
-    val weekLabels = listOf("周一", "周二", "周三", "周四", "周五", "周六", "周日")
+    val weekLabels = listOf(s("周一"), s("周二"), s("周三"), s("周四"), s("周五"), s("周六"), s("周日"))
     val monday = state.date.minusDays((state.date.dayOfWeek.value - 1).toLong())
     val today = AppClock.today()
 
@@ -782,9 +783,9 @@ private fun TodaySummaryCard(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = "今日剩余", fontSize = 14.sp, color = TextSecondary)
+            Text(text = s("今日剩余"), fontSize = 14.sp, color = TextSecondary)
             Text(
-                text = "减肥",
+                text = s("减肥"),
                 fontSize = 12.sp,
                 color = QingJiGreenDark,
                 modifier = Modifier
@@ -855,21 +856,21 @@ private fun TodaySummaryCard(
         Spacer(Modifier.height(10.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             NutrientColumn(
-                name = "蛋白质",
+                name = s("蛋白质"),
                 current = state.totalProtein.toInt(),
                 goal = profile?.proteinGoalG ?: 0,
                 dotColor = MacroProtein,
                 modifier = Modifier.weight(1f)
             )
             NutrientColumn(
-                name = "碳水",
+                name = s("碳水"),
                 current = state.totalCarb.toInt(),
                 goal = profile?.carbGoalG ?: 0,
                 dotColor = MacroCarb,
                 modifier = Modifier.weight(1f)
             )
             NutrientColumn(
-                name = "脂肪",
+                name = s("脂肪"),
                 current = state.totalFat.toInt(),
                 goal = profile?.fatGoalG ?: 0,
                 dotColor = MacroFat,
@@ -1088,7 +1089,7 @@ private fun MealCard(
         Spacer(Modifier.height(8.dp))
 
         if (items.isEmpty()) {
-            Text(text = "暂无记录", fontSize = 13.sp, color = TextSecondary)
+            Text(text = s("暂无记录"), fontSize = 13.sp, color = TextSecondary)
         } else {
             items.forEachIndexed { index, log ->
                 if (index > 0) {

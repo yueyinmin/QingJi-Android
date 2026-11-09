@@ -82,6 +82,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.OutlinedTextField
 import com.qingji.app.ui.theme.QingJiGreenDark
 import com.qingji.app.ui.theme.DividerColor
+import com.qingji.app.ui.i18n.s
 import com.qingji.app.ui.theme.PageBackground
 import com.qingji.app.ui.theme.pressable
 import com.qingji.app.ui.theme.QingJiGreen
@@ -112,7 +113,7 @@ import com.qingji.app.widget.WeightWidgetReceiver
 /** 当前打开的是哪个弹窗。 */
 private enum class DialogKind {
     MACRO, WATER_GOAL, TIMEZONE, UNIT, THEME, REMINDERS,
-    BOTTOM_TABS, AI_LANG, PRIVACY, ICON, CACHE,
+    BOTTOM_TABS, AI_LANG, UI_LANG, PRIVACY, ICON, CACHE,
     ABOUT, PLATFORM, VERSION
 }
 
@@ -216,49 +217,49 @@ fun SettingsScreen(
                 .padding(horizontal = 16.dp)
         ) {
             // ================= 账号与安全 =================
-            GroupTitle("账号与安全")
+            GroupTitle(s("账号与安全"))
             SettingsCard {
                 SettingValueRow(
-                    title = "个人资料",
-                    subtitle = "昵称、性别、生日、身高",
+                    title = s("个人资料"),
+                    subtitle = s("昵称、性别、生日、身高"),
                     value = settings.nickname,
                     iconColor = QingJiGreen
                 ) { onOpenProfile() }
                 RowDivider()
                 SettingValueRow(
-                    title = "隐私与安全",
-                    subtitle = "数据存在哪、怎么彻底清掉",
+                    title = s("隐私与安全"),
+                    subtitle = s("数据存在哪、怎么彻底清掉"),
                     value = "",
                     iconColor = QingJiGreen
                 ) { dialog = DialogKind.PRIVACY }
             }
 
             // ================= 热量与营养 =================
-            GroupTitle("热量与营养")
+            GroupTitle(s("热量与营养"))
             SettingsCard {
                 SettingValueRow(
-                    title = "饮食偏好与忌口",
-                    subtitle = "过敏原、不吃的东西、烹饪时长、菜系",
-                    value = "去设置",
+                    title = s("饮食偏好与忌口"),
+                    subtitle = s("过敏原、不吃的东西、烹饪时长、菜系"),
+                    value = s("去设置"),
                     iconColor = QingJiGreen
                 ) { onOpenFoodPreference() }
                 RowDivider()
                 SettingValueRow(
-                    title = "营养素分配方案",
-                    subtitle = "蛋白 / 碳水 / 脂肪 比例",
+                    title = s("营养素分配方案"),
+                    subtitle = s("蛋白 / 碳水 / 脂肪 比例"),
                     value = "${settings.proteinPct}/${settings.carbPct}/${settings.fatPct}",
                     iconColor = QingJiGreen
                 ) { dialog = DialogKind.MACRO }
                 RowDivider()
                 SwitchRow(
-                    title = "运动消耗补偿",
-                    subtitle = "开启后把运动消耗加回当天预算",
+                    title = s("运动消耗补偿"),
+                    subtitle = s("开启后把运动消耗加回当天预算"),
                     checked = settings.exerciseCompensation
                 ) { vm.setExerciseCompensation(it) }
                 RowDivider()
                 SettingValueRow(
-                    title = "饮水目标",
-                    subtitle = "首页和小组件都按它算进度",
+                    title = s("饮水目标"),
+                    subtitle = s("首页和小组件都按它算进度"),
                     value = "${settings.waterGoalMl}ml",
                     iconColor = QingJiGreenDark
                 ) { dialog = DialogKind.WATER_GOAL }
@@ -269,135 +270,142 @@ fun SettingsScreen(
             )
 
             // ================= 记录与识别 =================
-            GroupTitle("记录与识别")
+            GroupTitle(s("记录与识别"))
             SettingsCard {
                 SwitchRow(
-                    title = "自动识别餐次",
-                    subtitle = "关掉后每次都要自己选早/午/晚",
+                    title = s("自动识别餐次"),
+                    subtitle = s("关掉后每次都要自己选早/午/晚"),
                     checked = settings.autoMeal
                 ) { vm.setAutoMeal(it) }
                 RowDivider()
                 SwitchRow(
-                    title = "估算偏保守",
-                    subtitle = "AI 估算份量时宁可给少一点",
+                    title = s("估算偏保守"),
+                    subtitle = s("AI 估算份量时宁可给少一点"),
                     checked = settings.conservativeEstimate
                 ) { vm.setConservativeEstimate(it) }
                 SettingsNote(
-                    "AI 的份量估算误差通常有 20%～40%，中餐尤其明显。" +
-                        "所以每次识别完都会让你确认和微调，这是故意的，不是多此一举。"
+                    s("AI 的份量估算误差通常有 20%～40%，中餐尤其明显。") +
+                        s("所以每次识别完都会让你确认和微调，这是故意的，不是多此一举。")
                 )
                 RowDivider()
                 SettingValueRow(
-                    title = "AI 识别语言",
-                    subtitle = "识别结果返回的语言",
-                    value = if (settings.aiLanguage == "auto") "跟随输入" else "简体中文",
+                    title = s("AI 识别语言"),
+                    subtitle = s("识别结果返回的语言"),
+                    value = if (settings.aiLanguage == "auto") s("跟随输入") else s("简体中文"),
                     iconColor = QingJiGreen.copy(alpha = 0.72f)
                 ) { dialog = DialogKind.AI_LANG }
             }
 
             // ================= 提醒 =================
-            GroupTitle("提醒")
+            GroupTitle(s("提醒"))
             SettingsCard {
                 SettingValueRow(
-                    title = "通知与提醒",
-                    subtitle = "称重、断食、热量、喝水四类提醒的开关与时间",
-                    value = "去设置",
+                    title = s("通知与提醒"),
+                    subtitle = s("称重、断食、热量、喝水四类提醒的开关与时间"),
+                    value = s("去设置"),
                     iconColor = QingJiGreen
                 ) { dialog = DialogKind.REMINDERS }
             }
             SettingsNote(
-                "提醒靠系统闹钟实现，误差几分钟属正常（系统省电策略所致）。" +
-                    "小米 / 华为 / OPPO 建议把轻记加进自启动白名单，否则重启后可能不再提醒。"
+                s("提醒靠系统闹钟实现，误差几分钟属正常（系统省电策略所致）。") +
+                    s("小米 / 华为 / OPPO 建议把轻记加进自启动白名单，否则重启后可能不再提醒。")
             )
 
             // ================= 通用 =================
-            GroupTitle("通用")
+            GroupTitle(s("通用"))
             SettingsCard {
                 SettingValueRow(
-                    title = "记录时区",
-                    subtitle = "记录按哪个时区的日期归档",
+                    title = s("界面语言"),
+                    subtitle = s("核心页中英文切换，未翻译的仍显示中文"),
+                    value = if (settings.uiLanguage == "en") "English" else "简体中文",
+                    iconColor = QingJiGreen.copy(alpha = 0.72f)
+                ) { dialog = DialogKind.UI_LANG }
+                RowDivider()
+                SettingValueRow(
+                    title = s("记录时区"),
+                    subtitle = s("记录按哪个时区的日期归档"),
                     value = timezoneLabel(settings.timeZone),
                     iconColor = QingJiGreenDark
                 ) { dialog = DialogKind.TIMEZONE }
                 RowDivider()
                 SettingValueRow(
-                    title = "体重单位",
-                    subtitle = "数据库统一存公斤，这里只改显示",
-                    value = if (settings.unit == "jin") "斤" else "kg",
+                    title = s("体重单位"),
+                    subtitle = s("数据库统一存公斤，这里只改显示"),
+                    value = if (settings.unit == "jin") s("斤") else "kg",
                     iconColor = QingJiGreen
                 ) { dialog = DialogKind.UNIT }
             }
 
             // ================= 显示与外观 =================
-            GroupTitle("显示与外观")
+            GroupTitle(s("显示与外观"))
             SettingsCard {
                 SettingValueRow(
-                    title = "主题与显示",
-                    subtitle = "主题色、动效、水杯气泡、首页模块开关",
+                    title = s("主题与显示"),
+                    subtitle = s("主题色、动效、水杯气泡、首页模块开关"),
                     value = com.qingji.app.ui.theme.AccentThemes.byKey(settings.themeColor).label,
                     iconColor = QingJiGreen.copy(alpha = 0.72f)
                 ) { dialog = DialogKind.THEME }
                 RowDivider()
                 SettingValueRow(
-                    title = "桌面小组件",
-                    subtitle = "快捷记录 / 今日概览 / 体重闪记",
-                    value = "3 个",
+                    title = s("桌面小组件"),
+                    subtitle = s("快捷记录 / 今日概览 / 体重闪记"),
+                    value = s("3 个"),
                     iconColor = QingJiGreen
                 ) { onOpenWidget() }
                 RowDivider()
                 SettingValueRow(
-                    title = "底部导航",
-                    subtitle = "隐藏不常用的 Tab",
+                    title = s("底部导航"),
+                    subtitle = s("隐藏不常用的 Tab"),
                     value = visibleTabsLabel(settings),
                     iconColor = QingJiGreenDark
                 ) { dialog = DialogKind.BOTTOM_TABS }
             }
 
             // ================= 设备与数据 =================
-            GroupTitle("设备与数据")
+            GroupTitle(s("设备与数据"))
             SettingsCard {
                 SettingValueRow(
-                    title = "AI 服务配置",
-                    subtitle = "填自己的 Base URL 与 API Key",
+                    title = s("AI 服务配置"),
+                    subtitle = s("填自己的 Base URL 与 API Key"),
                     value = "",
                     iconColor = QingJiGreen.copy(alpha = 0.72f)
                 ) { onOpenAiConfig() }
                 RowDivider()
                 SettingValueRow(
-                    title = "数据备份与导出",
-                    subtitle = "导出 JSON / CSV，导入恢复",
+                    title = s("数据备份与导出"),
+                    subtitle = s("导出 JSON / CSV，导入恢复"),
                     value = "",
                     iconColor = QingJiGreen
                 ) { onOpenBackup() }
                 RowDivider()
                 SettingValueRow(
-                    title = "缓存管理",
-                    subtitle = "只清拍照临时图，不动已保存的照片",
+                    title = s("缓存管理"),
+                    subtitle = s("只清拍照临时图，不动已保存的照片"),
                     value = backup.sizeText(cacheSize),
                     iconColor = TextSecondary
                 ) { dialog = DialogKind.CACHE }
             }
 
             // ================= 关于 =================
-            GroupTitle("关于")
+            GroupTitle(s("关于"))
             SettingsCard {
                 SettingValueRow(
-                    title = "其他平台",
-                    subtitle = "换手机怎么把数据带走",
+                    title = s("其他平台"),
+                    subtitle = s("换手机怎么把数据带走"),
                     value = "",
                     iconColor = QingJiGreenDark
                 ) { dialog = DialogKind.PLATFORM }
                 RowDivider()
                 SettingValueRow(
-                    title = "关于我们",
-                    subtitle = "这个 App 是谁做的、为什么做",
+                    title = s("关于我们"),
+                    subtitle = s("这个 App 是谁做的、为什么做"),
                     value = "",
                     iconColor = QingJiGreen.copy(alpha = 0.72f)
                 ) { dialog = DialogKind.ABOUT }
                 RowDivider()
                 SettingValueRow(
-                    title = "版本信息",
-                    subtitle = "轻记 v${BuildConfig.VERSION_NAME}",
+                    title = s("版本信息"),
+                    subtitle = s("轻记 v${BuildConfig.VERSION_NAME}"),
                     value = "",
                     iconColor = DividerColor
                 ) { dialog = DialogKind.VERSION }
@@ -434,14 +442,27 @@ fun SettingsScreen(
     val current = dialog!!
     when (current) {
         DialogKind.AI_LANG -> OptionDetailPage(
-            title = "AI 识别语言",
-            subtitle = "默认强制简体中文——照片里的外国菜也会翻译成中文菜名",
+            title = s("AI 识别语言"),
+            subtitle = s("默认强制简体中文——照片里的外国菜也会翻译成中文菜名"),
             options = listOf(
-                OptionItem("zh", "简体中文", "推荐：所有识别结果都是中文"),
-                OptionItem("auto", "跟随输入", "AI 模型自行判断，可能返回英文")
+                OptionItem("zh", s("简体中文"), s("推荐：所有识别结果都是中文")),
+                OptionItem("auto", s("跟随输入"), s("AI 模型自行判断，可能返回英文"))
             ),
             selectedKey = settings.aiLanguage,
             onPick = { vm.setAiLanguage(it); dialog = null },
+            onBack = { dialog = null }
+        )
+
+        // v3.5.0：界面语言（核心页中英双语，未翻译条目回落中文）
+        DialogKind.UI_LANG -> OptionDetailPage(
+            title = s("界面语言"),
+            subtitle = s("切换后立即生效，未翻译的条目仍显示中文"),
+            options = listOf(
+                OptionItem("zh", "简体中文", s("界面默认中文，核心页可切英文")),
+                OptionItem("en", "English", s("Core screens in English; the rest stays Chinese"))
+            ),
+            selectedKey = settings.uiLanguage,
+            onPick = { vm.setUiLanguage(it); dialog = null },
             onBack = { dialog = null }
         )
 
@@ -469,7 +490,11 @@ fun SettingsScreen(
             proteinInit = settings.proteinPct,
             carbInit = settings.carbPct,
             fatInit = settings.fatPct,
+            fiberInit = vm.profile.collectAsState().value?.fiberGoalG ?: 25,
+            sodiumInit = vm.profile.collectAsState().value?.sodiumGoalMg ?: 2000,
+            calciumInit = vm.profile.collectAsState().value?.calciumGoalMg ?: 800,
             onSave = { p, c, f -> vm.setMacroRatio(p, c, f) },
+            onSaveGoals = { fiber, sodium, calcium -> vm.setNutrientGoals(fiber, sodium, calcium) },
             onBack = { dialog = null }
         )
 
@@ -672,12 +697,20 @@ private fun MacroRatioPage(
     proteinInit: Int,
     carbInit: Int,
     fatInit: Int,
+    /** v3.5.0：膳食纤维 / 钠 / 钙三个每日目标，存档案表 */
+    fiberInit: Int,
+    sodiumInit: Int,
+    calciumInit: Int,
     onSave: (Int, Int, Int) -> Unit,
+    onSaveGoals: (fiberGoalG: Int, sodiumGoalMg: Int, calciumGoalMg: Int) -> Unit,
     onBack: () -> Unit
 ) {
     var protein by remember { mutableStateOf(proteinInit.toString()) }
     var carb by remember { mutableStateOf(carbInit.toString()) }
     var fat by remember { mutableStateOf(fatInit.toString()) }
+    var fiber by remember { mutableStateOf(fiberInit.toString()) }
+    var sodium by remember { mutableStateOf(sodiumInit.toString()) }
+    var calcium by remember { mutableStateOf(calciumInit.toString()) }
 
     val sum = (protein.toIntOrNull() ?: 0) + (carb.toIntOrNull() ?: 0) + (fat.toIntOrNull() ?: 0)
 
@@ -686,17 +719,43 @@ private fun MacroRatioPage(
         Spacer(Modifier.height(Dimens.Gap))
 
         SectionCard {
-            MacroField("蛋白质", protein) { protein = it }
+            MacroField("蛋白质", protein, "%") { protein = it }
             Spacer(Modifier.height(10.dp))
-            MacroField("碳水", carb) { carb = it }
+            MacroField("碳水", carb, "%") { carb = it }
             Spacer(Modifier.height(10.dp))
-            MacroField("脂肪", fat) { fat = it }
+            MacroField("脂肪", fat, "%") { fat = it }
             Spacer(Modifier.height(12.dp))
             Text(
                 text = "当前合计 $sum%" + if (sum == 100) " ✓" else "（需要调整到 100）",
                 fontSize = 12.sp,
                 color = if (sum == 100) QingJiGreen else Color(0xFFD64545)
             )
+        }
+
+        Spacer(Modifier.height(Dimens.Gap))
+
+        // v3.5.0：营养素目标细分。食物库暂未收录这三项的具体数值，
+        // 先把目标记下来；详情页有数据显示实际值，没有就显示「暂无数据」。
+        SectionCard {
+            Text(
+                text = "膳食纤维 / 钠 / 钙 每日目标",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TextPrimary
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "默认值是成人参考量。食物库这三项数据还没补全，详情页会先显示「暂无数据」。",
+                fontSize = 11.sp,
+                color = TextSecondary,
+                lineHeight = 16.sp
+            )
+            Spacer(Modifier.height(10.dp))
+            MacroField("膳食纤维", fiber, "g") { fiber = it }
+            Spacer(Modifier.height(10.dp))
+            MacroField("钠", sodium, "mg") { sodium = it }
+            Spacer(Modifier.height(10.dp))
+            MacroField("钙", calcium, "mg") { calcium = it }
         }
 
         Spacer(Modifier.height(Dimens.Gap))
@@ -712,6 +771,11 @@ private fun MacroRatioPage(
                         carb.toIntOrNull() ?: 0,
                         fat.toIntOrNull() ?: 0
                     )
+                    onSaveGoals(
+                        fiber.toIntOrNull() ?: 25,
+                        sodium.toIntOrNull() ?: 2000,
+                        calcium.toIntOrNull() ?: 800
+                    )
                     onBack()
                 }
                 .padding(vertical = 13.dp),
@@ -723,7 +787,7 @@ private fun MacroRatioPage(
 }
 
 @Composable
-private fun MacroField(label: String, value: String, onChange: (String) -> Unit) {
+private fun MacroField(label: String, value: String, unit: String = "%", onChange: (String) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(text = label, fontSize = 14.sp, color = TextPrimary, modifier = Modifier.weight(1f))
         OutlinedTextField(
@@ -736,7 +800,7 @@ private fun MacroField(label: String, value: String, onChange: (String) -> Unit)
             modifier = Modifier.width(96.dp)
         )
         Spacer(Modifier.size(6.dp))
-        Text(text = "%", fontSize = 14.sp, color = TextSecondary)
+        Text(text = unit, fontSize = 14.sp, color = TextSecondary)
     }
 }
 

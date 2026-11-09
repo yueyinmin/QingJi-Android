@@ -89,14 +89,14 @@ fun AppBottomSheet(
                 .padding(bottom = 28.dp)
         ) {
             Text(
-                text = title,
+                text = com.qingji.app.ui.i18n.s(title),
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 color = TextPrimary
             )
             if (!subtitle.isNullOrBlank()) {
                 Spacer(Modifier.height(4.dp))
-                Text(text = subtitle, fontSize = 12.sp, color = TextSecondary)
+                Text(text = com.qingji.app.ui.i18n.s(subtitle), fontSize = 12.sp, color = TextSecondary)
             }
             Spacer(Modifier.height(16.dp))
             content()
@@ -115,7 +115,7 @@ fun AppBottomSheet(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = confirmText,
+                        text = com.qingji.app.ui.i18n.s(confirmText),
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Medium,
                         color = Color.White
@@ -143,7 +143,7 @@ fun AppDialog(
         containerColor = CardWhite,
         title = {
             Text(
-                text = title,
+                text = com.qingji.app.ui.i18n.s(title),
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 color = TextPrimary
@@ -167,7 +167,7 @@ fun AppDialog(
                         .padding(horizontal = 18.dp, vertical = 8.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(text = confirmText, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = Color.White)
+                    Text(text = com.qingji.app.ui.i18n.s(confirmText), fontSize = 13.sp, fontWeight = FontWeight.Medium, color = Color.White)
                 }
             } else {
                 Box(
@@ -178,7 +178,7 @@ fun AppDialog(
                         .padding(horizontal = 18.dp, vertical = 8.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(text = confirmText, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = QingJiGreenDark)
+                    Text(text = com.qingji.app.ui.i18n.s(confirmText), fontSize = 13.sp, fontWeight = FontWeight.Medium, color = QingJiGreenDark)
                 }
             }
         },
@@ -190,7 +190,7 @@ fun AppDialog(
                     .padding(horizontal = 14.dp, vertical = 8.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text(text = dismissText, fontSize = 13.sp, color = TextSecondary)
+                Text(text = com.qingji.app.ui.i18n.s(dismissText), fontSize = 13.sp, color = TextSecondary)
             }
         }
     )

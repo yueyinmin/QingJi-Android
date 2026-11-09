@@ -34,6 +34,12 @@ data class MealDetailState(
     val protein: Double get() = logs.sumOf { it.proteinG }
     val carb: Double get() = logs.sumOf { it.carbG }
     val fat: Double get() = logs.sumOf { it.fatG }
+    // v3.5.0：营养素细分。来源（食物库 / AI）暂时都没有这三项数值，多为 0；
+    // 界面据此显示「暂无数据」而不是误导性的 0
+    val fiber: Double get() = logs.sumOf { it.fiberG }
+    val sodiumMg: Double get() = logs.sumOf { it.sodiumMg }
+    val calciumMg: Double get() = logs.sumOf { it.calciumMg }
+    val hasMicronutrient: Boolean get() = fiber > 0.0 || sodiumMg > 0.0 || calciumMg > 0.0
 
     /** 这一餐里有没有 AI 识别出来的条目（决定要不要显示「AI 生成」角标）。 */
     val hasAi: Boolean
@@ -60,6 +66,10 @@ class MealDetailViewModel(app: Application) : AndroidViewModel(app) {
             MealDetailState(date, meal, list.filter { it.mealType == meal })
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MealDetailState())
+
+    /** v3.5.0：纤维 / 钠 / 钙的目标值来自档案表。 */
+    val profile: StateFlow<com.qingji.app.data.local.entity.UserProfile?> =
+        repo.observeProfile().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun bind(date: LocalDate, mealType: String) {
         _date.value = date
