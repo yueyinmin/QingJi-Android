@@ -26,17 +26,7 @@ Kotlin + Jetpack Compose 写的，界面全部自绘，没引图表库和动画�
 - AI 识别结果先过本地食物库校正，再交给用户确认
 - release 包开了 R8 混淆和资源收缩，装完 3MB 左右
 
-## 构建
-
-Android Studio 打开工程直接跑，或者命令行：
-
-```
-./gradlew :app:assembleRelease
-```
-
-正式签名的密钥和密码放在本机的 `local.properties`（`qingji.keystore.*` 三项，不进仓库）。没有这份配置也能编译，会自动回退 debug 签名。
-
-## 
+## 备注
 
 - 食物营养值是常见值估算，并不是根据营养学来的
 - 所有数据都在本机私有目录，卸载应用数据会没，换手机前先在「设置 → 数据备份与导出」里导出 JSON
