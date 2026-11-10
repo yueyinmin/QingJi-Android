@@ -20,6 +20,15 @@ interface UserFoodDao {
     @Query("SELECT * FROM user_food ORDER BY createdAt DESC")
     suspend fun findAll(): List<UserFood>
 
+    /**
+     * 默认列表用：只取最近录的前 N 条。
+     *
+     * findAll() 是给「全量合并 / 查重」用的，没有上限；搜索页的默认列表
+     * 只需要一屏，用这个带 LIMIT 的版本，自定义食物攒多了也不会整表读进内存。
+     */
+    @Query("SELECT * FROM user_food ORDER BY createdAt DESC LIMIT :limit")
+    suspend fun findTop(limit: Int): List<UserFood>
+
     @Query("SELECT * FROM user_food WHERE id = :id LIMIT 1")
     suspend fun findById(id: Long): UserFood?
 
@@ -29,11 +38,15 @@ interface UserFoodDao {
     @Query("SELECT name FROM user_food")
     suspend fun allNames(): List<String>
 
+    /** 空关键词守卫：避免 `LIKE '%%'` 把全部自定义食物都当成命中返回。 */
     @Query(
         """
         SELECT * FROM user_food
-        WHERE name LIKE '%' || :keyword || '%'
-           OR pinyin LIKE :keyword || '%'
+        WHERE :keyword <> ''
+          AND (
+            name LIKE '%' || :keyword || '%'
+            OR pinyin LIKE :keyword || '%'
+          )
         ORDER BY name
         LIMIT 50
         """

@@ -83,6 +83,9 @@ abstract class FoodCatalogDatabase : RoomDatabase() {
                     )
                     if (hasAsset) builder.createFromAsset(ASSET_PATH)
                     builder
+                        // 这里保留兜底：标准库是随 APK 来的公共只读数据，重建不会丢用户记录；
+                        // 换预置库靠 ensureFresh() 主动删文件再拷新的，Room version 变了也能打开。
+                        // 用户库 qingji.db 那边已移除这行，绝不静默清用户数据。
                         .fallbackToDestructiveMigration()
                         .build()
                         .also { INSTANCE = it }

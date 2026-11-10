@@ -68,4 +68,67 @@ class NutritionCalculatorTest {
         assertTrue(NutritionCalculator.activityLabel(4).contains("高度"))
         assertTrue(NutritionCalculator.activityLabel(99).contains("轻度"))
     }
+
+    // ---------- 优化分支 v1.0.4：超重蛋白估算 + 输入边界 ----------
+
+    @Test
+    fun `超重人群蛋白目标不再按实际体重线性放大`() {
+        // 120kg / 175cm → BMI ≈ 39.2（肥胖）
+        // 参考体重 = max(24 × 1.75² = 73.5, 120 × 0.75 = 90) = 90 → 1.6 × 90 = 144
+        val obese = NutritionCalculator.compute(
+            "male", 30, 175.0, 120.0, 2, NutritionCalculator.MODE_LOSE
+        )
+        assertEquals(144, obese.proteinG)
+        assertTrue("不该按 120kg 算出 192g", obese.proteinG < (1.6 * 120.0).toInt())
+    }
+
+    @Test
+    fun `正常体重蛋白目标保持原样`() {
+        val normal = NutritionCalculator.compute(
+            "male", 30, 175.0, 70.0, 2, NutritionCalculator.MODE_KEEP
+        )
+        assertEquals((1.6 * 70.0).toInt(), normal.proteinG)
+    }
+
+    @Test
+    fun `非有限与离谱输入不会算出NaN或负数`() {
+        val cases = listOf(
+            NutritionCalculator.compute(
+                "male", 25, Double.NaN, Double.POSITIVE_INFINITY, 2,
+                NutritionCalculator.MODE_LOSE
+            ),
+            NutritionCalculator.compute("female", -5, -170.0, -1.0, 99, "unknown"),
+            NutritionCalculator.compute(
+                "male", 200, 9999.0, 99999.0, 0, NutritionCalculator.MODE_GAIN
+            )
+        )
+        cases.forEach { g ->
+            assertTrue("BMR 必须为正", g.bmr > 0)
+            assertTrue("TDEE 必须为正", g.tdee > 0)
+            assertTrue("热量目标必须为正", g.kcal > 0)
+            assertTrue(g.proteinG >= 0)
+            assertTrue(g.carbG >= 0)
+            assertTrue(g.fatG >= 0)
+        }
+    }
+
+    @Test
+    fun `热量下限公式保持不变`() {
+        // 这次优化只补输入边界，不换下限公式
+        val male = NutritionCalculator.compute(
+            "male", 60, 150.0, 40.0, 1, NutritionCalculator.MODE_LOSE
+        )
+        val female = NutritionCalculator.compute(
+            "female", 60, 150.0, 40.0, 1, NutritionCalculator.MODE_LOSE
+        )
+        assertEquals(1500, male.kcal)
+        assertEquals(1200, female.kcal)
+    }
+
+    @Test
+    fun `BMI 输入非法时返回0`() {
+        assertEquals(0.0, NutritionCalculator.bmi(Double.NaN, 175.0), 0.001)
+        assertEquals(0.0, NutritionCalculator.bmi(70.0, Double.POSITIVE_INFINITY), 0.001)
+        assertEquals(0.0, NutritionCalculator.bmi(-1.0, 175.0), 0.001)
+    }
 }
