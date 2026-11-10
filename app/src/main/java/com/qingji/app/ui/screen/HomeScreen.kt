@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.width
-import androidx.compose.ui.draw.alpha
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -52,6 +51,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -172,41 +172,60 @@ fun HomeScreen(
                 .height(46.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 标题本身可点，点开日历下拉（可以跨年选）；翻周箭头退役了
-            Text(
-                text = "${state.date.monthValue}月${state.date.dayOfMonth}日",
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
-                color = TextPrimary,
-                modifier = Modifier.clickable { showDatePicker = true }
-            )
-            Spacer(Modifier.size(4.dp))
-            // 下拉箭头：点它和点标题一样弹出日历（不再用 emoji 胶囊）
-            Icon(
-                imageVector = Icons.Filled.KeyboardArrowDown,
-                contentDescription = "选择日期",
-                tint = QingJiGreenDark,
-                modifier = Modifier
-                    .size(24.dp)
-                    .pressable { showDatePicker = true }
-            )
-            Spacer(Modifier.weight(1f))
-            // 这一颗始终渲染，只切透明度。
-            // 之前是 if 判断，出现时会把左边挤动 → 看起来像"跳了一下"。
+            // 左侧「日期 + 下拉箭头」整体吃掉所有剩余宽度，内部靠左；
+            // 这样右边的胶囊永远优先拿到它们需要的宽度，不会被挤。
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // 标题本身可点，点开日历下拉（可以跨年选）；翻周箭头退役了。
+                // maxLines + Ellipsis：屏幕窄到放不下时是日期显示「11月…」，
+                // 而不是让右边的「减脂」被挤成竖排。
+                Text(
+                    text = "${state.date.monthValue}月${state.date.dayOfMonth}日",
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .clickable { showDatePicker = true }
+                )
+                Spacer(Modifier.size(4.dp))
+                // 下拉箭头：点它和点标题一样弹出日历（不再用 emoji 胶囊）
+                Icon(
+                    imageVector = Icons.Filled.KeyboardArrowDown,
+                    contentDescription = "选择日期",
+                    tint = QingJiGreenDark,
+                    modifier = Modifier
+                        .size(24.dp)
+                        .pressable { showDatePicker = true }
+                )
+            }
+
             val showBack = state.date != today
-            Text(
-                text = s("回到今天"),
-                fontSize = 12.sp,
-                color = QingJiGreenDark,
-                modifier = Modifier
-                    .alpha(if (showBack) 1f else 0f)
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(if (showBack) QingJiGreenLight else Color.Transparent)
-                    .clickable(enabled = showBack) { vm.backToToday() }
-                    .padding(horizontal = 10.dp, vertical = 5.dp)
-            )
+            // 「回到今天」只在真的能回的时候才占位。
+            // 以前是一直渲染、只把 alpha 设为 0 —— 字看不见，但 70dp 的宽度还占着，
+            // 右边两个胶囊被它挤掉位置，「减脂」就被压成「减」「脂」两行了。
+            if (showBack) {
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = s("回到今天"),
+                    fontSize = 12.sp,
+                    color = QingJiGreenDark,
+                    maxLines = 1,
+                    softWrap = false,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(QingJiGreenLight)
+                        .clickable { vm.backToToday() }
+                        .padding(horizontal = 10.dp, vertical = 5.dp)
+                )
+            }
+
+            // 连续天数：永远单行，不许折字
             Spacer(Modifier.width(6.dp))
-            // v1.0.2：顶栏右侧一列依次是——回到今天、连续天数、目标状态
             val joinedDays = state.profile?.let {
                 val created = java.time.LocalDate.ofEpochDay(it.createdAt / 86_400_000L)
                 (today.toEpochDay() - created.toEpochDay()).toInt() + 1
@@ -215,20 +234,26 @@ fun HomeScreen(
                 text = "🔥 $joinedDays 连续天数",
                 fontSize = 11.sp,
                 color = MultiColor.StreakText,
+                maxLines = 1,
+                softWrap = false,
                 modifier = Modifier
                     .clip(RoundedCornerShape(999.dp))
                     .background(MultiColor.StreakBackground)
                     .padding(horizontal = 10.dp, vertical = 5.dp)
             )
+            // 目标状态：宽度跟着文字走，同样锁死单行。
+            // 文案统一叫「减脂」——和进展页、引导里的说法一致，不再「减肥」「减脂」混着叫。
             Spacer(Modifier.width(6.dp))
             Text(
                 text = when (settings.goalMode) {
                     "gain" -> s("增肌")
                     "keep" -> s("保持")
-                    else -> s("减肥")
+                    else -> s("减脂")
                 },
                 fontSize = 11.sp,
                 color = QingJiGreenDark,
+                maxLines = 1,
+                softWrap = false,
                 modifier = Modifier
                     .clip(RoundedCornerShape(999.dp))
                     .background(QingJiGreenLight)
@@ -770,7 +795,7 @@ private fun TodaySummaryCard(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // v1.0.2：目标状态（减肥/增肌/保持）挪到顶栏连续天数右边了
+            // v1.0.2：目标状态（减脂/增肌/保持）挪到顶栏连续天数右边了
             Text(text = s("今日剩余"), fontSize = 14.sp, color = TextSecondary)
         }
 
