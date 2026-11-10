@@ -258,6 +258,7 @@ fun HomeScreen(
             fastingPlanHours = settings.fastingPlanHours,
             fastingEatStart = settings.fastingEatStartMinute,
             fastingEatEnd = settings.fastingEatEndMinute,
+            fastingDays = settings.fastingDays,
             onOpenFasting = { onOpenFasting() }
         )
         }
@@ -727,11 +728,13 @@ private fun TodaySummaryCard(
     exerciseCompensation: Boolean = false,
     /** 点水杯时通知外面弹「首页设置 / 查看详情」的选择 */
     onCupClick: () -> Unit = {},
-    /** 轻断食：开了才在卡片底部显示那条断食条 */
+    /** 轻断食：开了才在卡片底部显示断食按钮 */
     fastingEnabled: Boolean = false,
     fastingPlanHours: Int = 16,
     fastingEatStart: Int = 460,
     fastingEatEnd: Int = 940,
+    /** v1.0.3：生效周期（周几），今天不在周期内按钮显示「今日休息」 */
+    fastingDays: String = "1,2,3,4,5,6,7",
     onOpenFasting: () -> Unit = {}
 ) {
     val profile = state.profile
@@ -877,32 +880,42 @@ private fun TodaySummaryCard(
                 enabled = true
             )
 
+            // v1.0.3：改成明显的实底绿按钮（之前浅色条看着不像能点）
+            val fastingDaySet = fastingDays.split(',').mapNotNull { it.trim().toIntOrNull() }.toSet()
+            val isFastingDay = java.time.LocalDate.now().dayOfWeek.value in fastingDaySet
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(999.dp))
-                    .background(MultiColor.FastingBackground)
+                    .background(QingJiGreen)
                     .clickable { onOpenFasting() }
-                    .padding(horizontal = 14.dp, vertical = 9.dp),
+                    .padding(horizontal = 14.dp, vertical = 11.dp),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = "🕐", fontSize = 12.sp)
-                Spacer(Modifier.size(6.dp))
+                Text(text = "🕐", fontSize = 13.sp)
+                Spacer(Modifier.size(8.dp))
                 Text(
-                    text = com.qingji.app.domain.FastingRules.planLabel(fastingPlanHours),
-                    fontSize = 12.sp,
+                    text = if (!isFastingDay) {
+                        "轻断食 · 今日休息"
+                    } else {
+                        "轻断食 · " + com.qingji.app.domain.FastingRules.planLabel(fastingPlanHours)
+                    },
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = MultiColor.FastingText
+                    color = Color.White
                 )
                 Text(
-                    text = if (fasting.active) {
+                    text = if (!isFastingDay) {
+                        ""
+                    } else if (fasting.active) {
                         " · 断食中 · 剩余 ${com.qingji.app.domain.FastingRules.durationLabel(fasting.remainMinutes)}"
                     } else {
-                        " · 可以进食"
+                        " · 进食中"
                     },
                     fontSize = 12.sp,
-                    color = MultiColor.FastingText
+                    color = Color.White.copy(alpha = 0.85f)
                 )
             }
         }
