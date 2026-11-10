@@ -116,6 +116,10 @@ object SettingsKeys {
     val AI_NAME_CORRECTIONS = stringPreferencesKey("ai_name_corrections")
     /** 目标模式（引导第 1 问）：lose / gain / keep，影响热量预算与蛋白目标 */
     val GOAL_MODE = stringPreferencesKey("goal_mode")
+    /** 轻断食生效周期，逗号分隔 1..7（周一=1），默认全选 */
+    val FASTING_DAYS = stringPreferencesKey("fasting_days")
+    /** 时段切换提醒：按进食窗口自动在开始/结束时提醒 */
+    val FASTING_PHASE_ALERT = booleanPreferencesKey("fasting_phase_alert")
     /** 界面语言：zh 简体中文（默认）/ en English。只影响核心页文案，未翻译条目回落中文 */
     val UI_LANGUAGE = stringPreferencesKey("ui_language")
 }
@@ -182,7 +186,10 @@ data class QingJiSettings(
     val aiNameCorrections: String = "",
     val uiLanguage: String = "zh",
     /** 目标模式：lose / gain / keep */
-    val goalMode: String = "lose"
+    val goalMode: String = "lose",
+    /** 轻断食生效周期（1..7 逗号分隔）与时段切换提醒 */
+    val fastingDays: String = "1,2,3,4,5,6,7",
+    val fastingPhaseAlert: Boolean = false
 )
 
 object SettingsStore {
@@ -250,7 +257,9 @@ object SettingsStore {
                     widgetShowWeight = p[SettingsKeys.WIDGET_SHOW_WEIGHT] ?: true,
                     aiNameCorrections = p[SettingsKeys.AI_NAME_CORRECTIONS] ?: "",
                     uiLanguage = p[SettingsKeys.UI_LANGUAGE] ?: "zh",
-                    goalMode = p[SettingsKeys.GOAL_MODE] ?: "lose"
+                    goalMode = p[SettingsKeys.GOAL_MODE] ?: "lose",
+                    fastingDays = p[SettingsKeys.FASTING_DAYS] ?: "1,2,3,4,5,6,7",
+                    fastingPhaseAlert = p[SettingsKeys.FASTING_PHASE_ALERT] ?: false
                 )
             }
 

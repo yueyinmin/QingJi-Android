@@ -19,7 +19,7 @@ import java.time.LocalTime
 object FastingRules {
 
     /** 常见方案：断食小时数 */
-    val PLANS = listOf(16, 14, 12)
+    val PLANS = listOf(16, 14, 12, 18, 20)
 
     fun planLabel(hours: Int): String = "$hours:${24 - hours}"
 
@@ -70,14 +70,22 @@ object FastingRules {
             )
         }
 
-        // 进食窗口合法（结束晚于开始）才按窗口算，否则按方案小时数直接推
-        val fastingTotal = if (windowEnd > windowStart) {
-            24 * 60 - (windowEnd - windowStart)
+        // v1.0.3：支持跨零点进食窗口（如 22:00-06:00，end <= start 视为跨天）。
+        // 跨零点时进食段 = [start, 24:00) + [0, end)，断食段 = [end, start)。
+        val crossesMidnight = windowEnd <= windowStart
+
+        // 断食总时长（分钟）：窗口的补集
+        val fastingTotal = if (crossesMidnight) {
+            24 * 60 - (windowStart - windowEnd)
         } else {
-            safePlan * 60
+            24 * 60 - (windowEnd - windowStart)
         }
 
-        val inWindow = windowEnd > windowStart && nowMinute in windowStart until windowEnd
+        val inWindow = if (crossesMidnight) {
+            nowMinute >= windowStart || nowMinute < windowEnd
+        } else {
+            nowMinute in windowStart until windowEnd
+        }
         if (inWindow) {
             // 正在进食窗口里：不算断食中，告诉你下一段断食几点开始
             return FastingStatus(
@@ -91,8 +99,11 @@ object FastingRules {
             )
         }
 
-        // 在断食区间：从「昨天/今天的进食结束」算起
-        val elapsed = if (nowMinute >= windowEnd) {
+        // 在断食区间：从最近的进食结束点算起（跨零点时结束点在今天凌晨）
+        val elapsed = if (crossesMidnight) {
+            // 断食段 [end, start)：end 在今天凌晨，now 在 end..start 之间
+            nowMinute - windowEnd
+        } else if (nowMinute >= windowEnd) {
             nowMinute - windowEnd
         } else {
             (24 * 60 - windowEnd) + nowMinute

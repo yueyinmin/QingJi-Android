@@ -670,6 +670,11 @@ class FastingViewModel(app: Application) : AndroidViewModel(app) {
         .observeFastingRange(AppClock.today().minusDays(6), AppClock.today())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /** v1.0.3：近 30 天记录倒序，历史记录卡用 */
+    val historyLogs: StateFlow<List<com.qingji.app.data.local.entity.FastingLog>> = repo
+        .observeFastingRange(AppClock.today().minusDays(29), AppClock.today())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     /** 当前时刻，每 30 秒刷一次，倒计时才会走 */
     var now by androidx.compose.runtime.mutableStateOf(java.time.LocalTime.now())
         private set
@@ -678,13 +683,31 @@ class FastingViewModel(app: Application) : AndroidViewModel(app) {
         now = java.time.LocalTime.now()
     }
 
-    fun saveSettings(enabled: Boolean, planHours: Int, startMinute: Int, endMinute: Int) {
+    fun saveSettings(
+        enabled: Boolean, planHours: Int, startMinute: Int, endMinute: Int,
+        days: String, phaseAlert: Boolean
+    ) {
         viewModelScope.launch {
             val ctx = getApplication<Application>()
             com.qingji.app.data.prefs.SettingsStore.set(ctx, com.qingji.app.data.prefs.SettingsKeys.FASTING_ENABLED, enabled)
             com.qingji.app.data.prefs.SettingsStore.set(ctx, com.qingji.app.data.prefs.SettingsKeys.FASTING_PLAN_HOURS, planHours)
             com.qingji.app.data.prefs.SettingsStore.set(ctx, com.qingji.app.data.prefs.SettingsKeys.FASTING_EAT_START, startMinute)
             com.qingji.app.data.prefs.SettingsStore.set(ctx, com.qingji.app.data.prefs.SettingsKeys.FASTING_EAT_END, endMinute)
+            // v1.0.3：生效周期 + 时段切换提醒；提醒排布走 Reminders.apply（settings 变化自动重算）
+            com.qingji.app.data.prefs.SettingsStore.set(ctx, com.qingji.app.data.prefs.SettingsKeys.FASTING_DAYS, days)
+            com.qingji.app.data.prefs.SettingsStore.set(ctx, com.qingji.app.data.prefs.SettingsKeys.FASTING_PHASE_ALERT, phaseAlert)
+            // 用刚保存的值重排提醒（不等 Flow 回流）
+            com.qingji.app.notify.Reminders.apply(
+                ctx,
+                settings.value.copy(
+                    fastingEnabled = enabled,
+                    fastingPlanHours = planHours,
+                    fastingEatStartMinute = startMinute,
+                    fastingEatEndMinute = endMinute,
+                    fastingDays = days,
+                    fastingPhaseAlert = phaseAlert
+                )
+            )
             // 顺手把今天这条记录定下来，近 7 日柱状图才有数据
             repo.saveFasting(
                 com.qingji.app.data.local.entity.FastingLog(

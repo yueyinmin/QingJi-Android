@@ -43,6 +43,9 @@ object Reminders {
     const val TYPE_FASTING = "fasting"
     const val TYPE_KCAL = "kcal"
     const val TYPE_WATER = "water"
+    /** v1.0.3：轻断食时段切换（按进食窗口自动排两个闹钟） */
+    const val TYPE_FASTING_EAT = "fasting_eat"
+    const val TYPE_FASTING_FAST = "fasting_fast"
 
     private const val CHANNEL_ID = "qingji_reminder"
     const val EXTRA_TYPE = "reminder_type"
@@ -72,6 +75,8 @@ object Reminders {
         TYPE_FASTING -> 1002
         TYPE_KCAL -> 1003
         TYPE_WATER -> 1004
+        TYPE_FASTING_EAT -> 1006
+        TYPE_FASTING_FAST -> 1007
         else -> 1005
     }
 
@@ -141,6 +146,21 @@ object Reminders {
         } else {
             cancel(context, TYPE_WATER)
         }
+        // v1.0.3：轻断食时段切换提醒——按进食窗口自动排「进食开始」「断食开始」两个闹钟；
+        // Receiver 里按生效周期（周几）判断响不响
+        if (settings.fastingEnabled && settings.fastingPhaseAlert) {
+            scheduleDaily(
+                context, TYPE_FASTING_EAT,
+                settings.fastingEatStartMinute / 60, settings.fastingEatStartMinute % 60
+            )
+            scheduleDaily(
+                context, TYPE_FASTING_FAST,
+                settings.fastingEatEndMinute / 60, settings.fastingEatEndMinute % 60
+            )
+        } else {
+            cancel(context, TYPE_FASTING_EAT)
+            cancel(context, TYPE_FASTING_FAST)
+        }
     }
 }
 
@@ -178,6 +198,15 @@ class ReminderReceiver : BroadcastReceiver() {
             if (hasLog) return
         }
 
+        // 轻断食相关提醒：不在生效周期（周几）内就不响
+        if (type in setOf(Reminders.TYPE_FASTING, Reminders.TYPE_FASTING_EAT, Reminders.TYPE_FASTING_FAST)) {
+            val days = settings.fastingDays
+                .split(',')
+                .mapNotNull { it.trim().toIntOrNull() }
+                .toSet()
+            if (AppClock.today().dayOfWeek.value !in days) return
+        }
+
         // 喝水提醒：今天已经喝到目标就不打扰；查不到当作已达标，宁可不提醒
         if (type == Reminders.TYPE_WATER) {
             val reachedGoal = try {
@@ -202,6 +231,9 @@ class ReminderReceiver : BroadcastReceiver() {
             Reminders.TYPE_WEIGH -> "该称体重了" to "花 30 秒记一下今天的体重，趋势才有意义"
             Reminders.TYPE_FASTING -> "断食时间到了" to "打开轻记看一眼今天的进度"
             Reminders.TYPE_WATER -> "该喝水了" to "今天的水还没喝够，补一杯吧"
+            Reminders.TYPE_FASTING_EAT -> "进食时间开始啦" to "可以合理安排今天的饮食了。"
+            Reminders.TYPE_FASTING_FAST -> "进食窗口已结束" to "进入断食阶段，加油。"
+            Reminders.TYPE_FASTING -> "断食提醒" to "按你的轻断食计划，该注意时间了。"
             else -> "今天还没记饮食" to "点开记一笔，一句话就能记完"
         }
 
