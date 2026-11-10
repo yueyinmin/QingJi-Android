@@ -59,8 +59,15 @@ android {
         // v1.0.4 = 104：数据库拆成两个文件——标准食物库 food_catalog.db（assets 预置 654 条，只读）
         //   + 用户库 qingji.db（Room version 6，新增 user_food / food_favorite / food_search_history）；
         //   食物库数据契约升级到 v0.2，搜索支持中文/别名/拼音首字母/全拼 + 最近搜索。
-        versionCode = 104
-        versionName = "1.0.4"
+        // v1.0.5 = 105（2026-11-10）：三条并行分支合并成一个正式版，不再分开发预览包——
+        //   ① AI 营养数据一致性交叉校验（Atwater 4-9-4 反推，对不上的只标记不改数）；
+        //   ② 搜索默认列表加 LIMIT，用户自建食物优先；ApiKeyStore 读取全段兜底；
+        //   ③ 引导 10 步 → 5 步，三处入口统一走 NutritionCalculator.compute()，落库顺序改成
+        //      「存档案 → 存偏好 → 最后写完成标记」，修掉异步保存竞态；
+        //   ④ 首页顶栏「减脂」不再折行/被压成竖排，悬浮按钮「记体重」补回专属绿色；
+        //   ⑤ 叫法统一为「减脂」。
+        versionCode = 105
+        versionName = "1.0.5"
     }
 
     signingConfigs {
