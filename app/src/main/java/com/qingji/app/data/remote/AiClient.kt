@@ -31,6 +31,8 @@ import java.util.concurrent.TimeUnit
  *    0 克、负数、NaN、Infinity、离谱大数都不会进记录
  * 6. items:[] + need_clarify:true 是「信息不足、请补充」的合法结果，
  *    不再是识别失败；各识别页已有空列表保护，不会崩也不会静默存一餐空的
+ * 7. 原始数值超出常识（每 100 克比纯油还高热量）时，不只把数压回上限，
+ *    还会把该条置信度压到提示线以下、在 advice 里点名说明，让用户核对
  * ============================================================
  */
 
@@ -257,35 +259,63 @@ class AiClient {
     private fun mealTypeOf(obj: JSONObject): String =
         obj.optString("meal_type", "").takeIf { MealRules.isValid(it) } ?: MealRules.guess()
 
+    /**
+     * 把「这条数看着不对」的提示拼到 AI 建议后面。
+     * 最多列两条（再多提示框就被刷满了），剩下的只说一共几条。
+     */
+    private fun withSuspectNotes(advice: String, notes: List<String>): String {
+        if (notes.isEmpty()) return advice
+        val head = notes.take(2).joinToString("；")
+        val tail = if (notes.size > 2) "（共 ${notes.size} 条）" else ""
+        val prefix = if (advice.isBlank()) "" else advice.trim() + "\n"
+        return "$prefix⚠ $head$tail，请核对后再保存"
+    }
+
     private fun parseResult(raw: String): AiRecognitionResult {
         val content = extractContent(raw)
         val obj = JSONObject(extractJsonBlock(content))
         val needClarify = obj.optBoolean("need_clarify", false)
-        val advice = obj.optString("advice", "")
+        val rawAdvice = obj.optString("advice", "")
 
         val items = mutableListOf<AiFoodItem>()
+        val notes = mutableListOf<String>()
         val array = obj.optJSONArray("items") ?: JSONArray()
         for (i in 0 until array.length()) {
             val item = array.optJSONObject(i) ?: continue
             val name = item.optString("name", "").trim()
             if (name.isEmpty()) continue
             // 先洗克数，热量上限要按克数换算成「每 100g」才判得准
-            val grams = AiResultRules.saneGrams(
-                item.optDouble("grams", AiResultRules.DEFAULT_GRAMS)
-            )
+            val rawGrams = item.optDouble("grams", AiResultRules.DEFAULT_GRAMS)
+            val rawKcal = item.optDouble("kcal", 0.0)
+            val grams = AiResultRules.saneGrams(rawGrams)
+            var confidence = AiResultRules.saneConfidence(item.optDouble("confidence", 0.5))
+
+            // 原始值本身就超常识（每 100 克比纯油 900 kcal 还高）时，
+            // 光把它「压回 900」等于把一组假数字修成另一组看着合理的假数字。
+            // 这里同时把置信度压到提示线以下，并在 advice 里说清是哪一条，
+            // 让用户在保存前自己看一眼 —— 不静默改数。
+            val overKcal = rawKcal.isFinite() && rawGrams > 0.0 &&
+                rawKcal / rawGrams * 100.0 > AiResultRules.MAX_KCAL_PER_100G
+            if (overKcal) {
+                confidence = minOf(confidence, AiResultRules.SUSPECT_CONFIDENCE)
+                notes.add("「$name」每 100 克热量超出常识，已按上限修正")
+            }
+
             items.add(
                 AiFoodItem(
                     name = name,
                     amountText = item.optString("amount_text", ""),
                     grams = grams,
-                    kcal = AiResultRules.saneKcal(item.optDouble("kcal", 0.0), grams),
+                    kcal = AiResultRules.saneKcal(rawKcal, grams),
                     proteinG = AiResultRules.saneMacro(item.optDouble("protein_g", 0.0)),
                     carbG = AiResultRules.saneMacro(item.optDouble("carb_g", 0.0)),
                     fatG = AiResultRules.saneMacro(item.optDouble("fat_g", 0.0)),
-                    confidence = AiResultRules.saneConfidence(item.optDouble("confidence", 0.5))
+                    confidence = confidence
                 )
             )
         }
+
+        val advice = withSuspectNotes(rawAdvice, notes)
 
         // 模型明确说「看不清 / 信息不足」时，空数组是合法结果。
         // 各识别页都有 items.isNotEmpty() 保护：会显示 advice 里的追问、不给保存按钮，

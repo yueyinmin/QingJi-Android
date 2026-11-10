@@ -29,6 +29,7 @@ import com.qingji.app.data.remote.AiClient
 import com.qingji.app.data.remote.AiException
 import com.qingji.app.data.remote.AiRecognitionResult
 import com.qingji.app.data.remote.OpenFoodFactsClient
+import com.qingji.app.domain.AiResultRules
 import com.qingji.app.domain.NutritionMatch
 import com.qingji.app.domain.Per100g
 import androidx.room.withTransaction
@@ -62,6 +63,10 @@ class QingJiRepository(private val context: Context) {
     /** 标准库 id 从 100001 起，用户库 id 从 1 起，用这个数字区分来源，永不撞号。 */
     companion object {
         const val CATALOG_ID_START = 100001L
+        /** 搜索 / 默认列表一次最多返回多少条（界面一屏也就用得掉这些） */
+        const val SEARCH_LIMIT = 50
+        /** 默认列表里给「自己录的食物」预留的条数，剩下的位置交给标准库补 */
+        const val DEFAULT_CUSTOM_LIMIT = 15
     }
 
     // ---------- 个人档案 ----------
@@ -262,12 +267,22 @@ class QingJiRepository(private val context: Context) {
         val key = keyword.trim()
         val favs = favoriteDao.allNames().toSet()
 
-        // 空关键词：以前是 allFoodsOnce() 把 654 条标准食物 + 用户食物 + 收藏
-        // 全读进内存再 take(50)，白读十几倍的数据。现在直接查前 50 条。
+        // 空关键词 = 默认列表（还没输入时给用户先看点东西）。
+        //
+        // 以前是「标准库前 50 条 + 自定义全部」再 take(50)：标准库 654 条一上来
+        // 就把 50 个名额占满，用户自己录的食物永远进不了第一屏，等于白录；
+        // 而且 userFoodDao.findAll() 没有 LIMIT，自定义食物攒到上千条时会整表读进内存。
+        //
+        // 现在两路都带上限，顺序就是优先级：
+        //   ① 自己录的（最近录的在前，最多 15 条）—— 用户自己建的，最该先看到；
+        //   ② 标准库按名字补满剩下的名额（最多 35 条）。
+        // 常吃置顶仍然交给 ViewModel 的 FoodRanking 在这 50 条里重排。
         if (key.isEmpty()) {
-            val preset = catalogDao.findTop(50)
-            val custom = userFoodDao.findAll()
-            return mergeFoods(preset, custom, favs).take(50)
+            val custom = userFoodDao.findTop(DEFAULT_CUSTOM_LIMIT)
+            val preset = catalogDao.findTop(SEARCH_LIMIT - custom.size)
+            val customFoods = custom.map { it.toFood(favorite = it.name in favs || it.favorite) }
+            val presetFoods = preset.map { it.toFood(favorite = it.name in favs) }
+            return (customFoods + presetFoods).take(SEARCH_LIMIT)
         }
 
         // 拼音字段全是小写，纯英文输入统一转小写，避免「MF」搜不到「mf」；
@@ -280,7 +295,7 @@ class QingJiRepository(private val context: Context) {
                     { it.name }
                 )
             )
-            .take(50)
+            .take(SEARCH_LIMIT)
     }
 
     suspend fun foodCount(): Int = catalogDao.count() + userFoodDao.count()
@@ -447,7 +462,7 @@ class QingJiRepository(private val context: Context) {
         } catch (e: Exception) {
             emptyList()
         }
-        if (candidates.isEmpty()) return renamed
+        if (candidates.isEmpty()) return auditNutritionConsistency(renamed)
 
         val items = renamed.items.map { item ->
             val grams = NutritionMatch.saneGrams(item.grams)
@@ -465,7 +480,51 @@ class QingJiRepository(private val context: Context) {
                 item.copy(grams = grams, kcal = NutritionMatch.saneKcal(item.kcal, grams))
             }
         }
-        return renamed.copy(items = items, totalKcal = items.sumOf { it.kcal })
+        return auditNutritionConsistency(
+            renamed.copy(items = items, totalKcal = items.sumOf { it.kcal })
+        )
+    }
+
+    /**
+     * 写库前的最后一道一致性检查（Review 提的那条：AI 营养数据自相矛盾）。
+     *
+     * 放在这里而不是解析层，是因为**这一步拿到才是要真正存进数据库的数**：
+     * 命中本地食物库的条目已经被本地营养值覆盖，这时候没问题的就不该再报警；
+     * 没命中、还留着 AI 自己编的数字，才需要人来核对。
+     *
+     * 判定交给 [AiResultRules.auditNutrition]（纯函数，有单测）：
+     * 三大营养素加起来比食物还重、热量和 4-9-4 反推值差太远，都算对不上。
+     *
+     * 处理方式刻意**不改数字**：改了用户就看不出来哪条有问题，反而更容易被存下去。
+     * 只做两件事 ——
+     *   ① 把该条置信度压到 [AiResultRules.SUSPECT_CONFIDENCE]，
+     *      确认页本来就会在 confidence < 0.6 时亮红字「请重点核对」；
+     *   ② 把具体哪儿对不上写进 advice，显示在结果上方。
+     */
+    private fun auditNutritionConsistency(result: AiRecognitionResult): AiRecognitionResult {
+        val problems = mutableListOf<String>()
+        val items = result.items.map { item ->
+            val audit = AiResultRules.auditNutrition(
+                grams = item.grams,
+                kcal = item.kcal,
+                proteinG = item.proteinG,
+                carbG = item.carbG,
+                fatG = item.fatG
+            )
+            if (audit.ok) {
+                item
+            } else {
+                problems.add("「${item.name}」${audit.note}")
+                item.copy(confidence = minOf(item.confidence, AiResultRules.SUSPECT_CONFIDENCE))
+            }
+        }
+        if (problems.isEmpty()) return result
+
+        val head = problems.take(2).joinToString("；")
+        val tail = if (problems.size > 2) "（共 ${problems.size} 条）" else ""
+        val line = "⚠ $head$tail，请核对后再保存"
+        val advice = if (result.advice.isBlank()) line else result.advice.trim() + "\n" + line
+        return result.copy(items = items, advice = advice)
     }
 
     /**
