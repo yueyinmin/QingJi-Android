@@ -17,6 +17,8 @@ import com.qingji.app.data.local.entity.FoodLog
 import com.qingji.app.data.local.entity.UserProfile
 import com.qingji.app.data.local.entity.WeightLog
 import com.qingji.app.data.remote.AiRecognitionResult
+import com.qingji.app.data.prefs.SettingsKeys
+import com.qingji.app.data.prefs.SettingsStore
 import com.qingji.app.data.repository.QingJiRepository
 import com.qingji.app.domain.BarcodeRules
 import com.qingji.app.domain.DiaryRules
@@ -361,6 +363,12 @@ class ProfileViewModel(app: Application) : AndroidViewModel(app) {
                 fatGoalG = goal.fatG
             )
         )
+
+        // 目标模式同时写回 DataStore。
+        // 以前只有首次引导会写这个键，用户在资料页把「减重」改成「增肌」后，
+        // DataStore 里还是旧的，别的读 goalMode 的地方（首页目标状态、引导重进）
+        // 就会和档案里的目标对不上。这里补上，让两处永远一致。
+        SettingsStore.set(getApplication(), SettingsKeys.GOAL_MODE, mode)
     }
 }
 
@@ -512,6 +520,10 @@ class MineViewModel(app: Application) : AndroidViewModel(app) {
                 fatGoalG = goal.fatG
             )
         )
+
+        // 和 ProfileViewModel.save 一样：目标模式要同步回 DataStore，
+        // 否则首页顶部「减肥/增肌/保持」的标签还停在上一个模式。
+        SettingsStore.set(getApplication(), SettingsKeys.GOAL_MODE, mode)
     }
 }
 
