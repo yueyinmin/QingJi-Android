@@ -7,7 +7,7 @@ import androidx.core.content.FileProvider
 import com.qingji.app.data.local.AppDatabase
 import com.qingji.app.data.local.entity.AiConfig
 import com.qingji.app.data.local.entity.Diary
-import com.qingji.app.data.local.entity.Food
+import com.qingji.app.data.local.entity.UserFood
 import com.qingji.app.data.local.entity.FoodLog
 import com.qingji.app.data.local.entity.UsageStat
 import com.qingji.app.data.local.entity.UserProfile
@@ -126,7 +126,10 @@ class BackupManager(private val context: Context) {
     private suspend fun buildJson(): String {
         val profile = db.userProfileDao().get()
         val weights = db.weightLogDao().findAll()
-        val foods = db.foodDao().findAll()
+        // v1.0.4：只备份「用户自己的」食物。标准食物随 App 预置，不进备份文件，
+        // 备份体积从几百条缩到几条，也不会因为换食物库版本把旧数据带回来。
+        val foods = db.userFoodDao().findAll()
+        val favorites = db.foodFavoriteDao().allNames()
         val foodLogs = db.foodLogDao().findAll()
         val waters = db.waterLogDao().findAll()
         val diaries = db.diaryDao().findAll()
@@ -190,9 +193,18 @@ class BackupManager(private val context: Context) {
                         put("fatPer100g", f.fatPer100g)
                         put("defaultGrams", f.defaultGrams)
                         put("source", f.source)
+                        put("category", f.category)
+                        put("brand", f.brand)
+                        put("favorite", f.favorite)
+                        put("createdAt", f.createdAt)
                     })
                 }
             }.toString()
+        ).append(",\n")
+
+        // 收藏按名字存（标准库只读，收藏只能记在用户库里），换设备后照样能对上
+        sb.append("  \"foodFavorites\": ").append(
+            JSONArray().apply { favorites.forEach { put(it) } }.toString()
         ).append(",\n")
 
         sb.append("  \"foodLogs\": ").append(
@@ -304,7 +316,8 @@ class BackupManager(private val context: Context) {
             db.waterLogDao().clearAll()
             db.diaryDao().clearAll()
             db.usageStatDao().clearAll()
-            db.foodDao().clearAll()
+            db.userFoodDao().clearAll()
+            db.foodFavoriteDao().clearAll()
 
             root.optJSONObject("profile")?.let { p ->
                 db.userProfileDao().save(
@@ -329,13 +342,13 @@ class BackupManager(private val context: Context) {
             }
 
             root.optJSONArray("foods")?.let { arr ->
-                val items = mutableListOf<Food>()
+                val items = mutableListOf<UserFood>()
                 for (i in 0 until arr.length()) {
                     val o = arr.optJSONObject(i) ?: continue
                     val name = o.optString("name", "").trim()
                     if (name.isEmpty()) continue
                     items.add(
-                        Food(
+                        UserFood(
                             name = name,
                             pinyin = o.optString("pinyin", ""),
                             barcode = o.optString("barcode", "").takeIf { it.isNotBlank() && it != "null" },
@@ -344,12 +357,37 @@ class BackupManager(private val context: Context) {
                             carbPer100g = o.optDouble("carbPer100g", 0.0),
                             fatPer100g = o.optDouble("fatPer100g", 0.0),
                             defaultGrams = o.optDouble("defaultGrams", 100.0),
-                            source = o.optString("source", "user")
+                            // 老备份里可能混着预置食物；拆库后一律归为用户数据，不冒充标准库
+                            source = o.optString("source", "user").let { if (it == "preset") "user" else it },
+                            category = o.optString("category", "其他"),
+                            brand = o.optString("brand", ""),
+                            favorite = o.optBoolean("favorite", false),
+                            createdAt = o.optLong("createdAt", System.currentTimeMillis())
                         )
                     )
                 }
-                if (items.isNotEmpty()) db.foodDao().insertAll(items)
+                if (items.isNotEmpty()) db.userFoodDao().insertAll(items)
                 foodCount = items.size
+            }
+
+            // 老备份没有这一段，缺了就跳过，收藏按「用户食物里 favorite=1」兜底
+            root.optJSONArray("foodFavorites")?.let { arr ->
+                for (i in 0 until arr.length()) {
+                    val name = arr.optString(i, "").trim()
+                    if (name.isNotEmpty()) {
+                        db.foodFavoriteDao().add(
+                            com.qingji.app.data.local.entity.FoodFavorite(name)
+                        )
+                    }
+                }
+            } ?: run {
+                db.userFoodDao().findAll()
+                    .filter { it.favorite }
+                    .forEach {
+                        db.foodFavoriteDao().add(
+                            com.qingji.app.data.local.entity.FoodFavorite(it.name)
+                        )
+                    }
             }
 
             root.optJSONArray("foodLogs")?.let { arr ->
@@ -454,10 +492,8 @@ class BackupManager(private val context: Context) {
                 )
             }
 
-            // 预置食物兜底：备份里如果没有食物库（老备份），把常用项补回来
-            if (db.foodDao().count() == 0) {
-                db.foodDao().insertAll(com.qingji.app.data.local.SeedData.presetFoods)
-            }
+            // v1.0.4：标准食物库随 APK 预置在只读数据库里，
+            // 恢复备份时不再需要（也不能）往用户库里灌预置食物。
 
             Result.success(
                 "导入完成：饮食 $foodCount 种食物、体重 $weightCount 条、" +

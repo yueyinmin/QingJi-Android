@@ -193,11 +193,10 @@ class SearchFoodViewModel(app: Application) : AndroidViewModel(app) {
 
     /**
      * 关键词 / 「最近 30 天吃过什么」/ **食物库条数** 任一变化，都会重新查库并重排。
-     * 空关键词在 SQL 里是 LIKE '%%'，会列出前 50 条，正好当默认列表。
+     * 空关键词会列出前 50 条，正好当默认列表。
      *
-     * 为什么要订阅食物库条数：预置食物是 App 启动后在后台线程灌的。
-     * 不订阅的话，用户在灌完之前点进搜索页会看到空列表，而且之后也不会自己更新，
-     * 表现的就像「这个 App 什么都没有」。
+     * v1.0.4：标准食物库是随 APK 预置的独立数据库，Room 首次打开时自动拷出来，
+     * 这里仍然订阅条数，是为了兼容「首次开库稍慢」和用户自己新增食物的实时刷新。
      */
     val results: StateFlow<List<Food>> = combine(
         _keyword,
@@ -217,9 +216,22 @@ class SearchFoodViewModel(app: Application) : AndroidViewModel(app) {
     val foodCount: StateFlow<Int> = repo.observeFoodCount()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), -1)
 
-    /** 用户点「恢复预置食物库」时调：把缺的预置食物补回来，返回补了几条。 */
+    /** 最近搜过的词，搜索框下面一排快捷入口。 */
+    val searchHistory: StateFlow<List<String>> = repo.observeSearchHistory()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /**
+     * 标准食物库现在是随 APK 走的只读库，不需要「补数据」。
+     * 按钮保留只是给「库没读出来」的情况一个手动重试的机会，返回当前能读到的条数。
+     */
     suspend fun restorePresetFoods(): Int = repo.ensurePresetFoods()
 
+    /** 点中一条结果时，把这次搜的词记进历史；下次打开搜索页一点就能用。 */
+    fun rememberSearch() {
+        val key = _keyword.value.trim()
+        if (key.isBlank()) return
+        viewModelScope.launch { repo.rememberSearch(key) }
+    }
 
     fun onKeywordChange(value: String) {
         _keyword.value = value

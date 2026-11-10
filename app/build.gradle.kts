@@ -56,8 +56,11 @@ android {
         // v1.0.2 = 102：目标状态胶囊跟在连续天数右边；记体重挪进悬浮栏（四颗）；今日记录行右侧清空。
         // v1.0.3 = 103：轻断食按 GPT 方案增强——首页断食条改实底按钮、方案加 18:6/20:4、生效周期（周几）、
         //   跨零点进食窗口、时段切换提醒（两闹钟按窗口自动排）、断食页历史记录卡。
-        versionCode = 103
-        versionName = "1.0.3"
+        // v1.0.4 = 104：数据库拆成两个文件——标准食物库 food_catalog.db（assets 预置 654 条，只读）
+        //   + 用户库 qingji.db（Room version 6，新增 user_food / food_favorite / food_search_history）；
+        //   食物库数据契约升级到 v0.2，搜索支持中文/别名/拼音首字母/全拼 + 最近搜索。
+        versionCode = 104
+        versionName = "1.0.4"
     }
 
     signingConfigs {

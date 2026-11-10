@@ -4,6 +4,7 @@ import android.widget.Toast
 import com.qingji.app.domain.AppClock
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -72,6 +73,7 @@ fun SearchFoodScreen(
     val keyword by vm.keyword.collectAsState()
     val results by vm.results.collectAsState()
     val foodCount by vm.foodCount.collectAsState()
+    val history by vm.searchHistory.collectAsState()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
@@ -102,8 +104,33 @@ fun SearchFoodScreen(
                 label = "搜索食物",
                 value = keyword,
                 onValueChange = vm::onKeywordChange,
-                hint = "输入名称或拼音首字母，如：米饭 / mf"
+                hint = "输入名称、拼音首字母或全拼，如：米饭 / mf / mifan"
             )
+
+            // 最近搜过的词：点一下直接回填搜索框，省得重打一遍
+            if (keyword.isBlank() && history.isNotEmpty()) {
+                Spacer(Modifier.height(10.dp))
+                Text(text = "最近搜过", fontSize = 12.sp, color = TextSecondary)
+                Spacer(Modifier.height(6.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    history.forEach { word ->
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(999.dp))
+                                .background(QingJiGreenLight)
+                                .clickable { vm.onKeywordChange(word) }
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Text(text = word, fontSize = 13.sp, color = QingJiGreenDark)
+                        }
+                    }
+                }
+            }
 
             Spacer(Modifier.height(10.dp))
             // 三种状态要分开说清楚，别让用户看到空列表就以为 App 坏了：
@@ -111,7 +138,7 @@ fun SearchFoodScreen(
             when {
                 foodCount < 0 -> HintBox(text = "食物库正在载入，稍等一下下…")
                 foodCount == 0 -> HintBox(
-                    text = "食物库现在是空的（预置食物还没写进去）。点下面的按钮补回来就能用了。",
+                    text = "标准食物库没读出来。点下面的按钮重新检查一次，还不行就重启 App 试试。",
                     isError = true
                 )
                 results.isEmpty() -> HintBox(
@@ -120,11 +147,11 @@ fun SearchFoodScreen(
                 else -> HintBox(text = "共 ${results.size} 条 · 点一条填份量")
             }
 
-            // 食物库为空时的兜底出口：不用重装 App，也不用连电脑
+            // 标准库没读出来时的兜底出口：手动再开一次库，不用重装 App
             if (foodCount == 0) {
                 Spacer(Modifier.height(10.dp))
                 PrimaryButton(
-                    text = "恢复预置食物库",
+                    text = "重新检查食物库",
                     onClick = { scope.launch { vm.restorePresetFoods() } }
                 )
             }
@@ -133,6 +160,7 @@ fun SearchFoodScreen(
             SectionCard(contentPadding = 0.dp) {
                 results.forEachIndexed { index, food ->
                     FoodRow(food = food, onClick = {
+                        vm.rememberSearch()
                         picked = food
                         gramsText = food.defaultGrams.toInt().toString()
                         mealType = MealRules.guess()
