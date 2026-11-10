@@ -96,7 +96,7 @@ object ProfileInputRules {
         if (currentWeightKg == null) return null
         return when (normalizeMode(mode)) {
             NutritionCalculator.MODE_LOSE ->
-                if (target >= currentWeightKg) "减重模式下，目标体重要比现在轻一点" else null
+                if (target >= currentWeightKg) "减脂模式下，目标体重要比现在轻一点" else null
             NutritionCalculator.MODE_GAIN ->
                 if (target <= currentWeightKg) "增肌模式下，目标体重要比现在重一点" else null
             else -> null

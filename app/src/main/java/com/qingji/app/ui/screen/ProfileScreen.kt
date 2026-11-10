@@ -185,9 +185,11 @@ fun ProfileScreen(
                 Spacer(Modifier.height(6.dp))
                 ChoiceRow(
                     options = listOf(
-                        "减重" to NutritionCalculator.MODE_LOSE,
-                        "维持" to NutritionCalculator.MODE_KEEP,
-                        "增重" to NutritionCalculator.MODE_GAIN
+                        // 三处入口（引导 / 这里 / 我的目标弹窗）跟首页顶栏用同一套叫法：
+                        // 减脂 / 保持 / 增肌。以前这里写减重、维持、增重，同一个状态三种说法。
+                        "减脂" to NutritionCalculator.MODE_LOSE,
+                        "保持" to NutritionCalculator.MODE_KEEP,
+                        "增肌" to NutritionCalculator.MODE_GAIN
                     ),
                     selected = mode,
                     onSelect = { mode = it }

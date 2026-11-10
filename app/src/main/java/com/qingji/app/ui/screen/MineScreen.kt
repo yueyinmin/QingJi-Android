@@ -178,6 +178,11 @@ fun MineScreen(
         Spacer(Modifier.height(12.dp))
 
         DataEntryCard(
+            goalLabel = when (settings.goalMode) {
+                "gain" -> "增肌计划"
+                "keep" -> "保持计划"
+                else -> "减脂计划"
+            },
             onOpenGoal = { showGoalDialog = true },
             onOpenAchievements = { showAchievementDialog = true },
             unlockedCount = achievements.count { it.unlocked },
@@ -527,6 +532,7 @@ private fun UsageNumber(
 /** 我的目标 / 我的成就 两个入口。 */
 @Composable
 private fun DataEntryCard(
+    goalLabel: String,
     onOpenGoal: () -> Unit,
     onOpenAchievements: () -> Unit,
     unlockedCount: Int,
@@ -542,7 +548,9 @@ private fun DataEntryCard(
         Spacer(Modifier.height(10.dp))
         EntryRow(
             title = "我的目标",
-            trailing = "减重计划",
+            // 这里以前写死「减重计划」，选了增肌也照样显示减重，和首页胶囊对不上。
+            // 改成跟着 goalMode 走，和首页顶栏用同一套判断。
+            trailing = goalLabel,
             iconColor = QingJiGreenDark,
             onClick = onOpenGoal
         )
@@ -669,9 +677,9 @@ private fun GoalDialog(
                 Spacer(Modifier.height(6.dp))
                 OptionRow(
                     options = listOf(
-                        NutritionCalculator.MODE_LOSE to "减重",
-                        NutritionCalculator.MODE_KEEP to "维持",
-                        NutritionCalculator.MODE_GAIN to "增重"
+                        NutritionCalculator.MODE_LOSE to "减脂",
+                        NutritionCalculator.MODE_KEEP to "保持",
+                        NutritionCalculator.MODE_GAIN to "增肌"
                     ),
                     selected = mode,
                     onSelect = { mode = it }

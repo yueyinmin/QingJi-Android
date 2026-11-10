@@ -341,7 +341,7 @@ private fun WelcomePage() {
         Text(text = "接下来只要三步", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
         Spacer(Modifier.height(10.dp))
         listOf(
-            "① 选目标：减重、增肌还是保持",
+            "① 选目标：减脂、增肌还是保持",
             "② 填身体数据：性别、年龄、身高、体重",
             "③ 选活动量，就能看到每天的热量和营养目标"
         ).forEach {
@@ -359,11 +359,11 @@ private fun WelcomePage() {
 private fun GoalPage(mode: String, onPick: (String) -> Unit) {
     QuestionPage(
         title = "这次的目标是？",
-        subtitle = "决定每天的热量预算：减重少给一点，增肌多给一点"
+        subtitle = "决定每天的热量预算：减脂少给一点，增肌多给一点"
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             listOf(
-                Triple(NutritionCalculator.MODE_LOSE, "减重", "甩掉多余的体重和脂肪"),
+                Triple(NutritionCalculator.MODE_LOSE, "减脂", "甩掉多余的体重和脂肪"),
                 Triple(NutritionCalculator.MODE_GAIN, "增肌", "涨体重涨肌肉，线条更明显"),
                 Triple(NutritionCalculator.MODE_KEEP, "保持", "现在挺好的，稳住就行")
             ).forEach { (key, label, desc) ->
@@ -516,7 +516,7 @@ private fun PreviewPage(
     val modeLabel = when (mode) {
         NutritionCalculator.MODE_GAIN -> "增肌"
         NutritionCalculator.MODE_KEEP -> "保持"
-        else -> "减重"
+        else -> "减脂"
     }
 
     QuestionPage(
