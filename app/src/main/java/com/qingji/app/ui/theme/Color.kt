@@ -148,8 +148,11 @@ object MultiColor {
     val Dinner = Color(0xFF5B8DEF)
     val Snack = Color(0xFF9B8AFB)
 
-    // 右侧三颗快捷按钮：水滴蓝 / 书紫 / 相机绿
+    // 右侧四颗快捷按钮：水滴蓝 / 秤绿 / 书紫 / 相机青
+    // （v1.0.2 加第四颗「记体重」时漏了这个绿，直接复用了 QuickWater，
+    //   结果水滴和体重秤都是蓝的，和设置页里的说明对不上）
     val QuickWater = Color(0xFF4FA9C9)
+    val QuickWeight = Color(0xFF1F8A70)
     val QuickBook = Color(0xFF9B8AFB)
     val QuickCamera = Color(0xFF26A69A)
 

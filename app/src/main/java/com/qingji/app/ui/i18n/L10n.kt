@@ -56,7 +56,9 @@ private val EN: Map<String, String> = mapOf(
     "填 1～3000 之间的数字" to "Enter a number between 1 and 3000",
     "查看今日饮水详情" to "Water details",
     "今日剩余" to "Remaining today",
-    "减肥" to "Weight loss",
+    // 「减脂」是统一叫法：以前首页写「减肥」、引导和进展页写「减脂」，
+    // 同一个状态两种说法，用户会以为是两种模式。
+    "减脂" to "Fat loss",
     "营养素 (g)" to "Macros (g)",
     "蛋白质" to "Protein",
     "碳水" to "Carbs",

@@ -453,7 +453,7 @@ private fun BodyDataCard(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(text = "减肥进展", fontSize = 14.sp, color = TextPrimary)
+            Text(text = "减脂进展", fontSize = 14.sp, color = TextPrimary)
             Text(
                 text = "${(animProgress * 100).toInt()}%",
                 fontSize = 14.sp,
