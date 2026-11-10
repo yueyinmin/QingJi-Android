@@ -1,6 +1,5 @@
 package com.qingji.app.ui.screen
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.tween
@@ -16,8 +15,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -42,7 +43,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.qingji.app.data.local.entity.UserProfile
+import com.qingji.app.domain.NutritionCalculator
+import com.qingji.app.domain.ProfileInputRules
 import com.qingji.app.ui.components.SectionCard
 import com.qingji.app.ui.theme.Dimens
 import com.qingji.app.ui.theme.PageBackground
@@ -52,151 +54,158 @@ import com.qingji.app.ui.theme.QingJiGreenLight
 import com.qingji.app.ui.theme.TextPrimary
 import com.qingji.app.ui.theme.TextSecondary
 import com.qingji.app.ui.theme.pressable
-import java.time.LocalDate
+import com.qingji.app.ui.viewmodel.OnboardingAnswers
 
 /**
  * ============================================================
- * 首次引导（v1.3 重做成「一页一问」向导）
+ * 首次引导（v1.5：10 步精简成 5 步）
  * ------------------------------------------------------------
- * 之前是一整页塞十几个输入框，看着就累；现在一次只问一件事，
- * 下面给现成的选项，选不到的可以自己加标签（想加多少个都行）。
+ * 改版的原因很直接：第一次打开就要用户填昵称、饮水、过敏原、忌口、菜系，
+ * 而这几项跟「算出第一版营养目标」一点关系都没有。很多人填到第五六页就退了。
  *
- * 页序：欢迎 → 目标（减重 / 增肌 / 保持）→ 性别 → 身体数据 → 活动水平
- *      → 饮水目标 → 过敏原 → 忌口 → 偏好菜系 → 完成
+ * 现在只留非有不可的：
+ *   0 欢迎 → 1 目标（减重/增肌/保持）→ 2 身体信息（性别/年龄/身高/体重/目标体重）
+ *   → 3 活动量 → 4 目标预览 → 完成
  *
- * v1.4 改动：
- * - 页间切换加滑动 + 淡入动画（AnimatedContent，前进向左、后退向右）；
- * - 第一页不再单独放「开始」，统一用底部的下一步；
- * - 新增目标模式一问：减重（TDEE − 300）/ 增肌（TDEE + 200，蛋白 1.8g/kg）/
- *   保持（TDEE 不变，蛋白 1.2g/kg），模式存 DataStore `goal_mode`，
- *   目标体重的校验也按模式区分（减重要更轻、增肌要更重）。
+ * 被移出去的几项没有丢功能，只是换了入口：
+ *   昵称      → 「我的」页点名字 / 设置页「昵称」
+ *   饮水目标  → 先给默认 2000，个人资料页或首页饮水卡里改
+ *   过敏原/忌口/菜系 → 设置 → 饮食偏好与忌口
  *
- * 偏好三项写入 DataStore（过敏原 / 忌口 / 菜系 / 目标模式），和设置页共用一份数据。
+ * 两条硬约束：
+ * 1. **不自己算热量**。所有目标一律调 NutritionCalculator.compute()，
+ *    和「我的 → 个人资料」是同一个入口、同一套公式，避免出现
+ *    「引导算完是 1600，进资料页点保存变成 1400」这种事。
+ * 2. **不拿默认值冒充真实数据**。年龄/身高/体重输入框都是空的，
+ *    placeholder 只是示例；没填就不让过，不会悄悄用 170cm / 25 岁建档案。
+ *
+ * 已有的视觉、动画、进度条、底部按钮布局都沿用 v1.5.1 那套，没有重画。
  * ============================================================
  */
+
+/** 五个步骤的下标，写出来免得满屏魔法数字 */
+private const val STEP_WELCOME = 0
+private const val STEP_GOAL = 1
+private const val STEP_BODY = 2
+private const val STEP_ACTIVITY = 3
+private const val STEP_PREVIEW = 4
+private const val TOTAL_STEPS = 5
+
 @Composable
 fun OnboardingScreen(
-    onDone: () -> Unit,
-    onSave: (UserProfile) -> Unit,
-    onSavePreferences: (
-        allergens: String, avoidFoods: String, cuisines: String, goalMode: String, nickname: String
-    ) -> Unit = { _, _, _, _, _ -> }
+    /** 正在保存：显示「保存中…」并锁住按钮，防止连点重复提交 */
+    saving: Boolean,
+    /** 保存失败的提示（来自 OnboardingViewModel），空 = 没有 */
+    saveError: String,
+    onSubmit: (OnboardingAnswers) -> Unit
 ) {
-    // ---------- 所有答案 ----------
+    // ---------- 所有答案：全部 rememberSaveable，转屏 / 页面重建都不丢 ----------
     var step by rememberSaveable { mutableIntStateOf(0) }
-    var goalMode by rememberSaveable { mutableStateOf("lose") }
-    var nickInput by rememberSaveable { mutableStateOf("") }
-    var gender by rememberSaveable { mutableStateOf("male") }
-    var heightText by rememberSaveable { mutableStateOf("170") }
+    var mode by rememberSaveable { mutableStateOf(NutritionCalculator.MODE_LOSE) }
+    // 性别默认空着、不预选。预选「男生」看着省事，但等于偷偷替用户
+    // 做了个会影响 BMR（男女差 166 千卡）的决定，所以必须用户自己点一下。
+    var gender by rememberSaveable { mutableStateOf("") }
+    var ageText by rememberSaveable { mutableStateOf("") }
+    var heightText by rememberSaveable { mutableStateOf("") }
     var weightText by rememberSaveable { mutableStateOf("") }
     var targetText by rememberSaveable { mutableStateOf("") }
-    var ageText by rememberSaveable { mutableStateOf("25") }
     var activity by rememberSaveable { mutableIntStateOf(2) }
-    var waterText by rememberSaveable { mutableStateOf("2000") }
-    var waterCustom by rememberSaveable { mutableStateOf("") }
-    var allergenSet by rememberSaveable { mutableStateOf(setOf<String>()) }
-    var allergenAdded by rememberSaveable { mutableStateOf(listOf<String>()) }
-    var avoidSet by rememberSaveable { mutableStateOf(setOf<String>()) }
-    var avoidAdded by rememberSaveable { mutableStateOf(listOf<String>()) }
-    var cuisineSet by rememberSaveable { mutableStateOf(setOf<String>()) }
-    var cuisineAdded by rememberSaveable { mutableStateOf(listOf<String>()) }
-    var errorText by remember { mutableStateOf("") }
+    var localError by rememberSaveable { mutableStateOf("") }
 
-    val totalSteps = 10
+    // 首次进入的时间，写进档案的 createdAt（「加入天数」按它算）。
+    // 保存失败重试时沿用同一个值，避免天数被重试刷回 1。
+    val createdAt = rememberSaveable { System.currentTimeMillis() }
 
-    // ---------- 保存：最后一步触发 ----------
-    fun finish() {
-        val height = heightText.toDoubleOrNull()
-        val weight = weightText.toDoubleOrNull()
-        val target = targetText.toDoubleOrNull()
-        val age = ageText.toIntOrNull()
-        val water = waterText.toIntOrNull()
-        if (height == null || weight == null || target == null || age == null || age !in 10..100) {
-            errorText = "身高、体重、目标、年龄都要是有效数字"
-            step = 4
+    // 当前这组输入的校验结果，后面第 5 步的预览要用。
+    // 用 remember 卡住，避免每次重组都重新解析一遍字符串。
+    val bodyInput = remember(ageText, heightText, weightText, targetText) {
+        ProfileInputRules.BodyInput(ageText, heightText, weightText, targetText)
+    }
+    val bodyValues = remember(bodyInput, mode) {
+        ProfileInputRules.parseBody(mode, bodyInput)
+    }
+
+    // 预览目标：数据不齐或者性别还没选就不算 —— 宁可不显示，也不用
+    // 「默认按男性」这种隐含假设糊弄一份看起来正常的数字
+    val preview = remember(bodyValues, gender, activity, mode) {
+        if (gender.isBlank()) {
+            null
+        } else {
+            bodyValues?.let {
+                NutritionCalculator.compute(
+                    gender = gender,
+                    age = it.age,
+                    heightCm = it.heightCm,
+                    weightKg = it.weightKg,
+                    activityLevel = activity,
+                    mode = mode
+                )
+            }
+        }
+    }
+
+    /** 最后一步：把答案交出去，交给 OnboardingViewModel 按顺序落库 */
+    fun submit() {
+        if (gender.isBlank()) {
+            localError = "先选一下性别"
+            step = STEP_BODY
             return
         }
-        // 校验按目标模式区分：减重要更轻、增肌要更重、保持不限
-        when (goalMode) {
-            "lose" -> if (target >= weight) {
-                errorText = "减重模式下，目标体重要比现在轻一点"
-                step = 4
-                return
-            }
-            "gain" -> if (target <= weight) {
-                errorText = "增肌模式下，目标体重要比现在重一点"
-                step = 4
-                return
-            }
+        val values = ProfileInputRules.parseBody(mode, bodyInput)
+        if (values == null) {
+            localError = ProfileInputRules.bodyError(mode, bodyInput) ?: "有些数字还不对，回去检查一下"
+            step = STEP_BODY
+            return
         }
-        // Mifflin-St Jeor 简化：男性 10w+6.25h-5a+5，女性 -161
-        val bmr = if (gender == "male") {
-            10 * weight + 6.25 * height - 5 * age + 5
-        } else {
-            10 * weight + 6.25 * height - 5 * age - 161
-        }
-        val factor = when (activity) { 1 -> 1.2; 2 -> 1.375; 3 -> 1.55; else -> 1.725 }
-        // 预算按模式：减重 TDEE − 300；增肌 TDEE + 200（盈余长肌肉）；保持 TDEE 原样
-        val budget = when (goalMode) {
-            "gain" -> (bmr * factor + 200).toInt().coerceIn(1400, 6000)
-            "keep" -> (bmr * factor).toInt().coerceIn(1200, 5500)
-            else -> (bmr * factor - 300).toInt().coerceIn(1200, 5000)
-        }
-        // 蛋白目标也随模式：增肌 1.8g/kg、保持 1.2g/kg、减重 1.5g/kg
-        val proteinPerKg = when (goalMode) { "gain" -> 1.8; "keep" -> 1.2; else -> 1.5 }
-
-        onSave(
-            UserProfile(
-                id = 1,
+        localError = ""
+        onSubmit(
+            OnboardingAnswers(
+                mode = mode,
                 gender = gender,
-                birthday = LocalDate.now().minusYears(age.toLong()),
-                heightCm = height,
-                startWeight = weight,
-                targetWeight = target,
+                age = values.age,
+                heightCm = values.heightCm,
+                weightKg = values.weightKg,
+                targetWeightKg = values.targetWeightKg,
                 activityLevel = activity,
-                dailyKcalGoal = budget,
-                proteinGoalG = (weight * proteinPerKg).toInt(),
-                carbGoalG = ((budget * 0.4) / 4).toInt(),
-                fatGoalG = ((budget * 0.25) / 9).toInt(),
-                waterGoalMl = water ?: 2000
+                createdAt = createdAt
             )
         )
-        // 昵称：填了用填的，没填随机生成「轻er~XXX」
-        val nickname = nickInput.trim().ifBlank { "轻er~" + (100..999).random() }
-        onSavePreferences(
-            allergenSet.joinToString(","),
-            avoidSet.joinToString(","),
-            cuisineSet.joinToString(","),
-            goalMode,
-            nickname
-        )
-        onDone()
     }
 
-    // ---------- 每步的校验 ----------
-    fun canGoNext(): Boolean = when (step) {
-        4 -> heightText.toDoubleOrNull() != null &&
-            weightText.toDoubleOrNull() != null &&
-            targetText.toDoubleOrNull() != null &&
-            ageText.toIntOrNull() != null
-        6 -> (waterText.toIntOrNull() ?: 0) > 0
-        else -> true
+    /** 下一步：只在「身体信息」这页拦校验，其余页直接过 */
+    fun goNext() {
+        localError = ""
+        if (step == STEP_BODY) {
+            if (gender.isBlank()) {
+                localError = "先选一下性别"
+                return
+            }
+            val err = ProfileInputRules.bodyError(mode, bodyInput)
+            if (err != null) {
+                localError = err
+                return
+            }
+        }
+        if (step < STEP_PREVIEW) step += 1 else submit()
     }
 
-    // v1.5.1：骨架重做——进度条固定顶部、按钮固定底部、中间内容独立滚动。
-    // 之前 AnimatedContent 的新旧两页同屏叠加（文字重叠 + 淡出残渣黑点），
-    // 现在改成「旧页立即消失、新页滑入」，和设置页二级页同一套入场动画。
+    // 骨架沿用 v1.5.1：进度条固定顶部、按钮固定底部、中间内容独立滚动
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(PageBackground)
+            // 引导页是全屏页（在 Scaffold 之前就 return 了），得自己让开状态栏。
+            // 原来是固定 40dp，碰上刘海屏那种 40~48dp 的状态栏，进度条会被盖住。
+            .statusBarsPadding()
             .padding(horizontal = 24.dp)
+            // 键盘弹出时整页上推，底部按钮不会被输入法盖住
+            .imePadding()
     ) {
-        Spacer(Modifier.height(40.dp))
+        Spacer(Modifier.height(20.dp))
 
-        // ---------- 进度条（固定顶部） ----------
+        // ---------- 进度条（固定顶部，按真实步数走） ----------
         LinearProgressIndicator(
-            progress = { (step + 1f) / totalSteps },
+            progress = { (step + 1f) / TOTAL_STEPS },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(4.dp)
@@ -206,7 +215,7 @@ fun OnboardingScreen(
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            text = "${step + 1} / $totalSteps",
+            text = "${step + 1} / $TOTAL_STEPS",
             fontSize = 11.sp,
             color = TextSecondary
         )
@@ -218,6 +227,8 @@ fun OnboardingScreen(
             val pageVisible = remember(step) {
                 MutableTransitionState(false).apply { targetState = true }
             }
+            // 写全限定名：ColumnScope 里也有个同名扩展，直接写 AnimatedVisibility
+            // 会被解析成那个扩展，在 Box 里调不了。
             androidx.compose.animation.AnimatedVisibility(
                 visibleState = pageVisible,
                 enter = slideInHorizontally(tween(240)) { full -> full / 4 } + fadeIn(tween(240)),
@@ -229,260 +240,56 @@ fun OnboardingScreen(
                         .verticalScroll(rememberScrollState())
                 ) {
                     when (step) {
-            0 -> {
-                Text(text = "欢迎使用轻记", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                Spacer(Modifier.height(10.dp))
-                Text(
-                    text = "先填几个数字，每天的热量和营养目标都会按你的情况算，不留任何默认值。",
-                    fontSize = 14.sp, color = TextSecondary, lineHeight = 22.sp
-                )
-            }
-
-            // v1.5：昵称一问，不填就随机生成「轻er~XXX」
-            1 -> QuestionPage(
-                title = "怎么称呼你？",
-                subtitle = "不填也行，我们随手给你起一个"
-            ) {
-                OutlinedTextField(
-                    value = nickInput,
-                    onValueChange = { nickInput = it },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("轻er~888", fontSize = 15.sp, color = TextSecondary) }
-                )
-            }
-
-            // v1.4：目标模式一问（减重 / 增肌 / 保持），影响热量预算、蛋白目标和目标体重校验
-            2 -> QuestionPage(
-                title = "这次的目标是？",
-                subtitle = "决定每天的热量预算：减重少给一点，增肌多给一点"
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    listOf(
-                        Triple("lose", "减重", "甩掉多余的体重和脂肪"),
-                        Triple("gain", "增肌", "涨体重涨肌肉，线条更明显"),
-                        Triple("keep", "保持", "现在挺好的，稳住就行")
-                    ).forEach { (key, label, desc) ->
-                        val selected = goalMode == key
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(if (selected) QingJiGreenLight else Color.White)
-                                .clickable { goalMode = key }
-                                .padding(vertical = 18.dp, horizontal = 18.dp)
-                        ) {
-                            Column {
-                                Text(
-                                    text = label,
-                                    fontSize = 17.sp,
-                                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                                    color = if (selected) QingJiGreenDark else TextPrimary
-                                )
-                                Spacer(Modifier.height(4.dp))
-                                Text(
-                                    text = desc,
-                                    fontSize = 12.sp,
-                                    color = if (selected) QingJiGreenDark else TextSecondary
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            3 -> QuestionPage(
-                title = "你的性别是？",
-                subtitle = "热量公式里会用到这一项"
-            ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    listOf("male" to "男生", "female" to "女生").forEach { (key, label) ->
-                        val selected = gender == key
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(if (selected) QingJiGreenLight else Color.White)
-                                .clickable { gender = key }
-                                .padding(vertical = 26.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = label,
-                                fontSize = 16.sp,
-                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                                color = if (selected) QingJiGreenDark else TextPrimary
-                            )
-                        }
-                    }
-                }
-            }
-
-            4 -> QuestionPage(
-                title = "身体数据",
-                subtitle = "填真实数字就行，之后随时能在「我的」里改"
-            ) {
-                SectionCard {
-                    Field("年龄", ageText, { ageText = it }, "25")
-                    Spacer(Modifier.height(10.dp))
-                    Field("身高（cm）", heightText, { heightText = it }, "170")
-                    Spacer(Modifier.height(10.dp))
-                    Field("当前体重（kg）", weightText, { weightText = it }, "70.0")
-                    Spacer(Modifier.height(10.dp))
-                    Field("目标体重（kg）", targetText, { targetText = it }, "65.0")
-                }
-                if (errorText.contains("体重") || errorText.contains("数字")) {
-                    Spacer(Modifier.height(8.dp))
-                    Text(text = errorText, fontSize = 13.sp, color = Color(0xFFD64545))
-                }
-            }
-
-            5 -> QuestionPage(
-                title = "平时活动量大吗？",
-                subtitle = "影响每天能吃多少的热量预算"
-            ) {
-                SectionCard {
-                    listOf(
-                        1 to "基本坐着", 2 to "偶尔动动",
-                        3 to "经常运动", 4 to "天天高强度"
-                    ).forEach { (lv, label) ->
-                        val selected = activity == lv
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 5.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(if (selected) QingJiGreenLight else PageBackground)
-                                .clickable { activity = lv }
-                                .padding(vertical = 14.dp, horizontal = 16.dp)
-                        ) {
-                            Text(
-                                text = label,
-                                fontSize = 15.sp,
-                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                                color = if (selected) QingJiGreenDark else TextPrimary
-                            )
-                        }
-                    }
-                }
-            }
-
-            6 -> QuestionPage(
-                title = "每天想喝多少水？",
-                subtitle = "喝水提醒和进度条都按这个算"
-            ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("1500", "2000", "2500", "3000").forEach { v ->
-                        val selected = waterText == v
-                        Text(
-                            text = "${v.toInt()}ml",
-                            fontSize = 14.sp,
-                            color = if (selected) Color.White else TextPrimary,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(if (selected) QingJiGreen else QingJiGreenLight)
-                                .clickable {
-                                    waterText = v
-                                    waterCustom = ""
-                                }
-                                .padding(vertical = 12.dp)
+                        STEP_WELCOME -> WelcomePage()
+                        STEP_GOAL -> GoalPage(mode = mode, onPick = { mode = it })
+                        STEP_BODY -> BodyPage(
+                            mode = mode,
+                            gender = gender,
+                            onGender = { gender = it },
+                            ageText = ageText,
+                            onAge = { ageText = it },
+                            heightText = heightText,
+                            onHeight = { heightText = it },
+                            weightText = weightText,
+                            onWeight = { weightText = it },
+                            targetText = targetText,
+                            onTarget = { targetText = it }
                         )
+                        STEP_ACTIVITY -> ActivityPage(activity = activity, onPick = { activity = it })
+                        STEP_PREVIEW -> PreviewPage(mode = mode, preview = preview, onBackToBody = {
+                            localError = ""
+                            step = STEP_BODY
+                        })
                     }
                 }
-                Spacer(Modifier.height(12.dp))
-                OutlinedTextField(
-                    value = waterCustom,
-                    onValueChange = {
-                        waterCustom = it
-                        it.toIntOrNull()?.let { num -> if (num > 0) waterText = num.toString() }
-                    },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("或者自己填一个数", fontSize = 13.sp, color = TextSecondary) }
-                )
-            }
-
-            7 -> QuestionPage(
-                title = "有哪些过敏原？",
-                subtitle = "选出来的会提醒 AI 帮你避开，没有就跳过"
-            ) {
-                TagPicker(
-                    preset = listOf("花生", "海鲜", "牛奶", "鸡蛋"),
-                    selected = allergenSet,
-                    added = allergenAdded,
-                    onToggle = { v -> allergenSet = if (v in allergenSet) allergenSet - v else allergenSet + v },
-                    onAdd = { v ->
-                        allergenAdded = allergenAdded + v
-                        allergenSet = allergenSet + v
-                    },
-                    hint = "还有别的过敏原？填在这里"
-                )
-            }
-
-            8 -> QuestionPage(
-                title = "有什么忌口？",
-                subtitle = "不想吃的挑出来，AI 记录时会帮你注意"
-            ) {
-                TagPicker(
-                    preset = listOf("辛辣", "香菜", "油炸", "甜食"),
-                    selected = avoidSet,
-                    added = avoidAdded,
-                    onToggle = { v -> avoidSet = if (v in avoidSet) avoidSet - v else avoidSet + v },
-                    onAdd = { v ->
-                        avoidAdded = avoidAdded + v
-                        avoidSet = avoidSet + v
-                    },
-                    hint = "其他忌口，一个一个加进来"
-                )
-            }
-
-            9 -> QuestionPage(
-                title = "平时爱吃哪类菜？",
-                subtitle = "选几个常吃的，AI 识别会更懂你的口味"
-            ) {
-                TagPicker(
-                    preset = listOf("家常菜", "川菜", "粤菜", "面食", "轻食"),
-                    selected = cuisineSet,
-                    added = cuisineAdded,
-                    onToggle = { v -> cuisineSet = if (v in cuisineSet) cuisineSet - v else cuisineSet + v },
-                    onAdd = { v ->
-                        cuisineAdded = cuisineAdded + v
-                        cuisineSet = cuisineSet + v
-                    },
-                    hint = "喜欢的菜系不在里面？自己加"
-                )
-            }
-                }
             }
         }
-        }
 
-        // 全局错误提示（身体数据页的错误显示在页内，这里兜其他页）
-        if (errorText.isNotBlank() && step != 4) {
+        // 错误提示固定在按钮上方：第 2 步的输入问题、保存失败都显示在这里
+        val shownError = localError.ifBlank { saveError }
+        if (shownError.isNotBlank()) {
             Spacer(Modifier.height(8.dp))
-            Text(text = errorText, fontSize = 13.sp, color = Color(0xFFD64545))
+            Text(text = shownError, fontSize = 13.sp, color = Color(0xFFD64545))
         }
 
         Spacer(Modifier.height(16.dp))
 
-        // ---------- 底部按钮：固定在屏幕底端（v1.5.1） ----------
+        // ---------- 底部按钮：固定在屏幕底端 ----------
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            if (step in 1..9) {
+            if (step > STEP_WELCOME) {
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .clip(RoundedCornerShape(Dimens.ItemCorner))
                         .background(QingJiGreenLight)
-                        .pressable {
-                            errorText = ""
+                        // 保存中不让退回去改，否则会和正在跑的落库流程打架
+                        .pressable(enabled = !saving) {
+                            localError = ""
                             step -= 1
                         }
                         .padding(vertical = 15.dp),
@@ -496,16 +303,17 @@ fun OnboardingScreen(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(Dimens.ItemCorner))
-                    .background(if (canGoNext() || step == 0) QingJiGreen else QingJiGreen.copy(alpha = 0.45f))
-                    .pressable(enabled = canGoNext()) {
-                        errorText = ""
-                        if (step == totalSteps - 1) finish() else step += 1
-                    }
+                    .background(if (saving) QingJiGreen.copy(alpha = 0.45f) else QingJiGreen)
+                    .pressable(enabled = !saving) { goNext() }
                     .padding(vertical = 15.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = if (step == totalSteps - 1) "完成，开始用" else "下一步",
+                    text = when {
+                        saving -> "保存中…"
+                        step == STEP_PREVIEW -> "完成，开始用"
+                        else -> "下一步"
+                    },
                     fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = Color.White
@@ -515,6 +323,290 @@ fun OnboardingScreen(
         Spacer(Modifier.height(12.dp))
     }
 }
+
+// ============================================================
+// 五个页面
+// ============================================================
+
+@Composable
+private fun WelcomePage() {
+    Text(text = "欢迎使用轻记", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+    Spacer(Modifier.height(10.dp))
+    Text(
+        text = "填几个身体数据，就能算出你每天该吃多少。只问必需的这几项，剩下的可以以后慢慢补。",
+        fontSize = 14.sp, color = TextSecondary, lineHeight = 22.sp
+    )
+    Spacer(Modifier.height(18.dp))
+    SectionCard {
+        Text(text = "接下来只要三步", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+        Spacer(Modifier.height(10.dp))
+        listOf(
+            "① 选目标：减重、增肌还是保持",
+            "② 填身体数据：性别、年龄、身高、体重",
+            "③ 选活动量，就能看到每天的热量和营养目标"
+        ).forEach {
+            Text(text = it, fontSize = 13.sp, color = TextSecondary, lineHeight = 22.sp)
+        }
+    }
+    Spacer(Modifier.height(14.dp))
+    Text(
+        text = "昵称、饮水、过敏原这些，之后在「我的 → 设置」里随时能改。",
+        fontSize = 12.sp, color = TextSecondary, lineHeight = 19.sp
+    )
+}
+
+@Composable
+private fun GoalPage(mode: String, onPick: (String) -> Unit) {
+    QuestionPage(
+        title = "这次的目标是？",
+        subtitle = "决定每天的热量预算：减重少给一点，增肌多给一点"
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            listOf(
+                Triple(NutritionCalculator.MODE_LOSE, "减重", "甩掉多余的体重和脂肪"),
+                Triple(NutritionCalculator.MODE_GAIN, "增肌", "涨体重涨肌肉，线条更明显"),
+                Triple(NutritionCalculator.MODE_KEEP, "保持", "现在挺好的，稳住就行")
+            ).forEach { (key, label, desc) ->
+                val selected = mode == key
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(if (selected) QingJiGreenLight else Color.White)
+                        .clickable { onPick(key) }
+                        .padding(vertical = 18.dp, horizontal = 18.dp)
+                ) {
+                    Column {
+                        Text(
+                            text = label,
+                            fontSize = 17.sp,
+                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                            color = if (selected) QingJiGreenDark else TextPrimary
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = desc,
+                            fontSize = 12.sp,
+                            color = if (selected) QingJiGreenDark else TextSecondary
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BodyPage(
+    mode: String,
+    gender: String,
+    onGender: (String) -> Unit,
+    ageText: String,
+    onAge: (String) -> Unit,
+    heightText: String,
+    onHeight: (String) -> Unit,
+    weightText: String,
+    onWeight: (String) -> Unit,
+    targetText: String,
+    onTarget: (String) -> Unit
+) {
+    QuestionPage(
+        title = "身体数据",
+        subtitle = "按真实情况填就行，之后随时能在「我的」里改"
+    ) {
+        Text(text = "性别", fontSize = 13.sp, color = TextSecondary)
+        Spacer(Modifier.height(6.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            listOf("male" to "男生", "female" to "女生").forEach { (key, label) ->
+                val selected = gender == key
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(if (selected) QingJiGreenLight else Color.White)
+                        .clickable { onGender(key) }
+                        .padding(vertical = 16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = label,
+                        fontSize = 16.sp,
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                        color = if (selected) QingJiGreenDark else TextPrimary
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(14.dp))
+        SectionCard {
+            Field(
+                label = "年龄",
+                value = ageText,
+                onChange = onAge,
+                hint = "比如 25",
+                keyboardType = KeyboardType.Number
+            )
+            Spacer(Modifier.height(10.dp))
+            Field(
+                label = "身高（cm）",
+                value = heightText,
+                onChange = onHeight,
+                hint = "比如 175"
+            )
+            Spacer(Modifier.height(10.dp))
+            Field(
+                label = "当前体重（kg）",
+                value = weightText,
+                onChange = onWeight,
+                hint = "比如 70"
+            )
+            Spacer(Modifier.height(10.dp))
+            Field(
+                label = if (mode == NutritionCalculator.MODE_KEEP) {
+                    "目标体重（kg）· 可不填"
+                } else {
+                    "目标体重（kg）"
+                },
+                value = targetText,
+                onChange = onTarget,
+                hint = if (mode == NutritionCalculator.MODE_KEEP) "不填就按当前体重算" else "比如 65"
+            )
+        }
+    }
+}
+
+@Composable
+private fun ActivityPage(activity: Int, onPick: (Int) -> Unit) {
+    QuestionPage(
+        title = "平时活动量大吗？",
+        subtitle = "影响每天能吃多少的热量预算，大概选一个最接近的"
+    ) {
+        SectionCard {
+            (1..4).forEach { level ->
+                val selected = activity == level
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 5.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if (selected) QingJiGreenLight else PageBackground)
+                        .clickable { onPick(level) }
+                        .padding(vertical = 14.dp, horizontal = 16.dp)
+                ) {
+                    Text(
+                        // 用和「个人资料」页同一个标签函数，两处说法一致
+                        text = NutritionCalculator.activityLabel(level),
+                        fontSize = 15.sp,
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                        color = if (selected) QingJiGreenDark else TextPrimary
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PreviewPage(
+    mode: String,
+    preview: NutritionCalculator.Goal?,
+    onBackToBody: () -> Unit
+) {
+    val modeLabel = when (mode) {
+        NutritionCalculator.MODE_GAIN -> "增肌"
+        NutritionCalculator.MODE_KEEP -> "保持"
+        else -> "减重"
+    }
+
+    QuestionPage(
+        title = "你每天的目标",
+        subtitle = "按刚才填的数据算的，之后改体重或活动量会重新算"
+    ) {
+        if (preview == null) {
+            // 正常走流程到不了这里（第 2 步已经拦过），万一走到也给出路
+            SectionCard {
+                Text(text = "身体数据还不完整，先回去补上", fontSize = 14.sp, color = TextPrimary)
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    text = "点下面的按钮回到上一步",
+                    fontSize = 13.sp,
+                    color = QingJiGreenDark,
+                    modifier = Modifier.clickable { onBackToBody() }
+                )
+            }
+        } else {
+            SectionCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(text = modeLabel, fontSize = 13.sp, color = TextSecondary)
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = "每天建议热量",
+                        fontSize = 13.sp,
+                        color = TextSecondary
+                    )
+                }
+                Spacer(Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        text = "${preview.kcal}",
+                        fontSize = 40.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = QingJiGreenDark
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "千卡",
+                        fontSize = 14.sp,
+                        color = TextSecondary,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
+                }
+                Spacer(Modifier.height(16.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    MacroCell("蛋白质", "${preview.proteinG}", Modifier.weight(1f))
+                    MacroCell("碳水", "${preview.carbG}", Modifier.weight(1f))
+                    MacroCell("脂肪", "${preview.fatG}", Modifier.weight(1f))
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+            SectionCard {
+                Text(
+                    text = "基础代谢 ${preview.bmr} 千卡 · 每日总消耗 ${preview.tdee} 千卡",
+                    fontSize = 12.sp,
+                    color = TextSecondary,
+                    lineHeight = 19.sp
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = "这些都是估算值，给自己做参考用，不是医疗建议。",
+                    fontSize = 11.sp,
+                    color = TextSecondary
+                )
+            }
+        }
+    }
+}
+
+/** 预览页里的一个营养素小格。 */
+@Composable
+private fun MacroCell(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(QingJiGreenLight)
+            .padding(vertical = 12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(text = value, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = QingJiGreenDark)
+        Text(text = "$label g", fontSize = 11.sp, color = TextSecondary)
+    }
+}
+
+// ============================================================
+// 公用小组件
+// ============================================================
 
 /** 一页一问的骨架：问题标题 + 副说明 + 选项区。 */
 @Composable
@@ -535,75 +627,15 @@ private fun QuestionPage(
     content()
 }
 
-/**
- * 标签选择器：现成选项 + 自定义添加，想加多少个都行。
- * 自定义的标签加进来就是一个普通 chip，同样可以选中 / 取消。
- */
+/** 数字输入框。默认小数键盘，年龄那格传整数键盘。 */
 @Composable
-private fun TagPicker(
-    preset: List<String>,
-    selected: Set<String>,
-    added: List<String>,
-    onToggle: (String) -> Unit,
-    onAdd: (String) -> Unit,
-    hint: String
+private fun Field(
+    label: String,
+    value: String,
+    onChange: (String) -> Unit,
+    hint: String,
+    keyboardType: KeyboardType = KeyboardType.Decimal
 ) {
-    var input by remember { mutableStateOf("") }
-
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        (preset + added).chunked(3).forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                row.forEach { tag ->
-                    val on = tag in selected
-                    Text(
-                        text = tag,
-                        fontSize = 14.sp,
-                        color = if (on) Color.White else TextPrimary,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(if (on) QingJiGreen else Color.White)
-                            .clickable { onToggle(tag) }
-                            .padding(vertical = 12.dp)
-                    )
-                }
-                repeat(3 - row.size) { Spacer(modifier = Modifier.weight(1f)) }
-            }
-        }
-    }
-
-    Spacer(Modifier.height(14.dp))
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        OutlinedTextField(
-            value = input,
-            onValueChange = { input = it },
-            singleLine = true,
-            modifier = Modifier.weight(1f),
-            placeholder = { Text(hint, fontSize = 13.sp, color = TextSecondary) }
-        )
-        Spacer(Modifier.width(10.dp))
-        Text(
-            text = "添加",
-            fontSize = 14.sp,
-            color = if (input.isBlank()) TextSecondary else QingJiGreenDark,
-            modifier = Modifier
-                .clip(RoundedCornerShape(10.dp))
-                .background(QingJiGreenLight)
-                .clickable(enabled = input.isNotBlank()) {
-                    val v = input.trim()
-                    if (v.isNotEmpty() && v !in preset && v !in added) {
-                        onAdd(v)
-                    }
-                    input = ""
-                }
-                .padding(horizontal = 16.dp, vertical = 12.dp)
-        )
-    }
-}
-
-@Composable
-private fun Field(label: String, value: String, onChange: (String) -> Unit, hint: String) {
     Column {
         Text(text = label, fontSize = 13.sp, color = TextSecondary)
         Spacer(Modifier.height(6.dp))
@@ -611,7 +643,7 @@ private fun Field(label: String, value: String, onChange: (String) -> Unit, hint
             value = value,
             onValueChange = onChange,
             singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
             modifier = Modifier.fillMaxWidth(),
             placeholder = { Text(hint, fontSize = 13.sp, color = TextSecondary) }
         )

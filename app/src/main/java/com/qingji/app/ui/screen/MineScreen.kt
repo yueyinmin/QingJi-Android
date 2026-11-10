@@ -77,6 +77,7 @@ import com.qingji.app.ui.theme.TextPrimary
 import com.qingji.app.ui.theme.TextSizes
 import com.qingji.app.ui.theme.TextSecondary
 import com.qingji.app.ui.viewmodel.MineViewModel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.io.File
 import java.time.LocalDate
@@ -622,16 +623,28 @@ private fun GoalDialog(
     var mode by remember { mutableStateOf(NutritionCalculator.MODE_LOSE) }
     var error by remember { mutableStateOf("") }
 
+    // 目标模式跟着设置走：引导选了什么，这里就显示什么。
+    // 以前写死「减重」，用户在引导里选「增肌」后进这里一看是减重，
+    // 直接点保存就把目标覆盖回减重了。
+    val dialogContext = androidx.compose.ui.platform.LocalContext.current
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        mode = com.qingji.app.domain.ProfileInputRules.normalizeMode(
+            com.qingji.app.data.prefs.SettingsStore.observe(dialogContext).first().goalMode
+        )
+    }
+
     com.qingji.app.ui.components.AppBottomSheet(
         title = "我的目标",
         confirmText = "保存并重算",
         closeOnConfirm = false,
         onConfirm = {
             val kg = WeightUnit.parseToKg(targetText, unit)
-            if (kg == null) {
-                error = "目标体重填得不太对，检查一下数字"
-            } else {
-                onSave(kg, activity, mode)
+            when {
+                kg == null -> error = "目标体重填得不太对，检查一下数字"
+                // 和引导、个人资料页共用同一段合理范围（20~350kg）
+                kg !in com.qingji.app.domain.ProfileInputRules.WEIGHT_RANGE_KG ->
+                    error = "目标体重超出合理范围了，检查一下数字"
+                else -> onSave(kg, activity, mode)
             }
         },
         onDismiss = onDismiss
