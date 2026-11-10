@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -115,25 +116,31 @@ fun OnboardingScreen(
     // 保存失败重试时沿用同一个值，避免天数被重试刷回 1。
     val createdAt = rememberSaveable { System.currentTimeMillis() }
 
-    // 当前这组输入的校验结果：错误文案给第 2 步用，数值给第 5 步预览用
-    val bodyInput = ProfileInputRules.BodyInput(ageText, heightText, weightText, targetText)
-    val bodyError = ProfileInputRules.bodyError(mode, bodyInput)
-    val bodyValues = ProfileInputRules.parseBody(mode, bodyInput)
+    // 当前这组输入的校验结果，后面第 5 步的预览要用。
+    // 用 remember 卡住，避免每次重组都重新解析一遍字符串。
+    val bodyInput = remember(ageText, heightText, weightText, targetText) {
+        ProfileInputRules.BodyInput(ageText, heightText, weightText, targetText)
+    }
+    val bodyValues = remember(bodyInput, mode) {
+        ProfileInputRules.parseBody(mode, bodyInput)
+    }
 
     // 预览目标：数据不齐或者性别还没选就不算 —— 宁可不显示，也不用
     // 「默认按男性」这种隐含假设糊弄一份看起来正常的数字
-    val preview = if (gender.isBlank()) {
-        null
-    } else {
-        bodyValues?.let {
-            NutritionCalculator.compute(
-                gender = gender,
-                age = it.age,
-                heightCm = it.heightCm,
-                weightKg = it.weightKg,
-                activityLevel = activity,
-                mode = mode
-            )
+    val preview = remember(bodyValues, gender, activity, mode) {
+        if (gender.isBlank()) {
+            null
+        } else {
+            bodyValues?.let {
+                NutritionCalculator.compute(
+                    gender = gender,
+                    age = it.age,
+                    heightCm = it.heightCm,
+                    weightKg = it.weightKg,
+                    activityLevel = activity,
+                    mode = mode
+                )
+            }
         }
     }
 
@@ -187,11 +194,14 @@ fun OnboardingScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(PageBackground)
+            // 引导页是全屏页（在 Scaffold 之前就 return 了），得自己让开状态栏。
+            // 原来是固定 40dp，碰上刘海屏那种 40~48dp 的状态栏，进度条会被盖住。
+            .statusBarsPadding()
             .padding(horizontal = 24.dp)
             // 键盘弹出时整页上推，底部按钮不会被输入法盖住
             .imePadding()
     ) {
-        Spacer(Modifier.height(40.dp))
+        Spacer(Modifier.height(20.dp))
 
         // ---------- 进度条（固定顶部，按真实步数走） ----------
         LinearProgressIndicator(
