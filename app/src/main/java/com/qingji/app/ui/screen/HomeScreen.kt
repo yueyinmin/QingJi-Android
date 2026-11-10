@@ -166,6 +166,12 @@ fun HomeScreen(
 
         // ---------- 顶部：日期标题 + 翻周 + 回到今天 ----------
         // 固定高度：否则「回到今天」出现/消失时整行高度会变，下面的内容跟着跳一下
+        //
+        // 三颗胶囊的内边距统一用 8dp（原来是 10dp）：
+        // 360dp 屏 + 历史日期 + 三颗胶囊同时在时，日期只剩 76dp 的槽位，
+        // 而「11月9日」要 78dp —— 差 2dp 放不下，日期被省略成「11月…」，日期号直接看不见。
+        // 三颗一起各收窄 2dp 正好让出 12dp，日期能完整显示，胶囊也没有一颗折行，
+        // 而且没动字号、没给固定宽度。只在 360dp 这种窄屏上才有意义，宽屏完全看不出差别。
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -220,7 +226,7 @@ fun HomeScreen(
                         .clip(RoundedCornerShape(999.dp))
                         .background(QingJiGreenLight)
                         .clickable { vm.backToToday() }
-                        .padding(horizontal = 10.dp, vertical = 5.dp)
+                        .padding(horizontal = 8.dp, vertical = 5.dp)
                 )
             }
 
@@ -239,7 +245,7 @@ fun HomeScreen(
                 modifier = Modifier
                     .clip(RoundedCornerShape(999.dp))
                     .background(MultiColor.StreakBackground)
-                    .padding(horizontal = 10.dp, vertical = 5.dp)
+                    .padding(horizontal = 8.dp, vertical = 5.dp)
             )
             // 目标状态：宽度跟着文字走，同样锁死单行。
             // 文案统一叫「减脂」——和进展页、引导里的说法一致，不再「减肥」「减脂」混着叫。
@@ -257,7 +263,7 @@ fun HomeScreen(
                 modifier = Modifier
                     .clip(RoundedCornerShape(999.dp))
                     .background(QingJiGreenLight)
-                    .padding(horizontal = 10.dp, vertical = 5.dp)
+                    .padding(horizontal = 8.dp, vertical = 5.dp)
             )
         }
 
