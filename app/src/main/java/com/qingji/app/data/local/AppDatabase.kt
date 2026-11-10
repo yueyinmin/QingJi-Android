@@ -61,7 +61,7 @@ class Converters {
  *   · 标准食物库在 FoodCatalogDatabase（food_catalog.db，只读预置）
  *
  * version 改成表结构要 +1，并写一段 Migration 把老数据搬过去。
- * 动表结构的四件套（血泪教训，缺一个都会触发 Room 清库兜底）：
+ * 动表结构的四件套（血泪教训，缺一个都会让 Room 打开失败）：
  *   ① version +1
  *   ② 写 MIGRATION_N_N+1
  *   ③ Entity 的 @ColumnInfo(defaultValue=...) 与迁移 SQL 的 DEFAULT 逐字一致
@@ -321,9 +321,12 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
                         MIGRATION_4_5, MIGRATION_5_6
                     )
-                    // 兜底：万一日后某个版本的迁移没写，宁可清表也不能让 App 打不开。
-                    // 每加一次表结构，务必同时补 Migration，别依赖这一行。
-                    .fallbackToDestructiveMigration()
+                    // 不用 fallbackToDestructiveMigration()。
+                    // 那行兜底在「漏写 Migration」或「schema 校验不一致」时会静默清库，
+                    // 用户几年的饮食、体重记录一次性没了，而且没有任何提示。
+                    // 现在迁移链 1→6 完整，缺迁移就让 Room 明确报错（宁可打不开，也不偷偷删数据），
+                    // 开发阶段反而能第一时间发现漏写。
+                    // 以后加表结构：version +1 + 写 Migration + defaultValue 逐字一致 + 核对 schemas/N.json。
                     .build()
                     .also { INSTANCE = it }
             }

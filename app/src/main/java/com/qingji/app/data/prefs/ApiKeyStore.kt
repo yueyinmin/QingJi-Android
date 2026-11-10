@@ -34,6 +34,8 @@ object ApiKeyStore {
     private const val KEY_IV = "iv"
     private const val TRANSFORMATION = "AES/GCM/NoPadding"
     private const val KEYSTORE_PROVIDER = "AndroidKeyStore"
+    private const val GCM_IV_LENGTH = 12      // GCM 推荐的 IV 字节数
+    private const val GCM_TAG_BITS = 128      // 认证标签位数，和加密侧一致
 
     /** 取出（或第一次创建）手机硬件里那把加密钥匙。 */
     private fun secretKey(): SecretKey {
@@ -75,17 +77,49 @@ object ApiKeyStore {
             .apply()
     }
 
-    /** 读出明文 Key。解不开（换机 / 清过数据）就当没配过，绝不抛异常崩 App。 */
+    /**
+     * 读出明文 Key。
+     *
+     * 换机、清过数据、升级系统、密钥被 Keystore 作废之后，这份密文就永远解不开了。
+     * 以前只在 catch 里返回 null，残片还留在 SharedPreferences 里，
+     * 结果是「明明解不开却一直显示已配置」，用户也没法重新填。
+     * 现在遇到以下任一情况都先清干净再返回 null，让 isSet() 变 false：
+     *   ① 密文 / IV 只存了一半或为空；
+     *   ② Base64 坏了、密文为空、IV 长度不是 12 字节；
+     *   ③ 解密抛异常（AEADBadTag / KeyStore 失效 / 数据被改）；
+     *   ④ 解出来是空白字符串。
+     * 全程不抛异常，App 不会因为一把旧钥匙打不开。
+     */
     fun load(context: Context): String? {
         val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
-        val cipherText = prefs.getString(KEY_CIPHER_TEXT, null) ?: return null
-        val ivText = prefs.getString(KEY_IV, null) ?: return null
+        val cipherText = prefs.getString(KEY_CIPHER_TEXT, null)
+        val ivText = prefs.getString(KEY_IV, null)
+
+        // 两个字段必须成对出现；缺一半就是残片
+        if (cipherText.isNullOrBlank() || ivText.isNullOrBlank()) {
+            if (cipherText != null || ivText != null) clear(context)
+            return null
+        }
+
         return try {
+            val encrypted = Base64.decode(cipherText, Base64.NO_WRAP)
+            val iv = Base64.decode(ivText, Base64.NO_WRAP)
+            if (encrypted.isEmpty() || iv.size != GCM_IV_LENGTH) {
+                clear(context)
+                return null
+            }
             val cipher = Cipher.getInstance(TRANSFORMATION)
-            val spec = GCMParameterSpec(128, Base64.decode(ivText, Base64.NO_WRAP))
-            cipher.init(Cipher.DECRYPT_MODE, secretKey(), spec)
-            String(cipher.doFinal(Base64.decode(cipherText, Base64.NO_WRAP)), Charsets.UTF_8)
+            cipher.init(Cipher.DECRYPT_MODE, secretKey(), GCMParameterSpec(GCM_TAG_BITS, iv))
+            val plain = String(cipher.doFinal(encrypted), Charsets.UTF_8)
+            if (plain.isBlank()) {
+                clear(context)
+                null
+            } else {
+                plain
+            }
         } catch (e: Exception) {
+            // 解密失败最常见的原因就是换机后 Keystore 里没有原来那把钥匙
+            clear(context)
             null
         }
     }

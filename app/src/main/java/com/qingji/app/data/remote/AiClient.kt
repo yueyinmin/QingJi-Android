@@ -1,6 +1,7 @@
 package com.qingji.app.data.remote
 
 import com.qingji.app.data.local.entity.AiConfig
+import com.qingji.app.domain.AiResultRules
 import com.qingji.app.domain.MealRules
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -26,6 +27,10 @@ import java.util.concurrent.TimeUnit
  * 2. 模型爱在 JSON 外面套 markdown 代码块 → 从文本里抠第一个 {...} 再解析
  * 3. 401 / 429 / 超时 / 余额不足 → 全部翻成中文人话
  * 4. 请求体、返回体里的字段都做空值兜底，模型少给一个字段也不崩
+ * 5. 识别结果的克数 / 营养值 / 置信度统一过 AiResultRules 清洗，
+ *    0 克、负数、NaN、Infinity、离谱大数都不会进记录
+ * 6. items:[] + need_clarify:true 是「信息不足、请补充」的合法结果，
+ *    不再是识别失败；各识别页已有空列表保护，不会崩也不会静默存一餐空的
  * ============================================================
  */
 
@@ -140,7 +145,7 @@ class AiClient {
 2. 一道菜就是一条，不要拆成原料；照片里明显是分开的几盘菜才分成几条。
 3. kcal 等营养值按「每 100 克营养值 × 克数 ÷ 100」算，保留 1 位小数。
 4. 看不清、被遮挡、拿不准的条目把 confidence 降到 0.5 以下，但 grams 仍要给合理值。
-5. 照片里没有食物时，items 输出空数组，并在 advice 里说明。
+5. 照片里没有食物时，items 输出空数组、need_clarify 置 true，并在 advice 里写出你想问的问题。
 6. 禁止给出任何医疗、用药、疾病相关建议。
 
 输出 JSON 结构：
@@ -248,9 +253,15 @@ class AiClient {
         return text.substring(start, end + 1)
     }
 
+    /** 餐次字段非法或缺失时，按当前时间猜一个，不影响主流程。 */
+    private fun mealTypeOf(obj: JSONObject): String =
+        obj.optString("meal_type", "").takeIf { MealRules.isValid(it) } ?: MealRules.guess()
+
     private fun parseResult(raw: String): AiRecognitionResult {
         val content = extractContent(raw)
         val obj = JSONObject(extractJsonBlock(content))
+        val needClarify = obj.optBoolean("need_clarify", false)
+        val advice = obj.optString("advice", "")
 
         val items = mutableListOf<AiFoodItem>()
         val array = obj.optJSONArray("items") ?: JSONArray()
@@ -258,35 +269,47 @@ class AiClient {
             val item = array.optJSONObject(i) ?: continue
             val name = item.optString("name", "").trim()
             if (name.isEmpty()) continue
+            // 先洗克数，热量上限要按克数换算成「每 100g」才判得准
+            val grams = AiResultRules.saneGrams(
+                item.optDouble("grams", AiResultRules.DEFAULT_GRAMS)
+            )
             items.add(
                 AiFoodItem(
                     name = name,
                     amountText = item.optString("amount_text", ""),
-                    grams = item.optDouble("grams", 100.0),
-                    kcal = item.optDouble("kcal", 0.0),
-                    proteinG = item.optDouble("protein_g", 0.0),
-                    carbG = item.optDouble("carb_g", 0.0),
-                    fatG = item.optDouble("fat_g", 0.0),
-                    confidence = item.optDouble("confidence", 0.5)
+                    grams = grams,
+                    kcal = AiResultRules.saneKcal(item.optDouble("kcal", 0.0), grams),
+                    proteinG = AiResultRules.saneMacro(item.optDouble("protein_g", 0.0)),
+                    carbG = AiResultRules.saneMacro(item.optDouble("carb_g", 0.0)),
+                    fatG = AiResultRules.saneMacro(item.optDouble("fat_g", 0.0)),
+                    confidence = AiResultRules.saneConfidence(item.optDouble("confidence", 0.5))
                 )
             )
         }
+
+        // 模型明确说「看不清 / 信息不足」时，空数组是合法结果。
+        // 各识别页都有 items.isNotEmpty() 保护：会显示 advice 里的追问、不给保存按钮，
+        // 所以这里放行不会让空餐被存进数据库，也不会让界面崩。
+        if (items.isEmpty() && AiResultRules.isLegalEmptyResult(array.length(), needClarify)) {
+            return AiRecognitionResult(
+                mealType = mealTypeOf(obj),
+                items = emptyList(),
+                totalKcal = 0.0,
+                advice = advice.ifBlank { "没看清楚吃了什么，补充一句再试一次吧" },
+                needClarify = true
+            )
+        }
+        // 给了条目但全被清洗掉、或者啥也没说就空着 → 仍然算识别失败
         if (items.isEmpty()) throw AiException("AI 没拆出食物条目，换个说法或改用手动搜索")
 
-        val mealType = obj.optString("meal_type", "").takeIf { MealRules.isValid(it) }
-            ?: MealRules.guess()
-        val total = if (obj.has("total_kcal")) {
-            obj.optDouble("total_kcal", items.sumOf { it.kcal })
-        } else {
-            items.sumOf { it.kcal }
-        }
-
+        // 总热量以清洗后的明细求和为准，不信模型自报的 total_kcal：
+        // 那个数经常和条目对不上，甚至可能是 NaN。
         return AiRecognitionResult(
-            mealType = mealType,
+            mealType = mealTypeOf(obj),
             items = items,
-            totalKcal = total,
-            advice = obj.optString("advice", ""),
-            needClarify = obj.optBoolean("need_clarify", false)
+            totalKcal = items.sumOf { it.kcal },
+            advice = advice,
+            needClarify = needClarify
         )
     }
 
