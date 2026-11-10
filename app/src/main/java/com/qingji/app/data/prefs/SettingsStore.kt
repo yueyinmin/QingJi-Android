@@ -267,6 +267,23 @@ object SettingsStore {
         context.settingsDataStore.edit { it[key] = value }
     }
 
+    /**
+     * 引导完成时一次性写目标模式和昵称。
+     *
+     * 用单次 edit 而不是连续几次 set：DataStore 每次 edit 都是一次磁盘写，
+     * 分开写既慢，中间断电还会出现「目标模式存了、昵称没存」的半截状态。
+     *
+     * 刻意**不碰**过敏原 / 忌口 / 菜系这三项——引导新版已经不问了，
+     * 这里往里写空串会把老用户之前填过的偏好直接清掉。要改去
+     * 「设置 → 饮食偏好与忌口」那个页面。
+     */
+    suspend fun saveOnboardingBasics(context: Context, goalMode: String, nickname: String) {
+        context.settingsDataStore.edit { p ->
+            p[SettingsKeys.GOAL_MODE] = goalMode
+            if (nickname.isNotBlank()) p[SettingsKeys.NICKNAME] = nickname
+        }
+    }
+
     /** 导出备份时不含任何设置里的敏感内容；Key 本来也不在这里。 */
     suspend fun clear(context: Context) {
         context.settingsDataStore.edit { it.clear() }

@@ -24,8 +24,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.platform.LocalContext
 import com.qingji.app.data.prefs.QingJiSettings
+import com.qingji.app.ui.viewmodel.OnboardingViewModel
 import com.qingji.app.data.prefs.SettingsStore
 import com.qingji.app.ui.screen.BackupScreen
 import com.qingji.app.ui.screen.AiAnalysisScreen
@@ -105,35 +107,21 @@ fun QingJiAppRoot(
     val appRepo = remember { com.qingji.app.data.repository.QingJiRepository(context) }
 
     // ============================================================
-    // 首次启动引导（v2.8）：默认档案已清除，第一次打开必须先填自己的数据
+    // 首次启动引导（v1.5：10 步精简成 5 步）
+    // ------------------------------------------------------------
+    // 以前这里是三个独立协程（存档案 / 存偏好 / 写完成标记）各跑各的，
+    // 「完成标记」经常最先落库，界面先切到首页、档案却还没写完。
+    // 现在只调 viewModel 里一条按顺序执行的流程，
+    // 档案和设置都成功才会写 ONBOARDING_DONE，settings 流再自动把界面切走。
     // ============================================================
     if (!settings.onboardingDone) {
+        val onboardingVm: OnboardingViewModel = viewModel()
+        val saving by onboardingVm.saving.collectAsState()
+        val onboardingError by onboardingVm.error.collectAsState()
         OnboardingScreen(
-            onSave = { profile ->
-                scope.launch { appRepo.saveProfile(profile) }
-            },
-            onDone = {
-                scope.launch {
-                    com.qingji.app.data.prefs.SettingsStore.set(
-                        context,
-                        com.qingji.app.data.prefs.SettingsKeys.ONBOARDING_DONE,
-                        true
-                    )
-                }
-            },
-            // v3.4.0：引导里填的饮食偏好写进设置，和设置页共用同一份数据
-            // v1.4：目标模式（lose/gain/keep）也在这里落库
-            onSavePreferences = { allergens, avoidFoods, cuisines, goalMode, nickname ->
-                scope.launch {
-                    val store = com.qingji.app.data.prefs.SettingsStore
-                    val keys = com.qingji.app.data.prefs.SettingsKeys
-                    store.set(context, keys.ALLERGENS, allergens)
-                    store.set(context, keys.AVOID_FOODS, avoidFoods)
-                    store.set(context, keys.CUISINES, cuisines)
-                    store.set(context, keys.GOAL_MODE, goalMode)
-                    store.set(context, keys.NICKNAME, nickname)
-                }
-            }
+            saving = saving,
+            saveError = onboardingError,
+            onSubmit = { answers -> onboardingVm.submit(answers) }
         )
         return
     }

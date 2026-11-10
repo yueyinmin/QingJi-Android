@@ -35,7 +35,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.qingji.app.data.local.entity.UserProfile
+import com.qingji.app.data.prefs.SettingsStore
 import com.qingji.app.domain.NutritionCalculator
+import com.qingji.app.domain.ProfileInputRules
 import com.qingji.app.ui.components.HintBox
 import com.qingji.app.ui.components.LabeledTextField
 import com.qingji.app.ui.components.PageTopBar
@@ -46,6 +48,7 @@ import com.qingji.app.ui.theme.QingJiGreen
 import com.qingji.app.ui.theme.TextPrimary
 import com.qingji.app.ui.theme.TextSecondary
 import com.qingji.app.ui.viewmodel.ProfileViewModel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.Period
@@ -94,6 +97,14 @@ fun ProfileScreen(
             waterGoal = p.waterGoalMl.toString()
             loaded = true
         }
+    }
+
+    // 目标模式的初值跟着设置走。
+    // 以前这里写死 MODE_LOSE：引导里明明选了「增肌」，进这个页面却显示「减重」，
+    // 用户不改直接点保存，就会把引导选的目标又覆盖回减重，热量预算也跟着变了。
+    LaunchedEffect(Unit) {
+        val stored = SettingsStore.observe(context).first().goalMode
+        mode = ProfileInputRules.normalizeMode(stored)
     }
 
     // 实时预览：不写库，纯粹算给使用者看，改一个数立刻变
@@ -244,18 +255,21 @@ fun ProfileScreen(
                 text = "保存并把目标应用到首页",
                 onClick = {
                     val parsedBirthday = parseBirthday(birthday)
-                    val h = height.toDoubleOrNull()
-                    val sw = startWeight.toDoubleOrNull()
-                    val tw = targetWeight.toDoubleOrNull()
+                    // 校验统一走 ProfileInputRules：和首次引导同一套范围、同一套文案。
+                    // 目标体重在「保持」模式下允许留空，留空就按当前体重算。
+                    val h = ProfileInputRules.parseHeight(height)
+                    val sw = ProfileInputRules.parseWeight(startWeight)
+                    val tw = ProfileInputRules.parseTargetWeight(mode, sw, targetWeight)
                     when {
                         birthday.isNotBlank() && parsedBirthday == null ->
                             errorText = "生日格式不对，要写成 2000-01-01"
-                        h == null || h !in 80.0..250.0 ->
-                            errorText = "身高请填 80~250 之间的数字"
-                        sw == null || sw !in 20.0..350.0 ->
-                            errorText = "起始体重请填 20~350 之间的数字"
-                        tw == null || tw !in 20.0..350.0 ->
-                            errorText = "目标体重请填 20~350 之间的数字"
+                        h == null ->
+                            errorText = ProfileInputRules.heightError(height) ?: "身高不对"
+                        sw == null ->
+                            errorText = ProfileInputRules.weightError(startWeight) ?: "体重不对"
+                        tw == null ->
+                            errorText = ProfileInputRules.targetWeightError(mode, sw, targetWeight)
+                                ?: "目标体重不对"
                         else -> {
                             errorText = ""
                             scope.launch {
