@@ -26,13 +26,24 @@ interface FoodCatalogDao {
     @Query("SELECT * FROM food_catalog WHERE food_id = :id LIMIT 1")
     suspend fun findById(id: Long): CatalogFood?
 
+    /**
+     * 四种输入一次搜完，仍然只返回 50 条。
+     *
+     * `:keyword <> ''` 是空关键词守卫：空串会让 `LIKE '%%'` 命中全表，
+     * 白扫 654 行还把顺序打乱。空关键词的默认列表改走下面的 findTop()。
+     * 不引 FTS5 —— 预置库要能在老安卓上直接 createFromAsset，多一套虚拟表
+     * 就多一份兼容性风险，654 条数据用不上。
+     */
     @Query(
         """
         SELECT * FROM food_catalog
-        WHERE name LIKE '%' || :keyword || '%'
-           OR aliases LIKE '%' || :keyword || '%'
-           OR pinyin LIKE :keyword || '%'
-           OR pinyin_full LIKE :keyword || '%'
+        WHERE :keyword <> ''
+          AND (
+            name LIKE '%' || :keyword || '%'
+            OR aliases LIKE '%' || :keyword || '%'
+            OR pinyin LIKE :keyword || '%'
+            OR pinyin_full LIKE :keyword || '%'
+          )
         ORDER BY
             CASE
                 WHEN name = :keyword THEN 0
@@ -46,6 +57,10 @@ interface FoodCatalogDao {
         """
     )
     suspend fun search(keyword: String): List<CatalogFood>
+
+    /** 默认列表：直接取前 N 条，不用把整个标准库读进内存再截断。 */
+    @Query("SELECT * FROM food_catalog ORDER BY name LIMIT :limit")
+    suspend fun findTop(limit: Int): List<CatalogFood>
 
     @Query("SELECT * FROM food_catalog WHERE category = :category ORDER BY name")
     fun observeByCategory(category: String): Flow<List<CatalogFood>>

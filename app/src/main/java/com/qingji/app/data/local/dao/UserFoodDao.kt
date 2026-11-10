@@ -29,11 +29,15 @@ interface UserFoodDao {
     @Query("SELECT name FROM user_food")
     suspend fun allNames(): List<String>
 
+    /** 空关键词守卫：避免 `LIKE '%%'` 把全部自定义食物都当成命中返回。 */
     @Query(
         """
         SELECT * FROM user_food
-        WHERE name LIKE '%' || :keyword || '%'
-           OR pinyin LIKE :keyword || '%'
+        WHERE :keyword <> ''
+          AND (
+            name LIKE '%' || :keyword || '%'
+            OR pinyin LIKE :keyword || '%'
+          )
         ORDER BY name
         LIMIT 50
         """

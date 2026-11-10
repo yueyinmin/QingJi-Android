@@ -260,12 +260,23 @@ class QingJiRepository(private val context: Context) {
      */
     suspend fun searchFood(keyword: String): List<Food> {
         val key = keyword.trim()
-        if (key.isEmpty()) return allFoodsOnce().take(50)
         val favs = favoriteDao.allNames().toSet()
-        return mergeFoods(catalogDao.search(key), userFoodDao.search(key), favs)
+
+        // 空关键词：以前是 allFoodsOnce() 把 654 条标准食物 + 用户食物 + 收藏
+        // 全读进内存再 take(50)，白读十几倍的数据。现在直接查前 50 条。
+        if (key.isEmpty()) {
+            val preset = catalogDao.findTop(50)
+            val custom = userFoodDao.findAll()
+            return mergeFoods(preset, custom, favs).take(50)
+        }
+
+        // 拼音字段全是小写，纯英文输入统一转小写，避免「MF」搜不到「mf」；
+        // 中文字符不受 lowercase() 影响。
+        val normalized = key.lowercase()
+        return mergeFoods(catalogDao.search(normalized), userFoodDao.search(normalized), favs)
             .sortedWith(
                 compareBy<Food>(
-                    { if (it.name == key) 0 else if (it.name.startsWith(key)) 1 else 2 },
+                    { if (it.name == normalized) 0 else if (it.name.startsWith(normalized)) 1 else 2 },
                     { it.name }
                 )
             )
