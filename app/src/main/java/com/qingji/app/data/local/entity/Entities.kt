@@ -8,10 +8,11 @@ import java.time.LocalDate
 
 /**
  * ============================================================
- * 全部数据表定义（共 8 张）
+ * 用户数据库的表定义
  * ------------------------------------------------------------
- * 为什么放在一个文件里：每张表都很短，摊成 8 个文件反而难找。
- * 等某个表开始长胖（加了很多逻辑），再单独拆出去。
+ * 为什么放在一个文件里：每张表都很短，摊成一堆文件反而难找。
+ * v1.0.4 起标准食物库拆成了独立的只读数据库，见 CatalogFood.kt；
+ * 用户自己录的食物 / 收藏 / 搜索历史见 UserFood.kt。
  * ============================================================
  */
 
@@ -66,33 +67,41 @@ data class WeightLog(
 )
 
 /**
- * 表 3：食物库。
- * 三种来源：预置的中国食物成分表、用户自己录的、条码接口查到的。
+ * 界面层统一用的「食物」模型 —— 注意：它已经不是数据库表了。
+ *
+ * v1.0.4 拆库后，一个 Food 可能来自两个地方：
+ *   · 标准库 food_catalog.db（只读，id 从 100001 起）
+ *   · 用户库 qingji.db 的 user_food 表（可写，id 从 1 起）
+ * Repository 把两边合并成同一个 Food 交给界面，所以所有页面的 import 都不用改。
+ * 刻意保留原来的字段名，老代码（备份、AI 校正、搜索页）一行都不用动。
  */
-@Entity(
-    tableName = "food",
-    indices = [Index("name"), Index("barcode")]
-)
 data class Food(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val id: Long = 0,
     val name: String,
-    val pinyin: String = "",             // 拼音首字母，用于快速搜索（如 mf → 米饭）
+    val pinyin: String = "",             // 拼音首字母，如 mf → 米饭
+    val pinyinFull: String = "",         // 拼音全拼，如 mifan，只用于检索
+    val aliases: String = "",            // 别名，多个用 | 分隔
     val barcode: String? = null,
     val kcalPer100g: Double,             // 每 100 克热量
     val proteinPer100g: Double = 0.0,
     val carbPer100g: Double = 0.0,
     val fatPer100g: Double = 0.0,
-    // v3.5.0 营养素细分（654 条清单暂无这三列数据，先落字段为 0，以后补数据不用再迁移）
-    @ColumnInfo(defaultValue = "0.0")
+    // 这四列目前是 0：清单里没有数据，含义是「暂无数据」，不是「含量为 0」
     val fiberPer100g: Double = 0.0,
-    @ColumnInfo(defaultValue = "0.0")
     val sodiumMgPer100g: Double = 0.0,
-    @ColumnInfo(defaultValue = "0.0")
     val calciumMgPer100g: Double = 0.0,
+    val sugarPer100g: Double = 0.0,
     val defaultGrams: Double = 100.0,    // 默认一份是多少克
     val source: String = "preset",       // preset / user / api / openfoodfacts
-    /** 食物库左侧导航的分类：主食 / 面食 / 家常菜 / 肉类 … 灌库时按名字自动归类 */
+    /** 食物库左侧导航的分类：主食 / 面食 / 家常菜 / 肉类 … */
     val category: String = "其他",
+    val subcategory: String = "",
+    /** 生熟状态：raw / cooked / steamed / boiled / fried / dried / processed / unknown */
+    val state: String = "unknown",
+    val portionNote: String = "",
+    val sourceId: String = "",           // 标准库数据来源编号，可追溯
+    val auditStatus: Int = 0,            // 0 未审核 / 1 已审核
+    val catalogVersion: String = "0.2",
     /** 外卖品牌（肯德基、麦当劳…）。有值时归到「外卖快餐」而不是「家庭厨房」 */
     val brand: String = "",
     /** 收藏：心形按钮 */

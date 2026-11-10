@@ -3,7 +3,13 @@ package com.qingji.app.data.repository
 import com.qingji.app.domain.AppClock
 import android.content.Context
 import com.qingji.app.data.local.AppDatabase
+import com.qingji.app.data.local.FoodCatalogDatabase
 import com.qingji.app.data.local.SeedData
+import com.qingji.app.data.local.entity.CatalogFood
+import com.qingji.app.data.local.entity.FoodFavorite
+import com.qingji.app.data.local.entity.UserFood
+import com.qingji.app.data.local.entity.toFood
+import com.qingji.app.data.local.entity.toUserFood
 import com.qingji.app.data.local.dao.DailySummary
 import com.qingji.app.data.local.dao.MealSummary
 import com.qingji.app.data.local.entity.AiConfig
@@ -27,7 +33,9 @@ import com.qingji.app.domain.NutritionMatch
 import com.qingji.app.domain.Per100g
 import androidx.room.withTransaction
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import java.time.LocalDate
 
 /**
@@ -40,9 +48,21 @@ import java.time.LocalDate
  */
 class QingJiRepository(private val context: Context) {
 
+    /** 用户自己的数据（可写） */
     private val db = AppDatabase.get(context)
+    /** 标准食物库（只读，随 APK 预置） */
+    private val catalog = FoodCatalogDatabase.get(context)
     private val aiClient = AiClient()
     private val foodApi = OpenFoodFactsClient()
+
+    private val catalogDao = catalog.catalogDao()
+    private val userFoodDao = db.userFoodDao()
+    private val favoriteDao = db.foodFavoriteDao()
+
+    /** 标准库 id 从 100001 起，用户库 id 从 1 起，用这个数字区分来源，永不撞号。 */
+    companion object {
+        const val CATALOG_ID_START = 100001L
+    }
 
     // ---------- 个人档案 ----------
     fun observeProfile(): Flow<UserProfile?> = db.userProfileDao().observe()
@@ -142,35 +162,73 @@ class QingJiRepository(private val context: Context) {
     fun observeRecentExercises(limit: Int = 60) =
         db.exerciseLogDao().observeRecent(limit)
 
-    // ---------- 食物库 ----------
+    // ---------- 食物库（v1.0.4：只读标准库 + 用户库，合并后给界面） ----------
 
-    fun observeAllFoods(): Flow<List<Food>> = db.foodDao().observeAll()
+    /**
+     * 把两路数据拼成界面熟悉的 Food。
+     * 收藏存在用户库的 food_favorite 表里、按名字记——标准库只读，写不进去，
+     * 而且以后扩库 id 会变，名字才稳定。
+     */
+    private fun mergeFoods(
+        preset: List<CatalogFood>,
+        custom: List<UserFood>,
+        favoriteNames: Set<String>
+    ): List<Food> =
+        preset.map { it.toFood(favorite = it.name in favoriteNames) } +
+            custom.map { it.toFood(favorite = it.name in favoriteNames || it.favorite) }
 
-    fun observeUserFoods(): Flow<List<Food>> = db.foodDao().observeUserFoods()
+    /** 食物库全量：标准 654 条 + 用户自建，按名字排序交给界面分组。 */
+    fun observeAllFoods(): Flow<List<Food>> =
+        combine(
+            catalogDao.observeAll(),
+            userFoodDao.observeAll(),
+            favoriteDao.observeAll()
+        ) { preset, custom, favs ->
+            mergeFoods(preset, custom, favs.map { it.name }.toSet())
+        }
 
-    /** 删除自定义食物（预置库不允许删） */
+    /** 「自定义」页签：只显示用户自己录的。 */
+    fun observeUserFoods(): Flow<List<Food>> =
+        combine(userFoodDao.observeAll(), favoriteDao.observeAll()) { custom, favs ->
+            val names = favs.map { it.name }.toSet()
+            custom.map { it.toFood(favorite = it.name in names || it.favorite) }
+        }
+
+    /** 一次性取全量，给 AI 识别结果校正营养值、查重用。 */
+    private suspend fun allFoodsOnce(): List<Food> =
+        mergeFoods(catalogDao.findAll(), userFoodDao.findAll(), favoriteDao.allNames().toSet())
+
+    /** 删除自定义食物；标准库只读，id >= 100001 的一律不删。 */
     suspend fun deleteFood(id: Long) {
-        val food = db.foodDao().findAll().firstOrNull { it.id == id } ?: return
-        if (food.source == "user") db.foodDao().deleteFood(id)
+        if (id >= CATALOG_ID_START) return
+        userFoodDao.deleteById(id)
     }
 
-    suspend fun setFoodFavorite(id: Long, favorite: Boolean) =
-        db.foodDao().setFavorite(id, favorite)
+    suspend fun setFoodFavorite(id: Long, favorite: Boolean) {
+        val name = if (id >= CATALOG_ID_START) {
+            catalogDao.findById(id)?.name
+        } else {
+            userFoodDao.findById(id)?.name
+        } ?: return
+        if (favorite) favoriteDao.add(FoodFavorite(name)) else favoriteDao.remove(name)
+        // 用户自建食物同时留一份在 user_food 里，备份导出时能带出去
+        if (id < CATALOG_ID_START) userFoodDao.setFavorite(id, favorite)
+    }
 
-    /** 把 AI 识别出来的食物存进自定义库（source = user，不覆盖预置数据）。 */
+    /** 把 AI 识别出来的食物存进用户库（source = user，绝不写只读标准库）。 */
     suspend fun addUserFood(name: String, kcalPer100g: Double, protein: Double, carb: Double, fat: Double) {
         if (name.isBlank()) return
-        val exists = db.foodDao().allNames().any { it == name }
-        if (exists) return
-        db.foodDao().insert(
-            Food(
-                name = name.trim(),
+        val trimmed = name.trim()
+        if (catalogDao.findByName(trimmed) != null || userFoodDao.findByName(trimmed) != null) return
+        userFoodDao.insert(
+            UserFood(
+                name = trimmed,
                 kcalPer100g = kcalPer100g,
                 proteinPer100g = protein,
                 carbPer100g = carb,
                 fatPer100g = fat,
                 source = "user",
-                category = com.qingji.app.domain.FoodCategory.guess(name)
+                category = com.qingji.app.domain.FoodCategory.guess(trimmed)
             )
         )
     }
@@ -194,98 +252,58 @@ class QingJiRepository(private val context: Context) {
     /** 「我的」页八格 + 调用统计卡共用：数据一变自动刷新。 */
     fun observeUsageAll(): Flow<List<UsageStat>> = db.usageStatDao().observeAll()
 
-    // ---------- 食物库 ----------
-    suspend fun searchFood(keyword: String): List<Food> = db.foodDao().search(keyword)
-    suspend fun foodCount(): Int = db.foodDao().count()
-
-    /** 可订阅的食物库条数：灌库完成后搜索页能自动刷新，不会一直空着。 */
-    fun observeFoodCount(): Flow<Int> = db.foodDao().observeCount()
+    // ---------- 搜索 / 条数 ----------
 
     /**
-     * 把预置食物补齐（v3.4.0：SeedData 老条目 + 654 条清单一起灌）。
-     *
-     * 三条硬规则（后续需求文档 §4.2 的 F1/F2/F5）：
-     *  ① 清单里的「一级分类」直接采用，绝不调 guess()（那套规则只猜对 43.4%）；
-     *  ② 同名以清单数值/分类为准更新，但只更新 source == "preset" 的项，
-     *     用户自建食物、收藏状态、条码、创建时间一律不动；
-     *  ③ 现有库独有的条目保留，不删不改。
-     *
-     * 两处会调它：App 启动时（QingJiApp）、搜索页手动「恢复预置食物库」。
-     * 只往表里灌数据，不加字段，所以**不需要升 Room 版本**。
+     * 中文、别名、拼音首字母、拼音全拼一次搜完（标准库 + 用户库一起）。
+     * 常吃置顶仍然交给 ViewModel 的 FoodRanking，这里只把精确命中排前面。
      */
-    suspend fun ensurePresetFoods(): Int {
-        val dao = db.foodDao()
-        val existing = dao.findAll()
-        val byKey = existing.associateBy { it.name to it.brand }
-
-        // 老预置库里没带分类的，才让 guess() 兜底（清单覆盖不到的独有条目）
-        val legacy = SeedData.presetFoods.map { seed ->
-            if (seed.category.isBlank() || seed.category == com.qingji.app.domain.FoodCategory.OTHER) {
-                seed.copy(category = com.qingji.app.domain.FoodCategory.guess(seed.name, seed.brand))
-            } else seed
-        }
-        val fromCsv = com.qingji.app.data.local.FoodSeedImporter.parse()
-
-        // 同名以清单为准：后者覆盖前者；LinkedHashMap 保证顺序稳定
-        val merged = LinkedHashMap<Pair<String, String>, Food>()
-        (legacy + fromCsv).forEach { item -> merged[item.name to item.brand] = item }
-
-        val toWrite = mutableListOf<Food>()
-        var changed = 0
-        merged.values.forEach { item ->
-            val old = byKey[item.name to item.brand]
-            when {
-                old == null -> {
-                    toWrite.add(item)
-                    changed++
-                }
-                // 只更新预置项；用户自建的同名食物绝不覆盖
-                old.source == "preset" && differs(old, item) -> {
-                    toWrite.add(
-                        item.copy(
-                            id = old.id,
-                            favorite = old.favorite,
-                            createdAt = old.createdAt,
-                            barcode = old.barcode
-                        )
-                    )
-                    changed++
-                }
-                else -> Unit
-            }
-        }
-        if (toWrite.isNotEmpty()) dao.insertAll(toWrite)
-
-        // 极端老数据（category 为空）才兜底重猜
-        backfillFoodCategory()
-        return changed
+    suspend fun searchFood(keyword: String): List<Food> {
+        val key = keyword.trim()
+        if (key.isEmpty()) return allFoodsOnce().take(50)
+        val favs = favoriteDao.allNames().toSet()
+        return mergeFoods(catalogDao.search(key), userFoodDao.search(key), favs)
+            .sortedWith(
+                compareBy<Food>(
+                    { if (it.name == key) 0 else if (it.name.startsWith(key)) 1 else 2 },
+                    { it.name }
+                )
+            )
+            .take(50)
     }
 
-    /** 只比较导入会改的字段，避免收藏/时间不同导致每次启动都重写一遍库。 */
-    private fun differs(old: Food, new: Food): Boolean =
-        old.category != new.category ||
-            old.pinyin != new.pinyin ||
-            old.kcalPer100g != new.kcalPer100g ||
-            old.proteinPer100g != new.proteinPer100g ||
-            old.carbPer100g != new.carbPer100g ||
-            old.fatPer100g != new.fatPer100g ||
-            old.defaultGrams != new.defaultGrams
+    suspend fun foodCount(): Int = catalogDao.count() + userFoodDao.count()
+
+    /** 可订阅的总条数（标准库 + 用户自建），搜索页靠它区分「载入中 / 空 / 没搜到」。 */
+    fun observeFoodCount(): Flow<Int> =
+        combine(catalogDao.observeCount(), userFoodDao.observeCount()) { a, b -> a + b }
 
     /**
-     * 给「分类为空」的极端老数据补一次分类。
-     * v3.4.0 起不再重猜「其他」——油脂 / 调味那 20 条本来就属于「其他」，
-     * 以前每次启动都会被 guess() 改成别的类，这是 F3 的根因。
+     * v1.0.4 起标准食物库随 APK 预置在 assets 里，Room 首次打开时自动拷出来，
+     * 不用再逐条灌库，也不会碰到用户任何一条数据。
+     *
+     * 方法名保留是为了不改动 QingJiApp 和搜索页那个按钮；
+     * 现在只做「确认标准库能打开、返回条数」，读失败返回 0，不让 App 崩。
      */
-    private suspend fun backfillFoodCategory() {
-        val dao = db.foodDao()
-        val needsFix = dao.findAll().filter { it.category.isBlank() }
-        if (needsFix.isEmpty()) return
-        dao.insertAll(
-            needsFix.map {
-                it.copy(category = com.qingji.app.domain.FoodCategory.guess(it.name, it.brand))
-            }
+    suspend fun ensurePresetFoods(): Int = try {
+        catalogDao.count()
+    } catch (e: Exception) {
+        android.util.Log.e("QingJiRepository", "标准食物库读取失败", e)
+        0
+    }
+
+    /** 搜索历史：搜过一次记一笔，重复搜同一个词只刷新时间（keyword 上有唯一索引）。 */
+    suspend fun rememberSearch(keyword: String) {
+        val key = keyword.trim()
+        if (key.isBlank()) return
+        db.foodSearchHistoryDao().save(
+            com.qingji.app.data.local.entity.FoodSearchHistory(keyword = key)
         )
     }
+
+    /** 搜索页的「最近搜过」快捷词，直接返回词列表，界面不用认识数据库对象。 */
+    fun observeSearchHistory(limit: Int = 8): Flow<List<String>> =
+        db.foodSearchHistoryDao().observeRecent(limit).map { list -> list.map { it.keyword } }
 
     // ---------- 写入 ----------
     /** 记一条饮食。顺手把「今天用了几次某功能」+1，对应「我的」页八格统计。 */
@@ -407,7 +425,7 @@ class QingJiRepository(private val context: Context) {
         }
 
         val candidates = try {
-            db.foodDao().findAll().map {
+            allFoodsOnce().map {
                 it.name to Per100g(
                     kcal = it.kcalPer100g,
                     protein = it.proteinPer100g,
@@ -594,14 +612,17 @@ class QingJiRepository(private val context: Context) {
         db.foodLogDao().observeRecentNames(AppClock.today().minusDays(30))
 
     // ---------- M3.4 条码 ----------
-    /** 先查本机食物表（断网也能用）。 */
-    suspend fun findFoodByBarcode(code: String): Food? = db.foodDao().findByBarcode(code)
+    /** 先查用户库里缓存过的条码（断网也能用）。标准库没有条码列，不用查。 */
+    suspend fun findFoodByBarcode(code: String): Food? =
+        userFoodDao.findByBarcode(code)?.let { row ->
+            row.toFood(favorite = row.name in favoriteDao.allNames())
+        }
 
     /** 本机没有才联网查，查不到返回中文原因。 */
     suspend fun lookupBarcodeRemote(code: String) = foodApi.lookup(code)
 
-    /** 条码查到或手动录入后，缓存进食物表，下次同一条码直接命中。 */
-    suspend fun saveFood(food: Food): Long = db.foodDao().insert(food)
+    /** 条码查到或手动录入后，缓存进用户库，下次同一条码直接命中。 */
+    suspend fun saveFood(food: Food): Long = userFoodDao.insert(food.toUserFood())
 
     // ---------- M5 日记 ----------
     fun observeDiaries(): Flow<List<Diary>> = db.diaryDao().observeAll()

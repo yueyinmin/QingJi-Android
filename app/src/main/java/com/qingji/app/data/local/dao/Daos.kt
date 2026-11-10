@@ -12,7 +12,6 @@ import com.qingji.app.data.local.entity.ProgressPhoto
 import com.qingji.app.data.local.entity.Diary
 import com.qingji.app.data.local.entity.ExercisePreset
 import com.qingji.app.data.local.entity.FastingLog
-import com.qingji.app.data.local.entity.Food
 import com.qingji.app.data.local.entity.FoodLog
 import com.qingji.app.data.local.entity.UsageStat
 import com.qingji.app.data.local.entity.UserProfile
@@ -73,70 +72,13 @@ interface WeightLogDao {
     suspend fun clearAll()
 }
 
-/** 食物库。 */
-@Dao
-interface FoodDao {
-    /** 模糊搜索：名字包含关键词，或拼音首字母以关键词开头。 */
-    @Query(
-        """
-        SELECT * FROM food
-        WHERE name LIKE '%' || :keyword || '%'
-           OR pinyin LIKE :keyword || '%'
-        ORDER BY name
-        LIMIT 50
-        """
-    )
-    suspend fun search(keyword: String): List<Food>
-
-    @Query("SELECT * FROM food WHERE barcode = :barcode LIMIT 1")
-    suspend fun findByBarcode(barcode: String): Food?
-
-    @Query("SELECT COUNT(*) FROM food")
-    suspend fun count(): Int
-
-    /**
-     * 食物库条数的「可订阅」版本。
-     * 为什么需要：预置食物是 App 启动后在后台线程灌进去的，如果搜索页只查一次，
-     * 灌完也不会自动刷新——用户看到的就是一个永远空的列表（以为是空壳）。
-     * 订阅这个 Flow，食物库一有变化，搜索结果就重查。
-     */
-    @Query("SELECT COUNT(*) FROM food")
-    fun observeCount(): Flow<Int>
-
-    /** 升级 App 后按名字补齐新增的预置食物，不重复插、也不覆盖用户自建的。 */
-    @Query("SELECT name FROM food")
-    suspend fun allNames(): List<String>
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAll(items: List<Food>)
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insert(item: Food): Long
-
-    /** 备份导出用。 */
-    @Query("SELECT * FROM food ORDER BY name")
-    suspend fun findAll(): List<Food>
-
-    /** 食物库：订阅全量，界面里按分类/品牌分组 */
-    @Query("SELECT * FROM food ORDER BY name")
-    fun observeAll(): Flow<List<Food>>
-
-    /** 食物库「自定义」页签：用户自己加的 */
-    @Query("SELECT * FROM food WHERE source = 'user' ORDER BY createdAt DESC")
-    fun observeUserFoods(): Flow<List<Food>>
-
-    /** 收藏 / 取消收藏 */
-    @Query("UPDATE food SET favorite = :favorite WHERE id = :id")
-    suspend fun setFavorite(id: Long, favorite: Boolean)
-
-    /** 删除单个食物（自定义食物用） */
-    @Query("DELETE FROM food WHERE id = :id")
-    suspend fun deleteFood(id: Long)
-
-    /** 导入前清空（预置食物会在导入后按名字补回来）。 */
-    @Query("DELETE FROM food")
-    suspend fun clearAll()
-}
+/*
+ * v1.0.4 拆库说明：原来的 FoodDao 已经拆成三处，这里不再有 food 表。
+ *   · 标准食物（只读，654 条）→ FoodCatalogDao，独立数据库 food_catalog.db
+ *   · 用户自建食物           → UserFoodDao，用户库 user_food 表
+ *   · 收藏 / 搜索历史        → FoodFavoriteDao / FoodSearchHistoryDao
+ * 界面拿到的仍然是统一的 Food 模型，由 QingJiRepository 把两路数据合并好。
+ */
 
 /** 一天的热量汇总，字段可空是因为一条都没记时 SUM 会返回 null。 */
 data class DailySummary(
