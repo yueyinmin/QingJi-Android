@@ -191,6 +191,21 @@ private val EN: Map<String, String> = mapOf(
     "食物库正在载入，稍等一下下…" to "Loading food catalog…",
     "保持" to "Maintain",
     "增肌" to "Bulk",
+
+    // ---------- 2026-11-11 关于页（GitHub / 维护者） ----------
+    "关于" to "About",
+    "轻记" to "QingJi",
+    "一个只存在本机的减重账本" to "A weight-loss log that stays on your phone",
+    "项目信息" to "Project",
+    "源码公开，每一行改动都能在 GitHub 上翻到" to "Open source — every change is on GitHub",
+    "源代码" to "Source code",
+    "维护者" to "Maintainer",
+    "一个人写的，欢迎提 issue" to "Built by one person; issues welcome",
+    "轻记的作者 · 代码和食物库都是自己弄的" to "Author of QingJi · code and food catalog, all hand-made",
+    "本地优先" to "Local-first",
+    "不需要账号" to "No account",
+    "轻记没有账号、没有服务器，数据只存在你自己的手机里。\nAI 能力用你自己填的 Key，直连你选的服务商，我们既不中转也不收集。" to
+        "QingJi has no account and no server; your data stays on your phone.\nAI runs on your own API key, straight to the provider you choose — nothing is relayed or collected.",
 )
 
 

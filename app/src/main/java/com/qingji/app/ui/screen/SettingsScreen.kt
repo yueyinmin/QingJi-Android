@@ -629,14 +629,9 @@ fun SettingsScreen(
             onBack = { dialog = null }
         )
 
-        DialogKind.ABOUT -> InfoDetailPage(
-            title = "关于轻记",
-            body = "轻记是一个「不用查表、不用称重，说一句或拍一张就记完」的私人减重账本。\n\n" +
-                "设计上只做三件事：记得快、看得懂趋势、数据留在自己手机里。\n" +
-                "不做社交、不做商城、不做医疗建议 —— 文案里也不出现「治疗 / 诊断 / 处方」这类词。\n\n" +
-                "AI 能力用你自己的 API Key，花多少自己控；我们不中转请求，也不收集任何数据。",
-            onBack = { dialog = null }
-        )
+        // 2026-11-11：从纯文字说明改成独立「关于」页（图标 / 版本 / 特性标签 /
+        // 源代码入口 / 维护者），段落说明与设计原则并进卡片里
+        DialogKind.ABOUT -> AboutScreen(onBack = { dialog = null })
 
         DialogKind.VERSION -> InfoDetailPage(
             title = "版本信息",
