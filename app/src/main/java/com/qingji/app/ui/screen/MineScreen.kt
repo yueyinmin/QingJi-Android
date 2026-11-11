@@ -83,6 +83,7 @@ import kotlinx.coroutines.launch
 import java.io.File
 import java.time.LocalDate
 import java.time.Period
+import com.qingji.app.ui.i18n.s
 
 /**
  * ============================================================
@@ -151,7 +152,7 @@ fun MineScreen(
         ) {
             Spacer(Modifier.size(24.dp))
             Text(
-                text = "我的",
+                text = s("我的"),
                 fontSize = TextSizes.PageTitle,
                 fontWeight = FontWeight.Bold,
                 color = TextPrimary
@@ -347,7 +348,7 @@ private fun ProfileHeaderCard(
 private fun UsageSectionCard(totals: Map<String, Int>) {
     SectionCard {
         Text(
-            text = "使用情况",
+            text = s("使用情况"),
             fontSize = 15.sp,
             fontWeight = FontWeight.SemiBold,
             color = TextPrimary
@@ -391,7 +392,7 @@ private fun UsageSectionCard(totals: Map<String, Int>) {
         }
         Spacer(Modifier.height(8.dp))
         Text(
-            text = "这里的数字就是你实际使用轻记的记录，方便回头看自己的习惯",
+            text = s("这里的数字就是你实际使用轻记的记录，方便回头看自己的习惯"),
             fontSize = 11.sp,
             color = TextSecondary
         )
@@ -464,7 +465,7 @@ private fun UsageCard(totalAi: Int, monthAi: Int) {
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                text = "调用统计",
+                text = s("调用统计"),
                 fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = TextPrimary
@@ -496,7 +497,7 @@ private fun UsageCard(totalAi: Int, monthAi: Int) {
         Spacer(Modifier.height(12.dp))
 
         Text(
-            text = "token 与费用以服务商账单为准，本地只记调用次数 · 数据只存在本机",
+            text = s("token 与费用以服务商账单为准，本地只记调用次数 · 数据只存在本机"),
             fontSize = 11.sp,
             color = TextSecondary
         )
@@ -543,7 +544,7 @@ private fun DataEntryCard(
 ) {
     SectionCard {
         Text(
-            text = "数据",
+            text = s("数据"),
             fontSize = 15.sp,
             fontWeight = FontWeight.SemiBold,
             color = TextPrimary
@@ -720,7 +721,7 @@ private fun GoalDialog(
 
                 Spacer(Modifier.height(10.dp))
                 Text(
-                    text = "保存后按新目标重算每日热量与三大营养素（公式：Mifflin-St Jeor）。",
+                    text = s("保存后按新目标重算每日热量与三大营养素（公式：Mifflin-St Jeor）。"),
                     fontSize = 11.sp,
                     color = TextSecondary
                 )

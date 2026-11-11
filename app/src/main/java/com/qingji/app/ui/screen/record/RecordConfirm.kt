@@ -43,6 +43,7 @@ import com.qingji.app.ui.theme.TextPrimary
 import com.qingji.app.ui.theme.TextSecondary
 import java.time.LocalDate
 import kotlin.math.round
+import com.qingji.app.ui.i18n.s
 
 /**
  * ============================================================
@@ -431,7 +432,7 @@ fun RecordDateRow(date: LocalDate, onClick: () -> Unit) {
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text = "记到哪一天", fontSize = 13.sp, color = TextSecondary)
+        Text(text = s("记到哪一天"), fontSize = 13.sp, color = TextSecondary)
         Spacer(Modifier.weight(1f))
         Text(
             text = "$label ›",
