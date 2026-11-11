@@ -24,6 +24,7 @@ junit = "4.13.2"                       # 本地单元测试
 robolectric = "4.14.1"                 # 在电脑上「真运行」安卓界面，不需要手机/模拟器
 androidxTestCore = "1.6.1"             # Robolectric 配套的测试基础库
 androidxTestExtJunit = "1.2.1"         # AndroidJUnit4 运行器
+orgJson = "20231013"                   # 单元测试里用「真的」org.json（安卓自带那个在 JVM 单测里是空壳，一调就抛 not mocked）
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -54,6 +55,7 @@ androidx-glance-appwidget = { group = "androidx.glance", name = "glance-appwidge
 androidx-glance-material3 = { group = "androidx.glance", name = "glance-material3", version.ref = "glance" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+org-json = { group = "org.json", name = "json", version.ref = "orgJson" }
 androidx-test-core = { group = "androidx.test", name = "core", version.ref = "androidxTestCore" }
 androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidxTestExtJunit" }
 androidx-compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }

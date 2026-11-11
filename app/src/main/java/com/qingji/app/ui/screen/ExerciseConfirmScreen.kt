@@ -308,7 +308,11 @@ fun ExerciseConfirmScreen(
                                 date = whenAt.toLocalDate(),
                                 type = p.name,
                                 minutes = estimate.minutes,
-                                kcal = estimate.kcal
+                                kcal = estimate.kcal,
+                                // v1.0.6：按哪种方式记的就把那个原始数字留下来，
+                                // 其它方式留 0（不按步频/配速反推一个假数出来冒充原始值）
+                                steps = if (mode == ExerciseCalculator.MODE_STEPS) amount else 0,
+                                distanceKm = if (mode == ExerciseCalculator.MODE_KM) amount.toDouble() else 0.0
                             )
                         ) { onSaved() }
                     },

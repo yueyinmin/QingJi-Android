@@ -316,13 +316,28 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setWidgetShowWeight(show: Boolean) = putBoolAndRefreshWidget(SettingsKeys.WIDGET_SHOW_WEIGHT, show)
 
-    // ---------- 危险操作 ----------
+    // ---------- 危险操作（v1.0.6 拆成两档） ----------
 
-    /** 清除全部本地数据（不动设置，也不动 API Key，Key 要单独清）。 */
-    fun clearAllData(onDone: () -> Unit = {}) {
+    /**
+     * 清除记录：饮食/体重/饮水/日记/围度/照片/运动/断食/统计/搜索历史。
+     * 档案、目标、AI 配置、自建食物、收藏、所有设置都留着。
+     */
+    fun clearRecords(onDone: () -> Unit = {}) {
         viewModelScope.launch {
-            repo.clearAllData()
-            toast("本地记录已清空（设置与 API Key 保留）")
+            repo.clearRecords()
+            toast("记录已清空（档案、目标和自建食物保留）")
+            onDone()
+        }
+    }
+
+    /**
+     * 恢复出厂：全部清空。清完之后引导标记也变成 false，
+     * 界面会自动切回引导页，所以这里只提示一句、不手动导航。
+     */
+    fun factoryReset(onDone: () -> Unit = {}) {
+        viewModelScope.launch {
+            repo.factoryReset()
+            toast("已恢复出厂设置，重新填一次资料就能用")
             onDone()
         }
     }

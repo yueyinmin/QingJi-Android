@@ -224,6 +224,13 @@ data class ProgressPhoto(
 /**
  * 表 11：运动记录。
  * 只记「什么运动、多久、消耗多少千卡」，不接可穿戴设备。
+ *
+ * v1.0.6：补了 steps / distanceKm 两列。
+ * 以前确认页让用户按「步数」或「公里」输入，换算成分钟算完热量之后
+ * 就把原始数字丢了，历史里只剩「40 分钟」，用户想看「上周走了多少步」
+ * 根本查不到 —— 输入了却不存，是最差的一种体验。现在按哪种方式记的，
+ * 就把那个数字原样留下来；其它方式记的保持默认 0。
+ * 两列的 DEFAULT 必须与迁移 SQL 逐字一致（0 / 0.0）。
  */
 @Entity(tableName = "exercise_log", indices = [Index("date")])
 data class ExerciseLog(
@@ -232,6 +239,10 @@ data class ExerciseLog(
     val type: String,                 // 走路 / 跑步 / 骑行 / 力量 / 游泳 / 其他
     val minutes: Int,
     val kcal: Double,
+    /** 用户按「步数」记录时填的步数；其它方式记为 0 */
+    @ColumnInfo(defaultValue = "0") val steps: Int = 0,
+    /** 用户按「公里」记录时填的公里数；其它方式记为 0.0 */
+    @ColumnInfo(defaultValue = "0.0") val distanceKm: Double = 0.0,
     val createdAt: Long = System.currentTimeMillis()
 )
 

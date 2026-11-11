@@ -56,7 +56,7 @@ import java.time.YearMonth
  * 数据备份与导出（M9）
  * ------------------------------------------------------------
  * 三条路：
- * 1. 导出全量 JSON —— 换手机用这份，能恢复所有表；
+ * 1. 导出全量 JSON —— 换手机用这份，能恢复全部记录和配置（v1.0.6 起含围度/照片条目/运动/断食/自建运动）；
  * 2. 导出饮食 CSV —— 想在 Excel 里自己分析用；
  * 3. 导入 JSON —— 覆盖恢复，二次确认后才执行。
  *
@@ -264,10 +264,14 @@ fun BackupScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = "选中之前导出的 JSON 文件。导入会**先清空本机现有记录**再灌入，" +
-                        "所以点之前一定要确认这是你要的那份。",
+                    // v1.0.6：原文案里的 ** 是 markdown 语法，Compose 的 Text 不认，
+                    // 会原样显示成两个星号；顺手去掉，并把「先自己导一份保底」写进去。
+                    text = "选中之前导出的 JSON 文件。导入会先清空本机现有记录再灌入，" +
+                        "所以点之前一定要确认这是你要的那份。\n" +
+                        "拿不准就先在上面导一份现在的 JSON 保底 —— 导回来就回到今天的样子。",
                     fontSize = 11.sp,
-                    color = TextSecondary
+                    color = TextSecondary,
+                    lineHeight = 17.sp
                 )
                 Spacer(Modifier.height(12.dp))
                 PrimaryButton(
@@ -401,7 +405,8 @@ fun BackupScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     pendingUri?.let { uri ->
         ConfirmDialog(
             title = "确认覆盖导入？",
-            body = "导入会用备份文件里的内容**替换**本机现有的饮食、体重、饮水、日记和档案。\n" +
+            // 别在文案里写 ** 这种 markdown 语法：Compose 的 Text 不认，会原样显示星号
+            body = "导入会用备份文件里的内容替换本机现有的饮食、体重、饮水、日记和档案。\n" +
                 "现有数据会被清掉，不能恢复。\n\n确定继续吗？",
             confirmText = "确认导入",
             onConfirm = {

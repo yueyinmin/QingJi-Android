@@ -87,7 +87,7 @@ class Converters {
         FoodFavorite::class,
         FoodSearchHistory::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -310,6 +310,23 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * 6 → 7：运动记录补「步数」和「公里数」两列（v1.0.6）。
+         *
+         * 确认页本来就支持按步数 / 公里记录，但换算成分钟算完热量之后
+         * 原始数字被丢掉了，历史里只剩「40 分钟」。现在原样留下来。
+         *
+         * 老记录一律补 0：它们当时确实没存这个数，不能反推（按步频和配速
+         * 反推出来的「步数」是算出来的，不是用户填的，冒充原始值会误导）。
+         * DEFAULT 字面量必须和 Entity 的 @ColumnInfo 逐字一致（0 / 0.0）。
+         */
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `exercise_log` ADD COLUMN `steps` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `exercise_log` ADD COLUMN `distanceKm` REAL NOT NULL DEFAULT 0.0")
+            }
+        }
+
         fun get(context: Context): AppDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
@@ -319,7 +336,7 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                     .addMigrations(
                         MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
-                        MIGRATION_4_5, MIGRATION_5_6
+                        MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7
                     )
                     // 不用 fallbackToDestructiveMigration()。
                     // 那行兜底在「漏写 Migration」或「schema 校验不一致」时会静默清库，

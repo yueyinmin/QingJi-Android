@@ -764,13 +764,116 @@ class QingJiRepository(private val context: Context) {
         )
     }
 
-    /** 清空全部本地数据（设置 → 隐私与安全 → 清除本地数据）。 */
-    suspend fun clearAllData() {
-        db.foodLogDao().clearAll()
-        db.waterLogDao().clearAll()
-        db.weightLogDao().clearAll()
-        db.diaryDao().clearAll()
-        db.usageStatDao().clearAll()
-        db.userProfileDao().clear()
+    // ============================================================
+    // 清除数据（v1.0.6：原来只有一个「清空本地数据」，而且只清了 6 张表）
+    // ------------------------------------------------------------
+    // 以前这里只有一个 clearAllData()，清的是饮食/体重/饮水/日记/统计/档案 6 张表，
+    // 而设置页那句文案写的是「会删掉饮食、体重、饮水、日记、围度、运动、照片记录和统计」
+    // —— 围度、运动、照片这三样根本就没清。用户点了「确认清空」，以为清干净了，
+    // 实际上隐私相关的数据还在库里。这是承诺和实现不一致，比缺功能严重。
+    //
+    // 现在拆成两档，语义各自说清楚：
+    //   · clearRecords()  「清除记录」：只清记录，档案/目标/AI 配置/自建食物/设置全留着
+    //   · factoryReset()  「恢复出厂」：15 张表 + 设置 + API Key + 本地图片全清，回到刚装好
+    // ============================================================
+
+    /**
+     * 清除全部记录，保留「配置类」的东西。
+     *
+     * 清的（10 张）：饮食 / 饮水 / 体重 / 日记 / 围度 / 进度照片 / 运动 / 断食 / 使用统计 / 搜索历史
+     * 留的（5 张 + DataStore）：个人档案（身高体重目标）、AI 配置、自建食物、收藏、预置运动库
+     *
+     * 为什么这么分：用户想「重新开始记」的时候，不该被迫重新填一遍身高体重、
+     * 也不该丢掉自己录的几十种常吃食物 —— 那是他攒的资产，不是记录。
+     */
+    suspend fun clearRecords() {
+        // 照片文件要先从库里取路径，清表之后就查不到了
+        val photoPaths = runCatching { db.progressPhotoDao().findAll().map { it.path } }
+            .getOrDefault(emptyList())
+
+        db.withTransaction {
+            db.foodLogDao().clearAll()
+            db.waterLogDao().clearAll()
+            db.weightLogDao().clearAll()
+            db.diaryDao().clearAll()
+            db.bodyMeasureDao().clearAll()
+            db.progressPhotoDao().clearAll()
+            db.exerciseLogDao().clearAll()
+            db.fastingLogDao().clearAll()
+            db.usageStatDao().clearAll()
+            db.foodSearchHistoryDao().clearAll()
+        }
+
+        // 记录里的照片跟着删掉，否则成了占着空间的孤儿文件。
+        // 头像不算记录，必须留着（它就在同一个目录里）。
+        val avatar = runCatching { SettingsStore.observe(context).first().avatarPath }
+            .getOrDefault("")
+        photoPaths.forEach { path -> deleteImageFile(path, avatar) }
+
+        // 断食/饮水的通知文案依赖记录，清完顺手刷一次桌面
+        com.qingji.app.widget.WidgetRefresher.refresh(context)
+    }
+
+    /**
+     * 恢复出厂：回到「刚装完这个 App」的状态。
+     *
+     * 15 张表全清 + DataStore 设置全清 + API Key 清掉 + 本地图片全删 + 闹钟全取消。
+     * 清完之后 `onboarding_done` 变成 false，QingJiAppRoot 订阅的 settings 流
+     * 会自动把界面切回引导页 —— 不需要重启 App，也不用自己写导航逻辑。
+     *
+     * 唯一「不清」的是 `getExternalFilesDir/backup/` 里的备份文件：
+     * 那是用户自己导出来准备带走的东西，删了等于把他最后的保险也烧了。
+     */
+    suspend fun factoryReset() {
+        db.withTransaction {
+            db.foodLogDao().clearAll()
+            db.waterLogDao().clearAll()
+            db.weightLogDao().clearAll()
+            db.diaryDao().clearAll()
+            db.bodyMeasureDao().clearAll()
+            db.progressPhotoDao().clearAll()
+            db.exerciseLogDao().clearAll()
+            db.fastingLogDao().clearAll()
+            db.usageStatDao().clearAll()
+            db.foodSearchHistoryDao().clearAll()
+            db.userFoodDao().clearAll()
+            db.foodFavoriteDao().clearAll()
+            db.aiConfigDao().clearAll()
+            db.exercisePresetDao().clearAll()
+            db.userProfileDao().clear()
+        }
+
+        // 设置里含主题、昵称、目标模式、AI 纠错表、引导完成标记，一起清
+        SettingsStore.clear(context)
+        // Key 在 AndroidKeyStore 加密存储里，跟 DataStore 是两个地方
+        ApiKeyStore.clear(context)
+
+        // 图片：包括头像和所有记录图，整目录重建（不删目录本身，省得后面要判空）
+        listOf(
+            java.io.File(context.filesDir, "images"),
+            java.io.File(context.cacheDir, "images")
+        ).forEach { dir ->
+            runCatching { dir.deleteRecursively() }
+            runCatching { dir.mkdirs() }
+        }
+
+        // 运动库清空了要立刻重灌预置的 30 条，
+        // 否则用户走完引导点「记录运动」看到的是空列表（重启才会补）。
+        ensurePresetExercises()
+
+        // 设置全清之后闹钟还挂在系统里，会照样到点响。
+        // apply() 传一份默认设置 = 所有开关都是关的 = 全部取消。
+        runCatching {
+            com.qingji.app.notify.Reminders.apply(context, com.qingji.app.data.prefs.QingJiSettings())
+        }
+
+        com.qingji.app.widget.WidgetRefresher.refresh(context)
+    }
+
+    /** 删一张图片；头像路径要放过，别把用户头像一起删了。 */
+    private fun deleteImageFile(path: String, avatarPath: String) {
+        if (path.isBlank()) return
+        if (avatarPath.isNotBlank() && path == avatarPath) return
+        runCatching { java.io.File(path).takeIf { it.exists() }?.delete() }
     }
 }
