@@ -1,6 +1,7 @@
 package com.qingji.app.data.local.entity
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -123,5 +124,39 @@ class FoodMappingTest {
         val back = original.toFood().toUserFood()
         assertEquals(7L, back.id)
         assertEquals("自定义", back.name)
+    }
+
+    // ---------- 迁移 8：四列可空语义 ----------
+
+    @Test
+    fun newUserFoodUsesNullForNotRecorded() {
+        val food = UserFood(id = 1, name = "自定义", kcalPer100g = 100.0).toFood()
+        assertNull(food.fiberPer100g)
+        assertNull(food.sodiumMgPer100g)
+        assertNull(food.sugarPer100g)
+        assertNull(food.calciumMgPer100g)
+    }
+
+    @Test
+    fun zeroAndNullAreDifferentAfterRoundTrip() {
+        // 0.0 = 确实测得为 0；null = 未收录。以前 toUserFood 会把 null 降级成 0.0，两者混为一谈。
+        val back = Food(
+            name = "自定义", kcalPer100g = 100.0,
+            fiberPer100g = 0.0, sodiumMgPer100g = null,
+            sugarPer100g = 1.5, calciumMgPer100g = null
+        ).toUserFood()
+        assertEquals(0.0, back.fiberPer100g!!, 0.0001)
+        assertNull(back.sodiumMgPer100g)
+        assertEquals(1.5, back.sugarPer100g!!, 0.0001)
+        assertNull(back.calciumMgPer100g)
+    }
+
+    @Test
+    fun sugarSurvivesUserFoodRoundTrip() {
+        val food = UserFood(
+            id = 2, name = "含糖食物", kcalPer100g = 200.0, sugarPer100g = 12.0
+        ).toFood()
+        assertEquals(12.0, food.sugarPer100g!!, 0.0001)
+        assertEquals(12.0, food.toUserFood().sugarPer100g!!, 0.0001)
     }
 }
