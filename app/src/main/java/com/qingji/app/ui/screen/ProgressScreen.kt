@@ -4,6 +4,7 @@ import com.qingji.app.domain.AppClock
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -104,6 +105,8 @@ fun ProgressScreen(
      */
     onOpenExercise: () -> Unit = {},
     modifier: Modifier = Modifier,
+    /** tabfix：滚动状态由 Root 持有，切 Tab 回来不丢位置。 */
+    scrollState: ScrollState = rememberScrollState(),
     vm: ProgressViewModel = viewModel()
 ) {
     val profile by vm.profile.collectAsState()
@@ -183,7 +186,7 @@ fun ProgressScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
             .padding(horizontal = 16.dp)
     ) {
         Spacer(Modifier.height(16.dp))

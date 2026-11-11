@@ -1,14 +1,14 @@
 package com.qingji.app.ui.components
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
@@ -21,6 +21,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -35,14 +36,21 @@ import kotlinx.coroutines.delay
  * 列表和卡片不要「啪」地一下全出来。让它们错开 45ms 依次浮上来，
  * 眼睛就有节奏可循，比整体一闪要柔和得多。
  *
+ * tabfix：改成「内容始终占位、只淡入透明度」。
+ * 旧实现用 AnimatedVisibility，visible=false 时卡片根本不参与测量，
+ * 随着 index 的 delay 一张张插进 Column，整页高度一帧一变；
+ * 再叠上每张卡片 1/8 自身高度的 slideInVertically 和 NavHost 的页面位移，
+ * 就是切 Tab 时看到的「卡片往上跳、页面跟着抖」。
+ * 现在淡入只改 alpha，布局尺寸从头到尾恒定，滚动条也不会跳。
+ *
  * 用法：
  * ```
  * items.forEachIndexed { index, item ->
  *     AppearItem(index = index) { MyCard(item) }
  * }
  * ```
- * 错开只算到第 8 项（见 Motion.MaxStaggerIndex），
- * 否则滚到列表底部时，后面的项要等太久才出现。
+ * 错开只算到第 5 项（见 Motion.MaxStaggerIndex），总计不超过 80ms，
+ * 加上 150ms 淡入，和页面 150ms 转场基本同期结束，不拖尾。
  * ============================================================
  */
 @Composable
@@ -59,17 +67,14 @@ fun AppearItem(
         visible = true
     }
 
-    AnimatedVisibility(
-        visible = visible,
-        // 只做入场，不做退场：列表项是被移除的，不需要慢慢消失
-        exit = ExitTransition.None,
-        enter = fadeIn(
-            animationSpec = tween(durationMillis = Motion.Slow, easing = Motion.decelerate)
-        ) + slideInVertically(
-            animationSpec = tween(durationMillis = Motion.Slow, easing = Motion.decelerate)
-        ) { height -> height / 8 },
-        modifier = modifier
-    ) {
+    val contentAlpha by animateFloatAsState(
+        targetValue = if (visible) 1f else 0f,
+        animationSpec = tween(durationMillis = Motion.Fast, easing = Motion.decelerate),
+        label = "appearAlpha"
+    )
+
+    // graphicsLayer 只影响绘制，不影响测量：content 永远在布局里。
+    Box(modifier = modifier.graphicsLayer { alpha = contentAlpha }) {
         content()
     }
 }

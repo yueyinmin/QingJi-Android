@@ -8,6 +8,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -93,6 +94,8 @@ fun DiaryScreen(
     /** v3.2.4：悬浮栏第二颗换成食物库 */
     onOpenFoodLibrary: () -> Unit = {},
     modifier: Modifier = Modifier,
+    /** tabfix：滚动状态由 Root 持有，切 Tab 回来不丢位置。 */
+    scrollState: ScrollState = rememberScrollState(),
     vm: DiaryViewModel = viewModel()
 ) {
     val diaries by vm.diaries.collectAsState()
@@ -120,7 +123,7 @@ fun DiaryScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scrollState)
                 .padding(horizontal = 16.dp)
         ) {
             Spacer(Modifier.height(16.dp))
