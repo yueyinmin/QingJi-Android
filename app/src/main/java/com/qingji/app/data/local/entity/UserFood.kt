@@ -100,9 +100,11 @@ fun Food.toUserFood(): UserFood =
         proteinPer100g = proteinPer100g,
         carbPer100g = carbPer100g,
         fatPer100g = fatPer100g,
-        fiberPer100g = fiberPer100g,
-        sodiumMgPer100g = sodiumMgPer100g,
-        calciumMgPer100g = calciumMgPer100g,
+        // 用户库这四列还是非空 0.0（这一版没动用户表结构），标准库里「未收录」的 null
+        // 落到用户库只能变 0；界面上用户食物按「自己录的数据」处理，不标未收录
+        fiberPer100g = fiberPer100g ?: 0.0,
+        sodiumMgPer100g = sodiumMgPer100g ?: 0.0,
+        calciumMgPer100g = calciumMgPer100g ?: 0.0,
         defaultGrams = defaultGrams,
         // 标准库那条绝不能写进用户库；万一传进来也归为 user
         source = if (source == "preset") "user" else source,

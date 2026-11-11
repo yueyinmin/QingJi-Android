@@ -18,8 +18,17 @@ import androidx.room.PrimaryKey
  * 这样导出脚本可以直接按列名灌数据，不用再维护一份字段映射。
  *
  * 营养数值全部按「每 100g 可食部分」存（basis_grams 恒为 100）。
- * fiber / sodium / sugar / calcium 目前是 0：清单里没有这几列数据，
- * 0 在这里的含义是「暂无数据」，不是「含量为 0」，界面不要当真值展示。
+ *
+ * v1.0.6：fiber / sodium / sugar / calcium 四列改成可空。
+ *   以前它们是非空 0.0，靠注释说明「0 表示暂无数据」——但数据库里 0 就是 0，
+ *   界面分不出「这条食物不含纤维」和「这条食物没录纤维」，只能两件事一起装死。
+ *   现在 NULL = 未收录，0 = 真的测得是 0，界面上前者显示「—」。
+ *
+ * v1.0.6：删掉 state（生/熟/干）列。
+ *   654 条里 631 条是 unknown（96.5%），只有 23 条有值，且这 23 条的值是从
+ *   菜名括号里猜的。留着一列 96.5% 空的枚举，以后每个人都要问「这个字段到底有没有用」，
+ *   不如删掉。真要做生熟区分时，应该做成「同一道菜两条记录」（米饭/蒸米饭），
+ *   而不是一列 96.5% 未知的属性。
  * ============================================================
  */
 @Entity(
@@ -45,17 +54,16 @@ data class CatalogFood(
     @ColumnInfo(name = "pinyin_full") val pinyinFull: String = "",
     @ColumnInfo(name = "category") val category: String,
     @ColumnInfo(name = "subcategory") val subcategory: String = "",
-    /** raw / cooked / steamed / boiled / fried / dried / processed / unknown */
-    @ColumnInfo(name = "state") val state: String = "unknown",
 
     @ColumnInfo(name = "energy_kcal") val energyKcal: Double,
     @ColumnInfo(name = "protein") val protein: Double,
     @ColumnInfo(name = "fat") val fat: Double,
     @ColumnInfo(name = "carbs") val carbs: Double,
-    @ColumnInfo(name = "fiber") val fiber: Double = 0.0,
-    @ColumnInfo(name = "sodium") val sodium: Double = 0.0,
-    @ColumnInfo(name = "sugar") val sugar: Double = 0.0,
-    @ColumnInfo(name = "calcium") val calcium: Double = 0.0,
+    /** NULL = 未收录（清单里本来就没这一列数据）；0.0 = 确实测得为 0 */
+    @ColumnInfo(name = "fiber") val fiber: Double? = null,
+    @ColumnInfo(name = "sodium") val sodium: Double? = null,
+    @ColumnInfo(name = "sugar") val sugar: Double? = null,
+    @ColumnInfo(name = "calcium") val calcium: Double? = null,
 
     /** 文档规定营养基准必须是 100g，写进表里方便以后核对 */
     @ColumnInfo(name = "basis_grams") val basisGrams: Double = 100.0,
@@ -66,10 +74,33 @@ data class CatalogFood(
     /** 来源编号，可追溯；当前全部是 CNFCT-APPROX（《中国食物成分表》近似值） */
     @ColumnInfo(name = "source_id") val sourceId: String,
     @ColumnInfo(name = "source_note") val sourceNote: String = "",
-    /** 0 未审核 / 1 已审核。当前 654 条都是初采估算，全部 0，不冒充已核对数据 */
-    @ColumnInfo(name = "audit_status") val auditStatus: Int = 0,
-    @ColumnInfo(name = "catalog_version") val catalogVersion: String = "0.2"
+    /** 0 未审核 / 1 已核对 / 2 有权威出处，见 AuditStatus */
+    @ColumnInfo(name = "audit_status") val auditStatus: Int = AuditStatus.UNCHECKED,
+    @ColumnInfo(name = "catalog_version") val catalogVersion: String = "0.3"
 )
+
+/**
+ * 审核状态分级（v1.0.6 起）。
+ *
+ * 以前只有「0 未审核 / 1 已审核」两档，而 654 条全是 0，等于这一列没有信息量。
+ * 现在拆三档，是给以后补数据留的位置：
+ *   · 灌进来的值如果是按菜系/品类套用的近似值 → UNCHECKED
+ *   · 逐条对过《中国食物成分表》 → CHECKED
+ *   · 有明确到具体版本的出处编号 → SOURCED
+ * 当前 654 条仍然全部是 UNCHECKED，界面上会明说「估算值，未核对」。
+ */
+object AuditStatus {
+    const val UNCHECKED = 0
+    const val CHECKED = 1
+    const val SOURCED = 2
+
+    /** 界面上一句话说明这一条的可信度。 */
+    fun label(status: Int): String = when (status) {
+        CHECKED -> "已核对"
+        SOURCED -> "有出处"
+        else -> "估算，未核对"
+    }
+}
 
 /** 界面层统一用的食物模型。放在这里是为了让 import 路径保持不变，界面一行都不用改。 */
 fun CatalogFood.toFood(favorite: Boolean = false): com.qingji.app.data.local.entity.Food =
@@ -91,7 +122,6 @@ fun CatalogFood.toFood(favorite: Boolean = false): com.qingji.app.data.local.ent
         source = "preset",
         category = category,
         subcategory = subcategory,
-        state = state,
         portionNote = portionNote,
         sourceId = sourceId,
         auditStatus = auditStatus,
