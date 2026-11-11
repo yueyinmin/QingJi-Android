@@ -94,6 +94,20 @@ class MainActivity : ComponentActivity() {
         readTarget(intent)
     }
 
+    /**
+     * 断食常驻计时：只在 App 进前台时同步一次。
+     * 不在 Application.onCreate 里做，是因为 Android 12+ 不允许后台启动前台服务，
+     * 在这儿调用系统一定会放行。
+     */
+    override fun onStart() {
+        super.onStart()
+        try {
+            com.qingji.app.notify.FastingService.sync(this)
+        } catch (e: Exception) {
+            // 通知挂不上不影响任何功能，静默即可
+        }
+    }
+
     private fun readTarget(intent: Intent?) {
         val target = intent?.getStringExtra(WidgetRefresher.EXTRA_TARGET)
         if (!target.isNullOrBlank()) {

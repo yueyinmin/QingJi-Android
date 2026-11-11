@@ -87,7 +87,7 @@ class Converters {
         FoodFavorite::class,
         FoodSearchHistory::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -377,6 +377,22 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * 8 → 9：断食记录支持「自由断食」（不预设方案、手动开始结束）。
+         *
+         * 加两列就够了，不需要重建表：
+         *   freeMode     = 1 时历史卡按「自由断食 · X 小时」展示，不显示进食窗口
+         *   actualMinutes = 实际断食分钟数，自由断食才有值；老记录是「计划」不是「实际」，补 0
+         *
+         * 两列的 DEFAULT 都是 0，和 Entity 的 @ColumnInfo(defaultValue = "0") 逐字一致。
+         */
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `fasting_log` ADD COLUMN `freeMode` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `fasting_log` ADD COLUMN `actualMinutes` INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         fun get(context: Context): AppDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
@@ -386,12 +402,13 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                     .addMigrations(
                         MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
-                        MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8
+                        MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8,
+                        MIGRATION_8_9
                     )
                     // 不用 fallbackToDestructiveMigration()。
                     // 那行兜底在「漏写 Migration」或「schema 校验不一致」时会静默清库，
                     // 用户几年的饮食、体重记录一次性没了，而且没有任何提示。
-                    // 现在迁移链 1→8 完整，缺迁移就让 Room 明确报错（宁可打不开，也不偷偷删数据），
+                    // 现在迁移链 1→9 完整，缺迁移就让 Room 明确报错（宁可打不开，也不偷偷删数据），
                     // 开发阶段反而能第一时间发现漏写。
                     // 以后加表结构：version +1 + 写 Migration + defaultValue 逐字一致 + 核对 schemas/N.json。
                     .build()

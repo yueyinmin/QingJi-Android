@@ -11,6 +11,9 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- 手机重启后闹钟会被系统清空，收到开机广播重新排一次（否则提醒静默失效） -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- 断食常驻计时用前台服务；Android 14+ 必须声明具体类型（这里用 specialUse） -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
     <application
         android:name=".QingJiApp"
@@ -100,6 +103,22 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
+
+        <!-- ============================================================
+             断食常驻计时（断食四项）：无声、不可划掉的进行中通知。
+             状态仍由时间推导，服务只负责把时长挂到通知栏，
+             所以被杀掉也不会算错断食时长。
+             Android 14+ 要求显式 foregroundServiceType，这里用 specialUse
+             并给出人类可读的用途说明（上架时需在后台服务声明里填写同一理由）。
+             ============================================================ -->
+        <service
+            android:name=".notify.FastingService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="fasting timer" />
+        </service>
 
     </application>
 

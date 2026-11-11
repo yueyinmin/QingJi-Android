@@ -743,6 +743,69 @@ class FastingViewModel(app: Application) : AndroidViewModel(app) {
             )
         }
     }
+
+    // ---------- 断食四项：自由断食 + 常驻通知 ----------
+
+    /** 开始一段自由断食：不预设时长，只记下开始时刻。 */
+    fun startFreeFasting() {
+        viewModelScope.launch {
+            val ctx = getApplication<Application>()
+            com.qingji.app.data.prefs.SettingsStore.set(
+                ctx,
+                com.qingji.app.data.prefs.SettingsKeys.FASTING_FREE_START,
+                System.currentTimeMillis()
+            )
+            // 开关开着就把常驻通知拉起来，计时立刻可见
+            com.qingji.app.notify.FastingService.sync(ctx)
+        }
+    }
+
+    /**
+     * 结束自由断食：按真实起止算出分钟数，写进当天记录。
+     * 这里存的是「实际断了多久」，不是计划值，所以 planHours 也按实际小时数取整。
+     */
+    fun endFreeFasting() {
+        viewModelScope.launch {
+            val ctx = getApplication<Application>()
+            val start = settings.value.fastingFreeStart
+            if (start <= 0L) return@launch
+            val end = System.currentTimeMillis()
+            val minutes = ((end - start) / 60_000L).toInt().coerceAtLeast(1)
+            val zone = java.time.ZoneId.systemDefault()
+            val startTime = java.time.Instant.ofEpochMilli(start).atZone(zone).toLocalTime()
+            val endTime = java.time.Instant.ofEpochMilli(end).atZone(zone).toLocalTime()
+            repo.saveFasting(
+                com.qingji.app.data.local.entity.FastingLog(
+                    date = AppClock.today(),
+                    planHours = ((minutes + 30) / 60).coerceIn(1, 23),
+                    eatStartMinute = startTime.hour * 60 + startTime.minute,
+                    eatEndMinute = endTime.hour * 60 + endTime.minute,
+                    completed = true,
+                    freeMode = true,
+                    actualMinutes = minutes
+                )
+            )
+            com.qingji.app.data.prefs.SettingsStore.set(
+                ctx,
+                com.qingji.app.data.prefs.SettingsKeys.FASTING_FREE_START,
+                0L
+            )
+            com.qingji.app.notify.FastingService.sync(ctx)
+        }
+    }
+
+    /** 断食常驻通知开关（前台服务）。 */
+    fun setOngoingNotification(enabled: Boolean) {
+        viewModelScope.launch {
+            val ctx = getApplication<Application>()
+            com.qingji.app.data.prefs.SettingsStore.set(
+                ctx,
+                com.qingji.app.data.prefs.SettingsKeys.FASTING_ONGOING_NOTIFICATION,
+                enabled
+            )
+            com.qingji.app.notify.FastingService.sync(ctx)
+        }
+    }
 }
 
 /** 「吃过的」列表里的一条：按食物名聚合出来的。 */

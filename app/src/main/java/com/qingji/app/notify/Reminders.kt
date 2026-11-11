@@ -271,6 +271,9 @@ class BootReceiver : BroadcastReceiver() {
         try {
             val settings = runBlocking { SettingsStore.observe(context).first() }
             Reminders.apply(context, settings)
+            // 断食常驻计时：开机后闹钟和服务都被清了，这里补一次
+            // （BOOT_COMPLETED 属于允许后台启动前台服务的例外场景）
+            FastingService.sync(context)
         } catch (e: Exception) {
             // 重启后读不到设置就算了，下次打开 App 会再排一次
         }
