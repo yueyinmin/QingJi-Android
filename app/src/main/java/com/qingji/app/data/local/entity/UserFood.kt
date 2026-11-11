@@ -1,6 +1,5 @@
 package com.qingji.app.data.local.entity
 
-import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -31,9 +30,18 @@ data class UserFood(
     val proteinPer100g: Double = 0.0,
     val carbPer100g: Double = 0.0,
     val fatPer100g: Double = 0.0,
-    @ColumnInfo(defaultValue = "0.0") val fiberPer100g: Double = 0.0,
-    @ColumnInfo(defaultValue = "0.0") val sodiumMgPer100g: Double = 0.0,
-    @ColumnInfo(defaultValue = "0.0") val calciumMgPer100g: Double = 0.0,
+    /**
+     * 四列微量营养素：与只读标准库 food_catalog 对齐成「可空」语义。
+     *   NULL = 未收录（界面显示「—」）／0.0 = 确实测得为 0。
+     * 迁移 8 以前这三列是 NOT NULL DEFAULT 0.0，可表单从来没有录入入口，
+     * 于是「不知道」被伪装成「0」，和标准库那半边对不上。
+     * 刻意不写 @ColumnInfo(defaultValue)：标准库的可空列也不写，
+     * 迁移 SQL 同样不写 DEFAULT，Room schema 校验两边天然逐字一致。
+     */
+    val fiberPer100g: Double? = null,
+    val sodiumMgPer100g: Double? = null,
+    val sugarPer100g: Double? = null,
+    val calciumMgPer100g: Double? = null,
     val defaultGrams: Double = 100.0,
     /** user / api / openfoodfacts；不允许写成 preset，preset 只存在于只读标准库 */
     val source: String = "user",
@@ -78,6 +86,7 @@ fun UserFood.toFood(favorite: Boolean = this.favorite): Food =
         fatPer100g = fatPer100g,
         fiberPer100g = fiberPer100g,
         sodiumMgPer100g = sodiumMgPer100g,
+        sugarPer100g = sugarPer100g,
         calciumMgPer100g = calciumMgPer100g,
         defaultGrams = defaultGrams,
         source = source,
@@ -100,11 +109,12 @@ fun Food.toUserFood(): UserFood =
         proteinPer100g = proteinPer100g,
         carbPer100g = carbPer100g,
         fatPer100g = fatPer100g,
-        // 用户库这四列还是非空 0.0（这一版没动用户表结构），标准库里「未收录」的 null
-        // 落到用户库只能变 0；界面上用户食物按「自己录的数据」处理，不标未收录
-        fiberPer100g = fiberPer100g ?: 0.0,
-        sodiumMgPer100g = sodiumMgPer100g ?: 0.0,
-        calciumMgPer100g = calciumMgPer100g ?: 0.0,
+        // 可空语义原样带回用户库：标准库里「未收录」的 null 不再被降级成 0，
+        // 用户自己确实填过的 0.0 也保持 0.0，两者不再混在一起。
+        fiberPer100g = fiberPer100g,
+        sodiumMgPer100g = sodiumMgPer100g,
+        sugarPer100g = sugarPer100g,
+        calciumMgPer100g = calciumMgPer100g,
         defaultGrams = defaultGrams,
         // 标准库那条绝不能写进用户库；万一传进来也归为 user
         source = if (source == "preset") "user" else source,
