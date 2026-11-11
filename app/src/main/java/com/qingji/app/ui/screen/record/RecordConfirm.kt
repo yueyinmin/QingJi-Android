@@ -1,6 +1,8 @@
 package com.qingji.app.ui.screen.record
 
 import com.qingji.app.domain.AppClock
+import com.qingji.app.domain.AiItemSnapshot
+import com.qingji.app.domain.AiSaveGate
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -56,25 +58,27 @@ import kotlin.math.round
  * ============================================================
  */
 
-/** 界面里一行可编辑的食物条目。数字用字符串存，方便直接绑定输入框。 */
+/** 界面里一行可编辑的食物条目。所有数字都用字符串存，方便直接绑定输入框。 */
 data class EditableItem(
     val name: String,
     val grams: String,
     val kcal: String,
-    val proteinG: Double,
-    val carbG: Double,
-    val fatG: Double,
+    val proteinG: String,
+    val carbG: String,
+    val fatG: String,
     val confidence: Double,
     val amountText: String = "",
     /** v3.4.0：AI 最初给的名字，用来和最终保存的名字比对，记下用户的纠错。 */
     val aiName: String = name,
-    // 下面这组是「AI 最初给的那一份」，快捷倍数永远以它为基准，
-    // 避免连点两次 2x 变成 4x。默认值取构造时传进来的当前值。
+    // 下面这组是「当前用户认可的那一份基准」。改克数、点倍数都从它换算，
+    // 两条路径结果只取决于最终克数，与操作先后顺序无关，也不会连点累积。
     val baseGrams: String = grams,
     val baseKcal: String = kcal,
-    val baseProteinG: Double = proteinG,
-    val baseCarbG: Double = carbG,
-    val baseFatG: Double = fatG
+    val baseProteinG: String = proteinG,
+    val baseCarbG: String = carbG,
+    val baseFatG: String = fatG,
+    /** 最近一次点过的快捷倍数，只用于展示语义，不参与计算。 */
+    val multiplier: Double = 1.0
 )
 
 fun oneDecimal(value: Double): String = (round(value * 10) / 10.0).toString()
@@ -85,9 +89,9 @@ fun AiRecognitionResult.toEditableItems(): List<EditableItem> = items.map {
         name = it.name,
         grams = oneDecimal(it.grams),
         kcal = oneDecimal(it.kcal),
-        proteinG = it.proteinG,
-        carbG = it.carbG,
-        fatG = it.fatG,
+        proteinG = oneDecimal(it.proteinG),
+        carbG = oneDecimal(it.carbG),
+        fatG = oneDecimal(it.fatG),
         confidence = it.confidence,
         amountText = it.amountText,
         aiName = it.name
@@ -104,7 +108,11 @@ fun List<EditableItem>.nameCorrections(): List<Pair<String, String>> = mapNotNul
     if (from.isEmpty() || to.isEmpty() || from == to) null else from to to
 }
 
-/** 可编辑列表 → 能写进 food_log 的记录；填得不合法的条目直接跳过。 */
+/**
+ * 可编辑列表 → 能写进 food_log 的记录。
+ * 除了跳过没填好的条目，这里还有**最后一道闸门**：即使界面被绕过，
+ * 自相矛盾的数据也不会落库。正常路径下按钮已禁用，不会静默少存条目。
+ */
 fun List<EditableItem>.toFoodLogs(
     mealType: String,
     source: String,
@@ -113,48 +121,81 @@ fun List<EditableItem>.toFoodLogs(
 ): List<FoodLog> = mapNotNull {
     val g = it.grams.toDoubleOrNull() ?: return@mapNotNull null
     val k = it.kcal.toDoubleOrNull() ?: return@mapNotNull null
+    val p = it.proteinG.toDoubleOrNull() ?: return@mapNotNull null
+    val c = it.carbG.toDoubleOrNull() ?: return@mapNotNull null
+    val f = it.fatG.toDoubleOrNull() ?: return@mapNotNull null
     if (g <= 0 || it.name.isBlank()) return@mapNotNull null
+    val snapshot = AiItemSnapshot(it.name, g, k, p, c, f)
+    if (!AiSaveGate.check(listOf(snapshot)).canSave) return@mapNotNull null
     FoodLog(
         date = date,
         mealType = mealType,
         foodName = it.name.trim(),
         grams = g,
         kcal = k,
-        proteinG = it.proteinG,
-        carbG = it.carbG,
-        fatG = it.fatG,
+        proteinG = p,
+        carbG = c,
+        fatG = f,
         source = source,
         aiConfidence = it.confidence,
         imagePath = imagePath
     )
 }
 
-/** 改克数时同步缩放营养值，返回新条目。 */
-fun EditableItem.withGrams(newGrams: String): EditableItem {
-    val old = grams.toDoubleOrNull() ?: 0.0
-    val new = newGrams.toDoubleOrNull() ?: 0.0
-    val ratio = if (old > 0 && new > 0) new / old else 1.0
+/** 用界面当前数值算一次保存闸门；每次编辑都会重算，不再是识别时的旧快照。 */
+fun List<EditableItem>.verdict(): AiSaveGate.Verdict = AiSaveGate.check(map {
+    AiItemSnapshot(
+        name = it.name,
+        grams = it.grams.toDoubleOrNull(),
+        kcal = it.kcal.toDoubleOrNull(),
+        proteinG = it.proteinG.toDoubleOrNull(),
+        carbG = it.carbG.toDoubleOrNull(),
+        fatG = it.fatG.toDoubleOrNull()
+    )
+})
+
+/**
+ * 用户手动改过某个数值后，把「当前这一份」立为新基准。
+ * 之后点倍数 / 改克数都从这份用户确认过的值换算，不会把手动修正覆盖掉。
+ */
+fun EditableItem.rebase(): EditableItem = copy(
+    baseGrams = grams,
+    baseKcal = kcal,
+    baseProteinG = proteinG,
+    baseCarbG = carbG,
+    baseFatG = fatG,
+    multiplier = 1.0
+)
+
+/**
+ * 唯一的缩放入口：目标克数 / 基准克数 得到比例，五个数值全部一起换算。
+ * 改克数和点倍数都走这里，所以操作顺序不同结果也相同，连点 2x 也不会累积成 4x。
+ */
+private fun EditableItem.fromBase(newGrams: Double, newMultiplier: Double): EditableItem {
+    val base = baseGrams.toDoubleOrNull() ?: 0.0
+    if (base <= 0.0) return this
+    val ratio = newGrams / base
     return copy(
-        grams = newGrams,
-        kcal = oneDecimal((kcal.toDoubleOrNull() ?: 0.0) * ratio),
-        proteinG = proteinG * ratio,
-        carbG = carbG * ratio,
-        fatG = fatG * ratio
+        grams = oneDecimal(newGrams),
+        kcal = oneDecimal((baseKcal.toDoubleOrNull() ?: 0.0) * ratio),
+        proteinG = oneDecimal((baseProteinG.toDoubleOrNull() ?: 0.0) * ratio),
+        carbG = oneDecimal((baseCarbG.toDoubleOrNull() ?: 0.0) * ratio),
+        fatG = oneDecimal((baseFatG.toDoubleOrNull() ?: 0.0) * ratio),
+        multiplier = newMultiplier
     )
 }
 
-/** 快捷倍数：以 AI 最初那一份为基准，整体缩放克数和营养值。 */
-fun EditableItem.withMultiplier(multiplier: Double): EditableItem {
-    val base = baseGrams.toDoubleOrNull() ?: 0.0
-    val baseKcalValue = baseKcal.toDoubleOrNull() ?: 0.0
-    if (base <= 0) return this
-    return copy(
-        grams = oneDecimal(PortionRules.scaled(base, multiplier)),
-        kcal = oneDecimal(PortionRules.scaled(baseKcalValue, multiplier)),
-        proteinG = PortionRules.scaled(baseProteinG, multiplier),
-        carbG = PortionRules.scaled(baseCarbG, multiplier),
-        fatG = PortionRules.scaled(baseFatG, multiplier)
-    )
+/** 手动改克数：四个营养值同步按同一比例变化。 */
+fun EditableItem.withGrams(newGrams: String): EditableItem {
+    val new = newGrams.toDoubleOrNull() ?: return copy(grams = newGrams)
+    return fromBase(new, multiplier)
+}
+
+/** 快捷倍数：始终以基准为起点，不累积、不覆盖用户已确认的修正值。 */
+fun EditableItem.withMultiplier(value: Double): EditableItem {
+    val base = baseGrams.toDoubleOrNull() ?: return this
+    if (base <= 0.0) return this
+    return fromBase(PortionRules.scaled(base, value), value)
 }
 
 /** 结果列表：标题 + 合计 + 每一条可编辑行。 */
@@ -181,12 +222,20 @@ fun EditableFoodList(
     }
     Spacer(Modifier.height(8.dp))
 
+    val verdict = items.verdict()
+
     items.forEachIndexed { index, item ->
         EditableFoodRow(
             item = item,
+            issue = verdict.issues.firstOrNull { it.index == index }?.reason,
             onNameChange = { onUpdate(index, item.copy(name = it)) },
             onGramsChange = { onUpdate(index, item.withGrams(it)) },
-            onKcalChange = { onUpdate(index, item.copy(kcal = it)) },
+            // 手动改任何一个数值都把当前份立为新基准，再触发一次实时校验。
+            // 刻意不自动联动其它数值：改完对不对得上，由红字如实告诉用户。
+            onKcalChange = { onUpdate(index, item.copy(kcal = it).rebase()) },
+            onProteinChange = { onUpdate(index, item.copy(proteinG = it).rebase()) },
+            onCarbChange = { onUpdate(index, item.copy(carbG = it).rebase()) },
+            onFatChange = { onUpdate(index, item.copy(fatG = it).rebase()) },
             onScale = { onScale(index, it) },
             onDelete = { onDelete(index) }
         )
@@ -194,29 +243,42 @@ fun EditableFoodList(
     }
 }
 
-/** 底部保存区。 */
+/**
+ * 底部保存区。三个识别页共用，判断口径只有一份：
+ * 有任意一条数据不自洽就禁用保存，并把原因写在按钮下方。
+ * 用户把数值改到自洽（或删掉那条）后，下一帧自动解禁。
+ */
 @Composable
 fun ConfirmSaveBar(
-    count: Int,
+    items: List<EditableItem>,
     onSave: () -> Unit,
     hint: String = "保存后自动回到首页，数据只存本机"
 ) {
+    val verdict = items.verdict()
     PrimaryButton(
-        text = "全部保存（$count 条）",
-        enabled = count > 0,
+        text = if (verdict.canSave) "全部保存（${items.size} 条）" else "请先核对标红的数据",
+        enabled = items.isNotEmpty() && verdict.canSave,
         onClick = onSave
     )
+    if (!verdict.canSave && items.isNotEmpty()) {
+        Spacer(Modifier.height(6.dp))
+        Text(text = verdict.summary, fontSize = 11.sp, color = DangerRed)
+    }
     Spacer(Modifier.height(8.dp))
     Text(text = hint, fontSize = 11.sp, color = TextSecondary)
 }
 
-/** 一条可编辑结果：名称 + 克数 + 千卡 + 删除。 */
+/** 一条可编辑结果：名称 + 一行状态 + 倍率 + 五项数值。 */
 @Composable
 private fun EditableFoodRow(
     item: EditableItem,
+    issue: String?,
     onNameChange: (String) -> Unit,
     onGramsChange: (String) -> Unit,
     onKcalChange: (String) -> Unit,
+    onProteinChange: (String) -> Unit,
+    onCarbChange: (String) -> Unit,
+    onFatChange: (String) -> Unit,
     onScale: (Double) -> Unit,
     onDelete: () -> Unit
 ) {
@@ -241,13 +303,18 @@ private fun EditableFoodRow(
             )
         }
 
-        if (item.confidence < 0.6) {
+        // 一条只显示一行状态：数据不自洽优先说清原因，否则才提示置信度低。
+        // 以前这里按 confidence 显示一条、顶部 HintBox 再叠两条同样的 ⚠，
+        // 而且改完数据后还是识别时的旧快照；现在每次重组都按当前数值重算。
+        val status = when {
+            issue != null -> "需要核对：$issue"
+            item.confidence < 0.6 ->
+                "AI 把握不大（置信度 ${(item.confidence * 100).toInt()}%），建议核对包装和份量"
+            else -> null
+        }
+        if (status != null) {
             Spacer(Modifier.height(6.dp))
-            Text(
-                text = "AI 把握不大（置信度 ${(item.confidence * 100).toInt()}%），请重点核对",
-                fontSize = 11.sp,
-                color = DangerRed
-            )
+            Text(text = status, fontSize = 11.sp, color = DangerRed)
         }
 
         // 需求 M3.1：一键半份 / 一份 / 一份半 / 双份
@@ -276,27 +343,41 @@ private fun EditableFoodRow(
             SmallField(
                 value = item.grams,
                 onValueChange = onGramsChange,
-                label = "克数 g",
+                label = "实际吃了 g",
                 modifier = Modifier.weight(1f),
                 isNumber = true
             )
             SmallField(
                 value = item.kcal,
                 onValueChange = onKcalChange,
-                label = "千卡",
+                label = "热量 kcal",
                 modifier = Modifier.weight(1f),
                 isNumber = true
             )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(text = "蛋白", fontSize = 11.sp, color = TextSecondary)
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    text = "${oneDecimal(item.proteinG)} g",
-                    fontSize = 14.sp,
-                    color = TextPrimary,
-                    modifier = Modifier.padding(vertical = 12.dp)
-                )
-            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SmallField(
+                value = item.proteinG,
+                onValueChange = onProteinChange,
+                label = "蛋白 g",
+                modifier = Modifier.weight(1f),
+                isNumber = true
+            )
+            SmallField(
+                value = item.carbG,
+                onValueChange = onCarbChange,
+                label = "碳水 g",
+                modifier = Modifier.weight(1f),
+                isNumber = true
+            )
+            SmallField(
+                value = item.fatG,
+                onValueChange = onFatChange,
+                label = "脂肪 g",
+                modifier = Modifier.weight(1f),
+                isNumber = true
+            )
         }
     }
 }

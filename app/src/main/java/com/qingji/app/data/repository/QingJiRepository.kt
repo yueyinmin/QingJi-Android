@@ -496,13 +496,14 @@ class QingJiRepository(private val context: Context) {
      * 三大营养素加起来比食物还重、热量和 4-9-4 反推值差太远，都算对不上。
      *
      * 处理方式刻意**不改数字**：改了用户就看不出来哪条有问题，反而更容易被存下去。
-     * 只做两件事 ——
-     *   ① 把该条置信度压到 [AiResultRules.SUSPECT_CONFIDENCE]，
-     *      确认页本来就会在 confidence < 0.6 时亮红字「请重点核对」；
-     *   ② 把具体哪儿对不上写进 advice，显示在结果上方。
+     * 这里只把该条置信度压到 [AiResultRules.SUSPECT_CONFIDENCE]。
+     *
+     * tabfix（AI 专项）：不再往 advice 里追加第二行「⚠ 请核对后再保存」——
+     * 解析层 AiClient.withSuspectNotes 已经写过一条同款提示，两行叠在顶部
+     * 就是需求里说的「异常提示重复堆叠」。具体哪儿对不上改由确认页的
+     * AiSaveGate 按当前数值实时算、逐条显示在卡片里，用户改完立刻消失。
      */
     private fun auditNutritionConsistency(result: AiRecognitionResult): AiRecognitionResult {
-        val problems = mutableListOf<String>()
         val items = result.items.map { item ->
             val audit = AiResultRules.auditNutrition(
                 grams = item.grams,
@@ -514,17 +515,10 @@ class QingJiRepository(private val context: Context) {
             if (audit.ok) {
                 item
             } else {
-                problems.add("「${item.name}」${audit.note}")
                 item.copy(confidence = minOf(item.confidence, AiResultRules.SUSPECT_CONFIDENCE))
             }
         }
-        if (problems.isEmpty()) return result
-
-        val head = problems.take(2).joinToString("；")
-        val tail = if (problems.size > 2) "（共 ${problems.size} 条）" else ""
-        val line = "⚠ $head$tail，请核对后再保存"
-        val advice = if (result.advice.isBlank()) line else result.advice.trim() + "\n" + line
-        return result.copy(items = items, advice = advice)
+        return result.copy(items = items)
     }
 
     /**
