@@ -314,7 +314,7 @@ fun HomeScreen(
                 if (settings.showAiAnalysis) {
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = "✦ AI 分析",
+                        text = s("✦ AI 分析"),
                         fontSize = 11.sp,
                         color = QingJiGreenDark,
                         modifier = Modifier
@@ -862,7 +862,7 @@ private fun TodaySummaryCard(
         androidx.compose.material3.HorizontalDivider(color = DividerColor)
         Spacer(Modifier.height(14.dp))
 
-        Text(text = "营养素 (g)", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+        Text(text = s("营养素 (g)"), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
         Spacer(Modifier.height(10.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             NutrientColumn(

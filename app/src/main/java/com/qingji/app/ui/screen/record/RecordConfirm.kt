@@ -41,6 +41,7 @@ import com.qingji.app.ui.theme.TextPrimary
 import com.qingji.app.ui.theme.TextSecondary
 import java.time.LocalDate
 import kotlin.math.round
+import com.qingji.app.ui.i18n.s
 
 /**
  * ============================================================
@@ -288,7 +289,7 @@ private fun EditableFoodRow(
                 isNumber = true
             )
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = "蛋白", fontSize = 11.sp, color = TextSecondary)
+                Text(text = s("蛋白"), fontSize = 11.sp, color = TextSecondary)
                 Spacer(Modifier.height(6.dp))
                 Text(
                     text = "${oneDecimal(item.proteinG)} g",
@@ -350,7 +351,7 @@ fun RecordDateRow(date: LocalDate, onClick: () -> Unit) {
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text = "记到哪一天", fontSize = 13.sp, color = TextSecondary)
+        Text(text = s("记到哪一天"), fontSize = 13.sp, color = TextSecondary)
         Spacer(Modifier.weight(1f))
         Text(
             text = "$label ›",
