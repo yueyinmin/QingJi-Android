@@ -799,17 +799,34 @@ class FoodLibraryViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { repo.deleteFood(food.id) }
     }
 
-    /** 把食物加到某一餐（dayOffset：0 今天 / 1 昨天 / 2 前天）。 */
-    fun addToMeal(foodName: String, per100gKcal: Double, grams: Double, mealType: String, dayOffset: Int = 0) {
+    /**
+     * 把食物加到某一餐（dayOffset：0 今天 / 1 昨天 / 2 前天）。
+     * AI 专项修真 Bug：以前只按每 100g 换算了热量，蛋白 / 碳水 / 脂肪
+     * 全部走 FoodLog 默认值 0，导致从食物库页记的一笔在首页、进展页、
+     * 小组件里三大营养素都少算。现在四个数值统一乘 grams/100。
+     */
+    fun addToMeal(
+        foodName: String,
+        per100gKcal: Double,
+        grams: Double,
+        mealType: String,
+        dayOffset: Int = 0,
+        per100gProtein: Double = 0.0,
+        per100gCarb: Double = 0.0,
+        per100gFat: Double = 0.0
+    ) {
         viewModelScope.launch {
-            val kcal = per100gKcal * grams / 100.0
+            val ratio = grams / 100.0
             repo.addFoodLog(
                 com.qingji.app.data.local.entity.FoodLog(
                     date = AppClock.today().minusDays(dayOffset.toLong()),
                     mealType = mealType,
                     foodName = foodName,
                     grams = grams,
-                    kcal = kcal,
+                    kcal = per100gKcal * ratio,
+                    proteinG = per100gProtein * ratio,
+                    carbG = per100gCarb * ratio,
+                    fatG = per100gFat * ratio,
                     source = "manual"
                 )
             )

@@ -149,17 +149,22 @@ fun ProgressScreen(
     }.collectAsState(initial = com.qingji.app.data.prefs.QingJiSettings())
     val unit = settings.unit
 
-    // 按时间范围过滤，再按日期升序（画线要按时间先后）
+    // 按时间范围过滤，再按日期升序（画线要按时间先后）。
+    // AI 专项修 off-by-one：以前 today.minusDays(days) 会把「近一周」算成 8 个自然日
+    // （today-7..today），天数 chips 与真正纳入的记录对不上。改成 days-1 才是 N 天。
     val logs = allLogs
         .filter { log ->
             val days = rangeDays
-            days == null || !log.date.isBefore(AppClock.today().minusDays(days.toLong()))
+            days == null || !log.date.isBefore(AppClock.today().minusDays((days - 1).toLong()))
         }
         .sortedBy { it.date }
 
     val startWeight = profile?.startWeight?.takeIf { it > 0 } ?: 0.0
     val targetWeight = profile?.targetWeight?.takeIf { it > 0 } ?: 0.0
-    val currentWeight = logs.lastOrNull()?.weightKg ?: startWeight
+    // AI 专项：范围内一条记录都没有时，以前拿「起始体重」冒充当前体重，
+    // 身体数据卡显示 80kg、同一屏「最新」却显示 --，自相矛盾。
+    // 改成 0 让卡片也显示 --，BMI / 减脂进度本来就有 > 0 保护。
+    val currentWeight = logs.lastOrNull()?.weightKg ?: 0.0
     val bmi = if (profile != null && currentWeight > 0) {
         NutritionCalculator.bmi(currentWeight, profile!!.heightCm)
     } else 0.0
@@ -209,7 +214,7 @@ fun ProgressScreen(
             categoryColor = categoryColor,
             progress = progress,
             remain = remain,
-            recordCount = allLogs.size,
+            recordCount = logs.size,
             unit = unit,
             onClick = onOpenWeight
         )
@@ -611,8 +616,8 @@ private fun TimeRangeChips(
 
 /**
  * 体重曲线（M4 补齐）：
- * 实线 = 实测体重；紫色斜虚线 = 目标轨迹（起始体重 → 目标体重线性插值）；
- * 浅紫横线 = 目标体重基准；手指点按能看某一天的具体数值。
+ * 实线 = 实测体重；深绿斜虚线 = 目标轨迹（起始体重 → 目标体重线性插值）；
+ * 浅绿横线 = 目标体重基准；手指点按能看某一天的具体数值。
  *
  * 所有坐标换算走 ChartMath（纯 Kotlin、有单元测试），包括「只有 1 条记录」
  * 这种容易崩的边界，界面这里不自己算数。

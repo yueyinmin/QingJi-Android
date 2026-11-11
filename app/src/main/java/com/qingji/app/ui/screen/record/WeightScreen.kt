@@ -95,7 +95,7 @@ fun WeightScreen(
         when {
             weightText.isBlank() -> errorText = "请填一个数字，例如 68.5"
             kg == null -> errorText =
-                "体重看起来不太对（合理范围 20~350 kg，或 40~700 斤），检查一下单位"
+                "体重看起来不太对（合理范围 20~500 kg，或 40~1000 斤），检查一下单位"
             fatText.isNotBlank() && (fatText.toDoubleOrNull() == null || fatText.toDouble() !in 3.0..70.0) ->
                 errorText = "体脂率请填 3~70 之间的数字，不测就留空"
             lastWeightKg != null && kotlin.math.abs(kg - lastWeightKg!!) > 5.0 -> confirmAsked = true

@@ -762,29 +762,11 @@ private fun MacroRatioPage(
 
         Spacer(Modifier.height(Dimens.Gap))
 
-        // v3.5.0：营养素目标细分。食物库暂未收录这三项的具体数值，
-        // 先把目标记下来；详情页有数据显示实际值，没有就显示「暂无数据」。
-        SectionCard {
-            Text(
-                text = "膳食纤维 / 钠 / 钙 每日目标",
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = TextPrimary
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = "默认值是成人参考量。食物库这三项数据还没补全，详情页会先显示「暂无数据」。",
-                fontSize = 11.sp,
-                color = TextSecondary,
-                lineHeight = 16.sp
-            )
-            Spacer(Modifier.height(10.dp))
-            MacroField("膳食纤维", fiber, "g") { fiber = it }
-            Spacer(Modifier.height(10.dp))
-            MacroField("钠", sodium, "mg") { sodium = it }
-            Spacer(Modifier.height(10.dp))
-            MacroField("钙", calcium, "mg") { calcium = it }
-        }
+        // AI 专项：核心营养口径统一为热量 + 三大营养素，
+        // 移除膳食纤维 / 钠 / 钙的每日目标录入入口。
+        // 三个值仍随 onSaveGoals 按默认值写回档案，备份 JSON 也照旧导出，
+        // 数据库字段与旧数据一行都不动（Room 的 defaultValue 与迁移 SQL
+        // 必须逐字一致，动注解会触发清库兜底）。
 
         Spacer(Modifier.height(Dimens.Gap))
 

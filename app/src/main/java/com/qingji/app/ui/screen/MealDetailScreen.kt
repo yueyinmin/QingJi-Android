@@ -378,7 +378,7 @@ fun MealDetailScreen(
     }
 }
 
-/** 顶部汇总：总热量 + 三条营养素 + 纤维/钠/钙细分（v3.5.0）。 */
+/** 顶部汇总：总热量 + 三大营养素（AI 专项后统一为这四项）。 */
 @Composable
 private fun MealSummaryCard(
     state: com.qingji.app.ui.viewmodel.MealDetailState,
@@ -424,48 +424,13 @@ private fun MealSummaryCard(
         Spacer(Modifier.height(8.dp))
         NutrientRow("脂肪", state.fat, state.fat * 9 / total, MacroFat)
 
-        // v3.5.0：膳食纤维 / 钠 / 钙。来源数据暂时没有，全 0 时诚实显示「暂无数据」
-        Spacer(Modifier.height(12.dp))
-        if (state.hasMicronutrient) {
-            MicronutrientRow("膳食纤维", state.fiber, (profile?.fiberGoalG ?: 25).toDouble(), "g")
-            Spacer(Modifier.height(6.dp))
-            MicronutrientRow("钠", state.sodiumMg, (profile?.sodiumGoalMg ?: 2000).toDouble(), "mg")
-            Spacer(Modifier.height(6.dp))
-            MicronutrientRow("钙", state.calciumMg, (profile?.calciumGoalMg ?: 800).toDouble(), "mg")
-        } else {
-            Text(
-                text = "膳食纤维 / 钠 / 钙：暂无数据（食物库还没收录这三项数值，目标可在设置 → 营养素分配里先定）",
-                fontSize = 11.sp,
-                color = TextSecondary,
-                lineHeight = 16.sp
-            )
-        }
+        // AI 专项：核心营养口径统一只保留热量 + 三大营养素。
+        // 这一段原来放膳食纤维 / 钠 / 钙，但全项目没有任何写入这三个值的路径
+        // （标准库四列 654/654 为 NULL、AI 结果也不带），hasMicronutrient 恒为 false，
+        // 于是每次都只是显示一行「暂无数据」。删掉这个死分支，页面更干净。
+        // 数据库字段、备份 JSON 键、解析器全部原样保留，旧数据不受影响。
     }
 }
-
-/** 纤维 / 钠 / 钙一行：摄入 / 目标，不画进度条（多数时候没数据，画条会误导）。 */
-@Composable
-private fun MicronutrientRow(name: String, valueMg: Double, goalMg: Double, unit: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            text = name,
-            fontSize = 12.sp,
-            color = TextSecondary,
-            modifier = Modifier.size(width = 52.dp, height = 16.dp)
-        )
-        Spacer(Modifier.weight(1f))
-        Text(
-            text = "${one(valueMg)} / ${one(goalMg)} $unit",
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Medium,
-            color = TextPrimary
-        )
-    }
-}
-
-private fun one(v: Double): String =
-    if (v == v.toLong().toDouble()) v.toLong().toString()
-    else String.format(java.util.Locale.US, "%.1f", v)
 
 @Composable
 private fun NutrientRow(name: String, grams: Double, ratio: Double, color: Color) {
