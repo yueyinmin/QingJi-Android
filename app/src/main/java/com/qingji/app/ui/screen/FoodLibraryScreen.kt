@@ -118,10 +118,18 @@ fun FoodLibraryScreen(
         q.isBlank() || name.contains(q, ignoreCase = true)
     }
     // v3.4.0 F8：食物库条目额外支持拼音首字母（sp → 薯片）。
+    // v1.0.6：补上全拼和别名——原来只认「名字包含 + 首字母前缀」，
+    // 所以搜 mifan 搜不到米饭、搜别名也搜不到，跟「搜索支持中文/别名/首字母/全拼」
+    // 的说明对不上（文字识别那个搜索页是四种都支持的，两个入口行为不一致最坑人）。
     // 「吃过的」是聚合数据、没有 pinyin 字段，那里仍按名字匹配。
     val matchesFood: (com.qingji.app.data.local.entity.Food) -> Boolean = { food ->
         val q = query.trim()
-        matches(food.name) || (q.isNotEmpty() && food.pinyin.startsWith(q, ignoreCase = true))
+        matches(food.name) ||
+            (q.isNotEmpty() && (
+                food.pinyin.startsWith(q, ignoreCase = true) ||
+                    food.pinyinFull.startsWith(q, ignoreCase = true) ||
+                    food.aliases.split("|").any { it.isNotBlank() && it.contains(q, ignoreCase = true) }
+                ))
     }
 
     Box(

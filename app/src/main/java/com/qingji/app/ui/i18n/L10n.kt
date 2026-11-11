@@ -132,7 +132,10 @@ private val EN: Map<String, String> = mapOf(
     "底部导航" to "Bottom tabs",
     "AI 服务配置" to "AI service",
     "数据备份与导出" to "Backup & export",
-    "清除本地数据" to "Clear local data",
+    // v1.0.6：清除数据拆成两档，菜单词条跟着改
+    "清除记录" to "Clear records",
+    "恢复出厂设置" to "Factory reset",
+    "清除全部记录" to "Clear all records",
     "关于轻记" to "About",
 
     // ---------- AI 语言 / 界面语言 选项 ----------

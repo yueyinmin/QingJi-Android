@@ -46,6 +46,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -96,6 +97,12 @@ fun ProgressScreen(
     onOpenImage: () -> Unit = {},
     /** v3.2.4：悬浮栏第二颗换成食物库 */
     onOpenFoodLibrary: () -> Unit = {},
+    /**
+     * v1.0.6：「本周运动消耗」右上角「+ 记一次」改为跳运动二级页。
+     * 旧的做法是在这里弹只填分钟的小面板，那样记不了步数 / 公里，
+     * 两条路记出来的数据不一样，用户会以为步数白填了。
+     */
+    onOpenExercise: () -> Unit = {},
     modifier: Modifier = Modifier,
     vm: ProgressViewModel = viewModel()
 ) {
@@ -111,7 +118,6 @@ fun ProgressScreen(
     val photos by vm.photos.collectAsState()
 
     var showBodyMeasure by remember { mutableStateOf(false) }
-    var showExercise by remember { mutableStateOf(false) }
     // v3.4.0：进度照片「查看全部 / 前后对比」全屏图库
     var showPhotoGallery by remember { mutableStateOf(false) }
 
@@ -255,7 +261,7 @@ fun ProgressScreen(
         AppearItem(index = 2) {
             ExerciseWeekCard(
                 list = exerciseWeek,
-                onAdd = { showExercise = true },
+                onAdd = onOpenExercise,
                 onDelete = vm::deleteExercise
             )
         }
@@ -306,19 +312,6 @@ fun ProgressScreen(
                 showBodyMeasure = false
                 vm.saveBodyMeasure(it)
             }
-        )
-    }
-
-    if (showExercise) {
-        ExerciseDialog(
-            presets = vm.exercisePresets.collectAsState().value,
-            weightKg = profile?.startWeight ?: 70.0,
-            onDismiss = { showExercise = false },
-            onConfirm = {
-                showExercise = false
-                vm.addExercise(it)
-            },
-            onToggleFavorite = { id, fav -> vm.toggleExerciseFavorite(id, fav) }
         )
     }
 
@@ -1093,12 +1086,25 @@ private fun ExerciseWeekCard(
                 ) {
                     Text(text = "🏃", fontSize = 14.sp)
                     Spacer(Modifier.size(8.dp))
-                    Text(
-                        text = "${log.date.monthValue}/${log.date.dayOfMonth} ${log.type} ${log.minutes} 分钟",
-                        fontSize = 12.sp,
-                        color = TextPrimary,
-                        modifier = Modifier.weight(1f)
-                    )
+                    // v1.0.6：原来一行塞「日期 类型 N 分钟」，再想显示步数就放不下了。
+                    // 改成两行：第一行日期 + 类型，第二行明细（分钟一定有，步数/公里
+                    // 只在用户确实按那个方式记过时才出现，都记为 0 时不显示假数据）。
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "${log.date.monthValue}/${log.date.dayOfMonth} ${log.type}",
+                            fontSize = 12.sp,
+                            color = TextPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = exerciseDetail(log),
+                            fontSize = 11.sp,
+                            color = TextSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                     Text(text = "${log.kcal.toInt()} 千卡", fontSize = 12.sp, color = QingJiGreenDark)
                     Spacer(Modifier.size(6.dp))
                     Text(
@@ -1111,6 +1117,27 @@ private fun ExerciseWeekCard(
             }
         }
     }
+}
+
+/**
+ * 运动记录的第二行明细（v1.0.6）。
+ *
+ * 分钟一定有（任何方式记录都会换算出分钟）；步数和公里只在用户
+ * 确实按那个方式填过时才显示 —— 存的是 0 表示「当时没按这个方式记」，
+ * 不是「走了 0 步」，所以不能显示成「0 步」。
+ */
+private fun exerciseDetail(log: com.qingji.app.data.local.entity.ExerciseLog): String {
+    val parts = mutableListOf("${log.minutes} 分钟")
+    if (log.steps > 0) parts.add("${log.steps} 步")
+    if (log.distanceKm > 0) parts.add(kmText(log.distanceKm))
+    return parts.joinToString(" · ")
+}
+
+/** 公里数去掉多余的 .0：1.0 → 「1 公里」，5.5 → 「5.5 公里」。 */
+private fun kmText(km: Double): String {
+    val raw = String.format(java.util.Locale.US, "%.1f", km)
+    val trimmed = if (raw.endsWith(".0")) raw.dropLast(2) else raw
+    return "$trimmed 公里"
 }
 
 /** 身体维度：最新一次量的五个围度。 */
@@ -1352,116 +1379,6 @@ private fun MeasureField(label: String, value: String, onChange: (String) -> Uni
             ),
             modifier = Modifier.width(110.dp)
         )
-    }
-}
-
-/** 运动录入弹窗。消耗可以自动按类型估，也能手改。 */
-@Composable
-private fun ExerciseDialog(
-    presets: List<com.qingji.app.data.local.entity.ExercisePreset>,
-    weightKg: Double,
-    onDismiss: () -> Unit,
-    onConfirm: (com.qingji.app.data.local.entity.ExerciseLog) -> Unit,
-    onToggleFavorite: (Long, Boolean) -> Unit
-) {
-    var keyword by remember { mutableStateOf("") }
-    var tab by remember { mutableStateOf(0) }   // 0 常用（按MET降序）/ 1 收藏 / 2 全部
-    var picked by remember { mutableStateOf<com.qingji.app.data.local.entity.ExercisePreset?>(null) }
-    var minutes by remember { mutableStateOf("30") }
-
-    // 选中运动后进入「填时长」视图
-    if (picked != null) {
-        val item = picked!!
-        val met = item.met
-        val min = minutes.toIntOrNull()?.coerceIn(1, 600) ?: 30
-        val kcal = met * weightKg * (min / 60.0)
-        com.qingji.app.ui.components.AppBottomSheet(
-            title = item.name,
-            subtitle = "MET ${item.met} · 消耗按 MET × 体重 × 时长 自动估算",
-            confirmText = "记 ${min} 分钟（${kcal.toInt()} 千卡）",
-            onConfirm = {
-                onConfirm(
-                    com.qingji.app.data.local.entity.ExerciseLog(
-                        date = AppClock.today(),
-                        type = item.name,
-                        minutes = min,
-                        kcal = kcal
-                    )
-                )
-            },
-            onDismiss = { picked = null }
-        ) {
-            com.qingji.app.ui.components.LabeledTextField(
-                label = "运动时长（分钟）",
-                value = minutes,
-                onValueChange = { minutes = it },
-                hint = "30",
-                numberOnly = true
-            )
-        }
-        return
-    }
-
-    com.qingji.app.ui.components.AppBottomSheet(
-        title = "选择运动",
-        subtitle = "消耗会按 MET × 你的体重 × 时长 自动算好",
-        onDismiss = onDismiss
-    ) {
-        OutlinedTextField(
-            value = keyword,
-            onValueChange = { keyword = it },
-            singleLine = true,
-            placeholder = { Text("搜索运动", fontSize = 13.sp, color = TextSecondary) },
-            modifier = Modifier.fillMaxWidth()
-        )
-        Spacer(Modifier.height(12.dp))
-        val filtered = presets.filter { item ->
-            val matchTab = when (tab) {
-                1 -> item.favorite
-                else -> true
-            }
-            matchTab && (keyword.isBlank() || item.name.contains(keyword.trim()))
-        }
-        Column(
-            modifier = Modifier
-                .height(360.dp)
-                .verticalScroll(rememberScrollState())
-        ) {
-            if (filtered.isEmpty()) {
-                Text(text = "没有匹配的运动", fontSize = 13.sp, color = TextSecondary)
-            } else {
-                filtered.forEach { item ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(Dimens.TinyCorner))
-                            .clickable { picked = item }
-                            .padding(vertical = 8.dp, horizontal = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(text = "🏃", fontSize = 17.sp)
-                        Spacer(Modifier.width(10.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(text = item.name, fontSize = 14.sp, color = TextPrimary)
-                            Text(
-                                text = "${item.category} · MET ${item.met}",
-                                fontSize = 11.sp,
-                                color = TextSecondary
-                            )
-                        }
-                        Text(
-                            text = if (item.favorite) "♥" else "♡",
-                            fontSize = 16.sp,
-                            color = if (item.favorite) QingJiGreen else TextSecondary,
-                            modifier = Modifier.clickable {
-                                onToggleFavorite(item.id, !item.favorite)
-                            }
-                        )
-                    }
-                    Spacer(Modifier.height(4.dp))
-                }
-            }
-        }
     }
 }
 

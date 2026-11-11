@@ -16,8 +16,17 @@ package com.qingji.app.domain
  */
 object BackupFormat {
 
-    /** 备份文件版本号。以后加字段时加 1，导入端就能判断老新。 */
-    const val VERSION = 1
+    /**
+     * 备份文件版本号。
+     *
+     * 1 = v1.0.5 及以前（只有档案/体重/自建食物/饮食/饮水/日记/统计/AI配置）
+     * 2 = v1.0.6 起，多五段：围度 bodyMeasures、照片 photos、运动 exercises、
+     *     断食 fastings、自建运动 exercisePresets
+     *
+     * 导入端**不按版本号分支**：新段缺失就当空列表，所以 v2 能直接读 v1 的备份，
+     * 反过来 v1 读 v2 也只是丢掉多出来的五段（不会报错）。
+     */
+    const val VERSION = 2
 
     /** CSV 表头，顺序不能乱，Excel 里看到的列顺序就是它。 */
     val CSV_HEADER = listOf(

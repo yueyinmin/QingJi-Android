@@ -86,22 +86,24 @@ data class Food(
     val proteinPer100g: Double = 0.0,
     val carbPer100g: Double = 0.0,
     val fatPer100g: Double = 0.0,
-    // 这四列目前是 0：清单里没有数据，含义是「暂无数据」，不是「含量为 0」
-    val fiberPer100g: Double = 0.0,
-    val sodiumMgPer100g: Double = 0.0,
-    val calciumMgPer100g: Double = 0.0,
-    val sugarPer100g: Double = 0.0,
+    /**
+     * 纤维 / 钠 / 钙 / 糖：null = 未收录，0.0 = 确实测得为 0。
+     * v1.0.6 之前这四列是非空 0.0，靠注释说「0 表示暂无数据」，
+     * 结果界面分不出「不含」和「不知道」，只能一律当真值渲染。
+     */
+    val fiberPer100g: Double? = null,
+    val sodiumMgPer100g: Double? = null,
+    val calciumMgPer100g: Double? = null,
+    val sugarPer100g: Double? = null,
     val defaultGrams: Double = 100.0,    // 默认一份是多少克
     val source: String = "preset",       // preset / user / api / openfoodfacts
     /** 食物库左侧导航的分类：主食 / 面食 / 家常菜 / 肉类 … */
     val category: String = "其他",
     val subcategory: String = "",
-    /** 生熟状态：raw / cooked / steamed / boiled / fried / dried / processed / unknown */
-    val state: String = "unknown",
     val portionNote: String = "",
     val sourceId: String = "",           // 标准库数据来源编号，可追溯
-    val auditStatus: Int = 0,            // 0 未审核 / 1 已审核
-    val catalogVersion: String = "0.2",
+    val auditStatus: Int = 0,            // 见 AuditStatus：0 未审 / 1 已核对 / 2 有出处
+    val catalogVersion: String = "0.3",
     /** 外卖品牌（肯德基、麦当劳…）。有值时归到「外卖快餐」而不是「家庭厨房」 */
     val brand: String = "",
     /** 收藏：心形按钮 */
@@ -224,6 +226,13 @@ data class ProgressPhoto(
 /**
  * 表 11：运动记录。
  * 只记「什么运动、多久、消耗多少千卡」，不接可穿戴设备。
+ *
+ * v1.0.6：补了 steps / distanceKm 两列。
+ * 以前确认页让用户按「步数」或「公里」输入，换算成分钟算完热量之后
+ * 就把原始数字丢了，历史里只剩「40 分钟」，用户想看「上周走了多少步」
+ * 根本查不到 —— 输入了却不存，是最差的一种体验。现在按哪种方式记的，
+ * 就把那个数字原样留下来；其它方式记的保持默认 0。
+ * 两列的 DEFAULT 必须与迁移 SQL 逐字一致（0 / 0.0）。
  */
 @Entity(tableName = "exercise_log", indices = [Index("date")])
 data class ExerciseLog(
@@ -232,6 +241,10 @@ data class ExerciseLog(
     val type: String,                 // 走路 / 跑步 / 骑行 / 力量 / 游泳 / 其他
     val minutes: Int,
     val kcal: Double,
+    /** 用户按「步数」记录时填的步数；其它方式记为 0 */
+    @ColumnInfo(defaultValue = "0") val steps: Int = 0,
+    /** 用户按「公里」记录时填的公里数；其它方式记为 0.0 */
+    @ColumnInfo(defaultValue = "0.0") val distanceKm: Double = 0.0,
     val createdAt: Long = System.currentTimeMillis()
 )
 

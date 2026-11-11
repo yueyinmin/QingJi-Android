@@ -299,6 +299,10 @@ interface BodyMeasureDao {
 
     @Query("SELECT * FROM body_measure ORDER BY date ASC")
     suspend fun findAll(): List<BodyMeasure>
+
+    /** v1.0.6：「清除记录」要连围度一起清，以前这张表没有清空入口，漏掉了。 */
+    @Query("DELETE FROM body_measure")
+    suspend fun clearAll()
 }
 
 /** 进度照片。一天可以放多张，按时间倒序展示。 */
@@ -341,6 +345,10 @@ interface ExerciseLogDao {
     /** v3.3.0：「最近」页签按写入时间倒序取最近记录过的运动。 */
     @Query("SELECT * FROM exercise_log ORDER BY createdAt DESC LIMIT :limit")
     fun observeRecent(limit: Int): Flow<List<ExerciseLog>>
+
+    /** v1.0.6：清除记录 / 恢复出厂要能整表清空。 */
+    @Query("DELETE FROM exercise_log")
+    suspend fun clearAll()
 }
 
 /** 断食记录：一天一条，按日期主键覆盖。 */
@@ -357,6 +365,10 @@ interface FastingLogDao {
 
     @Query("SELECT * FROM fasting_log ORDER BY date DESC")
     suspend fun findAll(): List<FastingLog>
+
+    /** v1.0.6：清除记录 / 恢复出厂要能整表清空。 */
+    @Query("DELETE FROM fasting_log")
+    suspend fun clearAll()
 }
 
 /** 运动库 DAO。 */
@@ -377,4 +389,15 @@ interface ExercisePresetDao {
     /** v3.3.0：右上角「新建」插入一条自定义运动。 */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOne(item: ExercisePreset): Long
+
+    /** v1.0.6：恢复出厂时整表清空（清完立刻用 SeedData 重灌预置运动）。 */
+    @Query("DELETE FROM exercise_preset")
+    suspend fun clearAll()
+
+    /**
+     * v1.0.6：只删用户自建的运动（category = 「自定义」），预置的留着。
+     * 导入备份时用它 —— 备份里带的是自建运动，预置那 30 条随 APK 走，不该被清。
+     */
+    @Query("DELETE FROM exercise_preset WHERE category = :category")
+    suspend fun deleteByCategory(category: String)
 }

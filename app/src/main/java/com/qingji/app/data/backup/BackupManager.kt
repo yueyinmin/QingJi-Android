@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.core.content.FileProvider
+import androidx.room.withTransaction
 import com.qingji.app.data.local.AppDatabase
 import com.qingji.app.data.local.entity.AiConfig
 import com.qingji.app.data.local.entity.Diary
@@ -16,6 +17,7 @@ import com.qingji.app.data.local.entity.WeightLog
 import com.qingji.app.domain.AppClock
 import com.qingji.app.domain.BackupFormat
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -135,6 +137,15 @@ class BackupManager(private val context: Context) {
         val diaries = db.diaryDao().findAll()
         val usage = db.usageStatDao().findAll()
         val ai = db.aiConfigDao().get()
+        // v1.0.6：下面这五类以前完全没进备份，换手机就静默丢了（界面上还写着「全量」）
+        val bodyMeasures = db.bodyMeasureDao().findAll()
+        val photos = db.progressPhotoDao().findAll()
+        val exercises = db.exerciseLogDao().findAll()
+        val fastings = db.fastingLogDao().findAll()
+        // 只导用户自己新建的运动：预置那 30 条是 App 自带的，
+        // 导回去反而会和下次启动重灌的预置打架（同名的会变成两条）
+        val customPresets = db.exercisePresetDao().observeAll().first()
+            .filter { it.category == com.qingji.app.domain.ExerciseCalculator.CUSTOM_CATEGORY }
 
         val sb = StringBuilder(1024)
         sb.append("{\n")
@@ -161,6 +172,10 @@ class BackupManager(private val context: Context) {
                 put("carbGoalG", profile.carbGoalG)
                 put("fatGoalG", profile.fatGoalG)
                 put("waterGoalMl", profile.waterGoalMl)
+                // v1.0.6：这三项以前漏了，恢复完用户设过的营养目标会变回默认
+                put("fiberGoalG", profile.fiberGoalG)
+                put("sodiumGoalMg", profile.sodiumGoalMg)
+                put("calciumGoalMg", profile.calciumGoalMg)
                 put("unit", profile.unit)
                 put("createdAt", profile.createdAt)
             }.toString()
@@ -219,8 +234,13 @@ class BackupManager(private val context: Context) {
                         put("proteinG", l.proteinG)
                         put("carbG", l.carbG)
                         put("fatG", l.fatG)
+                        // v1.0.6：这三项 + 图片路径以前漏了，恢复完纤维/钠/钙全变 0
+                        put("fiberG", l.fiberG)
+                        put("sodiumMg", l.sodiumMg)
+                        put("calciumMg", l.calciumMg)
                         put("source", l.source)
                         put("aiConfidence", l.aiConfidence ?: JSONObject.NULL)
+                        put("imagePath", l.imagePath ?: JSONObject.NULL)
                         put("createdAt", l.createdAt)
                     })
                 }
@@ -278,6 +298,83 @@ class BackupManager(private val context: Context) {
                 put("dailyLimit", ai.dailyLimit)
                 put("enabled", ai.enabled)
             }.toString()
+        ).append(",\n")
+
+        // ---------- v2 新增的五段 ----------
+
+        sb.append("  \"bodyMeasures\": ").append(
+            JSONArray().apply {
+                bodyMeasures.forEach { b ->
+                    put(JSONObject().apply {
+                        put("date", b.date.toString())
+                        put("waistCm", b.waistCm ?: JSONObject.NULL)
+                        put("chestCm", b.chestCm ?: JSONObject.NULL)
+                        put("hipCm", b.hipCm ?: JSONObject.NULL)
+                        put("thighCm", b.thighCm ?: JSONObject.NULL)
+                        put("armCm", b.armCm ?: JSONObject.NULL)
+                        put("note", b.note)
+                        put("createdAt", b.createdAt)
+                    })
+                }
+            }.toString()
+        ).append(",\n")
+
+        // 照片只带路径：文件本身在 App 私有目录里，备份文件没法把 jpg 一起塞进来
+        sb.append("  \"photos\": ").append(
+            JSONArray().apply {
+                photos.forEach { p ->
+                    put(JSONObject().apply {
+                        put("date", p.date.toString())
+                        put("path", p.path)
+                        put("note", p.note)
+                        put("createdAt", p.createdAt)
+                    })
+                }
+            }.toString()
+        ).append(",\n")
+
+        sb.append("  \"exercises\": ").append(
+            JSONArray().apply {
+                exercises.forEach { e ->
+                    put(JSONObject().apply {
+                        put("date", e.date.toString())
+                        put("type", e.type)
+                        put("minutes", e.minutes)
+                        put("kcal", e.kcal)
+                        put("steps", e.steps)
+                        put("distanceKm", e.distanceKm)
+                        put("createdAt", e.createdAt)
+                    })
+                }
+            }.toString()
+        ).append(",\n")
+
+        sb.append("  \"fastings\": ").append(
+            JSONArray().apply {
+                fastings.forEach { f ->
+                    put(JSONObject().apply {
+                        put("date", f.date.toString())
+                        put("planHours", f.planHours)
+                        put("eatStartMinute", f.eatStartMinute)
+                        put("eatEndMinute", f.eatEndMinute)
+                        put("completed", f.completed)
+                        put("createdAt", f.createdAt)
+                    })
+                }
+            }.toString()
+        ).append(",\n")
+
+        sb.append("  \"exercisePresets\": ").append(
+            JSONArray().apply {
+                customPresets.forEach { p ->
+                    put(JSONObject().apply {
+                        put("name", p.name)
+                        put("met", p.met)
+                        put("category", p.category)
+                        put("favorite", p.favorite)
+                    })
+                }
+            }.toString()
         ).append("\n")
 
         sb.append("}\n")
@@ -298,217 +395,97 @@ class BackupManager(private val context: Context) {
                 it.readBytes().toString(Charsets.UTF_8)
             } ?: return@withContext Result.failure(IllegalStateException("打不开这个文件"))
 
-            val root = JSONObject(text)
-            if (root.optString("app") != "qingji") {
-                return@withContext Result.failure(
-                    IllegalStateException("这不是轻记的备份文件（缺少 app 标记）")
-                )
+            // ---------- 第一步：整份解析（完全不碰数据库） ----------
+            // 这一步失败就原样返回，用户数据库一个字节都没动。
+            // 旧版是把「清表」摆在最前面，解析到一半出错就变成
+            // 「老数据没了、新数据只进一半」，找都找不回来。
+            val parsed = parseBackup(text).getOrElse {
+                return@withContext Result.failure(it)
             }
 
-            var foodCount = 0
-            var weightCount = 0
-            var waterCount = 0
-            var diaryCount = 0
+            // ---------- 第二步：解析全部成功，才开事务落库 ----------
+            db.withTransaction {
+                // 清「记录类」+ 用户自建食物/收藏。
+                // 预置运动库不动 —— 它是 App 自带的，不是用户数据。
+                db.foodLogDao().clearAll()
+                db.weightLogDao().clearAll()
+                db.waterLogDao().clearAll()
+                db.diaryDao().clearAll()
+                db.usageStatDao().clearAll()
+                db.userFoodDao().clearAll()
+                db.foodFavoriteDao().clearAll()
+                db.bodyMeasureDao().clearAll()
+                db.progressPhotoDao().clearAll()
+                db.exerciseLogDao().clearAll()
+                db.fastingLogDao().clearAll()
+                // 只清用户自建的运动，预置的 30 条留着
+                db.exercisePresetDao()
+                    .deleteByCategory(com.qingji.app.domain.ExerciseCalculator.CUSTOM_CATEGORY)
 
-            // 先清空，再灌入：这样不会出现「导入两次变成两份」的脏数据
-            db.foodLogDao().clearAll()
-            db.weightLogDao().clearAll()
-            db.waterLogDao().clearAll()
-            db.diaryDao().clearAll()
-            db.usageStatDao().clearAll()
-            db.userFoodDao().clearAll()
-            db.foodFavoriteDao().clearAll()
-
-            root.optJSONObject("profile")?.let { p ->
-                db.userProfileDao().save(
-                    UserProfile(
-                        gender = p.optString("gender", "male"),
-                        birthday = p.optString("birthday", "").let {
-                            if (it.isBlank() || it == "null") null else LocalDate.parse(it)
-                        },
-                        heightCm = p.optDouble("heightCm", 175.0),
-                        startWeight = p.optDouble("startWeight", 0.0),
-                        targetWeight = p.optDouble("targetWeight", 0.0),
-                        activityLevel = p.optInt("activityLevel", 2),
-                        dailyKcalGoal = p.optInt("dailyKcalGoal", 0),
-                        proteinGoalG = p.optInt("proteinGoalG", 0),
-                        carbGoalG = p.optInt("carbGoalG", 0),
-                        fatGoalG = p.optInt("fatGoalG", 0),
-                        waterGoalMl = p.optInt("waterGoalMl", 2000),
-                        unit = p.optString("unit", "kg"),
-                        createdAt = p.optLong("createdAt", System.currentTimeMillis())
-                    )
-                )
+                applyParsed(parsed)
             }
 
-            root.optJSONArray("foods")?.let { arr ->
-                val items = mutableListOf<UserFood>()
-                for (i in 0 until arr.length()) {
-                    val o = arr.optJSONObject(i) ?: continue
-                    val name = o.optString("name", "").trim()
-                    if (name.isEmpty()) continue
-                    items.add(
-                        UserFood(
-                            name = name,
-                            pinyin = o.optString("pinyin", ""),
-                            barcode = o.optString("barcode", "").takeIf { it.isNotBlank() && it != "null" },
-                            kcalPer100g = o.optDouble("kcalPer100g", 0.0),
-                            proteinPer100g = o.optDouble("proteinPer100g", 0.0),
-                            carbPer100g = o.optDouble("carbPer100g", 0.0),
-                            fatPer100g = o.optDouble("fatPer100g", 0.0),
-                            defaultGrams = o.optDouble("defaultGrams", 100.0),
-                            // 老备份里可能混着预置食物；拆库后一律归为用户数据，不冒充标准库
-                            source = o.optString("source", "user").let { if (it == "preset") "user" else it },
-                            category = o.optString("category", "其他"),
-                            brand = o.optString("brand", ""),
-                            favorite = o.optBoolean("favorite", false),
-                            createdAt = o.optLong("createdAt", System.currentTimeMillis())
-                        )
-                    )
-                }
-                if (items.isNotEmpty()) db.userFoodDao().insertAll(items)
-                foodCount = items.size
-            }
-
-            // 老备份没有这一段，缺了就跳过，收藏按「用户食物里 favorite=1」兜底
-            root.optJSONArray("foodFavorites")?.let { arr ->
-                for (i in 0 until arr.length()) {
-                    val name = arr.optString(i, "").trim()
-                    if (name.isNotEmpty()) {
-                        db.foodFavoriteDao().add(
-                            com.qingji.app.data.local.entity.FoodFavorite(name)
-                        )
-                    }
-                }
-            } ?: run {
-                db.userFoodDao().findAll()
-                    .filter { it.favorite }
-                    .forEach {
-                        db.foodFavoriteDao().add(
-                            com.qingji.app.data.local.entity.FoodFavorite(it.name)
-                        )
-                    }
-            }
-
-            root.optJSONArray("foodLogs")?.let { arr ->
-                val items = mutableListOf<FoodLog>()
-                for (i in 0 until arr.length()) {
-                    val o = arr.optJSONObject(i) ?: continue
-                    val date = parseDate(o.optString("date", "")) ?: continue
-                    val name = o.optString("foodName", "").trim()
-                    if (name.isEmpty()) continue
-                    items.add(
-                        FoodLog(
-                            date = date,
-                            mealType = o.optString("mealType", "snack"),
-                            foodName = name,
-                            grams = o.optDouble("grams", 0.0),
-                            kcal = o.optDouble("kcal", 0.0),
-                            proteinG = o.optDouble("proteinG", 0.0),
-                            carbG = o.optDouble("carbG", 0.0),
-                            fatG = o.optDouble("fatG", 0.0),
-                            source = o.optString("source", "manual"),
-                            aiConfidence = o.optDouble("aiConfidence", Double.NaN)
-                                .takeIf { !it.isNaN() },
-                            createdAt = o.optLong("createdAt", System.currentTimeMillis())
-                        )
-                    )
-                }
-                if (items.isNotEmpty()) db.foodLogDao().insertAll(items)
-            }
-
-            root.optJSONArray("weights")?.let { arr ->
-                for (i in 0 until arr.length()) {
-                    val o = arr.optJSONObject(i) ?: continue
-                    val date = parseDate(o.optString("date", "")) ?: continue
-                    db.weightLogDao().save(
-                        WeightLog(
-                            date = date,
-                            weightKg = o.optDouble("weightKg", 0.0),
-                            bodyFat = o.optDouble("bodyFat", Double.NaN).takeIf { !it.isNaN() },
-                            note = o.optString("note", "").takeIf { it.isNotBlank() && it != "null" },
-                            createdAt = o.optLong("createdAt", System.currentTimeMillis())
-                        )
-                    )
-                    weightCount++
-                }
-            }
-
-            root.optJSONArray("water")?.let { arr ->
-                for (i in 0 until arr.length()) {
-                    val o = arr.optJSONObject(i) ?: continue
-                    val date = parseDate(o.optString("date", "")) ?: continue
-                    db.waterLogDao().insert(
-                        WaterLog(
-                            date = date,
-                            ml = o.optInt("ml", 0),
-                            createdAt = o.optLong("createdAt", System.currentTimeMillis())
-                        )
-                    )
-                    waterCount++
-                }
-            }
-
-            root.optJSONArray("diaries")?.let { arr ->
-                for (i in 0 until arr.length()) {
-                    val o = arr.optJSONObject(i) ?: continue
-                    val date = parseDate(o.optString("date", "")) ?: continue
-                    db.diaryDao().save(
-                        Diary(
-                            date = date,
-                            rating = o.optInt("rating", 0),
-                            content = o.optString("content", ""),
-                            imagePaths = o.optString("imagePaths", ""),
-                            weightKg = o.optDouble("weightKg", Double.NaN).takeIf { !it.isNaN() },
-                            updatedAt = o.optLong("updatedAt", System.currentTimeMillis())
-                        )
-                    )
-                    diaryCount++
-                }
-            }
-
-            root.optJSONArray("usage")?.let { arr ->
-                for (i in 0 until arr.length()) {
-                    val o = arr.optJSONObject(i) ?: continue
-                    val date = parseDate(o.optString("date", "")) ?: continue
-                    db.usageStatDao().insertIfAbsent(
-                        UsageStat(date = date, type = o.optString("type", "food"), count = o.optInt("count", 0))
-                    )
-                }
-            }
-
-            root.optJSONObject("aiConfig")?.let { o ->
-                db.aiConfigDao().save(
-                    AiConfig(
-                        provider = o.optString("provider", "custom"),
-                        baseUrl = o.optString("baseUrl", ""),
-                        textModel = o.optString("textModel", ""),
-                        visionModel = o.optString("visionModel", ""),
-                        temperature = o.optDouble("temperature", 0.2),
-                        timeoutSec = o.optInt("timeoutSec", 30),
-                        dailyLimit = o.optInt("dailyLimit", 100),
-                        enabled = o.optBoolean("enabled", false)
-                    )
-                )
-            }
-
-            // v1.0.4：标准食物库随 APK 预置在只读数据库里，
-            // 恢复备份时不再需要（也不能）往用户库里灌预置食物。
-
-            Result.success(
-                "导入完成：饮食 $foodCount 种食物、体重 $weightCount 条、" +
-                    "饮水 $waterCount 条、日记 $diaryCount 篇。AI Key 不随备份走，需要重新填一次。"
-            )
+            Result.success(summaryText(parsed))
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    private fun parseDate(text: String): LocalDate? = try {
-        LocalDate.parse(text)
-    } catch (e: Exception) {
-        null
+    /**
+     * 把解析好的数据灌进库。**必须**在调用方的事务里执行：
+     * 中途任何一条写失败，整个事务回滚，数据库回到导入前。
+     */
+    private suspend fun applyParsed(p: ParsedBackup) {
+        p.profile?.let { db.userProfileDao().save(it) }
+
+        if (p.foods.isNotEmpty()) db.userFoodDao().insertAll(p.foods)
+
+        // 收藏按名字存（标准库只读，收藏只能记在用户库里）
+        if (p.favorites.isNotEmpty()) {
+            p.favorites.forEach { name ->
+                db.foodFavoriteDao().add(com.qingji.app.data.local.entity.FoodFavorite(name))
+            }
+        } else if (p.version < 2) {
+            // v1 的老备份没有 foodFavorites 段，用「用户食物里 favorite=1」兜底
+            p.foods.filter { it.favorite }.forEach {
+                db.foodFavoriteDao().add(com.qingji.app.data.local.entity.FoodFavorite(it.name))
+            }
+        }
+
+        if (p.foodLogs.isNotEmpty()) db.foodLogDao().insertAll(p.foodLogs)
+        p.weights.forEach { db.weightLogDao().save(it) }
+        p.waters.forEach { db.waterLogDao().insert(it) }
+        p.diaries.forEach { db.diaryDao().save(it) }
+        p.usage.forEach { db.usageStatDao().insertIfAbsent(it) }
+
+        // v2 的五段：老备份里没有，列表是空的，这里自然什么都不做
+        p.bodyMeasures.forEach { db.bodyMeasureDao().save(it) }
+        p.photos.forEach { db.progressPhotoDao().insert(it) }
+        p.exercises.forEach { db.exerciseLogDao().insert(it) }
+        p.fastings.forEach { db.fastingLogDao().save(it) }
+        p.customPresets.forEach { db.exercisePresetDao().insertOne(it) }
+
+        p.aiConfig?.let { db.aiConfigDao().save(it) }
     }
+
+    /** 导入完成后给用户看的一句话摘要：导进了多少、哪些东西没跟过来。 */
+    private fun summaryText(p: ParsedBackup): String {
+        val parts = mutableListOf<String>()
+        if (p.foodLogs.isNotEmpty()) parts.add("饮食 ${p.foodLogs.size} 条")
+        if (p.weights.isNotEmpty()) parts.add("体重 ${p.weights.size} 条")
+        if (p.waters.isNotEmpty()) parts.add("饮水 ${p.waters.size} 条")
+        if (p.diaries.isNotEmpty()) parts.add("日记 ${p.diaries.size} 篇")
+        if (p.bodyMeasures.isNotEmpty()) parts.add("围度 ${p.bodyMeasures.size} 次")
+        if (p.exercises.isNotEmpty()) parts.add("运动 ${p.exercises.size} 次")
+        if (p.fastings.isNotEmpty()) parts.add("断食 ${p.fastings.size} 天")
+        if (p.photos.isNotEmpty()) parts.add("照片条目 ${p.photos.size} 张")
+        if (p.foods.isNotEmpty()) parts.add("自建食物 ${p.foods.size} 种")
+
+        val body = if (parts.isEmpty()) "这份备份里没有记录" else parts.joinToString("、")
+        val photoNote = if (p.photos.isNotEmpty()) "照片文件本身不在备份里，需要从旧手机把图片拷过来。" else ""
+        return "导入完成：$body。$photoNote AI Key 不随备份走，需要重新填一次。"
+    }
+
 
     // ============================================================
     // 分享 / 缓存

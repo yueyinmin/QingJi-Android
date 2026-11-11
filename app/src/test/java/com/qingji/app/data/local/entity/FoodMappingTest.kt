@@ -10,7 +10,8 @@ import org.junit.Test
  * 这些函数不碰 Android Context，所以能在电脑上直接跑，
  * 用来守住三条最容易出错的规矩：
  *  ① 标准库 id 从 100001 起，用户库 id 从 1 起，永不撞号；
- *  ② 标准库的字段（别名 / 全拼 / 生熟 / 来源 / 审核状态）要完整带到界面；
+ *  ② 标准库的字段（别名 / 全拼 / 来源 / 审核状态）要完整带到界面，
+ *     并且「未收录」的 null 必须原样带到界面，不能被悄悄变成 0；
  *  ③ 界面上的 Food 写回用户库时，绝不能把标准库的 id 或 preset 来源带进去。
  */
 class FoodMappingTest {
@@ -23,7 +24,6 @@ class FoodMappingTest {
         pinyinFull = "mifan",
         category = "主食",
         subcategory = "米饭",
-        state = "cooked",
         energyKcal = 116.0,
         protein = 2.6,
         fat = 0.3,
@@ -34,7 +34,7 @@ class FoodMappingTest {
         sourceId = "CNFCT-APPROX",
         sourceNote = "《中国食物成分表》近似值",
         auditStatus = 0,
-        catalogVersion = "0.2"
+        catalogVersion = "0.3"
     )
 
     @Test
@@ -44,14 +44,37 @@ class FoodMappingTest {
         assertEquals("米饭（熟）", food.name)
         assertEquals("米饭", food.aliases)
         assertEquals("mifan", food.pinyinFull)
-        assertEquals("cooked", food.state)
         assertEquals("米饭", food.subcategory)
         assertEquals("1 碗", food.portionNote)
         assertEquals("CNFCT-APPROX", food.sourceId)
         assertEquals(0, food.auditStatus)
-        assertEquals("0.2", food.catalogVersion)
+        assertEquals("0.3", food.catalogVersion)
         assertEquals("preset", food.source)
         assertTrue(food.favorite)
+    }
+
+    @Test
+    fun missingMicronutrientsStayNullInsteadOfBecomingZero() {
+        // 清单里本来就没有纤维/钠/糖/钙这四列数据，落库是 NULL。
+        // 如果这里变成 0.0，界面就会把「未收录」渲染成「0 克」，等于编数据。
+        val food = catalog().toFood()
+        assertEquals(null, food.fiberPer100g)
+        assertEquals(null, food.sodiumMgPer100g)
+        assertEquals(null, food.sugarPer100g)
+        assertEquals(null, food.calciumMgPer100g)
+    }
+
+    @Test
+    fun realZeroStaysZeroSoItStaysDistinguishableFromMissing() {
+        // 以后真录进来一个「确实不含纤维」的食物时，0 必须还是 0，不能和 NULL 混为一谈
+        val food = CatalogFood(
+            foodId = 100999L, name = "测试用零值食物", category = "其他",
+            energyKcal = 10.0, protein = 0.0, fat = 0.0, carbs = 0.0,
+            fiber = 0.0, sodium = 0.0, sugar = 0.0, calcium = 0.0,
+            sourceId = "CNFCT-APPROX"
+        ).toFood()
+        assertEquals(0.0, food.fiberPer100g!!, 0.0001)
+        assertEquals(0.0, food.calciumMgPer100g!!, 0.0001)
     }
 
     @Test

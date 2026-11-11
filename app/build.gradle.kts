@@ -66,8 +66,15 @@ android {
         //      「存档案 → 存偏好 → 最后写完成标记」，修掉异步保存竞态；
         //   ④ 首页顶栏「减脂」不再折行/被压成竖排，悬浮按钮「记体重」补回专属绿色；
         //   ⑤ 叫法统一为「减脂」。
-        versionCode = 105
-        versionName = "1.0.5"
+        // v1.0.6 = 106（2026-11-10）：Phase 0 审计后的「数据安全收口」——
+        //   ① 清除数据拆成两档：「清除记录」清 10 张记录表、「恢复出厂」清 15 张表 + 设置 + Key + 图片，
+        //      修掉「文案说清围度/运动/照片、代码只清 6 张表」的承诺不一致；
+        //   ② 备份恢复改成「先整份解析、再开事务清表落库」，修掉「先删表再解析、中途失败毁一半数据」；
+        //   ③ 备份补齐围度/进度照片/运动/断食/自建运动五段，补回档案三项营养目标、饮食三项微量营养素和图片路径；
+        //   ④ 运动记录新增 steps / distanceKm 两列（用户库 6→7），按步数或公里记的原始数字不再丢；
+        //   ⑤ 新增 BackupParsingTest 12 个用例，备份解析第一次有自动化测试。
+        versionCode = 106
+        versionName = "1.0.6"
     }
 
     signingConfigs {
@@ -178,6 +185,11 @@ dependencies {
 
     // 本地单元测试（只测纯 Kotlin 逻辑，不需要手机/模拟器）
     testImplementation(libs.junit)
+
+    // v1.0.6：备份解析测试要用真的 org.json。
+    // 安卓 SDK 里那个 org.json 在 JVM 单测里是「空壳」，一调就抛
+    // "Method not mocked"；这个 jar 会盖在 mockable android.jar 前面。
+    testImplementation(libs.org.json)
 
     // 在电脑上「真运行」安卓界面：Robolectric 提供安卓框架，Compose 测试库负责点击
     // 用途：验证按钮真的能点、点了真的会写库，而不是只验证能编译

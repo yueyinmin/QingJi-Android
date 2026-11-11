@@ -591,7 +591,8 @@ fun SettingsScreen(
         )
 
         DialogKind.PRIVACY -> PrivacyPage(
-            onClearData = { vm.clearAllData() },
+            onClearRecords = { vm.clearRecords() },
+            onFactoryReset = { vm.factoryReset() },
             onBack = { dialog = null }
         )
 
@@ -957,13 +958,21 @@ private fun WeighReminderPage(
     }
 }
 
-/** 隐私与安全：说明 + 清空数据（二次确认）。 */
+/**
+ * 隐私与安全：说明 + 两档清除（v1.0.6 拆开）。
+ *
+ * 以前这里只有一个「清空本地记录」，文案写着会删围度/运动/照片，
+ * 实际代码只清了 6 张表，那三样根本没动。现在按「清多少」分成两档，
+ * 每一档下面直接写清「删哪些、留哪些」，不让用户靠猜。
+ */
 @Composable
 private fun PrivacyPage(
-    onClearData: () -> Unit,
+    onClearRecords: () -> Unit,
+    onFactoryReset: () -> Unit,
     onBack: () -> Unit
 ) {
-    var confirmStep by remember { mutableStateOf(false) }
+    var confirmRecords by remember { mutableStateOf(false) }
+    var confirmReset by remember { mutableStateOf(false) }
 
     SettingsDetailScaffold(title = "隐私与安全", onBack = onBack) {
         SectionCard {
@@ -980,32 +989,92 @@ private fun PrivacyPage(
         }
 
         Spacer(Modifier.height(Dimens.Gap))
-        DangerActionButton(text = "清空本地记录") { confirmStep = true }
-        Spacer(Modifier.height(6.dp))
+
+        // ---------- 第一档：只清记录 ----------
         Text(
-            text = "会删掉饮食、体重、饮水、日记、围度、运动、照片记录和统计；不会删设置和 API Key。",
-            fontSize = 11.sp,
-            color = TextSecondary
+            text = "清除记录",
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = TextPrimary
         )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = "删掉饮食、体重、饮水、日记、围度、进度照片、运动、断食记录和使用统计。\n" +
+                "个人档案（身高体重目标）、自己录的食物、收藏、AI 配置和所有设置都保留 —— " +
+                "适合「想重新开始记，但不想重新配置一遍」。",
+            fontSize = 11.sp,
+            color = TextSecondary,
+            lineHeight = 17.sp
+        )
+        Spacer(Modifier.height(8.dp))
+        DangerActionButton(text = "清除全部记录") { confirmRecords = true }
+
+        Spacer(Modifier.height(20.dp))
+
+        // ---------- 第二档：恢复出厂 ----------
+        Text(
+            text = "恢复出厂设置",
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = TextPrimary
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = "在上面那一档的基础上，再删掉个人档案、目标、自己录的食物、收藏、" +
+                "AI 配置、所有设置和 API Key。删完回到刚装好的状态，要重新填一次资料。\n" +
+                "备份文件不会删（那是你导出来准备带走的东西）。",
+            fontSize = 11.sp,
+            color = TextSecondary,
+            lineHeight = 17.sp
+        )
+        Spacer(Modifier.height(8.dp))
+        DangerActionButton(text = "恢复出厂设置") { confirmReset = true }
     }
 
-    if (confirmStep) {
+    if (confirmRecords) {
         com.qingji.app.ui.components.AppDialog(
-            title = "确定清空全部记录？",
-            confirmText = "确认清空",
+            title = "确定清除全部记录？",
+            confirmText = "确认清除",
             danger = true,
             onConfirm = {
-                confirmStep = false
-                onClearData()
+                confirmRecords = false
+                onClearRecords()
                 onBack()
             },
             dismissText = "取消",
-            onDismiss = { confirmStep = false }
+            onDismiss = { confirmRecords = false }
         ) {
             Text(
-                text = "这个操作不可撤销，删了就找不回来。建议先去「数据备份与导出」导一份 JSON。",
+                text = "饮食、体重、饮水、日记、围度、照片、运动、断食记录都会删掉，" +
+                    "删了就找不回来。档案和目标会留着。\n\n" +
+                    "建议先去「数据备份与导出」导一份 JSON。",
                 fontSize = 14.sp,
-                color = TextPrimary
+                color = TextPrimary,
+                lineHeight = 21.sp
+            )
+        }
+    }
+
+    if (confirmReset) {
+        com.qingji.app.ui.components.AppDialog(
+            title = "确定恢复出厂设置？",
+            confirmText = "确认恢复出厂",
+            danger = true,
+            onConfirm = {
+                confirmReset = false
+                onFactoryReset()
+            },
+            dismissText = "取消",
+            onDismiss = { confirmReset = false }
+        ) {
+            Text(
+                text = "这次是全部删掉：记录、档案、目标、自己录的食物、收藏、" +
+                    "AI 配置、所有设置、API Key 都不留。\n\n" +
+                    "删完会回到引导页，要重新填一次资料。这个操作不可撤销，" +
+                    "现在先去导一份 JSON 备份还来得及。",
+                fontSize = 14.sp,
+                color = TextPrimary,
+                lineHeight = 21.sp
             )
         }
     }
