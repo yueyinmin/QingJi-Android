@@ -140,6 +140,52 @@ object FastingRules {
         if (total <= 0) return 0f
         return (status.elapsedMinutes.toFloat() / total).coerceIn(0f, 1f)
     }
+
+    // ============================================================
+    // 自由断食（2026-11-11 专项）
+    // ------------------------------------------------------------
+    // 与上面的「方案断食」是两条独立的路：
+    //   · 方案断食：由「进食窗口 + 当前时间」推状态，没有开始时刻；
+    //   · 自由断食：只记一个开始时间戳，断了多久 = 现在 - 开始。
+    // 所以这里只做时间算术，不碰 status()、不改任何现有规则。
+    // 全部按时间戳算，天然支持跨日、跨多日，不需要「当天」假设。
+    // ============================================================
+
+    /** 自由断食已进行的分钟数；开始时间在未来时返回 0（不出现负数）。 */
+    fun freeElapsedMinutes(startMillis: Long, nowMillis: Long): Int =
+        ((nowMillis - startMillis) / 60_000L).toInt().coerceAtLeast(0)
+
+    /** 落库时的 planHours：四舍五入到小时并夹到 1..23，兼容旧字段语义。 */
+    fun freePlanHours(minutes: Int): Int = ((minutes + 30) / 60).coerceIn(1, 23)
+
+    /**
+     * 开始时间是否可用。null = 没问题，否则是一句给用户看的话。
+     *
+     * 上限 72 小时：再长基本是日期选错或忘了结束，不该直接写进历史。
+     * 未来时间也不接受 —— 那样瞬间时长会变成 0，看着像 bug。
+     */
+    fun freeStartIssue(startMillis: Long, nowMillis: Long): String? = when {
+        startMillis <= 0L -> "还没选开始时间"
+        startMillis > nowMillis -> "开始时间不能晚于现在"
+        nowMillis - startMillis > 72L * 60 * 60 * 1000 -> "开始时间超过 72 小时了，确认一下日期有没有选错"
+        else -> null
+    }
+
+    /** 结束时不足 1 分钟不值得记一条，返回提示语；null = 正常可记录。 */
+    fun freeEndIssue(minutes: Int): String? =
+        if (minutes < 1) "这段只有不到 1 分钟，没有记录" else null
+
+    /** 自由断食时长文案：14 小时 20 分 / 45 分钟。 */
+    fun freeDurationLabel(minutes: Int): String {
+        val m = minutes.coerceAtLeast(0)
+        val h = m / 60
+        val rest = m % 60
+        return when {
+            h <= 0 -> "$rest 分钟"
+            rest == 0 -> "$h 小时"
+            else -> "$h 小时 $rest 分"
+        }
+    }
 }
 
 /** 一次算出来的断食状态。 */

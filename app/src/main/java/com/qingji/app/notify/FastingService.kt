@@ -136,7 +136,21 @@ class FastingService : Service() {
     private fun buildNotification(settings: QingJiSettings): Notification {
         val now = System.currentTimeMillis()
 
-        // 方案断食：状态完全由「当前时间 + 进食窗口」推出来（不改现有 FastingRules）
+        // ① 自由断食优先：只看开始时刻，跟方案无关。
+        //    Chronometer 从开始时刻走，服务不用每秒醒；跨日也不会算错。
+        if (settings.fastingFreeStart > 0L) {
+            val minutes = FastingRules.freeElapsedMinutes(settings.fastingFreeStart, now)
+            val phase = FastingRules.phase(minutes / 60.0).first
+            return FastingNotifier.build(
+                this,
+                "自由断食 · $phase",
+                "${FastingRules.freeDurationLabel(minutes)} · 点开可以结束并保存",
+                settings.fastingFreeStart,
+                chronometer = true
+            )
+        }
+
+        // ② 方案断食：状态完全由「当前时间 + 进食窗口」推出来（不改现有 FastingRules）
         val days = settings.fastingDays.split(',')
             .mapNotNull { it.trim().toIntOrNull() }
             .toSet()

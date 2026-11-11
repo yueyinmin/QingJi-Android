@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -122,6 +123,8 @@ object SettingsKeys {
     val FASTING_PHASE_ALERT = booleanPreferencesKey("fasting_phase_alert")
     /** 断食常驻通知：前台服务在通知栏显示已断食时长（只读现有方案，不改断食规则） */
     val FASTING_ONGOING_NOTIFICATION = booleanPreferencesKey("fasting_ongoing_notification")
+    /** 自由断食开始时刻（毫秒）；0 = 当前没有进行中的自由断食。放 DataStore 所以进程重启也能恢复 */
+    val FASTING_FREE_START = longPreferencesKey("fasting_free_start")
     /** 界面语言：zh 简体中文（默认）/ en English。只影响核心页文案，未翻译条目回落中文 */
     val UI_LANGUAGE = stringPreferencesKey("ui_language")
 }
@@ -192,8 +195,9 @@ data class QingJiSettings(
     /** 轻断食生效周期（1..7 逗号分隔）与时段切换提醒 */
     val fastingDays: String = "1,2,3,4,5,6,7",
     val fastingPhaseAlert: Boolean = false,
-    /** 断食常驻通知开关（前台服务显示计时） */
-    val fastingOngoingNotification: Boolean = false
+    /** 断食常驻通知开关（前台服务显示计时）；自由断食开始时刻（0 = 未进行） */
+    val fastingOngoingNotification: Boolean = false,
+    val fastingFreeStart: Long = 0L
 )
 
 object SettingsStore {
@@ -264,7 +268,8 @@ object SettingsStore {
                     goalMode = p[SettingsKeys.GOAL_MODE] ?: "lose",
                     fastingDays = p[SettingsKeys.FASTING_DAYS] ?: "1,2,3,4,5,6,7",
                     fastingPhaseAlert = p[SettingsKeys.FASTING_PHASE_ALERT] ?: false,
-                    fastingOngoingNotification = p[SettingsKeys.FASTING_ONGOING_NOTIFICATION] ?: false
+                    fastingOngoingNotification = p[SettingsKeys.FASTING_ONGOING_NOTIFICATION] ?: false,
+                    fastingFreeStart = p[SettingsKeys.FASTING_FREE_START] ?: 0L
                 )
             }
 

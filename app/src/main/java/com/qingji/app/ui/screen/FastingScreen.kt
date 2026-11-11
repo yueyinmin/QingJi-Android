@@ -89,6 +89,9 @@ fun FastingScreen(
     val historyLogs by vm.historyLogs.collectAsState()
     var showSettings by remember { mutableStateOf(false) }
 
+    // 自由断食：自定义开始时间（复用运动模块的日期+时分三列滚轮）
+    var showFreeStartPicker by remember { mutableStateOf(false) }
+
     // 打开常驻通知时顺手申请通知权限（Android 13+ 必须）。
     // 不给权限也照常保存开关，只是通知栏看不到 —— 断食状态本身仍由时间推算。
     val context = LocalContext.current
@@ -158,6 +161,16 @@ fun FastingScreen(
             )
             Spacer(Modifier.height(Dimens.Gap))
 
+            // 自由断食：不预设方案、可自定义开始时间；与常驻通知联动
+            FastingFreeCard(
+                freeStart = settings.fastingFreeStart,
+                message = vm.freeMessage,
+                onStartNow = { vm.startFreeFasting() },
+                onPickStart = { showFreeStartPicker = true },
+                onEnd = { vm.endFreeFasting() }
+            )
+            Spacer(Modifier.height(Dimens.Gap))
+
             if (!settings.fastingEnabled) {
                 HintBox(text = "还没开启轻断食。点右上角「设置」选个方案（16:8 / 14:10 / 12:12 / 18:6 / 20:4）就能开始。")
                 Spacer(Modifier.height(Dimens.Gap))
@@ -182,6 +195,20 @@ fun FastingScreen(
 
             Spacer(Modifier.height(Dimens.FabSpace))
         }
+    }
+
+    if (showFreeStartPicker) {
+        com.qingji.app.ui.components.ExerciseDateTimeWheelSheet(
+            initial = java.time.LocalDateTime.now(),
+            title = "选择断食开始时间",
+            onConfirm = { picked ->
+                showFreeStartPicker = false
+                vm.startFreeFasting(
+                    picked.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+                )
+            },
+            onDismiss = { showFreeStartPicker = false }
+        )
     }
 
     if (showSettings) {
@@ -224,6 +251,140 @@ private fun FastingNotifyCard(enabled: Boolean, onToggle: (Boolean) -> Unit) {
             Switch(checked = enabled, onCheckedChange = onToggle)
         }
     }
+}
+
+/**
+ * 自由断食卡片（2026-11-11 专项）。
+ *
+ * 与上面的「方案断食」互不影响：这里只认一个开始时间戳（存在 DataStore，
+ * 进程被杀再打开也能接着算），断了多久 = 现在 - 开始，所以跨日、跨多日都对。
+ * 开始 / 结束都会 sync 常驻通知，两边状态永远一致。
+ */
+@Composable
+private fun FastingFreeCard(
+    freeStart: Long,
+    message: String,
+    onStartNow: () -> Unit,
+    onPickStart: () -> Unit,
+    onEnd: () -> Unit
+) {
+    val running = freeStart > 0L
+    var elapsedSeconds by remember(freeStart) { mutableStateOf(0) }
+    LaunchedEffect(freeStart) {
+        while (freeStart > 0L) {
+            elapsedSeconds = ((System.currentTimeMillis() - freeStart) / 1000L).toInt().coerceAtLeast(0)
+            delay(1000L)
+        }
+        elapsedSeconds = 0
+    }
+
+    SectionCard {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = "自由断食",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TextPrimary
+            )
+            Spacer(Modifier.height(3.dp))
+            if (running) {
+                val minutes = elapsedSeconds / 60
+                Text(
+                    text = "已断食 ${clockText(elapsedSeconds)} · " +
+                        FastingRules.phase(minutes / 60.0).first,
+                    fontSize = 12.sp,
+                    color = QingJiGreenDark
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = "开始于 ${startLabel(freeStart)}",
+                    fontSize = 11.sp,
+                    color = TextSecondary
+                )
+            } else {
+                Text(
+                    text = "不预设方案，自己定开始时间；结束后记进历史",
+                    fontSize = 11.sp,
+                    color = TextSecondary
+                )
+            }
+        }
+
+        Spacer(Modifier.height(10.dp))
+
+        if (running) {
+            PillText(
+                text = "结束并保存",
+                filled = true,
+                modifier = Modifier.fillMaxWidth(),
+                onClick = onEnd
+            )
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PillText(
+                    text = "现在开始",
+                    filled = true,
+                    modifier = Modifier.weight(1f),
+                    onClick = onStartNow
+                )
+                PillText(
+                    text = "自定义时间",
+                    filled = false,
+                    modifier = Modifier.weight(1f),
+                    onClick = onPickStart
+                )
+            }
+        }
+
+        if (message.isNotBlank()) {
+            Spacer(Modifier.height(8.dp))
+            Text(text = message, fontSize = 11.sp, color = QingJiGreenDark)
+        }
+    }
+}
+
+/** 胶囊按钮：filled = 实底绿（主操作），否则浅绿（次操作）。 */
+@Composable
+private fun PillText(
+    text: String,
+    filled: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(if (filled) QingJiGreen else QingJiGreenLight)
+            .clickable { onClick() }
+            .padding(vertical = 9.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = if (filled) Color.White else QingJiGreenDark
+        )
+    }
+}
+
+/** 秒数 → 00:12:34（跨日会出现 26:10:05，不截断）。 */
+private fun clockText(totalSeconds: Int): String {
+    val s = totalSeconds.coerceAtLeast(0)
+    return "%02d:%02d:%02d".format(s / 3600, (s % 3600) / 60, s % 60)
+}
+
+/** 开始时刻 → 「今天 20:00 / 昨天 20:00 / 11月9日 20:00」。 */
+private fun startLabel(millis: Long): String {
+    val zoned = java.time.Instant.ofEpochMilli(millis).atZone(java.time.ZoneId.systemDefault())
+    val date = zoned.toLocalDate()
+    val today = AppClock.today()
+    val day = when (date) {
+        today -> "今天"
+        today.minusDays(1) -> "昨天"
+        else -> "${date.monthValue}月${date.dayOfMonth}日"
+    }
+    return "%s %02d:%02d".format(day, zoned.hour, zoned.minute)
 }
 
 /** 顶部时间条：断食开始 → 可进食。 */
@@ -458,26 +619,33 @@ private fun HistoryCard(logs: List<com.qingji.app.data.local.entity.FastingLog>)
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
+                        val head = if (isToday) "今天 · " else "${log.date.monthValue}月${log.date.dayOfMonth}日 · "
                         Text(
-                            text = (if (isToday) "今天 · " else "${log.date.monthValue}月${log.date.dayOfMonth}日 · ") +
-                                FastingRules.planLabel(log.planHours),
+                            text = head + if (log.freeMode) "自由断食" else FastingRules.planLabel(log.planHours),
                             fontSize = 14.sp,
                             fontWeight = if (isToday) FontWeight.SemiBold else FontWeight.Normal,
                             color = TextPrimary
                         )
                         Spacer(Modifier.height(2.dp))
                         Text(
-                            text = "进食窗口 " +
-                                FastingRules.minuteLabel(log.eatStartMinute) + " - " +
-                                FastingRules.minuteLabel(log.eatEndMinute),
+                            text = if (log.freeMode) {
+                                // 自由断食记的是真实起止，不显示「进食窗口」这个方案概念
+                                "断食 ${FastingRules.freeDurationLabel(log.actualMinutes)} · " +
+                                    FastingRules.minuteLabel(log.eatStartMinute) + " - " +
+                                    FastingRules.minuteLabel(log.eatEndMinute)
+                            } else {
+                                "进食窗口 " +
+                                    FastingRules.minuteLabel(log.eatStartMinute) + " - " +
+                                    FastingRules.minuteLabel(log.eatEndMinute)
+                            },
                             fontSize = 11.sp,
                             color = TextSecondary
                         )
                     }
                     Text(
-                        text = if (isToday) "进行中" else "按计划",
+                        text = if (log.freeMode) "已完成" else if (isToday) "进行中" else "按计划",
                         fontSize = 12.sp,
-                        color = if (isToday) QingJiGreenDark else TextSecondary
+                        color = if (log.freeMode || isToday) QingJiGreenDark else TextSecondary
                     )
                 }
             }

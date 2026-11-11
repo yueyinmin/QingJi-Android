@@ -22,6 +22,7 @@ import com.qingji.app.data.prefs.SettingsStore
 import com.qingji.app.data.repository.QingJiRepository
 import com.qingji.app.domain.BarcodeRules
 import com.qingji.app.domain.DiaryRules
+import com.qingji.app.domain.FastingRules
 import com.qingji.app.domain.FoodRanking
 import com.qingji.app.domain.NutritionCalculator
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -754,6 +755,98 @@ class FastingViewModel(app: Application) : AndroidViewModel(app) {
                 enabled
             )
             com.qingji.app.notify.FastingService.sync(ctx)
+        }
+    }
+
+    // ---------- 自由断食（2026-11-11 专项） ----------
+
+    /** 给界面的一句话反馈：重复开始被拒、时长太短等。空串 = 没消息。 */
+    var freeMessage by androidx.compose.runtime.mutableStateOf("")
+        private set
+
+    fun clearFreeMessage() {
+        freeMessage = ""
+    }
+
+    /**
+     * 开始一段自由断食。
+     *
+     * [startAtMillis] 允许是过去的时间（比如「昨晚 8 点开始的」），
+     * 但不能是未来、也不能早于 72 小时前，否则拒绝并给一句提示。
+     * 已经有一段在进行时直接忽略 —— 重复点「开始」不会把计时清零。
+     */
+    fun startFreeFasting(startAtMillis: Long = System.currentTimeMillis()) {
+        if (settings.value.fastingFreeStart > 0L) {
+            freeMessage = "已经有一段自由断食在进行中，先结束它再开始新的"
+            return
+        }
+        val now = System.currentTimeMillis()
+        val issue = FastingRules.freeStartIssue(startAtMillis, now)
+        if (issue != null) {
+            freeMessage = issue
+            return
+        }
+        viewModelScope.launch {
+            val ctx = getApplication<Application>()
+            com.qingji.app.data.prefs.SettingsStore.set(
+                ctx,
+                com.qingji.app.data.prefs.SettingsKeys.FASTING_FREE_START,
+                startAtMillis
+            )
+            freeMessage = ""
+            com.qingji.app.notify.FastingService.sync(ctx)
+        }
+    }
+
+    /**
+     * 结束自由断食：按真实起止算分钟数，写进当天记录。
+     *
+     * 注意 `fasting_log` 主键是日期、一天一条，所以当天已有方案记录时会被这条覆盖 ——
+     * 这是既定表结构决定的，不额外改表；覆盖后历史卡按「自由断食」样式显示。
+     */
+    fun endFreeFasting() {
+        val start = settings.value.fastingFreeStart
+        if (start <= 0L) {
+            freeMessage = "当前没有进行中的自由断食"
+            return
+        }
+        val now = System.currentTimeMillis()
+        val minutes = FastingRules.freeElapsedMinutes(start, now)
+        val issue = FastingRules.freeEndIssue(minutes)
+        viewModelScope.launch {
+            val ctx = getApplication<Application>()
+            if (issue != null) {
+                // 太短：清掉状态，不写脏记录
+                com.qingji.app.data.prefs.SettingsStore.set(
+                    ctx,
+                    com.qingji.app.data.prefs.SettingsKeys.FASTING_FREE_START,
+                    0L
+                )
+                com.qingji.app.notify.FastingService.sync(ctx)
+                freeMessage = issue
+                return@launch
+            }
+            val zone = java.time.ZoneId.systemDefault()
+            val startTime = java.time.Instant.ofEpochMilli(start).atZone(zone).toLocalTime()
+            val endTime = java.time.Instant.ofEpochMilli(now).atZone(zone).toLocalTime()
+            repo.saveFasting(
+                com.qingji.app.data.local.entity.FastingLog(
+                    date = AppClock.today(),
+                    planHours = FastingRules.freePlanHours(minutes),
+                    eatStartMinute = startTime.hour * 60 + startTime.minute,
+                    eatEndMinute = endTime.hour * 60 + endTime.minute,
+                    completed = true,
+                    freeMode = true,
+                    actualMinutes = minutes
+                )
+            )
+            com.qingji.app.data.prefs.SettingsStore.set(
+                ctx,
+                com.qingji.app.data.prefs.SettingsKeys.FASTING_FREE_START,
+                0L
+            )
+            com.qingji.app.notify.FastingService.sync(ctx)
+            freeMessage = "已记录：${FastingRules.freeDurationLabel(minutes)}"
         }
     }
 }
