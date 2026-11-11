@@ -118,13 +118,13 @@ private fun BottomTabItem(
 ) {
     val selected = currentRoute == tab.route
 
-    // 选中时图标轻轻放大并回弹，颜色平滑过渡。
-    // 目的：手指点下去之后，眼睛能立刻确认「我现在在这一页」，
-    // 不用再靠看页面内容去反推点了哪个按钮。
+    // 选中时图标轻轻放大，颜色平滑过渡。
+    // tabfix：原来用 bouncy() 弹簧（dampingRatio 0.55）会过冲回弹，
+    // 快速连点 Tab 时图标来回弹、和页面转场同时开始，看着像整条底栏在抖。
+    // 换成和颜色/胶囊同款的 150ms tween，无过冲，底栏视觉始终稳定。
     val scale by animateFloatAsState(
         targetValue = if (selected) 1.14f else 1f,
-        // 图标放大用带回弹的弹簧：按下去有「弹一下」的手感
-        animationSpec = com.qingji.app.ui.theme.Motion.bouncy(),
+        animationSpec = com.qingji.app.ui.theme.Motion.fast(),
         label = "tabScale"
     )
     val tint by animateColorAsState(

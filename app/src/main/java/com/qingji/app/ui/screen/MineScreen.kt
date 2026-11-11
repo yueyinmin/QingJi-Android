@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -98,6 +99,8 @@ import java.time.Period
 fun MineScreen(
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
+    /** tabfix：滚动状态由 Root 持有，切 Tab 回来不丢位置。 */
+    scrollState: ScrollState = rememberScrollState(),
     vm: MineViewModel = viewModel()
 ) {
     val totals by vm.totals.collectAsState()
@@ -136,7 +139,7 @@ fun MineScreen(
         modifier = modifier
             .fillMaxSize()
             .background(PageBackground)
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
             .padding(horizontal = 16.dp)
     ) {
         Spacer(Modifier.height(12.dp))

@@ -7,6 +7,7 @@ import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -14,7 +15,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.composed
 import androidx.compose.ui.Modifier
@@ -37,12 +37,12 @@ import androidx.compose.foundation.clickable
  *
  *   时长    Instant 90 / Fast 150 / Normal 220 / Slow 320
  *   缓动    进入用「先快后慢」(decelerate)，退出用「先慢后快」(accelerate)
- *   位移    页面 1/28 屏高，卡片 1/6 自身高度，都很克制
+ *   位移    卡片 1/6 自身高度；**页面转场零位移**（见 101 行说明）
  *
  * 三条原则：
- * 1. **进场慢一点、退场快一点** —— 退场拖沓会让人觉得卡。
- * 2. **位移要小** —— 超过 1/10 屏高的滑动会晃眼，手机上尤其明显。
- * 3. **同屏多个元素错开 45ms** —— 一起动像「闪一下」，错开才有层次。
+ * 1. **进场慢一点、退场快一点** —— 退场拖沓会让人觉得卡（仅用于非页面元素）。
+ * 2. **位移要小** —— 超过 1/10 屏高的滑动会晃眼；底部 Tab 切换已改成零位移。
+ * 3. **同屏多个元素错开 20ms** —— 一起动像「闪一下」，错开才有层次。
  * ============================================================
  */
 object Motion {
@@ -60,11 +60,15 @@ object Motion {
     /** 整页切换这种大范围位移 */
     const val Slow = 320
 
-    /** 同屏多个元素之间的错开间隔 */
-    const val StaggerStep = 45L
+    /**
+     * 同屏多个元素之间的错开间隔。
+     * tabfix：原 45ms × 最多 7 项 = 315ms，再加 320ms 入场，
+     * 页面切完近半秒内容还在陆续冒出来，和页面转场叠在一起就是「抖」。
+     */
+    const val StaggerStep = 20L
 
     /** 最多错开到第几项（再多就不加了，避免最后几项等太久） */
-    const val MaxStaggerIndex = 7
+    const val MaxStaggerIndex = 4
 
     // ---------- 缓动 ----------
     /** 进出场的标准缓动：起步快、收尾稳 */
@@ -99,30 +103,30 @@ object Motion {
     )
 
     // ---------- 页面转场 ----------
-    // 新页面：淡入 + 从下往上浮 1/28 屏高。
-    // 位移故意做得很小 —— 手机上滑太多会晃眼，只要够让人「顺着动效锁定新页面」就行。
+    // tabfix：底部 Tab 切换改成「原地淡入淡出」。
+    //
+    // 旧参数：进场 fadeIn 220 + slideInVertically 320（1/28 屏高），
+    //         退场只有 fadeOut 150 且完全没有位移。
+    // 三个问题叠在一起就是录屏里的抖动：
+    //   1) 旧页 150ms 就淡没了，新页还要再滑 170ms，中间露出底层背景 → 闪一下；
+    //   2) 进入有位移、退出没有，两页在转场期间位置错开 → 重影；
+    //   3) slide 的位移量按「内容区高度 / 28」算，而 Scaffold 的 insets
+    //      在切换瞬间会变（见 QingJiAppRoot），高度一变目标位移也跟着变 → 跳。
+    //
+    // 现在：进出同为 150ms 线性淡变、零位移、零缩放、无弹簧过冲，
+    // 两页始终占同一块区域；pop（返回）也复用同一套，方向感不做特殊处理。
+    /** 页面淡变统一用线性缓动：进出曲线完全对称，叠加时亮度不塌。 */
+    private val pageFade: Easing = LinearEasing
+
     val pageEnter: EnterTransition =
-        fadeIn(animationSpec = tween(durationMillis = Normal, easing = decelerate)) +
-            slideInVertically(
-                animationSpec = tween(durationMillis = Slow, easing = decelerate)
-            ) { height -> height / 28 }
+        fadeIn(animationSpec = tween(durationMillis = Fast, easing = pageFade))
 
-    // 退场：快速淡出，不做位移（退了就别拖泥带水）
     val pageExit: ExitTransition =
-        fadeOut(animationSpec = tween(durationMillis = Fast, easing = accelerate))
+        fadeOut(animationSpec = tween(durationMillis = Fast, easing = pageFade))
 
-    // 返回时：新页面从上方微落，退出的页面往下微沉 —— 方向感是「回去」
-    val popEnter: EnterTransition =
-        fadeIn(animationSpec = tween(durationMillis = Normal, easing = decelerate)) +
-            slideInVertically(
-                animationSpec = tween(durationMillis = Slow, easing = decelerate)
-            ) { height -> -height / 28 }
-
-    val popExit: ExitTransition =
-        fadeOut(animationSpec = tween(durationMillis = Fast, easing = accelerate)) +
-            slideOutVertically(
-                animationSpec = tween(durationMillis = Normal, easing = accelerate)
-            ) { height -> height / 40 }
+    // 返回时不再做「从上方落回 / 往下沉」的方向动画，进出节奏完全一致。
+    val popEnter: EnterTransition = pageEnter
+    val popExit: ExitTransition = pageExit
 
     // ---------- 二级页面切换（设置页里列表 ↔ 详情） ----------
     val detailEnter: EnterTransition =
