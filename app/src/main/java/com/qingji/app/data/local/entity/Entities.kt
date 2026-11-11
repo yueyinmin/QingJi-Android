@@ -256,14 +256,21 @@ data class ExerciseLog(
 @Entity(tableName = "fasting_log", indices = [Index("date")])
 data class FastingLog(
     @PrimaryKey val date: LocalDate,
-    /** 断食小时数：16 / 14 / 12 */
+    /** 断食小时数：16 / 14 / 12；自由断食时这里存「实际断食小时数」 */
     val planHours: Int = 16,
-    /** 进食窗口开始（当天第几分钟，7:40 = 7*60+40） */
+    /** 进食窗口开始（当天第几分钟，7:40 = 7*60+40）；自由断食时存开始时刻 */
     val eatStartMinute: Int = 7 * 60 + 40,
-    /** 进食窗口结束（第几分钟） */
+    /** 进食窗口结束（第几分钟）；自由断食时存结束时刻 */
     val eatEndMinute: Int = 15 * 60 + 40,
     /** 当天是否完成 */
     val completed: Boolean = false,
+    /**
+     * 自由断食（迁移 9 新增）：不预设方案、手动开始/结束。
+     * 为 true 时历史卡按「自由断食 · 断食 X 小时 Y 分」展示，不显示进食窗口。
+     */
+    @ColumnInfo(defaultValue = "0") val freeMode: Boolean = false,
+    /** 实际断食分钟数；预设方案的历史记录是 0（那时记的是计划，不是实际） */
+    @ColumnInfo(defaultValue = "0") val actualMinutes: Int = 0,
     val createdAt: Long = System.currentTimeMillis()
 )
 
