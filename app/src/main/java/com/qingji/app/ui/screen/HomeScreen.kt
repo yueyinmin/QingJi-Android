@@ -905,8 +905,31 @@ private fun TodaySummaryCard(
         // 加水操作收进「快速记录喝水」弹层（点杯子打开），卡片更接近参考样式。
 
         // ---------- 轻断食条（放在「今日剩余」这张卡的最底下） ----------
-        if (fastingEnabled) {
-            Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(14.dp))
+        if (!fastingEnabled) {
+            // 2026-11-11 合并验证修：入口以前只在「已开启」后才显示，
+            // 而开启开关本身在断食页里 —— 新装用户根本没有路径进断食页。
+            // 未开启时也给一条浅色入口，点进去选方案。
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(QingJiGreenLight)
+                    .clickable { onOpenFasting() }
+                    .padding(horizontal = 14.dp, vertical = 11.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = "🕐", fontSize = 13.sp)
+                Spacer(Modifier.size(8.dp))
+                Text(
+                    text = "轻断食 · 未开启，点这里选方案",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = QingJiGreenDark
+                )
+            }
+        } else {
 
             // 每分钟刷一次，「剩余 xx:xx」才会自己走
             var fastingNow by remember { mutableStateOf(java.time.LocalTime.now()) }
