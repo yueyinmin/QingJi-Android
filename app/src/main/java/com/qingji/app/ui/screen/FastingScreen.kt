@@ -87,6 +87,15 @@ fun FastingScreen(
     val settings by vm.settings.collectAsState()
     val weekLogs by vm.weekLogs.collectAsState()
     val historyLogs by vm.historyLogs.collectAsState()
+    val yearLogs by vm.yearLogs.collectAsState()
+
+    // 连续断食天数（成就口径）：近一年记录里，从今天往前一天接一天数
+    val streakDays = remember(yearLogs) {
+        FastingRules.consecutiveDays(
+            fastingDates = yearLogs.map { it.date }.toSet(),
+            today = AppClock.today()
+        )
+    }
     var showSettings by remember { mutableStateOf(false) }
 
     // 自由断食：自定义开始时间（复用运动模块的日期+时分三列滚轮）
@@ -173,8 +182,6 @@ fun FastingScreen(
 
             if (!settings.fastingEnabled) {
                 HintBox(text = "还没开启轻断食。点右上角「设置」选个方案（16:8 / 14:10 / 12:12 / 18:6 / 20:4）就能开始。")
-                Spacer(Modifier.height(Dimens.Gap))
-                NotesCard()
             } else {
                 if (!isFastingDay) {
                     HintBox(text = "今天不在你的断食周期里（可在设置里改生效星期），想吃就吃，计划明天继续。")
@@ -187,11 +194,16 @@ fun FastingScreen(
                 PhaseCard(status)
                 Spacer(Modifier.height(Dimens.Gap))
                 WeekBars(weekLogs, settings.fastingPlanHours)
-                Spacer(Modifier.height(Dimens.Gap))
-                HistoryCard(historyLogs)
-                Spacer(Modifier.height(Dimens.Gap))
-                NotesCard()
             }
+
+            // 连续断食天数：和「有没有启用方案」无关，自由断食也算
+            Spacer(Modifier.height(Dimens.Gap))
+            FastingStreakCard(days = streakDays)
+            Spacer(Modifier.height(Dimens.Gap))
+
+            HistoryCard(historyLogs)
+            Spacer(Modifier.height(Dimens.Gap))
+            NotesCard()
 
             Spacer(Modifier.height(Dimens.FabSpace))
         }
@@ -528,6 +540,78 @@ private fun PhaseCard(status: FastingStatus) {
 }
 
 /** 近 7 日断食柱状图。 */
+/**
+ * 断食成就（2026-11-11）：口径是「连续断食天数」。
+ *
+ * 不累计历史总天数 —— 断食最怕三天打鱼两天晒网，连续才值得鼓励。
+ * 里程碑只放 6 个档位（3/7/14/30/60/100），够得着才有意义；
+ * 达成填实底、未达成浅底，一眼能看出还差多远。
+ */
+@Composable
+private fun FastingStreakCard(days: Int) {
+    SectionCard {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "连续断食",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextPrimary
+                )
+                Spacer(Modifier.height(3.dp))
+                Text(
+                    text = if (days <= 0) {
+                        "今天或昨天记一次断食，连续天数就开始累计"
+                    } else {
+                        FastingRules.nextMilestoneText(days)
+                    },
+                    fontSize = 11.sp,
+                    color = TextSecondary
+                )
+            }
+            Text(
+                text = "$days",
+                fontSize = 26.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (days > 0) QingJiGreenDark else TextSecondary
+            )
+            Text(
+                text = " 天",
+                fontSize = 12.sp,
+                color = TextSecondary,
+                modifier = Modifier.padding(bottom = 4.dp)
+            )
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            FastingRules.STREAK_MILESTONES.forEach { (target, name) ->
+                val done = days >= target
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(if (done) QingJiGreen else QingJiGreenLight)
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = name,
+                        fontSize = 9.sp,
+                        color = if (done) QingJiGreenDark else TextSecondary,
+                        maxLines = 1
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun WeekBars(
     logs: List<com.qingji.app.data.local.entity.FastingLog>,

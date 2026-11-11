@@ -700,6 +700,14 @@ class FastingViewModel(app: Application) : AndroidViewModel(app) {
         .observeFastingRange(AppClock.today().minusDays(29), AppClock.today())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /**
+     * 近一年断食记录：算「连续断食天数」用。
+     * 历史卡只看 30 天，但连续天数要一路往前数，30 天不够。
+     */
+    val yearLogs: StateFlow<List<com.qingji.app.data.local.entity.FastingLog>> = repo
+        .observeFastingRange(AppClock.today().minusDays(365), AppClock.today())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     /** 当前时刻，每 30 秒刷一次，倒计时才会走 */
     var now by androidx.compose.runtime.mutableStateOf(java.time.LocalTime.now())
         private set
