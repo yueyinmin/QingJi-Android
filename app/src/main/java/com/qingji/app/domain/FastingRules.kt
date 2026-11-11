@@ -2,6 +2,7 @@ package com.qingji.app.domain
 
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.YearMonth
 
 /**
  * ============================================================
@@ -241,6 +242,40 @@ object FastingRules {
         val next = nextMilestone(days) ?: return "里程碑都解锁了，稳住就行"
         val gap = next.first - days
         return "再坚持 $gap 天解锁「${next.second}」"
+    }
+
+    // ============================================================
+    // 断食日历（2026-11-11 专项）
+    // ------------------------------------------------------------
+    // 只做「某个月有哪几天」这一件事，纯函数，界面不自己算闰月和月初星期。
+    // 周一开头（国内习惯），前后补 null 对齐整周，行数按需 5～6 行。
+    // ============================================================
+
+    /** 月历网格：[null] 表示补位空格。 */
+    fun monthCells(month: YearMonth): List<LocalDate?> {
+        val days = month.lengthOfMonth()
+        val lead = month.atDay(1).dayOfWeek.value - 1   // 周一=1 … 周日=7
+        val cells = ArrayList<LocalDate?>(42)
+        repeat(lead) { cells.add(null) }
+        for (d in 1..days) cells.add(month.atDay(d))
+        while (cells.size % 7 != 0) cells.add(null)
+        return cells
+    }
+
+    /** 某天在日历上显示成什么状态，界面据此上色。 */
+    enum class DayMark {
+        /** 这天还没到（未来），不可点 */
+        FUTURE,
+        /** 有断食记录 */
+        RECORDED,
+        /** 没有记录 */
+        EMPTY
+    }
+
+    fun dayMark(date: LocalDate, today: LocalDate, recordedDates: Set<LocalDate>): DayMark = when {
+        date.isAfter(today) -> DayMark.FUTURE
+        date in recordedDates -> DayMark.RECORDED
+        else -> DayMark.EMPTY
     }
 }
 
