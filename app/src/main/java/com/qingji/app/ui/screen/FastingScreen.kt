@@ -1,5 +1,10 @@
 package com.qingji.app.ui.screen
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -20,6 +25,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -35,7 +41,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.core.content.ContextCompat
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -81,6 +89,13 @@ fun FastingScreen(
     val historyLogs by vm.historyLogs.collectAsState()
     var showSettings by remember { mutableStateOf(false) }
 
+    // 打开常驻通知时顺手申请通知权限（Android 13+ 必须）。
+    // 不给权限也照常保存开关，只是通知栏看不到 —— 断食状态本身仍由时间推算。
+    val context = LocalContext.current
+    val notifyPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { vm.setOngoingNotification(true) }
+
     // v1.0.3：今天是否在生效周期内（1..7，周一=1）
     val fastingDays = settings.fastingDays
         .split(',')
@@ -124,6 +139,25 @@ fun FastingScreen(
         ) {
             Spacer(Modifier.height(Dimens.Gap))
 
+            // 断食常驻通知：只读现有方案状态，不改断食规则、不碰数据库
+            FastingNotifyCard(
+                enabled = settings.fastingOngoingNotification,
+                onToggle = { enabled ->
+                    val needsPermission = enabled &&
+                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                        ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.POST_NOTIFICATIONS
+                        ) != PackageManager.PERMISSION_GRANTED
+                    if (needsPermission) {
+                        notifyPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    } else {
+                        vm.setOngoingNotification(enabled)
+                    }
+                }
+            )
+            Spacer(Modifier.height(Dimens.Gap))
+
             if (!settings.fastingEnabled) {
                 HintBox(text = "还没开启轻断食。点右上角「设置」选个方案（16:8 / 14:10 / 12:12 / 18:6 / 20:4）就能开始。")
                 Spacer(Modifier.height(Dimens.Gap))
@@ -159,6 +193,36 @@ fun FastingScreen(
                 vm.saveSettings(enabled, hours, start, end, days, phaseAlert)
             }
         )
+    }
+}
+
+/**
+ * 断食常驻通知开关（2026-11-11 专项，第一轮只做这一项）。
+ *
+ * 通知内容完全由现有 [FastingRules.status] 推出来：断食中就显示计时和剩余时间，
+ * 进食窗口内就显示窗口时间。所以它不改断食规则、不新增数据库字段，
+ * 关掉开关或杀掉服务都不会影响计算结果。
+ */
+@Composable
+private fun FastingNotifyCard(enabled: Boolean, onToggle: (Boolean) -> Unit) {
+    SectionCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "常驻通知",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextPrimary
+                )
+                Spacer(Modifier.height(3.dp))
+                Text(
+                    text = "通知栏显示断食计时和剩余时间，无声、不可划掉",
+                    fontSize = 11.sp,
+                    color = TextSecondary
+                )
+            }
+            Switch(checked = enabled, onCheckedChange = onToggle)
+        }
     }
 }
 

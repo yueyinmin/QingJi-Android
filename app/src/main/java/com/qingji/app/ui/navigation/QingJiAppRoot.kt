@@ -110,7 +110,19 @@ fun QingJiAppRoot(
     LaunchedEffect(startTarget, startTargetRequestId) {
         val target = startTarget ?: return@LaunchedEffect
         if (target != QingJiTab.Home.route && target.isNotBlank()) {
-            navController.navigate(target) { launchSingleTop = true }
+            // 断食常驻通知专项（2026-11-11）：冷启动带 target（通知 / 小组件）时，
+            // NavHost 的 graph 可能还没挂上，直接 navigate 会抛
+            // IllegalArgumentException: Navigation graph has not been set → 整个 App 崩掉。
+            // 以前小组件多数在 App 已运行时才点，所以没暴露。
+            // 现在等 currentDestination 出现再跳，最多等 15 秒；超时就放弃跳转（宁可停首页，也不崩）。
+            var waited = 0L
+            while (navController.currentDestination == null && waited < 15_000L) {
+                kotlinx.coroutines.delay(16L)
+                waited += 16L
+            }
+            runCatching {
+                navController.navigate(target) { launchSingleTop = true }
+            }
         }
         // 放在最后调用：它把 startTarget 变成 null，会让本 LaunchedEffect
         // 重启一次；重启后 target 已是 null，第一行就直接返回，不会重复跳。

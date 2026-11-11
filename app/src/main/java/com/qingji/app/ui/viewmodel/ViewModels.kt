@@ -743,6 +743,19 @@ class FastingViewModel(app: Application) : AndroidViewModel(app) {
             )
         }
     }
+
+    /** 断食常驻通知开关（前台服务只负责把现有断食状态挂到通知栏）。 */
+    fun setOngoingNotification(enabled: Boolean) {
+        viewModelScope.launch {
+            val ctx = getApplication<Application>()
+            com.qingji.app.data.prefs.SettingsStore.set(
+                ctx,
+                com.qingji.app.data.prefs.SettingsKeys.FASTING_ONGOING_NOTIFICATION,
+                enabled
+            )
+            com.qingji.app.notify.FastingService.sync(ctx)
+        }
+    }
 }
 
 /** 「吃过的」列表里的一条：按食物名聚合出来的。 */
