@@ -1045,9 +1045,18 @@ private fun ExerciseWeekCard(
 ) {
     val total = list.sumOf { it.kcal }
 
+    // 360dp 窄屏走查：右侧 QuickActionColumn 是 4 颗 52dp 圆按钮、右留 16dp，
+    // 浮在内容之上，占住屏幕右侧 (W-68dp) ~ (W-16dp) 这一条。
+    // 而卡片内容区右边界是 (W-16dp 外层 - 16dp SectionCard) = W-32dp，
+    // 比悬浮栏左边界还靠右 36dp —— 行尾的「×」和「+ 记一次」正好落进按钮热区，
+    // 点下去全被悬浮按钮吃掉（第一行 360dp 下完全点不到）。
+    // 给卡内两处行尾统一留 44dp 安全边距（36dp 理论值 + 8dp 余量）：
+    // 卡片本身宽度、标题位置、与其它卡片的对齐都不变，只是内容避开悬浮区。
+    val fabSafeEnd = 44.dp
+
     SectionCard {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(end = fabSafeEnd),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -1081,7 +1090,10 @@ private fun ExerciseWeekCard(
             Spacer(Modifier.height(10.dp))
             list.takeLast(3).reversed().forEach { log ->
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 5.dp)
+                        .padding(end = fabSafeEnd),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(text = "🏃", fontSize = 14.sp)
@@ -1107,12 +1119,17 @@ private fun ExerciseWeekCard(
                     }
                     Text(text = "${log.kcal.toInt()} 千卡", fontSize = 12.sp, color = QingJiGreenDark)
                     Spacer(Modifier.size(6.dp))
-                    Text(
-                        text = "×",
-                        fontSize = 14.sp,
-                        color = TextSecondary,
-                        modifier = Modifier.clickable { onDelete(log.id) }.padding(horizontal = 4.dp)
-                    )
+                    // 原来只是 Text 加 4dp 内边距，点击热区不到 24dp，
+                    // 就算没被悬浮栏挡住也很难点中；改成 36dp 透明方形热区，
+                    // 视觉上还是同一个「×」，只是更容易点。
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clickable { onDelete(log.id) },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(text = "×", fontSize = 14.sp, color = TextSecondary)
+                    }
                 }
             }
         }
