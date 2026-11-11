@@ -1,9 +1,15 @@
 package com.qingji.app.ui.screen
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,6 +26,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -35,7 +42,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.core.content.ContextCompat
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -79,7 +88,26 @@ fun FastingScreen(
     val settings by vm.settings.collectAsState()
     val weekLogs by vm.weekLogs.collectAsState()
     val historyLogs by vm.historyLogs.collectAsState()
+    val yearLogs by vm.yearLogs.collectAsState()
+
+    // 连续断食天数（成就口径）：近一年记录里，从今天往前一天接一天数
+    val streakDays = remember(yearLogs) {
+        FastingRules.consecutiveDays(
+            fastingDates = yearLogs.map { it.date }.toSet(),
+            today = AppClock.today()
+        )
+    }
     var showSettings by remember { mutableStateOf(false) }
+
+    // 自由断食：自定义开始时间（复用运动模块的日期+时分三列滚轮）
+    var showFreeStartPicker by remember { mutableStateOf(false) }
+
+    // 打开常驻通知时顺手申请通知权限（Android 13+ 必须）。
+    // 不给权限也照常保存开关，只是通知栏看不到 —— 断食状态本身仍由时间推算。
+    val context = LocalContext.current
+    val notifyPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { vm.setOngoingNotification(true) }
 
     // v1.0.3：今天是否在生效周期内（1..7，周一=1）
     val fastingDays = settings.fastingDays
@@ -124,10 +152,37 @@ fun FastingScreen(
         ) {
             Spacer(Modifier.height(Dimens.Gap))
 
+            // 断食常驻通知：只读现有方案状态，不改断食规则、不碰数据库
+            FastingNotifyCard(
+                enabled = settings.fastingOngoingNotification,
+                onToggle = { enabled ->
+                    val needsPermission = enabled &&
+                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                        ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.POST_NOTIFICATIONS
+                        ) != PackageManager.PERMISSION_GRANTED
+                    if (needsPermission) {
+                        notifyPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    } else {
+                        vm.setOngoingNotification(enabled)
+                    }
+                }
+            )
+            Spacer(Modifier.height(Dimens.Gap))
+
+            // 自由断食：不预设方案、可自定义开始时间；与常驻通知联动
+            FastingFreeCard(
+                freeStart = settings.fastingFreeStart,
+                message = vm.freeMessage,
+                onStartNow = { vm.startFreeFasting() },
+                onPickStart = { showFreeStartPicker = true },
+                onEnd = { vm.endFreeFasting() }
+            )
+            Spacer(Modifier.height(Dimens.Gap))
+
             if (!settings.fastingEnabled) {
                 HintBox(text = "还没开启轻断食。点右上角「设置」选个方案（16:8 / 14:10 / 12:12 / 18:6 / 20:4）就能开始。")
-                Spacer(Modifier.height(Dimens.Gap))
-                NotesCard()
             } else {
                 if (!isFastingDay) {
                     HintBox(text = "今天不在你的断食周期里（可在设置里改生效星期），想吃就吃，计划明天继续。")
@@ -140,14 +195,36 @@ fun FastingScreen(
                 PhaseCard(status)
                 Spacer(Modifier.height(Dimens.Gap))
                 WeekBars(weekLogs, settings.fastingPlanHours)
-                Spacer(Modifier.height(Dimens.Gap))
-                HistoryCard(historyLogs)
-                Spacer(Modifier.height(Dimens.Gap))
-                NotesCard()
             }
+
+            // 连续断食天数：和「有没有启用方案」无关，自由断食也算
+            Spacer(Modifier.height(Dimens.Gap))
+            FastingStreakCard(days = streakDays)
+            Spacer(Modifier.height(Dimens.Gap))
+
+            FastingCalendarCard(logs = yearLogs, today = AppClock.today())
+            Spacer(Modifier.height(Dimens.Gap))
+
+            HistoryCard(historyLogs)
+            Spacer(Modifier.height(Dimens.Gap))
+            NotesCard()
 
             Spacer(Modifier.height(Dimens.FabSpace))
         }
+    }
+
+    if (showFreeStartPicker) {
+        com.qingji.app.ui.components.ExerciseDateTimeWheelSheet(
+            initial = java.time.LocalDateTime.now(),
+            title = "选择断食开始时间",
+            onConfirm = { picked ->
+                showFreeStartPicker = false
+                vm.startFreeFasting(
+                    picked.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+                )
+            },
+            onDismiss = { showFreeStartPicker = false }
+        )
     }
 
     if (showSettings) {
@@ -160,6 +237,170 @@ fun FastingScreen(
             }
         )
     }
+}
+
+/**
+ * 断食常驻通知开关（2026-11-11 专项，第一轮只做这一项）。
+ *
+ * 通知内容完全由现有 [FastingRules.status] 推出来：断食中就显示计时和剩余时间，
+ * 进食窗口内就显示窗口时间。所以它不改断食规则、不新增数据库字段，
+ * 关掉开关或杀掉服务都不会影响计算结果。
+ */
+@Composable
+private fun FastingNotifyCard(enabled: Boolean, onToggle: (Boolean) -> Unit) {
+    SectionCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "常驻通知",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextPrimary
+                )
+                Spacer(Modifier.height(3.dp))
+                Text(
+                    text = "通知栏显示断食计时和剩余时间，无声、不可划掉",
+                    fontSize = 11.sp,
+                    color = TextSecondary
+                )
+            }
+            Switch(checked = enabled, onCheckedChange = onToggle)
+        }
+    }
+}
+
+/**
+ * 自由断食卡片（2026-11-11 专项）。
+ *
+ * 与上面的「方案断食」互不影响：这里只认一个开始时间戳（存在 DataStore，
+ * 进程被杀再打开也能接着算），断了多久 = 现在 - 开始，所以跨日、跨多日都对。
+ * 开始 / 结束都会 sync 常驻通知，两边状态永远一致。
+ */
+@Composable
+private fun FastingFreeCard(
+    freeStart: Long,
+    message: String,
+    onStartNow: () -> Unit,
+    onPickStart: () -> Unit,
+    onEnd: () -> Unit
+) {
+    val running = freeStart > 0L
+    var elapsedSeconds by remember(freeStart) { mutableStateOf(0) }
+    LaunchedEffect(freeStart) {
+        while (freeStart > 0L) {
+            elapsedSeconds = ((System.currentTimeMillis() - freeStart) / 1000L).toInt().coerceAtLeast(0)
+            delay(1000L)
+        }
+        elapsedSeconds = 0
+    }
+
+    SectionCard {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = "自由断食",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TextPrimary
+            )
+            Spacer(Modifier.height(3.dp))
+            if (running) {
+                val minutes = elapsedSeconds / 60
+                Text(
+                    text = "已断食 ${clockText(elapsedSeconds)} · " +
+                        FastingRules.phase(minutes / 60.0).first,
+                    fontSize = 12.sp,
+                    color = QingJiGreenDark
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = "开始于 ${startLabel(freeStart)}",
+                    fontSize = 11.sp,
+                    color = TextSecondary
+                )
+            } else {
+                Text(
+                    text = "不预设方案，自己定开始时间；结束后记进历史",
+                    fontSize = 11.sp,
+                    color = TextSecondary
+                )
+            }
+        }
+
+        Spacer(Modifier.height(10.dp))
+
+        if (running) {
+            PillText(
+                text = "结束并保存",
+                filled = true,
+                modifier = Modifier.fillMaxWidth(),
+                onClick = onEnd
+            )
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PillText(
+                    text = "现在开始",
+                    filled = true,
+                    modifier = Modifier.weight(1f),
+                    onClick = onStartNow
+                )
+                PillText(
+                    text = "自定义时间",
+                    filled = false,
+                    modifier = Modifier.weight(1f),
+                    onClick = onPickStart
+                )
+            }
+        }
+
+        if (message.isNotBlank()) {
+            Spacer(Modifier.height(8.dp))
+            Text(text = message, fontSize = 11.sp, color = QingJiGreenDark)
+        }
+    }
+}
+
+/** 胶囊按钮：filled = 实底绿（主操作），否则浅绿（次操作）。 */
+@Composable
+private fun PillText(
+    text: String,
+    filled: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(if (filled) QingJiGreen else QingJiGreenLight)
+            .clickable { onClick() }
+            .padding(vertical = 9.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = if (filled) Color.White else QingJiGreenDark
+        )
+    }
+}
+
+/** 秒数 → 00:12:34（跨日会出现 26:10:05，不截断）。 */
+private fun clockText(totalSeconds: Int): String {
+    val s = totalSeconds.coerceAtLeast(0)
+    return "%02d:%02d:%02d".format(s / 3600, (s % 3600) / 60, s % 60)
+}
+
+/** 开始时刻 → 「今天 20:00 / 昨天 20:00 / 11月9日 20:00」。 */
+private fun startLabel(millis: Long): String {
+    val zoned = java.time.Instant.ofEpochMilli(millis).atZone(java.time.ZoneId.systemDefault())
+    val date = zoned.toLocalDate()
+    val today = AppClock.today()
+    val day = when (date) {
+        today -> "今天"
+        today.minusDays(1) -> "昨天"
+        else -> "${date.monthValue}月${date.dayOfMonth}日"
+    }
+    return "%s %02d:%02d".format(day, zoned.hour, zoned.minute)
 }
 
 /** 顶部时间条：断食开始 → 可进食。 */
@@ -303,6 +544,78 @@ private fun PhaseCard(status: FastingStatus) {
 }
 
 /** 近 7 日断食柱状图。 */
+/**
+ * 断食成就（2026-11-11）：口径是「连续断食天数」。
+ *
+ * 不累计历史总天数 —— 断食最怕三天打鱼两天晒网，连续才值得鼓励。
+ * 里程碑只放 6 个档位（3/7/14/30/60/100），够得着才有意义；
+ * 达成填实底、未达成浅底，一眼能看出还差多远。
+ */
+@Composable
+private fun FastingStreakCard(days: Int) {
+    SectionCard {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "连续断食",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextPrimary
+                )
+                Spacer(Modifier.height(3.dp))
+                Text(
+                    text = if (days <= 0) {
+                        "今天或昨天记一次断食，连续天数就开始累计"
+                    } else {
+                        FastingRules.nextMilestoneText(days)
+                    },
+                    fontSize = 11.sp,
+                    color = TextSecondary
+                )
+            }
+            Text(
+                text = "$days",
+                fontSize = 26.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (days > 0) QingJiGreenDark else TextSecondary
+            )
+            Text(
+                text = " 天",
+                fontSize = 12.sp,
+                color = TextSecondary,
+                modifier = Modifier.padding(bottom = 4.dp)
+            )
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            FastingRules.STREAK_MILESTONES.forEach { (target, name) ->
+                val done = days >= target
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(if (done) QingJiGreen else QingJiGreenLight)
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = name,
+                        fontSize = 9.sp,
+                        color = if (done) QingJiGreenDark else TextSecondary,
+                        maxLines = 1
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun WeekBars(
     logs: List<com.qingji.app.data.local.entity.FastingLog>,
@@ -376,6 +689,176 @@ private fun WeekBars(
 
 /** 断食期间的注意事项。 */
 /** v1.0.3：历史记录卡——近 30 天的断食计划倒序列表。 */
+/**
+ * 断食日历（2026-11-11 专项）。
+ *
+ * 纯展示：数据只读近一年的 fasting_log，不加字段、不改规则。
+ * 周一开头（国内习惯），有记录的日子浅绿底，今天淡绿底，点某天在下方看那天的详情。
+ * 月份只能在「11 个月前 ~ 今天所在月」之间翻——再往前数据没查，翻了也是空白。
+ */
+@Composable
+private fun FastingCalendarCard(
+    logs: List<com.qingji.app.data.local.entity.FastingLog>,
+    today: java.time.LocalDate
+) {
+    val byDate = remember(logs) { logs.associateBy { it.date } }
+    val minMonth = remember(today) { java.time.YearMonth.from(today).minusMonths(11) }
+    val maxMonth = remember(today) { java.time.YearMonth.from(today) }
+    var month by remember { mutableStateOf(maxMonth) }
+    var selected by remember { mutableStateOf<java.time.LocalDate?>(null) }
+
+    SectionCard {
+        // 标题 + 月份切换
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "断食日历",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TextPrimary
+            )
+            Spacer(Modifier.weight(1f))
+            Text(
+                text = "‹",
+                fontSize = 18.sp,
+                color = if (month > minMonth) QingJiGreenDark else TextSecondary.copy(alpha = 0.3f),
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(enabled = month > minMonth) { month = month.minusMonths(1) }
+                    .padding(horizontal = 10.dp, vertical = 2.dp)
+            )
+            Text(
+                text = "${month.year} 年 ${month.monthValue} 月",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                color = TextPrimary
+            )
+            Text(
+                text = "›",
+                fontSize = 18.sp,
+                color = if (month < maxMonth) QingJiGreenDark else TextSecondary.copy(alpha = 0.3f),
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(enabled = month < maxMonth) { month = month.plusMonths(1) }
+                    .padding(horizontal = 10.dp, vertical = 2.dp)
+            )
+        }
+
+        Spacer(Modifier.height(10.dp))
+
+        // 星期表头
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            listOf("一", "二", "三", "四", "五", "六", "日").forEach { label ->
+                Text(
+                    text = label,
+                    fontSize = 10.sp,
+                    color = TextSecondary,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+
+        // 日期网格
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            FastingRules.monthCells(month).chunked(7).forEach { row ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    row.forEach { date ->
+                        if (date == null) {
+                            Spacer(Modifier.weight(1f))
+                            return@forEach
+                        }
+                        val mark = FastingRules.dayMark(date, today, byDate.keys)
+                        val isToday = date == today
+                        val isSelected = date == selected
+                        val bg = when {
+                            isSelected -> QingJiGreen
+                            mark == FastingRules.DayMark.RECORDED -> QingJiGreenLight
+                            isToday -> QingJiGreen.copy(alpha = 0.12f)
+                            else -> Color.Transparent
+                        }
+                        val fg = when {
+                            isSelected -> Color.White
+                            mark == FastingRules.DayMark.FUTURE -> TextSecondary.copy(alpha = 0.35f)
+                            mark == FastingRules.DayMark.RECORDED -> QingJiGreenDark
+                            isToday -> QingJiGreenDark
+                            else -> TextSecondary
+                        }
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(30.dp)
+                                .clip(RoundedCornerShape(9.dp))
+                                .background(bg)
+                                // 今天单独加一圈边框：否则「今天有记录」和「别的日子有记录」长一样，
+                                // 一眼找不到今天在哪
+                                .then(
+                                    if (isToday && !isSelected) {
+                                        Modifier.border(1.dp, QingJiGreen, RoundedCornerShape(9.dp))
+                                    } else {
+                                        Modifier
+                                    }
+                                )
+                                .clickable(enabled = mark != FastingRules.DayMark.FUTURE) {
+                                    selected = if (isSelected) null else date
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "${date.dayOfMonth}",
+                                fontSize = 11.sp,
+                                fontWeight = if (mark == FastingRules.DayMark.RECORDED || isToday) {
+                                    FontWeight.SemiBold
+                                } else {
+                                    FontWeight.Normal
+                                },
+                                color = fg
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // 选中那天的详情
+        selected?.let { day ->
+            Spacer(Modifier.height(10.dp))
+            val log = byDate[day]
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(QingJiGreenLight.copy(alpha = 0.6f))
+                    .padding(horizontal = 12.dp, vertical = 9.dp)
+            ) {
+                Text(
+                    text = "${day.monthValue} 月 ${day.dayOfMonth} 日",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = TextPrimary
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = when {
+                        log == null -> "这天没有断食记录"
+                        log.freeMode -> "自由断食 · ${FastingRules.freeDurationLabel(log.actualMinutes)} · " +
+                            FastingRules.minuteLabel(log.eatStartMinute) + " - " +
+                            FastingRules.minuteLabel(log.eatEndMinute)
+                        else -> "${FastingRules.planLabel(log.planHours)} · 进食窗口 " +
+                            FastingRules.minuteLabel(log.eatStartMinute) + " - " +
+                            FastingRules.minuteLabel(log.eatEndMinute)
+                    },
+                    fontSize = 11.sp,
+                    color = TextSecondary
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun HistoryCard(logs: List<com.qingji.app.data.local.entity.FastingLog>) {
     SectionCard {
@@ -394,26 +877,33 @@ private fun HistoryCard(logs: List<com.qingji.app.data.local.entity.FastingLog>)
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
+                        val head = if (isToday) "今天 · " else "${log.date.monthValue}月${log.date.dayOfMonth}日 · "
                         Text(
-                            text = (if (isToday) "今天 · " else "${log.date.monthValue}月${log.date.dayOfMonth}日 · ") +
-                                FastingRules.planLabel(log.planHours),
+                            text = head + if (log.freeMode) "自由断食" else FastingRules.planLabel(log.planHours),
                             fontSize = 14.sp,
                             fontWeight = if (isToday) FontWeight.SemiBold else FontWeight.Normal,
                             color = TextPrimary
                         )
                         Spacer(Modifier.height(2.dp))
                         Text(
-                            text = "进食窗口 " +
-                                FastingRules.minuteLabel(log.eatStartMinute) + " - " +
-                                FastingRules.minuteLabel(log.eatEndMinute),
+                            text = if (log.freeMode) {
+                                // 自由断食记的是真实起止，不显示「进食窗口」这个方案概念
+                                "断食 ${FastingRules.freeDurationLabel(log.actualMinutes)} · " +
+                                    FastingRules.minuteLabel(log.eatStartMinute) + " - " +
+                                    FastingRules.minuteLabel(log.eatEndMinute)
+                            } else {
+                                "进食窗口 " +
+                                    FastingRules.minuteLabel(log.eatStartMinute) + " - " +
+                                    FastingRules.minuteLabel(log.eatEndMinute)
+                            },
                             fontSize = 11.sp,
                             color = TextSecondary
                         )
                     }
                     Text(
-                        text = if (isToday) "进行中" else "按计划",
+                        text = if (log.freeMode) "已完成" else if (isToday) "进行中" else "按计划",
                         fontSize = 12.sp,
-                        color = if (isToday) QingJiGreenDark else TextSecondary
+                        color = if (log.freeMode || isToday) QingJiGreenDark else TextSecondary
                     )
                 }
             }

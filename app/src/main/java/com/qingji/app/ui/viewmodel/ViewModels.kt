@@ -22,6 +22,7 @@ import com.qingji.app.data.prefs.SettingsStore
 import com.qingji.app.data.repository.QingJiRepository
 import com.qingji.app.domain.BarcodeRules
 import com.qingji.app.domain.DiaryRules
+import com.qingji.app.domain.FastingRules
 import com.qingji.app.domain.FoodRanking
 import com.qingji.app.domain.NutritionCalculator
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -699,6 +700,14 @@ class FastingViewModel(app: Application) : AndroidViewModel(app) {
         .observeFastingRange(AppClock.today().minusDays(29), AppClock.today())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /**
+     * 近一年断食记录：算「连续断食天数」用。
+     * 历史卡只看 30 天，但连续天数要一路往前数，30 天不够。
+     */
+    val yearLogs: StateFlow<List<com.qingji.app.data.local.entity.FastingLog>> = repo
+        .observeFastingRange(AppClock.today().minusDays(365), AppClock.today())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     /** 当前时刻，每 30 秒刷一次，倒计时才会走 */
     var now by androidx.compose.runtime.mutableStateOf(java.time.LocalTime.now())
         private set
@@ -741,6 +750,111 @@ class FastingViewModel(app: Application) : AndroidViewModel(app) {
                     eatEndMinute = endMinute
                 )
             )
+        }
+    }
+
+    /** 断食常驻通知开关（前台服务只负责把现有断食状态挂到通知栏）。 */
+    fun setOngoingNotification(enabled: Boolean) {
+        viewModelScope.launch {
+            val ctx = getApplication<Application>()
+            com.qingji.app.data.prefs.SettingsStore.set(
+                ctx,
+                com.qingji.app.data.prefs.SettingsKeys.FASTING_ONGOING_NOTIFICATION,
+                enabled
+            )
+            com.qingji.app.notify.FastingService.sync(ctx)
+        }
+    }
+
+    // ---------- 自由断食（2026-11-11 专项） ----------
+
+    /** 给界面的一句话反馈：重复开始被拒、时长太短等。空串 = 没消息。 */
+    var freeMessage by androidx.compose.runtime.mutableStateOf("")
+        private set
+
+    fun clearFreeMessage() {
+        freeMessage = ""
+    }
+
+    /**
+     * 开始一段自由断食。
+     *
+     * [startAtMillis] 允许是过去的时间（比如「昨晚 8 点开始的」），
+     * 但不能是未来、也不能早于 72 小时前，否则拒绝并给一句提示。
+     * 已经有一段在进行时直接忽略 —— 重复点「开始」不会把计时清零。
+     */
+    fun startFreeFasting(startAtMillis: Long = System.currentTimeMillis()) {
+        if (settings.value.fastingFreeStart > 0L) {
+            freeMessage = "已经有一段自由断食在进行中，先结束它再开始新的"
+            return
+        }
+        val now = System.currentTimeMillis()
+        val issue = FastingRules.freeStartIssue(startAtMillis, now)
+        if (issue != null) {
+            freeMessage = issue
+            return
+        }
+        viewModelScope.launch {
+            val ctx = getApplication<Application>()
+            com.qingji.app.data.prefs.SettingsStore.set(
+                ctx,
+                com.qingji.app.data.prefs.SettingsKeys.FASTING_FREE_START,
+                startAtMillis
+            )
+            freeMessage = ""
+            com.qingji.app.notify.FastingService.sync(ctx)
+        }
+    }
+
+    /**
+     * 结束自由断食：按真实起止算分钟数，写进当天记录。
+     *
+     * 注意 `fasting_log` 主键是日期、一天一条，所以当天已有方案记录时会被这条覆盖 ——
+     * 这是既定表结构决定的，不额外改表；覆盖后历史卡按「自由断食」样式显示。
+     */
+    fun endFreeFasting() {
+        val start = settings.value.fastingFreeStart
+        if (start <= 0L) {
+            freeMessage = "当前没有进行中的自由断食"
+            return
+        }
+        val now = System.currentTimeMillis()
+        val minutes = FastingRules.freeElapsedMinutes(start, now)
+        val issue = FastingRules.freeEndIssue(minutes)
+        viewModelScope.launch {
+            val ctx = getApplication<Application>()
+            if (issue != null) {
+                // 太短：清掉状态，不写脏记录
+                com.qingji.app.data.prefs.SettingsStore.set(
+                    ctx,
+                    com.qingji.app.data.prefs.SettingsKeys.FASTING_FREE_START,
+                    0L
+                )
+                com.qingji.app.notify.FastingService.sync(ctx)
+                freeMessage = issue
+                return@launch
+            }
+            val zone = java.time.ZoneId.systemDefault()
+            val startTime = java.time.Instant.ofEpochMilli(start).atZone(zone).toLocalTime()
+            val endTime = java.time.Instant.ofEpochMilli(now).atZone(zone).toLocalTime()
+            repo.saveFasting(
+                com.qingji.app.data.local.entity.FastingLog(
+                    date = AppClock.today(),
+                    planHours = FastingRules.freePlanHours(minutes),
+                    eatStartMinute = startTime.hour * 60 + startTime.minute,
+                    eatEndMinute = endTime.hour * 60 + endTime.minute,
+                    completed = true,
+                    freeMode = true,
+                    actualMinutes = minutes
+                )
+            )
+            com.qingji.app.data.prefs.SettingsStore.set(
+                ctx,
+                com.qingji.app.data.prefs.SettingsKeys.FASTING_FREE_START,
+                0L
+            )
+            com.qingji.app.notify.FastingService.sync(ctx)
+            freeMessage = "已记录：${FastingRules.freeDurationLabel(minutes)}"
         }
     }
 }
@@ -799,17 +913,34 @@ class FoodLibraryViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { repo.deleteFood(food.id) }
     }
 
-    /** 把食物加到某一餐（dayOffset：0 今天 / 1 昨天 / 2 前天）。 */
-    fun addToMeal(foodName: String, per100gKcal: Double, grams: Double, mealType: String, dayOffset: Int = 0) {
+    /**
+     * 把食物加到某一餐（dayOffset：0 今天 / 1 昨天 / 2 前天）。
+     * AI 专项修真 Bug：以前只按每 100g 换算了热量，蛋白 / 碳水 / 脂肪
+     * 全部走 FoodLog 默认值 0，导致从食物库页记的一笔在首页、进展页、
+     * 小组件里三大营养素都少算。现在四个数值统一乘 grams/100。
+     */
+    fun addToMeal(
+        foodName: String,
+        per100gKcal: Double,
+        grams: Double,
+        mealType: String,
+        dayOffset: Int = 0,
+        per100gProtein: Double = 0.0,
+        per100gCarb: Double = 0.0,
+        per100gFat: Double = 0.0
+    ) {
         viewModelScope.launch {
-            val kcal = per100gKcal * grams / 100.0
+            val ratio = grams / 100.0
             repo.addFoodLog(
                 com.qingji.app.data.local.entity.FoodLog(
                     date = AppClock.today().minusDays(dayOffset.toLong()),
                     mealType = mealType,
                     foodName = foodName,
                     grams = grams,
-                    kcal = kcal,
+                    kcal = per100gKcal * ratio,
+                    proteinG = per100gProtein * ratio,
+                    carbG = per100gCarb * ratio,
+                    fatG = per100gFat * ratio,
                     source = "manual"
                 )
             )

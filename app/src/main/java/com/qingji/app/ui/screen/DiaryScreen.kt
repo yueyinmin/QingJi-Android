@@ -8,6 +8,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -71,6 +72,7 @@ import com.qingji.app.ui.theme.TextSizes
 import com.qingji.app.ui.viewmodel.DiaryViewModel
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import com.qingji.app.ui.i18n.s
 
 /**
  * ============================================================
@@ -93,6 +95,8 @@ fun DiaryScreen(
     /** v3.2.4：悬浮栏第二颗换成食物库 */
     onOpenFoodLibrary: () -> Unit = {},
     modifier: Modifier = Modifier,
+    /** tabfix：滚动状态由 Root 持有，切 Tab 回来不丢位置。 */
+    scrollState: ScrollState = rememberScrollState(),
     vm: DiaryViewModel = viewModel()
 ) {
     val diaries by vm.diaries.collectAsState()
@@ -120,7 +124,7 @@ fun DiaryScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scrollState)
                 .padding(horizontal = 16.dp)
         ) {
             Spacer(Modifier.height(16.dp))
@@ -133,14 +137,14 @@ fun DiaryScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "日记",
+                    text = s("日记"),
                     fontSize = TextSizes.PageTitle,
                     fontWeight = FontWeight.Bold,
                     color = TextPrimary
                 )
                 if (diaries.isNotEmpty()) {
                     Text(
-                        text = "清空",
+                        text = s("清空"),
                         fontSize = 13.sp,
                         color = Color(0xFFD64545),
                         modifier = Modifier
@@ -159,7 +163,7 @@ fun DiaryScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = "近 30 天", fontSize = TextSizes.CardTitle, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                Text(text = s("近 30 天"), fontSize = TextSizes.CardTitle, fontWeight = FontWeight.SemiBold, color = TextPrimary)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     LegendDot("未写", DividerColor)
                     Spacer(Modifier.size(6.dp))
@@ -282,7 +286,7 @@ fun DiaryScreen(
                         Text(text = "✎", fontSize = 22.sp, color = TextSecondary)
                     }
                     Spacer(Modifier.height(12.dp))
-                    Text(text = "还没有日记，点右下角「写一篇」", fontSize = 13.sp, color = TextSecondary)
+                    Text(text = s("还没有日记，点右下角「写一篇」"), fontSize = 13.sp, color = TextSecondary)
                 }
             } else {
                 diaries.forEachIndexed { index, diary ->
@@ -379,7 +383,7 @@ private fun JarCard(count: Int) {
     SectionCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = "玻璃罐", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                Text(text = s("玻璃罐"), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
                 Spacer(Modifier.height(4.dp))
                 Text(
                     text = "已攒 $count 篇 / 满 ${DiaryRules.JAR_GOAL} 篇",
@@ -467,7 +471,7 @@ private fun WriteEntryFab(onClick: () -> Unit) {
         Text(text = "✎", fontSize = 16.sp, color = Color.White)
         Spacer(Modifier.size(8.dp))
         Text(
-            text = "写一篇",
+            text = s("写一篇"),
             fontSize = 15.sp,
             fontWeight = FontWeight.SemiBold,
             color = Color.White

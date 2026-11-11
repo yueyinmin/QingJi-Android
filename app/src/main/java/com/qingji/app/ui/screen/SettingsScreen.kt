@@ -629,14 +629,9 @@ fun SettingsScreen(
             onBack = { dialog = null }
         )
 
-        DialogKind.ABOUT -> InfoDetailPage(
-            title = "关于轻记",
-            body = "轻记是一个「不用查表、不用称重，说一句或拍一张就记完」的私人减重账本。\n\n" +
-                "设计上只做三件事：记得快、看得懂趋势、数据留在自己手机里。\n" +
-                "不做社交、不做商城、不做医疗建议 —— 文案里也不出现「治疗 / 诊断 / 处方」这类词。\n\n" +
-                "AI 能力用你自己的 API Key，花多少自己控；我们不中转请求，也不收集任何数据。",
-            onBack = { dialog = null }
-        )
+        // 2026-11-11：从纯文字说明改成独立「关于」页（图标 / 版本 / 特性标签 /
+        // 源代码入口 / 维护者），段落说明与设计原则并进卡片里
+        DialogKind.ABOUT -> AboutScreen(onBack = { dialog = null })
 
         DialogKind.VERSION -> InfoDetailPage(
             title = "版本信息",
@@ -762,29 +757,11 @@ private fun MacroRatioPage(
 
         Spacer(Modifier.height(Dimens.Gap))
 
-        // v3.5.0：营养素目标细分。食物库暂未收录这三项的具体数值，
-        // 先把目标记下来；详情页有数据显示实际值，没有就显示「暂无数据」。
-        SectionCard {
-            Text(
-                text = "膳食纤维 / 钠 / 钙 每日目标",
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = TextPrimary
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = "默认值是成人参考量。食物库这三项数据还没补全，详情页会先显示「暂无数据」。",
-                fontSize = 11.sp,
-                color = TextSecondary,
-                lineHeight = 16.sp
-            )
-            Spacer(Modifier.height(10.dp))
-            MacroField("膳食纤维", fiber, "g") { fiber = it }
-            Spacer(Modifier.height(10.dp))
-            MacroField("钠", sodium, "mg") { sodium = it }
-            Spacer(Modifier.height(10.dp))
-            MacroField("钙", calcium, "mg") { calcium = it }
-        }
+        // AI 专项：核心营养口径统一为热量 + 三大营养素，
+        // 移除膳食纤维 / 钠 / 钙的每日目标录入入口。
+        // 三个值仍随 onSaveGoals 按默认值写回档案，备份 JSON 也照旧导出，
+        // 数据库字段与旧数据一行都不动（Room 的 defaultValue 与迁移 SQL
+        // 必须逐字一致，动注解会触发清库兜底）。
 
         Spacer(Modifier.height(Dimens.Gap))
 

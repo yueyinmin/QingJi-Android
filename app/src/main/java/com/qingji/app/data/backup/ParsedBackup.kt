@@ -221,9 +221,13 @@ private fun parseUserFood(o: JSONObject): UserFood? {
         proteinPer100g = o.optDouble("proteinPer100g", 0.0),
         carbPer100g = o.optDouble("carbPer100g", 0.0),
         fatPer100g = o.optDouble("fatPer100g", 0.0),
-        fiberPer100g = o.optDouble("fiberPer100g", 0.0),
-        sodiumMgPer100g = o.optDouble("sodiumMgPer100g", 0.0),
-        calciumMgPer100g = o.optDouble("calciumMgPer100g", 0.0),
+        // 四列微量营养素：键缺失 / JSON null 都读成 null（未收录），
+        // 不再回落 0.0 —— 0.0 在新语义里是「确实测得为 0」，不能冒充。
+        // 顺带补上以前导出端漏写、这里也漏读的 sugarPer100g。
+        fiberPer100g = nullableDouble(o, "fiberPer100g"),
+        sodiumMgPer100g = nullableDouble(o, "sodiumMgPer100g"),
+        sugarPer100g = nullableDouble(o, "sugarPer100g"),
+        calciumMgPer100g = nullableDouble(o, "calciumMgPer100g"),
         defaultGrams = o.optDouble("defaultGrams", 100.0),
         // 老备份里可能混着预置食物；拆库后一律归为用户数据，不冒充标准库
         source = o.optString("source", "user").let { if (it == "preset") "user" else it },

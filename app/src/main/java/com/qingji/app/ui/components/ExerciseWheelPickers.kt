@@ -223,7 +223,9 @@ fun ExerciseNumberWheelSheet(
 fun ExerciseDateTimeWheelSheet(
     initial: LocalDateTime,
     onConfirm: (LocalDateTime) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    /** 弹层标题。默认沿用运动页文案，其它页面（如自由断食）可传入自己的标题。 */
+    title: String = "选择运动时间"
 ) {
     val today = AppClock.today()
     val days = (0..6).map { today.minusDays(it.toLong()) }
@@ -258,7 +260,7 @@ fun ExerciseDateTimeWheelSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "选择运动时间",
+                    text = title,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = TextPrimary

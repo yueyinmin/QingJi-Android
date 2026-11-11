@@ -239,6 +239,41 @@ class BackupParsingTest {
         assertEquals("正面", photo.note)
     }
 
+    /**
+     * 迁移 8：自建食物的四列微量营养素要能按「NULL = 未收录」往返。
+     * 导出端以前整个漏写这四键，导入端却有 optDouble(..., 0.0)，
+     * 备份恢复一次就把「不知道」变成 0；现在两端都按可空处理。
+     */
+    @Test
+    fun parseUserFood_keepsNullableMicroNutrients() {
+        val json = """
+        {
+          "app": "qingji", "version": 2,
+          "profile": null, "weights": [],
+          "foods": [
+            {"name":"A","kcalPer100g":100.0,"fiberPer100g":null,
+             "sodiumMgPer100g":0.0,"sugarPer100g":1.5,"calciumMgPer100g":null},
+            {"name":"B","kcalPer100g":200.0}
+          ],
+          "foodLogs": [], "water": [], "diaries": [], "usage": [], "aiConfig": null
+        }
+        """.trimIndent()
+
+        val foods = parseBackup(json).getOrThrow().foods
+        assertEquals(2, foods.size)
+
+        assertNull(foods[0].fiberPer100g)
+        assertEquals(0.0, foods[0].sodiumMgPer100g!!, 0.0001)   // 真 0 不能被当成未收录
+        assertEquals(1.5, foods[0].sugarPer100g!!, 0.0001)
+        assertNull(foods[0].calciumMgPer100g)
+
+        // 老备份没有这些键 → 全部「未收录」，不能回落成 0.0
+        assertNull(foods[1].fiberPer100g)
+        assertNull(foods[1].sodiumMgPer100g)
+        assertNull(foods[1].sugarPer100g)
+        assertNull(foods[1].calciumMgPer100g)
+    }
+
     private companion object {
         /** 一份「和 buildJson 输出结构一致」的 v2 备份，覆盖全部十五段。 */
         val V2_BACKUP = """

@@ -1,5 +1,6 @@
 package com.qingji.app.ui.screen
 
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -14,8 +15,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -52,6 +53,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -114,6 +116,14 @@ fun HomeScreen(
     /** 点「食物库」→ 进食物库页 */
     onOpenFoodLibrary: () -> Unit = {},
     modifier: Modifier = Modifier,
+    /**
+     * tabfix：状态栏高度，由 QingJiAppRoot 在 Scaffold 消耗 insets 之前读好传进来。
+     * Scaffold 现在对所有路由统一给默认 top inset，首页内容区因此从状态栏下方开始；
+     * 把顶部渐变往上挪这么多，渐变起点就还是屏幕最顶端，视觉和修复前完全一致。
+     */
+    statusBarTop: Dp = 0.dp,
+    /** tabfix：滚动状态由 Root 持有，页面被导航销毁再重建时位置不丢。 */
+    scrollState: ScrollState = rememberScrollState(),
     vm: HomeViewModel = viewModel()
 ) {
     val state by vm.uiState.collectAsState()
@@ -139,9 +149,13 @@ fun HomeScreen(
     ) {
         // 顶部一层很淡的主题色渐变：日期、周历都落在这一块上。
         // 颜色取 QingJiGreenLight（跟着主题色变），不用写死任何青色。
+        // tabfix：Scaffold 统一给 top inset 后，内容区顶部 = 状态栏下沿，
+        // 这里用负 offset 把渐变补回状态栏后面（高度仍是 250dp，
+        // 起止位置与修复前逐像素一致）。Box 默认不裁剪子内容，能画到边界外。
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .offset(y = -statusBarTop)
                 .height(250.dp)
                 .background(
                     Brush.verticalGradient(
@@ -156,10 +170,9 @@ fun HomeScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                // 正式版 v1.1：渐变已延伸到状态栏后面（Scaffold 在首页放开 top inset），
-                // 这里自己补状态栏内边距，保证日期标题不被时钟 / 电量压住
-                .statusBarsPadding()
-                .verticalScroll(rememberScrollState())
+                // tabfix：状态栏内边距已由 Scaffold 统一提供，这里不能再加，
+                // 否则首页内容会比其它页面多沉一个状态栏高度、切页时又跳一次。
+                .verticalScroll(scrollState)
                 .padding(horizontal = 16.dp)
         ) {
         Spacer(Modifier.height(12.dp))
@@ -314,7 +327,7 @@ fun HomeScreen(
                 if (settings.showAiAnalysis) {
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = "✦ AI 分析",
+                        text = s("✦ AI 分析"),
                         fontSize = 11.sp,
                         color = QingJiGreenDark,
                         modifier = Modifier
@@ -862,7 +875,7 @@ private fun TodaySummaryCard(
         androidx.compose.material3.HorizontalDivider(color = DividerColor)
         Spacer(Modifier.height(14.dp))
 
-        Text(text = "营养素 (g)", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+        Text(text = s("营养素 (g)"), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
         Spacer(Modifier.height(10.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             NutrientColumn(

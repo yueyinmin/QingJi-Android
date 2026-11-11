@@ -160,7 +160,7 @@ fun TextAiScreen(
                 )
                 Spacer(Modifier.height(6.dp))
                 ConfirmSaveBar(
-                    count = items.size,
+                    items = items,
                     onSave = {
                         scope.launch {
                             val logs = items.toFoodLogs(mealType, "text", date = recordDate)

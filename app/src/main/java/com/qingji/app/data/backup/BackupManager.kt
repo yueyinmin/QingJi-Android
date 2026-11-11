@@ -206,6 +206,12 @@ class BackupManager(private val context: Context) {
                         put("proteinPer100g", f.proteinPer100g)
                         put("carbPer100g", f.carbPer100g)
                         put("fatPer100g", f.fatPer100g)
+                        // v1.0.6 之前这四列在导出端整个漏了，导入端却会读，
+                        // 备份往返一定丢值。现在原样导出：数值写数值，未收录写 JSON null。
+                        put("fiberPer100g", f.fiberPer100g ?: JSONObject.NULL)
+                        put("sodiumMgPer100g", f.sodiumMgPer100g ?: JSONObject.NULL)
+                        put("sugarPer100g", f.sugarPer100g ?: JSONObject.NULL)
+                        put("calciumMgPer100g", f.calciumMgPer100g ?: JSONObject.NULL)
                         put("defaultGrams", f.defaultGrams)
                         put("source", f.source)
                         put("category", f.category)

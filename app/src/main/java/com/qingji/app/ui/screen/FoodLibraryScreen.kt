@@ -441,7 +441,16 @@ fun FoodLibraryScreen(
             defaultGrams = food.defaultGrams,
             onDismiss = { pick = null },
             onConfirm = { meal, grams, dayOffset ->
-                vm.addToMeal(food.name, food.kcalPer100g, grams, meal, dayOffset)
+                vm.addToMeal(
+                    food.name,
+                    food.kcalPer100g,
+                    grams,
+                    meal,
+                    dayOffset,
+                    food.proteinPer100g,
+                    food.carbPer100g,
+                    food.fatPer100g
+                )
                 pick = null
             }
         )
