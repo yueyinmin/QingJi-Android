@@ -61,11 +61,21 @@ fun AppBottomSheet(
     confirmEnabled: Boolean = true,
     /** 校验失败不关弹窗的场景传 false（例如填错日期要用户改完再关） */
     closeOnConfirm: Boolean = true,
+    /**
+     * 是否跳过「半屏」这一档，一打开就展开到内容需要的高度。
+     * 设置里的二级表单（营养素、通知提醒）底部带「保存」按钮，
+     * 默认半屏会把主按钮挤到屏幕外，所以 SettingsDetailSheet 传 true；
+     * 轻断食设置等普通弹层保持默认 false，行为不变。
+     */
+    skipPartiallyExpanded: Boolean = false,
     onDismiss: () -> Unit,
     content: @Composable ColumnScope.() -> Unit
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        sheetState = androidx.compose.material3.rememberModalBottomSheetState(
+            skipPartiallyExpanded = skipPartiallyExpanded
+        ),
         // 统一弹层配色：和 App 卡片同一个白，不用 Material 默认的灰紫容器
         containerColor = CardWhite,
         contentColor = TextPrimary,

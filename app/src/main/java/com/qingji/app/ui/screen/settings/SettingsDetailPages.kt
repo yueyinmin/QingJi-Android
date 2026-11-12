@@ -73,7 +73,7 @@ import com.qingji.app.ui.theme.TextSizes
  *
  * v1.0.7：`useSheet = true` 时换成「从底部浮起的操作面板」，和轻断食
  * 设置（FastingSettingsDialog 用的 AppBottomSheet）同一套形态。
- * 用于设置条数少于 4 条的简单项 —— 只有两三个选项还整屏翻页，太浪费。
+ * 设置里所有二级项都用这一套，不再整屏翻页；条目多的在弹层里滚动。
  * 内容区完全复用，交互也保持「点一下就生效」，只是容器换了。
  */
 @Composable
@@ -111,7 +111,7 @@ fun SettingsDetailScaffold(
 }
 
 /**
- * 底部弹层壳子（条目少的设置项专用）。
+ * 底部弹层壳子（设置二级项通用）。
  *
  * 和轻断食设置同款：白色圆角卡片、顶部小横条、标题、轻遮罩，
  * 下滑或点外面关闭。
@@ -119,8 +119,10 @@ fun SettingsDetailScaffold(
  * 高度跟内容走（wrapContent）：只有两个选项时弹层就只有两行高，
  * 不会出现下方一大片空白；最多长到 420dp，超了才在弹层内部滚动，
  * 这样「关于」这类长说明也不会把弹层撑满整屏。
- * 刻意不设「保存」主按钮 —— 这些设置项都是点一下立刻生效，
- * 加保存反而多一步、还容易误存。
+ * 另外跳过 Material 默认的「半屏」档（skipPartiallyExpanded）：
+ * 营养素 / 通知提醒这类表单底部有「保存」按钮，半屏会把它挤到屏幕外。
+ * 壳子本身不设「保存」主按钮 —— 点选即生效的设置项不加保存，
+ * 需要保存的表单由页面自己在内容里放按钮。
  */
 @Composable
 fun SettingsDetailSheet(
@@ -132,6 +134,9 @@ fun SettingsDetailSheet(
     AppBottomSheet(
         title = title,
         subtitle = subtitle.takeIf { it.isNotBlank() },
+        // 设置二级项里有表单（营养素 / 通知提醒），底部带「保存」按钮；
+        // 默认的「半屏」档会把主按钮挤到屏幕外，所以一打开就展开到位。
+        skipPartiallyExpanded = true,
         onDismiss = onDismiss
     ) {
         Column(

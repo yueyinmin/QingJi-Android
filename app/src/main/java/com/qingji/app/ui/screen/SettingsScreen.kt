@@ -108,8 +108,10 @@ import com.qingji.app.widget.WeightWidgetReceiver
  * - 底部导航、首页显隐：回首页就能看到变化
  * - 数据备份：跳到导出/导入页
  *
- * 用弹窗而不是二级页：这些项都只有一两个值，弹窗少按一次返回。
- * 只有「个人资料 / AI 服务配置 / 数据备份」是真正的独立页面。
+ * 所有二级项统一用底部弹层（ModalBottomSheet）：少按一次返回，
+ * 背后的设置列表不销毁，返回后滚动位置不丢。内容多的项在弹层内部滚动。
+ * 只有「个人资料 / AI 服务配置 / 数据备份 / 饮食偏好 / 桌面小组件」
+ * 是真正的独立页面（内容太多或带预览，不适合塞进弹层）。
  * ============================================================
  */
 
@@ -121,20 +123,17 @@ private enum class DialogKind {
 }
 
 /**
- * v1.0.7：设置条数少于 4 条的项，统一改成「从底部浮起的操作面板」
+ * v1.0.7（14:50 后）：设置里**所有**二级项都走「从底部浮起的操作面板」
  *（AppBottomSheet，和轻断食设置同款），不再整屏翻页。
- * 打开时背后的设置列表继续显示，弹层叠在上面，下滑 / 点遮罩关闭；
- * 交互仍是「点一下就生效」，不额外加保存按钮。
- * 条目 ≥4 的（记录时区 6、运动补偿 5、通知提醒 4+、营养素 6、
- * 主题与显示 10+）继续用整屏详情页，避免弹层里塞太多内容。
+ *
+ * 早期按「少于 4 条才用弹层」分流，是因为当时弹层高度写死 420dp，
+ * 条目一多就得在里面滚；后来弹层改成「随内容高、最多 420dp、超了内部滚」，
+ * 长内容（关于 / 主题 / 提醒）实测可滚且不撑满屏，这条分界线就撤掉了。
+ * 交互口径不变：点选即生效；只有要输入的（营养素 / 昵称 / 饮水目标）
+ * 才保留「保存」按钮。
+ *
+ * 所以这里不再维护白名单：dialog 非空 = 弹层，列表始终留在底下。
  */
-private val SHEET_KINDS = setOf(
-    DialogKind.AI_LANG, DialogKind.UI_LANG, DialogKind.UNIT,
-    DialogKind.WATER_GOAL, DialogKind.BOTTOM_TABS,
-    DialogKind.NICKNAME, DialogKind.PRIVACY,
-    DialogKind.ICON, DialogKind.CACHE, DialogKind.PLATFORM,
-    DialogKind.VERSION, DialogKind.ABOUT
-)
 
 @Composable
 fun SettingsScreen(
@@ -191,11 +190,9 @@ fun SettingsScreen(
     // 滚动状态放在最外层：进详情页再退回来，列表停在原来的位置，
     // 不会一退回去就跳到顶部（之前的问题就在这——列表被销毁重建了）。
     val listScroll = rememberScrollState()
-    // 弹层类不整屏替换列表：列表留在底下，弹层叠在上面
-    val showDetail = dialog != null && dialog !in SHEET_KINDS
+    // 全部二级项都是弹层：设置列表始终留在底下，弹层叠在上面
     androidx.activity.compose.BackHandler(enabled = dialog != null) { dialog = null }
 
-    if (!showDetail) {
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -442,34 +439,45 @@ fun SettingsScreen(
             Spacer(Modifier.height(28.dp))
         }
     }
-    } else {
+
     // ============================================================
-    // 二级页面集中在这里：整页替换列表，顶栏带返回，和列表同一套视觉
-    //
-    // 为什么不用 AnimatedContent 双页同渲染：切换瞬间新旧两页都要参与
-    // 合成，设置列表又长，低端机上会掉帧（用户反馈的滑动卡顿主因）。
-    // 现在改成详情页自己播一次「淡入 + 上浮」，同一时刻只有一页在渲染。
+    // 全部设置二级项：底部浮起的操作面板（和轻断食设置同款）
+    // 页面内部用 SettingsDetailSheet 渲染 ModalBottomSheet，
+    // 是窗口级弹层，叠在设置列表之上；列表不销毁，返回后滚动位置不丢。
+    // 内容多的项（主题 / 提醒 / 营养素）在弹层内部滚动，不撑满屏。
     // ============================================================
-    val detailVisible = remember(dialog) {
-        androidx.compose.animation.core.MutableTransitionState(false).apply { targetState = true }
-    }
-    androidx.compose.animation.AnimatedVisibility(
-        visibleState = detailVisible,
-        enter = androidx.compose.animation.fadeIn(
-            animationSpec = androidx.compose.animation.core.tween(
-                durationMillis = com.qingji.app.ui.theme.Motion.Normal,
-                easing = com.qingji.app.ui.theme.Motion.decelerate
-            )
-        ) + androidx.compose.animation.slideInVertically(
-            animationSpec = androidx.compose.animation.core.tween(
-                durationMillis = com.qingji.app.ui.theme.Motion.Slow,
-                easing = com.qingji.app.ui.theme.Motion.decelerate
-            )
-        ) { height -> height / 22 },
-        exit = androidx.compose.animation.ExitTransition.None
-    ) {
-    val current = dialog!!
-    when (current) {
+    if (dialog != null) {
+        when (dialog!!) {
+        DialogKind.MACRO -> MacroRatioPage(
+            proteinInit = settings.proteinPct,
+            carbInit = settings.carbPct,
+            fatInit = settings.fatPct,
+            fiberInit = vm.profile.collectAsState().value?.fiberGoalG ?: 25,
+            sodiumInit = vm.profile.collectAsState().value?.sodiumGoalMg ?: 2000,
+            calciumInit = vm.profile.collectAsState().value?.calciumGoalMg ?: 800,
+            onSave = { p, c, f -> vm.setMacroRatio(p, c, f) },
+            onSaveGoals = { fiber, sodium, calcium -> vm.setNutrientGoals(fiber, sodium, calcium) },
+            onBack = { dialog = null },
+            useSheet = true
+        )
+
+        DialogKind.EXERCISE_PCT -> ExercisePctDetailPage(
+            pct = settings.exerciseCompensationPct,
+            onSelect = { vm.setExerciseCompensationPct(it) },
+            onBack = { dialog = null },
+            useSheet = true
+        )
+
+        DialogKind.TIMEZONE -> OptionDetailPage(
+            title = "记录时区",
+            subtitle = "改这里会影响「今天」从几点开始算，跨时区出差时用得上",
+            options = timezoneOptions().map { OptionItem(it.first, it.second) },
+            selectedKey = settings.timeZone,
+            onPick = { vm.setTimezone(it); dialog = null },
+            onBack = { dialog = null },
+            useSheet = true
+        )
+
         DialogKind.REMINDERS -> ReminderPage(
             settings = settings,
             allDisabled = settings.allNotificationsDisabled,
@@ -487,34 +495,8 @@ fun SettingsScreen(
             onSetWaterTime = { hour, minute ->
                 vm.setWaterReminder(settings.waterReminder, hour, minute, showToast = false)
             },
-            onBack = { dialog = null }
-        )
-
-        DialogKind.MACRO -> MacroRatioPage(
-            proteinInit = settings.proteinPct,
-            carbInit = settings.carbPct,
-            fatInit = settings.fatPct,
-            fiberInit = vm.profile.collectAsState().value?.fiberGoalG ?: 25,
-            sodiumInit = vm.profile.collectAsState().value?.sodiumGoalMg ?: 2000,
-            calciumInit = vm.profile.collectAsState().value?.calciumGoalMg ?: 800,
-            onSave = { p, c, f -> vm.setMacroRatio(p, c, f) },
-            onSaveGoals = { fiber, sodium, calcium -> vm.setNutrientGoals(fiber, sodium, calcium) },
-            onBack = { dialog = null }
-        )
-
-        DialogKind.EXERCISE_PCT -> ExercisePctDetailPage(
-            pct = settings.exerciseCompensationPct,
-            onSelect = { vm.setExerciseCompensationPct(it) },
-            onBack = { dialog = null }
-        )
-
-        DialogKind.TIMEZONE -> OptionDetailPage(
-            title = "记录时区",
-            subtitle = "改这里会影响「今天」从几点开始算，跨时区出差时用得上",
-            options = timezoneOptions().map { OptionItem(it.first, it.second) },
-            selectedKey = settings.timeZone,
-            onPick = { vm.setTimezone(it); dialog = null },
-            onBack = { dialog = null }
+            onBack = { dialog = null },
+            useSheet = true
         )
 
         DialogKind.THEME -> ThemeSettingsPage(
@@ -530,21 +512,10 @@ fun SettingsScreen(
             onSetWeeklySummary = { vm.setShowWeeklySummary(it) },
             onSetRefreshRate = { vm.setShowRefreshRate(it) },
             onSetFont = { vm.setCustomFontPath(it) },
-            onBack = { dialog = null }
+            onBack = { dialog = null },
+            useSheet = true
         )
 
-        else -> Unit
-    }
-    }
-    }
-
-    // ============================================================
-    // 条目少于 4 条的设置项：底部浮起的操作面板（和轻断食设置同款）
-    // 这些页面内部用 SettingsDetailSheet 渲染 ModalBottomSheet，
-    // 是窗口级弹层，放在这里叠在设置列表 / 详情页之上都正常。
-    // ============================================================
-    if (dialog in SHEET_KINDS) {
-        when (dialog!!) {
         DialogKind.AI_LANG -> OptionDetailPage(
             title = s("AI 识别语言"),
             subtitle = s("默认强制简体中文——照片里的外国菜也会翻译成中文菜名"),
@@ -773,7 +744,8 @@ private fun MacroRatioPage(
     calciumInit: Int,
     onSave: (Int, Int, Int) -> Unit,
     onSaveGoals: (fiberGoalG: Int, sodiumGoalMg: Int, calciumGoalMg: Int) -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    useSheet: Boolean = false
 ) {
     var protein by remember { mutableStateOf(proteinInit.toString()) }
     var carb by remember { mutableStateOf(carbInit.toString()) }
@@ -784,7 +756,7 @@ private fun MacroRatioPage(
 
     val sum = (protein.toIntOrNull() ?: 0) + (carb.toIntOrNull() ?: 0) + (fat.toIntOrNull() ?: 0)
 
-    SettingsDetailScaffold(title = "营养素分配", onBack = onBack) {
+    SettingsDetailScaffold(title = "营养素分配", onBack = onBack, useSheet = useSheet) {
         HintBox(text = "三项加起来要是 100%。改完会重新算首页和进展页的目标克数。")
         Spacer(Modifier.height(Dimens.Gap))
 
@@ -1172,9 +1144,10 @@ private fun ThemeSettingsPage(
     onSetWeeklySummary: (Boolean) -> Unit,
     onSetRefreshRate: (Boolean) -> Unit,
     onSetFont: (String) -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    useSheet: Boolean = false
 ) {
-    SettingsDetailScaffold(title = "主题与显示", onBack = onBack) {
+    SettingsDetailScaffold(title = "主题与显示", onBack = onBack, useSheet = useSheet) {
         // ---------- 主题色 ----------
         DetailGroupTitle("主题色")
         SectionCard {
@@ -1438,7 +1411,8 @@ private fun ReminderPage(
     onSetKcalTime: (Int, Int) -> Unit,            // 小时、分钟
     onSetWaterSwitch: (Boolean) -> Unit,
     onSetWaterTime: (Int, Int) -> Unit,           // 小时、分钟
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    useSheet: Boolean = false
 ) {
     // 称重提醒的星期 / 小时 / 分钟在页面里先选好，点底部保存一次性写入
     var weekday by remember { mutableStateOf(settings.weighWeekday) }
@@ -1446,7 +1420,7 @@ private fun ReminderPage(
     var weighMinute by remember { mutableStateOf(settings.reminderMinute) }
     val weekdayLabels = listOf("一", "二", "三", "四", "五", "六", "日")
 
-    SettingsDetailScaffold(title = "通知与提醒", onBack = onBack) {
+    SettingsDetailScaffold(title = "通知与提醒", onBack = onBack, useSheet = useSheet) {
         // ---------- 总开关 ----------
         SectionCard(contentPadding = 0.dp) {
             SwitchRow(
@@ -1597,9 +1571,10 @@ private fun ReminderPage(
 private fun ExercisePctDetailPage(
     pct: Int,
     onSelect: (Int) -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    useSheet: Boolean = false
 ) {
-    SettingsDetailScaffold(title = "运动消耗补偿", onBack = onBack) {
+    SettingsDetailScaffold(title = "运动消耗补偿", onBack = onBack, useSheet = useSheet) {
         SectionCard {
             Text(
                 text = "运动消耗按比例加回当天饮食额度。运动设备和算法普遍高估消耗，" +
