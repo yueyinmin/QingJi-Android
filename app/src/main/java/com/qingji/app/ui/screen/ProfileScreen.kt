@@ -1,7 +1,10 @@
 package com.qingji.app.ui.screen
 
 import com.qingji.app.domain.AppClock
+import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -16,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -35,6 +39,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.qingji.app.data.local.entity.UserProfile
+import com.qingji.app.data.prefs.QingJiSettings
+import com.qingji.app.data.prefs.SettingsKeys
 import com.qingji.app.data.prefs.SettingsStore
 import com.qingji.app.domain.NutritionCalculator
 import com.qingji.app.domain.ProfileInputRules
@@ -73,6 +79,24 @@ fun ProfileScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val saved by vm.profile.collectAsState()
+    val settings by remember { SettingsStore.observe(context) }
+        .collectAsState(initial = QingJiSettings())
+
+    // 头像选择：系统相册选一张，拷进 App 私有目录，只存路径
+    //（copyAvatarToPrivate 与「我的」页共用，放在 MineScreen.kt，同包可直接调）
+    val pickAvatar = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            val path = copyAvatarToPrivate(context, uri)
+            if (path != null) {
+                scope.launch {
+                    SettingsStore.set(context, SettingsKeys.AVATAR_PATH, path)
+                }
+            }
+        }
+    }
+    var showNicknameSheet by remember { mutableStateOf(false) }
 
     var gender by remember { mutableStateOf("male") }
     var birthday by remember { mutableStateOf("") }
@@ -132,6 +156,28 @@ fun ProfileScreen(
                 .padding(horizontal = 16.dp)
         ) {
             Spacer(Modifier.height(14.dp))
+
+            // v1.0.7：头像 / 昵称并入个人资料，放在整页最上面两项
+            SectionCard {
+                ProfileMenuRow(
+                    title = "更换头像",
+                    value = if (settings.avatarPath.isNotBlank()) "已设置" else "未设置",
+                    onClick = { pickAvatar.launch("image/*") }
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(Color(0xFFEEF0F2))
+                )
+                ProfileMenuRow(
+                    title = "昵称",
+                    value = settings.nickname,
+                    onClick = { showNicknameSheet = true }
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
 
             SectionCard {
                 Text(text = "基本信息", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
@@ -305,6 +351,53 @@ fun ProfileScreen(
 
             Spacer(Modifier.height(24.dp))
         }
+    }
+
+    // 昵称：点顶部第二行菜单弹出；留空随机生成「轻er~XXX」
+    if (showNicknameSheet) {
+        var nameInput by remember { mutableStateOf(settings.nickname) }
+        com.qingji.app.ui.components.AppBottomSheet(
+            title = "改个称呼",
+            subtitle = "留空就随机给你一个",
+            confirmText = "保存",
+            onConfirm = {
+                val finalName = nameInput.trim().ifBlank { "轻er~" + (100..999).random() }
+                scope.launch {
+                    SettingsStore.set(context, SettingsKeys.NICKNAME, finalName)
+                }
+                showNicknameSheet = false
+            },
+            onDismiss = { showNicknameSheet = false }
+        ) {
+            OutlinedTextField(
+                value = nameInput,
+                onValueChange = { nameInput = it },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("轻er~888", fontSize = 13.sp, color = TextSecondary) }
+            )
+        }
+    }
+}
+
+/** 个人资料顶部的菜单行：左边标题，右边当前值 + 箭头。 */
+@Composable
+private fun ProfileMenuRow(title: String, value: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = title,
+            fontSize = 14.sp,
+            color = TextPrimary,
+            modifier = Modifier.weight(1f)
+        )
+        Text(text = value, fontSize = 12.sp, color = QingJiGreen)
+        Text(text = "›", fontSize = 18.sp, color = TextSecondary)
     }
 }
 

@@ -61,7 +61,6 @@ import com.qingji.app.ui.screen.settings.GroupTitle
 import com.qingji.app.ui.screen.settings.RowDivider
 import com.qingji.app.ui.screen.settings.SettingValueRow
 import com.qingji.app.ui.screen.settings.SettingsCard
-import com.qingji.app.ui.screen.settings.SettingsNote
 import com.qingji.app.ui.screen.settings.SwitchRow
 import com.qingji.app.ui.screen.settings.ToggleItem
 import com.qingji.app.ui.screen.settings.ToggleDetailPage
@@ -118,7 +117,7 @@ import com.qingji.app.widget.WeightWidgetReceiver
 /** 当前打开的是哪个弹窗。 */
 private enum class DialogKind {
     MACRO, WATER_GOAL, TIMEZONE, UNIT, THEME, REMINDERS,
-    BOTTOM_TABS, AI_LANG, UI_LANG, NICKNAME, PRIVACY, ICON, CACHE,
+    BOTTOM_TABS, AI_LANG, UI_LANG, PRIVACY, ICON, CACHE,
     ABOUT, PLATFORM, VERSION, EXERCISE_PCT
 }
 
@@ -129,7 +128,7 @@ private enum class DialogKind {
  * 早期按「少于 4 条才用弹层」分流，是因为当时弹层高度写死 420dp，
  * 条目一多就得在里面滚；后来弹层改成「随内容高、最多 420dp、超了内部滚」，
  * 长内容（关于 / 主题 / 提醒）实测可滚且不撑满屏，这条分界线就撤掉了。
- * 交互口径不变：点选即生效；只有要输入的（营养素 / 昵称 / 饮水目标）
+ * 交互口径不变：点选即生效；只有要输入的（营养素 / 饮水目标）
  * 才保留「保存」按钮。
  *
  * 所以这里不再维护白名单：dialog 非空 = 弹层，列表始终留在底下。
@@ -238,21 +237,12 @@ fun SettingsScreen(
             SettingsCard {
                 SettingValueRow(
                     title = s("个人资料"),
-                    subtitle = s("性别、生日、身高、目标体重"),
                     value = settings.nickname,
                     iconColor = QingJiGreen
                 ) { onOpenProfile() }
                 RowDivider()
                 SettingValueRow(
-                    title = s("昵称"),
-                    subtitle = s("在「我的」页点头像旁的名字也能改"),
-                    value = settings.nickname,
-                    iconColor = QingJiGreen
-                ) { dialog = DialogKind.NICKNAME }
-                RowDivider()
-                SettingValueRow(
                     title = s("隐私与安全"),
-                    subtitle = s("数据存在哪、怎么彻底清掉"),
                     value = "",
                     iconColor = QingJiGreen
                 ) { dialog = DialogKind.PRIVACY }
@@ -263,14 +253,12 @@ fun SettingsScreen(
             SettingsCard {
                 SettingValueRow(
                     title = s("饮食偏好与忌口"),
-                    subtitle = s("过敏原、不吃的东西、烹饪时长、菜系"),
                     value = s("去设置"),
                     iconColor = QingJiGreen
                 ) { onOpenFoodPreference() }
                 RowDivider()
                 SettingValueRow(
                     title = s("营养素分配方案"),
-                    subtitle = s("蛋白 / 碳水 / 脂肪 比例"),
                     value = "${settings.proteinPct}/${settings.carbPct}/${settings.fatPct}",
                     iconColor = QingJiGreen
                 ) { dialog = DialogKind.MACRO }
@@ -278,45 +266,32 @@ fun SettingsScreen(
                 // v1.0.7：补偿比例改二级菜单（五档胶囊），0% 等于关闭
                 SettingValueRow(
                     title = s("运动消耗补偿"),
-                    subtitle = s("运动消耗按比例加回预算，默认 50%"),
                     value = "${settings.exerciseCompensationPct}%",
                     iconColor = WarnOrange
                 ) { dialog = DialogKind.EXERCISE_PCT }
                 RowDivider()
                 SettingValueRow(
                     title = s("饮水目标"),
-                    subtitle = s("首页和小组件都按它算进度"),
                     value = "${settings.waterGoalMl}ml",
                     iconColor = QingJiGreenDark
                 ) { dialog = DialogKind.WATER_GOAL }
             }
-            SettingsNote(
-                "运动消耗按比例加回当天可吃额度（预计热量缺口跟着变）。" +
-                    "默认 50%：运动设备和算法普遍高估消耗，全额加回容易越练越多吃。"
-            )
 
             // ================= 记录与识别 =================
             GroupTitle(s("记录与识别"))
             SettingsCard {
                 SwitchRow(
                     title = s("自动识别餐次"),
-                    subtitle = s("关掉后每次都要自己选早/午/晚"),
                     checked = settings.autoMeal
                 ) { vm.setAutoMeal(it) }
                 RowDivider()
                 SwitchRow(
                     title = s("估算偏保守"),
-                    subtitle = s("AI 估算份量时宁可给少一点"),
                     checked = settings.conservativeEstimate
                 ) { vm.setConservativeEstimate(it) }
-                SettingsNote(
-                    s("AI 的份量估算误差通常有 20%～40%，中餐尤其明显。") +
-                        s("所以每次识别完都会让你确认和微调，这是故意的，不是多此一举。")
-                )
                 RowDivider()
                 SettingValueRow(
                     title = s("AI 识别语言"),
-                    subtitle = s("识别结果返回的语言"),
                     value = if (settings.aiLanguage == "auto") s("跟随输入") else s("简体中文"),
                     iconColor = QingJiGreen.copy(alpha = 0.72f)
                 ) { dialog = DialogKind.AI_LANG }
@@ -327,36 +302,28 @@ fun SettingsScreen(
             SettingsCard {
                 SettingValueRow(
                     title = s("通知与提醒"),
-                    subtitle = s("称重、断食、热量、喝水四类提醒的开关与时间"),
                     value = s("去设置"),
                     iconColor = QingJiGreen
                 ) { dialog = DialogKind.REMINDERS }
             }
-            SettingsNote(
-                s("提醒靠系统闹钟实现，误差几分钟属正常（系统省电策略所致）。") +
-                    s("小米 / 华为 / OPPO 建议把轻记加进自启动白名单，否则重启后可能不再提醒。")
-            )
 
             // ================= 通用 =================
             GroupTitle(s("通用"))
             SettingsCard {
                 SettingValueRow(
                     title = s("界面语言"),
-                    subtitle = s("核心页中英文切换，未翻译的仍显示中文"),
                     value = if (settings.uiLanguage == "en") "English" else "简体中文",
                     iconColor = QingJiGreen.copy(alpha = 0.72f)
                 ) { dialog = DialogKind.UI_LANG }
                 RowDivider()
                 SettingValueRow(
                     title = s("记录时区"),
-                    subtitle = s("记录按哪个时区的日期归档"),
                     value = timezoneLabel(settings.timeZone),
                     iconColor = QingJiGreenDark
                 ) { dialog = DialogKind.TIMEZONE }
                 RowDivider()
                 SettingValueRow(
                     title = s("体重单位"),
-                    subtitle = s("数据库统一存公斤，这里只改显示"),
                     value = if (settings.unit == "jin") s("斤") else "kg",
                     iconColor = QingJiGreen
                 ) { dialog = DialogKind.UNIT }
@@ -367,21 +334,18 @@ fun SettingsScreen(
             SettingsCard {
                 SettingValueRow(
                     title = s("主题与显示"),
-                    subtitle = s("主题色、动效、水杯气泡、首页模块开关"),
                     value = com.qingji.app.ui.theme.AccentThemes.byKey(settings.themeColor).label,
                     iconColor = QingJiGreen.copy(alpha = 0.72f)
                 ) { dialog = DialogKind.THEME }
                 RowDivider()
                 SettingValueRow(
                     title = s("桌面小组件"),
-                    subtitle = s("快捷记录 / 今日概览 / 体重闪记"),
                     value = s("3 个"),
                     iconColor = QingJiGreen
                 ) { onOpenWidget() }
                 RowDivider()
                 SettingValueRow(
                     title = s("底部导航"),
-                    subtitle = s("隐藏不常用的 Tab"),
                     value = visibleTabsLabel(settings),
                     iconColor = QingJiGreenDark
                 ) { dialog = DialogKind.BOTTOM_TABS }
@@ -392,21 +356,18 @@ fun SettingsScreen(
             SettingsCard {
                 SettingValueRow(
                     title = s("AI 服务配置"),
-                    subtitle = s("填自己的 Base URL 与 API Key"),
                     value = "",
                     iconColor = QingJiGreen.copy(alpha = 0.72f)
                 ) { onOpenAiConfig() }
                 RowDivider()
                 SettingValueRow(
                     title = s("数据备份与导出"),
-                    subtitle = s("导出 JSON / CSV，导入恢复"),
                     value = "",
                     iconColor = QingJiGreen
                 ) { onOpenBackup() }
                 RowDivider()
                 SettingValueRow(
                     title = s("缓存管理"),
-                    subtitle = s("只清拍照临时图，不动已保存的照片"),
                     value = backup.sizeText(cacheSize),
                     iconColor = TextSecondary
                 ) { dialog = DialogKind.CACHE }
@@ -417,21 +378,18 @@ fun SettingsScreen(
             SettingsCard {
                 SettingValueRow(
                     title = s("其他平台"),
-                    subtitle = s("换手机怎么把数据带走"),
                     value = "",
                     iconColor = QingJiGreenDark
                 ) { dialog = DialogKind.PLATFORM }
                 RowDivider()
                 SettingValueRow(
                     title = s("关于我们"),
-                    subtitle = s("这个 App 是谁做的、为什么做"),
                     value = "",
                     iconColor = QingJiGreen.copy(alpha = 0.72f)
                 ) { dialog = DialogKind.ABOUT }
                 RowDivider()
                 SettingValueRow(
                     title = s("版本信息"),
-                    subtitle = s("轻记 v${BuildConfig.VERSION_NAME}"),
                     value = "",
                     iconColor = DividerColor
                 ) { dialog = DialogKind.VERSION }
@@ -584,26 +542,6 @@ fun SettingsScreen(
             onBack = { dialog = null },
             useSheet = true
         )
-
-        DialogKind.NICKNAME -> {
-            var nicknameInput by androidx.compose.runtime.remember {
-                androidx.compose.runtime.mutableStateOf(settings.nickname)
-            }
-            com.qingji.app.ui.components.AppBottomSheet(
-                title = s("改昵称"),
-                confirmText = s("保存"),
-                onConfirm = { vm.setNickname(nicknameInput) },
-                onDismiss = { dialog = null }
-            ) {
-                androidx.compose.material3.OutlinedTextField(
-                    value = nicknameInput,
-                    onValueChange = { nicknameInput = it },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("轻er~888", fontSize = 13.sp, color = TextSecondary) }
-                )
-            }
-        }
 
         DialogKind.PRIVACY -> PrivacyPage(
             onClearRecords = { vm.clearRecords() },

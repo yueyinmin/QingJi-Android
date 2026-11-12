@@ -94,7 +94,7 @@ fun ConfirmDialog(
 @Composable
 fun SettingValueRow(
     title: String,
-    subtitle: String,
+    subtitle: String = "",
     value: String,
     iconColor: Color,
     onClick: () -> Unit
@@ -125,7 +125,9 @@ fun SettingValueRow(
                 .padding(start = 12.dp)
         ) {
             Text(text = title, fontSize = 14.sp, color = TextPrimary)
-            Text(text = subtitle, fontSize = 11.sp, color = TextSecondary)
+            if (subtitle.isNotBlank()) {
+                Text(text = subtitle, fontSize = 11.sp, color = TextSecondary)
+            }
         }
         if (value.isNotBlank()) {
             Text(
@@ -170,7 +172,7 @@ fun RowDivider() {
 @Composable
 fun SwitchRow(
     title: String,
-    subtitle: String,
+    subtitle: String = "",
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit
 ) {

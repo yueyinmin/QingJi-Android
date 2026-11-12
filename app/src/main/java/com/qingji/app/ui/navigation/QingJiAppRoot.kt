@@ -262,6 +262,7 @@ fun QingJiAppRoot(
                 composable(QingJiTab.Mine.route) {
                     MineScreen(
                         onOpenSettings = { navController.navigate(QingJiRoutes.Settings) },
+                        onOpenProfile = { navController.navigate(QingJiRoutes.Profile) },
                         scrollState = tabScrollStates.getValue(QingJiTab.Mine),
                         vm = mineVm
                     )
