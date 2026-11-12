@@ -120,6 +120,22 @@ private enum class DialogKind {
     ABOUT, PLATFORM, VERSION, EXERCISE_PCT
 }
 
+/**
+ * v1.0.7：设置条数少于 4 条的项，统一改成「从底部浮起的操作面板」
+ *（AppBottomSheet，和轻断食设置同款），不再整屏翻页。
+ * 打开时背后的设置列表继续显示，弹层叠在上面，下滑 / 点遮罩关闭；
+ * 交互仍是「点一下就生效」，不额外加保存按钮。
+ * 条目 ≥4 的（记录时区 6、运动补偿 5、通知提醒 4+、营养素 6、
+ * 主题与显示 10+）继续用整屏详情页，避免弹层里塞太多内容。
+ */
+private val SHEET_KINDS = setOf(
+    DialogKind.AI_LANG, DialogKind.UI_LANG, DialogKind.UNIT,
+    DialogKind.WATER_GOAL, DialogKind.BOTTOM_TABS,
+    DialogKind.NICKNAME, DialogKind.PRIVACY,
+    DialogKind.ICON, DialogKind.CACHE, DialogKind.PLATFORM,
+    DialogKind.VERSION, DialogKind.ABOUT
+)
+
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
@@ -175,8 +191,9 @@ fun SettingsScreen(
     // 滚动状态放在最外层：进详情页再退回来，列表停在原来的位置，
     // 不会一退回去就跳到顶部（之前的问题就在这——列表被销毁重建了）。
     val listScroll = rememberScrollState()
-    val showDetail = dialog != null
-    androidx.activity.compose.BackHandler(enabled = showDetail) { dialog = null }
+    // 弹层类不整屏替换列表：列表留在底下，弹层叠在上面
+    val showDetail = dialog != null && dialog !in SHEET_KINDS
+    androidx.activity.compose.BackHandler(enabled = dialog != null) { dialog = null }
 
     if (!showDetail) {
     Column(
@@ -453,51 +470,6 @@ fun SettingsScreen(
     ) {
     val current = dialog!!
     when (current) {
-        DialogKind.AI_LANG -> OptionDetailPage(
-            title = s("AI 识别语言"),
-            subtitle = s("默认强制简体中文——照片里的外国菜也会翻译成中文菜名"),
-            options = listOf(
-                OptionItem("zh", s("简体中文"), s("推荐：所有识别结果都是中文")),
-                OptionItem("auto", s("跟随输入"), s("AI 模型自行判断，可能返回英文"))
-            ),
-            selectedKey = settings.aiLanguage,
-            onPick = { vm.setAiLanguage(it); dialog = null },
-            onBack = { dialog = null }
-        )
-
-        // v3.5.0：界面语言（核心页中英双语，未翻译条目回落中文）
-        // v1.5：昵称修改入口（「我的」页点头像旁的名字是同一套）
-        DialogKind.NICKNAME -> {
-            var nicknameInput by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(settings.nickname) }
-            com.qingji.app.ui.components.AppDialog(
-                title = s("改昵称"),
-                onDismiss = { dialog = null },
-                confirmText = s("保存"),
-                onConfirm = { vm.setNickname(nicknameInput) },
-                dismissText = s("取消")
-            ) {
-                androidx.compose.material3.OutlinedTextField(
-                    value = nicknameInput,
-                    onValueChange = { nicknameInput = it },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("轻er~888", fontSize = 13.sp, color = TextSecondary) }
-                )
-            }
-        }
-
-        DialogKind.UI_LANG -> OptionDetailPage(
-            title = s("界面语言"),
-            subtitle = s("切换后立即生效，未翻译的条目仍显示中文"),
-            options = listOf(
-                OptionItem("zh", "简体中文", s("界面默认中文，核心页可切英文")),
-                OptionItem("en", "English", s("Core screens in English; the rest stays Chinese"))
-            ),
-            selectedKey = settings.uiLanguage,
-            onPick = { vm.setUiLanguage(it); dialog = null },
-            onBack = { dialog = null }
-        )
-
         DialogKind.REMINDERS -> ReminderPage(
             settings = settings,
             allDisabled = settings.allNotificationsDisabled,
@@ -530,17 +502,6 @@ fun SettingsScreen(
             onBack = { dialog = null }
         )
 
-        DialogKind.WATER_GOAL -> NumberDetailPage(
-            title = "饮水目标",
-            subtitle = "首页水杯按这个目标灌满",
-            label = "每天计划喝多少",
-            initial = settings.waterGoalMl.toString(),
-            suffix = "ml",
-            hint = "常见范围 1500～3000 毫升",
-            onSave = { vm.setWaterGoal(it.toIntOrNull() ?: 2000) },
-            onBack = { dialog = null }
-        )
-
         DialogKind.EXERCISE_PCT -> ExercisePctDetailPage(
             pct = settings.exerciseCompensationPct,
             onSelect = { vm.setExerciseCompensationPct(it) },
@@ -553,18 +514,6 @@ fun SettingsScreen(
             options = timezoneOptions().map { OptionItem(it.first, it.second) },
             selectedKey = settings.timeZone,
             onPick = { vm.setTimezone(it); dialog = null },
-            onBack = { dialog = null }
-        )
-
-        DialogKind.UNIT -> OptionDetailPage(
-            title = "体重单位",
-            subtitle = "只改显示，数据库里永远存公斤",
-            options = listOf(
-                OptionItem("kg", "公斤（kg）"),
-                OptionItem("jin", "斤（500g）")
-            ),
-            selectedKey = settings.unit,
-            onPick = { vm.setUnit(it); dialog = null },
             onBack = { dialog = null }
         )
 
@@ -584,6 +533,69 @@ fun SettingsScreen(
             onBack = { dialog = null }
         )
 
+        else -> Unit
+    }
+    }
+    }
+
+    // ============================================================
+    // 条目少于 4 条的设置项：底部浮起的操作面板（和轻断食设置同款）
+    // 这些页面内部用 SettingsDetailSheet 渲染 ModalBottomSheet，
+    // 是窗口级弹层，放在这里叠在设置列表 / 详情页之上都正常。
+    // ============================================================
+    if (dialog in SHEET_KINDS) {
+        when (dialog!!) {
+        DialogKind.AI_LANG -> OptionDetailPage(
+            title = s("AI 识别语言"),
+            subtitle = s("默认强制简体中文——照片里的外国菜也会翻译成中文菜名"),
+            options = listOf(
+                OptionItem("zh", s("简体中文"), s("推荐：所有识别结果都是中文")),
+                OptionItem("auto", s("跟随输入"), s("AI 模型自行判断，可能返回英文"))
+            ),
+            selectedKey = settings.aiLanguage,
+            onPick = { vm.setAiLanguage(it); dialog = null },
+            onBack = { dialog = null },
+            useSheet = true
+        )
+
+        DialogKind.UI_LANG -> OptionDetailPage(
+            title = s("界面语言"),
+            subtitle = s("切换后立即生效，未翻译的条目仍显示中文"),
+            options = listOf(
+                OptionItem("zh", "简体中文", s("界面默认中文，核心页可切英文")),
+                OptionItem("en", "English", s("Core screens in English; the rest stays Chinese"))
+            ),
+            selectedKey = settings.uiLanguage,
+            onPick = { vm.setUiLanguage(it); dialog = null },
+            onBack = { dialog = null },
+            useSheet = true
+        )
+
+        DialogKind.UNIT -> OptionDetailPage(
+            title = "体重单位",
+            subtitle = "只改显示，数据库里永远存公斤",
+            options = listOf(
+                OptionItem("kg", "公斤（kg）"),
+                OptionItem("jin", "斤（500g）")
+            ),
+            selectedKey = settings.unit,
+            onPick = { vm.setUnit(it); dialog = null },
+            onBack = { dialog = null },
+            useSheet = true
+        )
+
+        DialogKind.WATER_GOAL -> NumberDetailPage(
+            title = "饮水目标",
+            subtitle = "首页水杯按这个目标灌满",
+            label = "每天计划喝多少",
+            initial = settings.waterGoalMl.toString(),
+            suffix = "ml",
+            hint = "常见范围 1500～3000 毫升",
+            onSave = { vm.setWaterGoal(it.toIntOrNull() ?: 2000) },
+            onBack = { dialog = null },
+            useSheet = true
+        )
+
         DialogKind.BOTTOM_TABS -> ToggleDetailPage(
             title = "底部导航",
             subtitle = "关掉的 Tab 不会显示在底部，首页永远保留",
@@ -598,13 +610,35 @@ fun SettingsScreen(
                     vm.setTabVisible("mine", it)
                 }
             ),
-            onBack = { dialog = null }
+            onBack = { dialog = null },
+            useSheet = true
         )
+
+        DialogKind.NICKNAME -> {
+            var nicknameInput by androidx.compose.runtime.remember {
+                androidx.compose.runtime.mutableStateOf(settings.nickname)
+            }
+            com.qingji.app.ui.components.AppBottomSheet(
+                title = s("改昵称"),
+                confirmText = s("保存"),
+                onConfirm = { vm.setNickname(nicknameInput) },
+                onDismiss = { dialog = null }
+            ) {
+                androidx.compose.material3.OutlinedTextField(
+                    value = nicknameInput,
+                    onValueChange = { nicknameInput = it },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("轻er~888", fontSize = 13.sp, color = TextSecondary) }
+                )
+            }
+        }
 
         DialogKind.PRIVACY -> PrivacyPage(
             onClearRecords = { vm.clearRecords() },
             onFactoryReset = { vm.factoryReset() },
-            onBack = { dialog = null }
+            onBack = { dialog = null },
+            useSheet = true
         )
 
         DialogKind.ICON -> InfoDetailPage(
@@ -612,7 +646,8 @@ fun SettingsScreen(
             body = "换图标需要同时打包多套图标资源（每套都要在清单里注册一个 activity-alias），" +
                 "而且切换后系统有可能把原来的桌面快捷方式当成「已失效」直接删掉。" +
                 "\n\n所以这一条先空着，等主体功能稳了再补 —— 现在硬做，风险是图标直接消失。",
-            onBack = { dialog = null }
+            onBack = { dialog = null },
+            useSheet = true
         )
 
         DialogKind.CACHE -> InfoDetailPage(
@@ -625,7 +660,8 @@ fun SettingsScreen(
                 cacheSize = backup.cacheSize()
                 Toast.makeText(context, "已清理", Toast.LENGTH_SHORT).show()
             },
-            onBack = { dialog = null }
+            onBack = { dialog = null },
+            useSheet = true
         )
 
         DialogKind.PLATFORM -> InfoDetailPage(
@@ -637,12 +673,9 @@ fun SettingsScreen(
                 "· API Key 不在备份里（安全考虑），新手机要重新填一次；\n" +
                 "· 饮食记录和日记里引用的照片是文件路径，不会跟着 JSON 走，" +
                 "要单独把 Android/data/com.qingji.app/files/images 拷过去。",
-            onBack = { dialog = null }
+            onBack = { dialog = null },
+            useSheet = true
         )
-
-        // 2026-11-11：从纯文字说明改成独立「关于」页（图标 / 版本 / 特性标签 /
-        // 源代码入口 / 维护者），段落说明与设计原则并进卡片里
-        DialogKind.ABOUT -> AboutScreen(onBack = { dialog = null })
 
         DialogKind.VERSION -> InfoDetailPage(
             title = "版本信息",
@@ -653,12 +686,15 @@ fun SettingsScreen(
                 "小组件：Jetpack Glance 1.1.1\n\n" +
                 "当前用户：${settings.nickname}" +
                 "（档案：${profile?.heightCm?.toInt() ?: 0}cm / 目标 ${profile?.targetWeight ?: 0.0}kg）",
-            onBack = { dialog = null }
+            onBack = { dialog = null },
+            useSheet = true
         )
 
-        else -> Unit
-    }
-    }
+        DialogKind.ABOUT -> AboutScreen(onBack = { dialog = null }, useSheet = true)
+
+
+            else -> Unit
+        }
     }
 }
 
@@ -957,12 +993,13 @@ private fun WeighReminderPage(
 private fun PrivacyPage(
     onClearRecords: () -> Unit,
     onFactoryReset: () -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    useSheet: Boolean = false
 ) {
     var confirmRecords by remember { mutableStateOf(false) }
     var confirmReset by remember { mutableStateOf(false) }
 
-    SettingsDetailScaffold(title = "隐私与安全", onBack = onBack) {
+    SettingsDetailScaffold(title = "隐私与安全", onBack = onBack, useSheet = useSheet) {
         SectionCard {
             Text(
                 text = "轻记没有账号、没有服务器、没有任何埋点统计：\n" +

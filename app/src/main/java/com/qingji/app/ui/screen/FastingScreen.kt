@@ -1308,7 +1308,9 @@ private fun FastingSettingsDialog(
                     onPlus = { endMinute = (endMinute + 30) % 1440 }
                 )
                 Spacer(Modifier.height(8.dp))
-                // 只读行：可进食时间自动对标方案，不给加减按钮
+                // 只读行：可进食时间自动对标方案，不给加减按钮。
+                // 左右各留一个和 ± 按钮同宽（28dp）的占位 —— 时间列就能和上方
+                // 「断食开始时间」的那一列严格对齐，不会贴到最右边。
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1318,11 +1320,12 @@ private fun FastingSettingsDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "可进食时间（自动）",
+                        text = "可进食时间",
                         fontSize = 13.sp,
                         color = TextSecondary,
                         modifier = Modifier.weight(1f)
                     )
+                    Spacer(Modifier.width(28.dp))
                     Text(
                         text = FastingRules.minuteLabel(startMinute),
                         fontSize = 15.sp,
@@ -1331,6 +1334,7 @@ private fun FastingSettingsDialog(
                         modifier = Modifier.width(64.dp),
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )
+                    Spacer(Modifier.width(28.dp))
                 }
                 Spacer(Modifier.height(8.dp))
                 Text(

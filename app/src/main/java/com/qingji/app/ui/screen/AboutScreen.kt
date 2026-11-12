@@ -69,22 +69,12 @@ private const val GITHUB_URL = "https://github.com/yueyinmin/QingJi-Android"
 private const val GITHUB_HANDLE = "@yueyinmin"
 
 @Composable
-fun AboutScreen(onBack: () -> Unit) {
+fun AboutScreen(onBack: () -> Unit, useSheet: Boolean = false) {
     val context = LocalContext.current
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(PageBackground)
-    ) {
-        PageTopBar(title = s("关于"), onBack = onBack)
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = Dimens.ScreenPadding)
-        ) {
+    // 内容只写一遍：整页和底部弹层共用，避免两份代码以后改走样。
+    // v1.0.7：设置里「设置条数少于 4 条」的项统一走底部弹层，关于页也跟着切。
+    val body: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit = {
             Spacer(Modifier.height(Dimens.Gap))
 
             IdentityCard()
@@ -166,6 +156,29 @@ fun AboutScreen(onBack: () -> Unit) {
             )
 
             Spacer(Modifier.height(Dimens.FabSpace))
+    }
+
+    if (useSheet) {
+        com.qingji.app.ui.screen.settings.SettingsDetailSheet(
+            title = s("关于"),
+            onDismiss = onBack
+        ) { body() }
+    } else {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(PageBackground)
+        ) {
+            PageTopBar(title = s("关于"), onBack = onBack)
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = Dimens.ScreenPadding)
+            ) {
+                body()
+            }
         }
     }
 }
