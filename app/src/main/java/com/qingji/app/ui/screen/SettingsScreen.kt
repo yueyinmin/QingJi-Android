@@ -85,6 +85,7 @@ import com.qingji.app.ui.theme.QingJiGreenDark
 import com.qingji.app.ui.theme.DividerColor
 import com.qingji.app.ui.i18n.s
 import com.qingji.app.ui.theme.PageBackground
+import com.qingji.app.ui.theme.WarnOrange
 import com.qingji.app.ui.theme.QingJiGreenLight
 import com.qingji.app.ui.theme.pressable
 import com.qingji.app.ui.theme.QingJiGreen
@@ -116,7 +117,7 @@ import com.qingji.app.widget.WeightWidgetReceiver
 private enum class DialogKind {
     MACRO, WATER_GOAL, TIMEZONE, UNIT, THEME, REMINDERS,
     BOTTOM_TABS, AI_LANG, UI_LANG, NICKNAME, PRIVACY, ICON, CACHE,
-    ABOUT, PLATFORM, VERSION
+    ABOUT, PLATFORM, VERSION, EXERCISE_PCT
 }
 
 @Composable
@@ -260,46 +261,13 @@ fun SettingsScreen(
                     iconColor = QingJiGreen
                 ) { dialog = DialogKind.MACRO }
                 RowDivider()
-                // v1.0.7：比例改成 5 颗胶囊（0/25/50/75/100，默认 50%），和断食方案卡同风格。
-                // 设备普遍高估运动消耗，全额加回会让人越练多吃；0% 等于关闭。
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text(text = s("运动消耗补偿"), fontSize = 15.sp, color = TextPrimary)
-                            Text(
-                                text = s("按比例加回当天预算，默认 50%；0% 等于关闭"),
-                                fontSize = 11.sp,
-                                color = TextSecondary
-                            )
-                        }
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        listOf(0, 25, 50, 75, 100).forEach { pctOption ->
-                            val selected = settings.exerciseCompensationPct == pctOption
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(999.dp))
-                                    .background(if (selected) QingJiGreenLight else PageBackground)
-                                    .clickable { vm.setExerciseCompensationPct(pctOption) }
-                                    .padding(vertical = 7.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "$pctOption%",
-                                    fontSize = 12.sp,
-                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (selected) QingJiGreenDark else TextSecondary
-                                )
-                            }
-                        }
-                    }
-                }
+                // v1.0.7：补偿比例改二级菜单（五档胶囊），0% 等于关闭
+                SettingValueRow(
+                    title = s("运动消耗补偿"),
+                    subtitle = s("运动消耗按比例加回预算，默认 50%"),
+                    value = "${settings.exerciseCompensationPct}%",
+                    iconColor = WarnOrange
+                ) { dialog = DialogKind.EXERCISE_PCT }
                 RowDivider()
                 SettingValueRow(
                     title = s("饮水目标"),
@@ -570,6 +538,12 @@ fun SettingsScreen(
             suffix = "ml",
             hint = "常见范围 1500～3000 毫升",
             onSave = { vm.setWaterGoal(it.toIntOrNull() ?: 2000) },
+            onBack = { dialog = null }
+        )
+
+        DialogKind.EXERCISE_PCT -> ExercisePctDetailPage(
+            pct = settings.exerciseCompensationPct,
+            onSelect = { vm.setExerciseCompensationPct(it) },
             onBack = { dialog = null }
         )
 
@@ -1577,3 +1551,64 @@ private fun ReminderPage(
     }
 }
 
+
+/**
+ * 运动消耗补偿二级页（2026-11-12）：五档胶囊 + 机制说明。
+ * 设备普遍高估运动消耗，全额加回容易越练越多吃；0% 等于关闭。
+ */
+@Composable
+private fun ExercisePctDetailPage(
+    pct: Int,
+    onSelect: (Int) -> Unit,
+    onBack: () -> Unit
+) {
+    SettingsDetailScaffold(title = "运动消耗补偿", onBack = onBack) {
+        SectionCard {
+            Text(
+                text = "运动消耗按比例加回当天饮食额度。运动设备和算法普遍高估消耗，" +
+                    "全额加回容易越练越多吃，所以默认只补一半。",
+                fontSize = 13.sp,
+                color = TextPrimary,
+                lineHeight = 21.sp
+            )
+            Spacer(Modifier.height(16.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(0, 25, 50, 75, 100).forEach { option ->
+                    val selected = pct == option
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(if (selected) QingJiGreenLight else PageBackground)
+                            .clickable { onSelect(option) }
+                            .padding(vertical = 12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "$option%",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (selected) QingJiGreenDark else TextPrimary
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = "0% 等于关闭；25% 和 75% 是折中档，选完立刻生效。",
+                fontSize = 11.sp,
+                color = TextSecondary
+            )
+        }
+        Spacer(Modifier.height(Dimens.Gap))
+        SectionCard {
+            Text(
+                text = "举例：今天运动消耗 500 千卡、补偿 50% → 当天预算加 250 千卡，" +
+                    "首页的「预计热量缺口」会同步变大。",
+                fontSize = 12.sp,
+                color = TextSecondary,
+                lineHeight = 18.sp
+            )
+        }
+    }
+}

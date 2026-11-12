@@ -307,10 +307,22 @@ fun DiaryScreen(
             Spacer(Modifier.height(Dimens.FabSpace))
         }
 
+        // 和首页一样的三个快捷按钮。
+        // 往上挪 84dp，避免和右下角「写一篇」叠在一起。
+        QuickActionColumn(
+            onWater = { vm.addWater(200) },
+            onWeight = onOpenWeight,
+            onOpenFoodLibrary = onOpenFoodLibrary,
+            onPhoto = onOpenImage,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 16.dp, bottom = 84.dp)
+        )
+
         // ---------- 右下角固定的「写一篇」 ----------
         // 为什么放右下角：这个页面会越写越长，放右上角要滚回顶部才能点。
-        // 固定在右下角，任何时候都能一把点到。
-        // fabVisible 从 false 变 true，AnimatedVisibility 就会播一次「从下往上弹出来」。
+        // v1.0.7：按钮块必须放在快捷按钮**之后**组合 —— Compose 后组合的在上层，
+        // 以前它在快捷按钮前面，「写一篇」的弹出动画经过快捷按钮区域时会被盖住，看着像被遮挡。
         AnimatedVisibility(
             visible = fabVisible,
             enter = scaleIn(
@@ -325,18 +337,6 @@ fun DiaryScreen(
         ) {
             WriteEntryFab(onClick = { onOpenEdit(0L) })
         }
-
-        // 和首页一样的三个快捷按钮。
-        // 往上挪 84dp，避免和右下角「写一篇」叠在一起。
-        QuickActionColumn(
-            onWater = { vm.addWater(200) },
-            onWeight = onOpenWeight,
-            onOpenFoodLibrary = onOpenFoodLibrary,
-            onPhoto = onOpenImage,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 16.dp, bottom = 84.dp)
-        )
     }
 
     // ---------- 清空全部确认 ----------

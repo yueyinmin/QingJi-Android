@@ -15,7 +15,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -45,6 +48,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -944,17 +949,46 @@ private fun TodaySummaryCard(
                             bubbleTint = Color.White.copy(alpha = 0.75f),
                             // v1.5：杯内容量数字整个去掉（主人不要杯内计量数字）
                         )
-                        Text(
-                            text = "$waterPercent%",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MultiColor.WaterText,
-                            modifier = Modifier
-                                .padding(bottom = 46.dp)
-                                .clip(RoundedCornerShape(999.dp))
-                                .background(MultiColor.WaterFill.copy(alpha = 0.24f))
-                                .padding(horizontal = 9.dp, vertical = 3.dp)
+                        // v1.0.7：完成度胶囊改成白色圆按钮（竖条高光已删）。
+                        // 拖拽时缩小跟手，松手弹回水位对应位置并放大；纯视觉交互，不改水量。
+                        var cupDragY by remember { mutableStateOf(0f) }
+                        var cupDragging by remember { mutableStateOf(false) }
+                        val cupScale by androidx.compose.animation.core.animateFloatAsState(
+                            targetValue = if (cupDragging) 0.82f else 1f,
+                            animationSpec = androidx.compose.animation.core.spring(
+                                dampingRatio = 0.5f,
+                                stiffness = 320f
+                            ),
+                            label = "cupBtnScale"
                         )
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .offset(y = (-(46.dp).value + cupDragY).dp)
+                                .size(44.dp)
+                                .scale(cupScale)
+                                .clip(CircleShape)
+                                .background(Color.White)
+                                .draggable(
+                                    orientation = Orientation.Vertical,
+                                    onDragStarted = { cupDragging = true },
+                                    onDragStopped = {
+                                        cupDragging = false
+                                        cupDragY = 0f
+                                    },
+                                    state = rememberDraggableState { delta ->
+                                        cupDragY = (cupDragY + delta).coerceIn(-110f, 30f)
+                                    }
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "$waterPercent%",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MultiColor.WaterText
+                            )
+                        }
                     }
                     Spacer(Modifier.height(6.dp))
                     // 紧凑写法，窄屏也不会被截成「3200 /」
