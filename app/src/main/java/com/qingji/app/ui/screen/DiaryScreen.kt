@@ -1,13 +1,9 @@
 package com.qingji.app.ui.screen
 
 import com.qingji.app.domain.AppClock
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -45,6 +41,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
 import kotlin.random.Random
@@ -61,6 +58,7 @@ import com.qingji.app.ui.components.QuickActionColumn
 import com.qingji.app.ui.theme.DangerRed
 import com.qingji.app.ui.theme.Dimens
 import com.qingji.app.ui.theme.DividerColor
+import com.qingji.app.ui.theme.Motion
 import com.qingji.app.ui.theme.PageBackground
 import com.qingji.app.ui.theme.pressable
 import com.qingji.app.ui.theme.QingJiGreen
@@ -321,22 +319,31 @@ fun DiaryScreen(
 
         // ---------- 右下角固定的「写一篇」 ----------
         // 为什么放右下角：这个页面会越写越长，放右上角要滚回顶部才能点。
-        // v1.0.7 两连修：
+        // v1.0.7 三连修：
         //   ① 按钮块必须在快捷按钮**之后**组合 —— Compose 后组合的在上层，否则动画
         //      经过快捷按钮区域时被盖住；
-        //   ② enter 里去掉 slideInVertically —— Scaffold 的 bottomBar 绘制在 content
-        //      **之后**，按钮从下方滑入时会越出内容区底边，越界部分正好被**方形的
-        //      导航栏**盖住，看起来就是「圆形按钮被方形遮挡」。改成原位缩放 + 淡入，
-        //      不做任何位移，弹出感还在，也不会再穿到导航栏底下。
-        AnimatedVisibility(
-            visible = fabVisible,
-            enter = scaleIn(
-                animationSpec = spring(dampingRatio = 0.45f, stiffness = 380f),
-                initialScale = 0.5f
-            ) + fadeIn(animationSpec = tween(180)),
+        //   ② 去掉 slideInVertically —— Scaffold 的 bottomBar 绘制在 content **之后**，
+        //      按钮从下方滑入会越出内容区底边，正好被方形的导航栏盖住；
+        //   ③ 不再用 AnimatedVisibility 播 scaleIn —— 它会把内容限制在自己的**矩形
+        //      布局边界**内；而 spring(dampingRatio = 0.45f) 会过冲放大到 1 倍以上，
+        //      放大后的胶囊圆角一旦越界就被裁掉，四角变成斜切/直角 —— 这就是用户
+        //      说的「动画被限制在一个矩形中」。
+        // 现在改为 graphicsLayer 自己做缩放 + 淡入：没有裁剪边界，缩放严格 0.5→1
+        // 不过冲，圆角全程完整；弹出感照旧，不做位移，也碰不到底部导航栏。
+        val fabAppear by animateFloatAsState(
+            targetValue = if (fabVisible) 1f else 0f,
+            animationSpec = tween(durationMillis = Motion.Normal, easing = Motion.decelerate),
+            label = "fabAppear"
+        )
+        Box(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(end = 20.dp, bottom = 20.dp)
+                .graphicsLayer {
+                    alpha = fabAppear
+                    scaleX = 0.5f + 0.5f * fabAppear
+                    scaleY = 0.5f + 0.5f * fabAppear
+                }
         ) {
             WriteEntryFab(onClick = { onOpenEdit(0L) })
         }
