@@ -4,6 +4,7 @@ import com.qingji.app.domain.AppClock
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -53,6 +54,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.qingji.app.data.local.entity.UserProfile
 import com.qingji.app.data.local.entity.WeightLog
 import com.qingji.app.domain.ChartMath
+import com.qingji.app.domain.DiaryRules
 import com.qingji.app.domain.NutritionCalculator
 import com.qingji.app.ui.components.SectionCard
 import com.qingji.app.ui.components.AppearItem
@@ -78,6 +80,7 @@ import com.qingji.app.ui.theme.TextSizes
 import com.qingji.app.ui.theme.WarnOrange
 import com.qingji.app.ui.viewmodel.ProgressViewModel
 import java.time.LocalDate
+import com.qingji.app.ui.i18n.s
 
 /**
  * ============================================================
@@ -104,6 +107,8 @@ fun ProgressScreen(
      */
     onOpenExercise: () -> Unit = {},
     modifier: Modifier = Modifier,
+    /** tabfix：滚动状态由 Root 持有，切 Tab 回来不丢位置。 */
+    scrollState: ScrollState = rememberScrollState(),
     vm: ProgressViewModel = viewModel()
 ) {
     val profile by vm.profile.collectAsState()
@@ -113,6 +118,7 @@ fun ProgressScreen(
     // 本轮新增的五个模块的数据
     val waterWeek by vm.waterWeek.collectAsState()
     val foodWeek by vm.foodWeek.collectAsState()
+    val foodMonth by vm.foodMonth.collectAsState()
     val exerciseWeek by vm.exerciseWeek.collectAsState()
     val bodyMeasures by vm.bodyMeasures.collectAsState()
     val photos by vm.photos.collectAsState()
@@ -146,17 +152,22 @@ fun ProgressScreen(
     }.collectAsState(initial = com.qingji.app.data.prefs.QingJiSettings())
     val unit = settings.unit
 
-    // 按时间范围过滤，再按日期升序（画线要按时间先后）
+    // 按时间范围过滤，再按日期升序（画线要按时间先后）。
+    // AI 专项修 off-by-one：以前 today.minusDays(days) 会把「近一周」算成 8 个自然日
+    // （today-7..today），天数 chips 与真正纳入的记录对不上。改成 days-1 才是 N 天。
     val logs = allLogs
         .filter { log ->
             val days = rangeDays
-            days == null || !log.date.isBefore(AppClock.today().minusDays(days.toLong()))
+            days == null || !log.date.isBefore(AppClock.today().minusDays((days - 1).toLong()))
         }
         .sortedBy { it.date }
 
     val startWeight = profile?.startWeight?.takeIf { it > 0 } ?: 0.0
     val targetWeight = profile?.targetWeight?.takeIf { it > 0 } ?: 0.0
-    val currentWeight = logs.lastOrNull()?.weightKg ?: startWeight
+    // AI 专项：范围内一条记录都没有时，以前拿「起始体重」冒充当前体重，
+    // 身体数据卡显示 80kg、同一屏「最新」却显示 --，自相矛盾。
+    // 改成 0 让卡片也显示 --，BMI / 减脂进度本来就有 > 0 保护。
+    val currentWeight = logs.lastOrNull()?.weightKg ?: 0.0
     val bmi = if (profile != null && currentWeight > 0) {
         NutritionCalculator.bmi(currentWeight, profile!!.heightCm)
     } else 0.0
@@ -183,13 +194,13 @@ fun ProgressScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
             .padding(horizontal = 16.dp)
     ) {
         Spacer(Modifier.height(16.dp))
 
         Text(
-            text = "进展",
+            text = s("进展"),
             fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
             color = TextPrimary
@@ -206,7 +217,7 @@ fun ProgressScreen(
             categoryColor = categoryColor,
             progress = progress,
             remain = remain,
-            recordCount = allLogs.size,
+            recordCount = logs.size,
             unit = unit,
             onClick = onOpenWeight
         )
@@ -257,8 +268,18 @@ fun ProgressScreen(
 
         Spacer(Modifier.height(Dimens.Gap))
 
-        // ---------- 本周运动消耗 ----------
+        // ---------- 饮食 30 天热力图（对标竞品「吃有数」，2026-11-12） ----------
         AppearItem(index = 2) {
+            DietHeatmapCard(
+                logs = foodMonth,
+                dailyGoal = profile?.dailyKcalGoal?.takeIf { it > 0 }?.toDouble() ?: 2000.0
+            )
+        }
+
+        Spacer(Modifier.height(Dimens.Gap))
+
+        // ---------- 本周运动消耗 ----------
+        AppearItem(index = 3) {
             ExerciseWeekCard(
                 list = exerciseWeek,
                 onAdd = onOpenExercise,
@@ -357,8 +378,8 @@ private fun BodyDataCard(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = "身体数据", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-            Text(text = "记体重 ›", fontSize = 11.sp, color = QingJiGreenDark)
+            Text(text = s("身体数据"), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+            Text(text = s("记体重 ›"), fontSize = 11.sp, color = QingJiGreenDark)
         }
 
         Spacer(Modifier.height(12.dp))
@@ -415,7 +436,7 @@ private fun BodyDataCard(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                Text(text = "BMI 分级", fontSize = 11.sp, color = TextSecondary)
+                Text(text = s("BMI 分级"), fontSize = 11.sp, color = TextSecondary)
                 Spacer(Modifier.height(6.dp))
                 Text(
                     text = if (bmi > 0) when (category) {
@@ -434,7 +455,7 @@ private fun BodyDataCard(
                         .padding(horizontal = 12.dp, vertical = 3.dp)
                 )
                 Spacer(Modifier.height(4.dp))
-                Text(text = "中国标准", fontSize = 10.sp, color = TextSecondary)
+                Text(text = s("中国标准"), fontSize = 10.sp, color = TextSecondary)
             }
         }
 
@@ -446,7 +467,7 @@ private fun BodyDataCard(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(text = "减脂进展", fontSize = 14.sp, color = TextPrimary)
+            Text(text = s("减脂进展"), fontSize = 14.sp, color = TextPrimary)
             Text(
                 text = "${(animProgress * 100).toInt()}%",
                 fontSize = 14.sp,
@@ -471,7 +492,7 @@ private fun BodyDataCard(
         if (profile == null) {
             Spacer(Modifier.height(6.dp))
             Text(
-                text = "个人资料还没填完整，进度可能显示为 0",
+                text = s("个人资料还没填完整，进度可能显示为 0"),
                 fontSize = 11.sp,
                 color = WarnOrange
             )
@@ -608,8 +629,8 @@ private fun TimeRangeChips(
 
 /**
  * 体重曲线（M4 补齐）：
- * 实线 = 实测体重；紫色斜虚线 = 目标轨迹（起始体重 → 目标体重线性插值）；
- * 浅紫横线 = 目标体重基准；手指点按能看某一天的具体数值。
+ * 实线 = 实测体重；深绿斜虚线 = 目标轨迹（起始体重 → 目标体重线性插值）；
+ * 浅绿横线 = 目标体重基准；手指点按能看某一天的具体数值。
  *
  * 所有坐标换算走 ChartMath（纯 Kotlin、有单元测试），包括「只有 1 条记录」
  * 这种容易崩的边界，界面这里不自己算数。
@@ -641,7 +662,7 @@ private fun WeightChart(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(text = "体重走势", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+            Text(text = s("体重走势"), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
             Text(text = "共 ${logs.size} 条记录", fontSize = 12.sp, color = TextSecondary)
         }
         Spacer(Modifier.height(12.dp))
@@ -799,7 +820,7 @@ private fun WeightChart(
         // 最新体重 + 区间变化量（需求 M4）
         Row(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = "最新", fontSize = 12.sp, color = TextSecondary)
+                Text(text = s("最新"), fontSize = 12.sp, color = TextSecondary)
                 Text(
                     text = values.lastOrNull()?.let {
                         com.qingji.app.domain.WeightUnit.formatWithSymbol(it.toDouble(), unit)
@@ -810,7 +831,7 @@ private fun WeightChart(
                 )
             }
             Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.End) {
-                Text(text = "本区间变化", fontSize = 12.sp, color = TextSecondary)
+                Text(text = s("本区间变化"), fontSize = 12.sp, color = TextSecondary)
                 Text(
                     text = run {
                         val first = values.firstOrNull()
@@ -832,7 +853,7 @@ private fun WeightChart(
         if (logs.size == 1) {
             Spacer(Modifier.height(6.dp))
             Text(
-                text = "只有 1 条记录，再记几次就能连成曲线",
+                text = s("只有 1 条记录，再记几次就能连成曲线"),
                 fontSize = 11.sp,
                 color = TextSecondary
             )
@@ -864,6 +885,131 @@ private fun LegendDot(color: Color, label: String) {
 // ============================================================
 
 /** 七根柱子：近一周每天的饮水量。 */
+/**
+ * 饮食 30 天热力图（2026-11-12，对标竞品「吃有数」）。
+ *
+ * 网格排法复用日记模块的 DiaryRules.cells（近 30 天滚动、周一开头、前后补位），
+ * 着色按当天摄入 / 目标热量：
+ *   没记录 = 灰；0-80% = 绿（吃得偏少）；80-120% = 黄（贴着预算）；120% 以上 = 红（超了）。
+ * 点一天，下方显示那天的摄入和目标。
+ */
+@Composable
+private fun DietHeatmapCard(
+    logs: List<com.qingji.app.data.local.entity.FoodLog>,
+    dailyGoal: Double
+) {
+    val today = AppClock.today()
+    val kcalByDate = remember(logs) {
+        logs.groupBy { it.date }.mapValues { entry -> entry.value.sumOf { it.kcal } }
+    }
+    var selected by remember { mutableStateOf<LocalDate?>(null) }
+
+    SectionCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "饮食 30 天",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TextPrimary
+            )
+        }
+
+        Spacer(Modifier.height(10.dp))
+
+        val cells = DiaryRules.cells(today, 30)
+        val leading = cells.first().dayOfWeek.value - 1
+        val grid: List<LocalDate?> = List(leading) { null } + cells
+
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                listOf("一", "二", "三", "四", "五", "六", "日").forEach { label ->
+                    Text(
+                        text = label,
+                        fontSize = 10.sp,
+                        color = TextSecondary,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+            grid.chunked(7).forEach { row ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    row.forEach { date ->
+                        if (date == null) {
+                            Spacer(Modifier.weight(1f))
+                            return@forEach
+                        }
+                        val eaten = kcalByDate[date] ?: 0.0
+                        val hasRecord = eaten > 0.0
+                        val isSelected = date == selected
+                        val bg = when {
+                            isSelected -> QingJiGreen
+                            !hasRecord -> DividerColor.copy(alpha = 0.5f)
+                            eaten < dailyGoal * 0.8 -> QingJiGreen
+                            eaten <= dailyGoal * 1.2 -> WarnOrange
+                            else -> DangerRed
+                        }
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(16.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(bg)
+                                .clickable { selected = if (isSelected) null else date },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (isSelected) {
+                                Text(
+                                    text = "${date.dayOfMonth}",
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = androidx.compose.ui.graphics.Color.White
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 图例：四种颜色（含灰=未记录），wrapContent 居中，不随宽度拉伸
+        Spacer(Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            LegendDot(color = QingJiGreen, label = "0-80%")
+            Spacer(Modifier.width(10.dp))
+            LegendDot(color = WarnOrange, label = "80-120%")
+            Spacer(Modifier.width(10.dp))
+            LegendDot(color = DangerRed, label = "120%+")
+            Spacer(Modifier.width(10.dp))
+            LegendDot(color = DividerColor.copy(alpha = 0.5f), label = "未记录")
+        }
+
+        selected?.let { day ->
+            Spacer(Modifier.height(8.dp))
+            val eaten = kcalByDate[day] ?: 0.0
+            Text(
+                text = if (eaten > 0.0) {
+                    "${day.monthValue}月${day.dayOfMonth}日 · 摄入 ${eaten.toInt()} 千卡 / 目标 ${dailyGoal.toInt()} 千卡"
+                } else {
+                    "${day.monthValue}月${day.dayOfMonth}日 · 当天没有饮食记录"
+                },
+                fontSize = 11.sp,
+                color = TextSecondary
+            )
+        }
+    }
+}
+
 @Composable
 private fun WaterWeekCard(week: List<Pair<LocalDate, Int>>, goalMl: Int) {
     val total = week.sumOf { it.second }
@@ -877,7 +1023,7 @@ private fun WaterWeekCard(week: List<Pair<LocalDate, Int>>, goalMl: Int) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "近一周饮水",
+                text = s("近一周饮水"),
                 fontSize = TextSizes.CardTitle,
                 fontWeight = FontWeight.SemiBold,
                 color = TextPrimary
@@ -887,7 +1033,7 @@ private fun WaterWeekCard(week: List<Pair<LocalDate, Int>>, goalMl: Int) {
         Spacer(Modifier.height(12.dp))
 
         if (week.isEmpty()) {
-            Text(text = "还没有饮水记录", fontSize = 13.sp, color = TextSecondary)
+            Text(text = s("还没有饮水记录"), fontSize = 13.sp, color = TextSecondary)
         } else {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -954,7 +1100,7 @@ private fun NutritionWeekCard(foodWeek: List<com.qingji.app.data.local.entity.Fo
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                text = "近一周营养摄入",
+                text = s("近一周营养摄入"),
                 fontSize = TextSizes.CardTitle,
                 fontWeight = FontWeight.SemiBold,
                 color = TextPrimary
@@ -1015,7 +1161,7 @@ private fun NutritionWeekCard(foodWeek: List<com.qingji.app.data.local.entity.Fo
         }
         Spacer(Modifier.height(6.dp))
         Text(
-            text = "按最近 7 天平均算；没记的日子也计入分母",
+            text = s("按最近 7 天平均算；没记的日子也计入分母"),
             fontSize = TextSizes.Tiny,
             color = TextSecondary
         )
@@ -1045,15 +1191,24 @@ private fun ExerciseWeekCard(
 ) {
     val total = list.sumOf { it.kcal }
 
+    // 360dp 窄屏走查：右侧 QuickActionColumn 是 4 颗 52dp 圆按钮、右留 16dp，
+    // 浮在内容之上，占住屏幕右侧 (W-68dp) ~ (W-16dp) 这一条。
+    // 而卡片内容区右边界是 (W-16dp 外层 - 16dp SectionCard) = W-32dp，
+    // 比悬浮栏左边界还靠右 36dp —— 行尾的「×」和「+ 记一次」正好落进按钮热区，
+    // 点下去全被悬浮按钮吃掉（第一行 360dp 下完全点不到）。
+    // 给卡内两处行尾统一留 44dp 安全边距（36dp 理论值 + 8dp 余量）：
+    // 卡片本身宽度、标题位置、与其它卡片的对齐都不变，只是内容避开悬浮区。
+    val fabSafeEnd = 44.dp
+
     SectionCard {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(end = fabSafeEnd),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
                 Text(
-                    text = "本周运动消耗",
+                    text = s("本周运动消耗"),
                     fontSize = TextSizes.CardTitle,
                     fontWeight = FontWeight.SemiBold,
                     color = TextPrimary
@@ -1066,7 +1221,7 @@ private fun ExerciseWeekCard(
                 )
             }
             Text(
-                text = "+ 记一次",
+                text = s("+ 记一次"),
                 fontSize = 12.sp,
                 color = QingJiGreenDark,
                 modifier = Modifier
@@ -1081,7 +1236,10 @@ private fun ExerciseWeekCard(
             Spacer(Modifier.height(10.dp))
             list.takeLast(3).reversed().forEach { log ->
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 5.dp)
+                        .padding(end = fabSafeEnd),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(text = "🏃", fontSize = 14.sp)
@@ -1107,12 +1265,17 @@ private fun ExerciseWeekCard(
                     }
                     Text(text = "${log.kcal.toInt()} 千卡", fontSize = 12.sp, color = QingJiGreenDark)
                     Spacer(Modifier.size(6.dp))
-                    Text(
-                        text = "×",
-                        fontSize = 14.sp,
-                        color = TextSecondary,
-                        modifier = Modifier.clickable { onDelete(log.id) }.padding(horizontal = 4.dp)
-                    )
+                    // 原来只是 Text 加 4dp 内边距，点击热区不到 24dp，
+                    // 就算没被悬浮栏挡住也很难点中；改成 36dp 透明方形热区，
+                    // 视觉上还是同一个「×」，只是更容易点。
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clickable { onDelete(log.id) },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(text = "×", fontSize = 14.sp, color = TextSecondary)
+                    }
                 }
             }
         }
@@ -1154,7 +1317,7 @@ private fun BodyMeasureCard(
         ) {
             Column {
                 Text(
-                    text = "身体维度",
+                    text = s("身体维度"),
                     fontSize = TextSizes.CardTitle,
                     fontWeight = FontWeight.SemiBold,
                     color = TextPrimary
@@ -1181,7 +1344,7 @@ private fun BodyMeasureCard(
         if (latest == null) {
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "量一次腰围、胸围、臀围，变化比体重更早看得出来",
+                text = s("量一次腰围、胸围、臀围，变化比体重更早看得出来"),
                 fontSize = 12.sp,
                 color = TextSecondary
             )
@@ -1231,7 +1394,7 @@ private fun ProgressPhotoCard(
         ) {
             Column {
                 Text(
-                    text = "进度照片",
+                    text = s("进度照片"),
                     fontSize = TextSizes.CardTitle,
                     fontWeight = FontWeight.SemiBold,
                     color = TextPrimary
@@ -1249,7 +1412,7 @@ private fun ProgressPhotoCard(
             ) {
                 if (photos.isNotEmpty()) {
                     Text(
-                        text = "查看全部",
+                        text = s("查看全部"),
                         fontSize = 12.sp,
                         color = QingJiGreenDark,
                         modifier = Modifier
@@ -1260,7 +1423,7 @@ private fun ProgressPhotoCard(
                     )
                 }
                 Text(
-                    text = "+ 添加",
+                    text = s("+ 添加"),
                     fontSize = 12.sp,
                     color = QingJiGreenDark,
                     modifier = Modifier
@@ -1284,7 +1447,7 @@ private fun ProgressPhotoCard(
                     .pressable { onAdd() },
                 contentAlignment = Alignment.Center
             ) {
-                Text(text = "点这里从相册选一张", fontSize = 12.sp, color = TextSecondary)
+                Text(text = s("点这里从相册选一张"), fontSize = 12.sp, color = TextSecondary)
             }
         } else {
             androidx.compose.foundation.lazy.LazyRow(

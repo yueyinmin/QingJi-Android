@@ -82,6 +82,9 @@ fun VoiceRecordScreen(
     var isListening by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var errorText by remember { mutableStateOf("") }
+    // AI 专项：以前语音页完全不接 advice，低置信度 / 异常说明在这儿是哑的。
+    // 文字页和图片页都有，补齐同一套状态，仍只显示一条、不堆叠。
+    var advice by remember { mutableStateOf("") }
     var mealType by remember { mutableStateOf(MealRules.guess()) }
     val items = remember { mutableStateListOf<EditableItem>() }
     // v3.5.0：记到哪一天可选（默认今天），复用日期/时/分三列滚轮
@@ -267,11 +270,13 @@ fun VoiceRecordScreen(
                         scope.launch {
                             isLoading = true
                             errorText = ""
+                            advice = ""
                             vm.recognize(recognizedText.trim(), AppClock.today()).fold(
                                 onSuccess = { data ->
                                     items.clear()
                                     items.addAll(data.toEditableItems())
                                     mealType = data.mealType
+                                    advice = data.advice
                                 },
                                 onFailure = { e -> errorText = e.message ?: "识别失败" }
                             )
@@ -283,6 +288,10 @@ fun VoiceRecordScreen(
 
             Spacer(Modifier.height(12.dp))
 
+            if (advice.isNotBlank()) {
+                HintBox(text = advice)
+                Spacer(Modifier.height(8.dp))
+            }
             if (errorText.isNotBlank()) {
                 // 「这台手机不支持语音」不是错误，是设备能力问题——用中性提示别吓人
                 HintBox(
@@ -325,7 +334,7 @@ fun VoiceRecordScreen(
                 )
                 Spacer(Modifier.height(6.dp))
                 ConfirmSaveBar(
-                    count = items.size,
+                    items = items,
                     onSave = {
                         scope.launch {
                             val logs = items.toFoodLogs(mealType, "voice", date = recordDate)

@@ -4,9 +4,12 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -26,8 +29,13 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import com.qingji.app.data.prefs.QingJiSettings
 import com.qingji.app.ui.viewmodel.OnboardingViewModel
+import com.qingji.app.ui.viewmodel.HomeViewModel
+import com.qingji.app.ui.viewmodel.ProgressViewModel
+import com.qingji.app.ui.viewmodel.DiaryViewModel
+import com.qingji.app.ui.viewmodel.MineViewModel
 import com.qingji.app.data.prefs.SettingsStore
 import com.qingji.app.ui.screen.BackupScreen
 import com.qingji.app.ui.screen.AiAnalysisScreen
@@ -77,6 +85,20 @@ fun QingJiAppRoot(
 ) {
     val navController = rememberNavController()
 
+    // tabfix：Tab 切换会销毁旧页面的 Composable（popUpTo 明确不带 saveState，
+    // 见下方 v3.2.3 的注释），页面内部的 rememberScrollState 会跟着重建、回到顶部。
+    // 把四个 Tab 的滚动状态提到这里 —— Root 永远不会被导航销毁，
+    // 切回来时 ScrollState 对象还在，滚动位置自然保留。
+    val tabScrollStates = remember {
+        QingJiTab.values().associateWith { ScrollState(0) }
+    }
+
+    // tabfix：状态栏高度在 Scaffold 外面读，这里的 insets 还没被 Scaffold 消耗。
+    // 首页要靠它把顶部渐变往上画回状态栏区域（见 HomeScreen）。
+    val statusBarTopDp = with(LocalDensity.current) {
+        WindowInsets.statusBars.getTop(this).toDp()
+    }
+
     // 是否展开「记一笔」底部弹层
     var showAddSheet by remember { mutableStateOf(false) }
 
@@ -88,7 +110,19 @@ fun QingJiAppRoot(
     LaunchedEffect(startTarget, startTargetRequestId) {
         val target = startTarget ?: return@LaunchedEffect
         if (target != QingJiTab.Home.route && target.isNotBlank()) {
-            navController.navigate(target) { launchSingleTop = true }
+            // 断食常驻通知专项（2026-11-11）：冷启动带 target（通知 / 小组件）时，
+            // NavHost 的 graph 可能还没挂上，直接 navigate 会抛
+            // IllegalArgumentException: Navigation graph has not been set → 整个 App 崩掉。
+            // 以前小组件多数在 App 已运行时才点，所以没暴露。
+            // 现在等 currentDestination 出现再跳，最多等 15 秒；超时就放弃跳转（宁可停首页，也不崩）。
+            var waited = 0L
+            while (navController.currentDestination == null && waited < 15_000L) {
+                kotlinx.coroutines.delay(16L)
+                waited += 16L
+            }
+            runCatching {
+                navController.navigate(target) { launchSingleTop = true }
+            }
         }
         // 放在最后调用：它把 startTarget 变成 null，会让本 LaunchedEffect
         // 重启一次；重启后 target 已是 null，第一行就直接返回，不会重复跳。
@@ -126,18 +160,28 @@ fun QingJiAppRoot(
         return
     }
 
-    // 正式版 v1.1：首页顶部是主题色渐变头，状态栏必须让渐变延伸到屏幕最顶端，
-    // 否则状态栏一条灰白 + 下面浅绿，观感割裂。
-    // 做法是首页路由时把 Scaffold 的 contentWindowInsets 归零（状态栏 inset 交给
-    // HomeScreen 自己的 statusBarsPadding 处理），其他页面维持系统默认不动。
-    val onHome = currentRoute == QingJiTab.Home.route
+    // tabfix：四个 Tab 的 ViewModel 提到 Root（= Activity 作用域）创建。
+    // 原来页面里 viewModel() 的默认作用域是 NavBackStackEntry，切 Tab 时
+    // popUpTo 会销毁它，回来时新 VM 的 stateIn 先发 initial 空值，
+    // 进展页第一帧就变成「-- kg / 待记录 / 还没有体重记录」，
+    // 数据到了再跳回真实卡片 —— 录屏里那一下「内容闪跳」就是它。
+    // 这里创建后传给页面，StateFlow 保留最后一次的值，切回来第一帧就是真数据。
+    // VM 全是 WhileSubscribed(5_000) 且没有 init 副作用，常驻是安全的。
+    val homeVm: HomeViewModel = viewModel()
+    val progressVm: ProgressViewModel = viewModel()
+    val diaryVm: DiaryViewModel = viewModel()
+    val mineVm: MineViewModel = viewModel()
+
+    // tabfix（首页→进展抖动的真正根因）：这里原来按路由切 contentWindowInsets
+    // —— 首页给全 0，其他页给默认 systemBars。currentRoute 在 navigate() 那一帧
+    // 就变了，可 NavHost 的转场动画才刚开始，于是：
+    //   1) 内容区 top padding 从 0 瞬间变成状态栏高度，新旧两页同时被重新测量下移；
+    //   2) 还没淡出的首页自己也带 statusBarsPadding，退出帧变成双重内边距；
+    //   3) 内容区高度一变，slideInVertically 的 height/28 目标位移也跟着变。
+    // 现在所有路由统一用 Scaffold 默认值，innerPadding 切换前后恒定；
+    // 首页渐变「延伸到状态栏」改由 HomeScreen 用负 offset 补回，视觉零变化。
     Scaffold(
         containerColor = PageBackground,
-        contentWindowInsets = if (onHome) {
-            androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0)
-        } else {
-            androidx.compose.material3.ScaffoldDefaults.contentWindowInsets
-        },
         bottomBar = {
             if (showBottomBar) {
                 QingJiBottomBar(
@@ -170,9 +214,8 @@ fun QingJiAppRoot(
             NavHost(
                 navController = navController,
                 startDestination = QingJiTab.Home.route,
-                // 页面转场统一用 Motion 里的规范：
-                // 进场淡入 + 上浮 1/28 屏高，退场快速淡出，返回时方向反过来。
-                // 所有页面同一套参数，切换时才不会有「有的快有的慢」的割裂感。
+                // tabfix：所有路由共用 Motion 的 150ms 原地淡入淡出，
+                // 进出同节奏、零位移，转场期间两页始终占同一块区域。
                 enterTransition = { com.qingji.app.ui.theme.Motion.pageEnter },
                 exitTransition = { com.qingji.app.ui.theme.Motion.pageExit },
                 popEnterTransition = { com.qingji.app.ui.theme.Motion.popEnter },
@@ -188,7 +231,10 @@ fun QingJiAppRoot(
                             navController.navigate(QingJiRoutes.mealDetail(date, meal))
                         },
                         onOpenFasting = { navController.navigate(QingJiRoutes.Fasting) },
-                        onOpenFoodLibrary = { navController.navigate(QingJiRoutes.FoodLibrary) }
+                        onOpenFoodLibrary = { navController.navigate(QingJiRoutes.FoodLibrary) },
+                        statusBarTop = statusBarTopDp,
+                        scrollState = tabScrollStates.getValue(QingJiTab.Home),
+                        vm = homeVm
                     )
                 }
                 composable(QingJiTab.Progress.route) {
@@ -198,7 +244,9 @@ fun QingJiAppRoot(
                         // v3.2.4：悬浮栏第二颗换成食物库，这里接上跳转
                         onOpenFoodLibrary = { navController.navigate(QingJiRoutes.FoodLibrary) },
                         // v1.0.6：运动卡片的「+ 记一次」走二级页，才能填步数 / 公里
-                        onOpenExercise = { navController.navigate(QingJiRoutes.ExercisePicker) }
+                        onOpenExercise = { navController.navigate(QingJiRoutes.ExercisePicker) },
+                        scrollState = tabScrollStates.getValue(QingJiTab.Progress),
+                        vm = progressVm
                     )
                 }
                 composable(QingJiTab.Diary.route) {
@@ -206,12 +254,17 @@ fun QingJiAppRoot(
                         onOpenEdit = { id -> navController.navigate(QingJiRoutes.diaryEdit(id)) },
                         onOpenWeight = { navController.navigate(QingJiRoutes.Weight) },
                         onOpenImage = { navController.navigate(QingJiRoutes.ImageRecord) },
-                        onOpenFoodLibrary = { navController.navigate(QingJiRoutes.FoodLibrary) }
+                        onOpenFoodLibrary = { navController.navigate(QingJiRoutes.FoodLibrary) },
+                        scrollState = tabScrollStates.getValue(QingJiTab.Diary),
+                        vm = diaryVm
                     )
                 }
                 composable(QingJiTab.Mine.route) {
                     MineScreen(
-                        onOpenSettings = { navController.navigate(QingJiRoutes.Settings) }
+                        onOpenSettings = { navController.navigate(QingJiRoutes.Settings) },
+                        onOpenProfile = { navController.navigate(QingJiRoutes.Profile) },
+                        scrollState = tabScrollStates.getValue(QingJiTab.Mine),
+                        vm = mineVm
                     )
                 }
                 composable(QingJiRoutes.Settings) {

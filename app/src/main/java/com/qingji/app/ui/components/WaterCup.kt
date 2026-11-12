@@ -182,21 +182,8 @@ fun WaterCup(
                 )
             }
 
-            // 玻璃高光：两条白色竖圆角条
-            val hlTop = top + (bottom - top) * 0.12f
-            val hlBottom = bottom - (bottom - top) * 0.10f
-            drawRoundRect(
-                color = Color.White.copy(alpha = 0.5f),
-                topLeft = Offset(centerX - topHalf * 0.62f, hlTop),
-                size = Size(4.5.dp.toPx(), hlBottom - hlTop),
-                cornerRadius = CornerRadius(2.25.dp.toPx())
-            )
-            drawRoundRect(
-                color = Color.White.copy(alpha = 0.32f),
-                topLeft = Offset(centerX - topHalf * 0.42f, hlTop + 8.dp.toPx()),
-                size = Size(2.2.dp.toPx(), (hlBottom - hlTop) * 0.7f),
-                cornerRadius = CornerRadius(1.1.dp.toPx())
-            )
+            // v1.0.7：玻璃高光的两条白色竖圆角条去掉了（用户看着像多余的竖条）
+            // 杯壁高光改由水面波纹和描边承担，不再单独画竖条。
 
             // 气泡：固定种子保证位置不乱跳，只随时间上浮
             val random = Random(seed = 20261108)

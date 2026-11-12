@@ -1,5 +1,6 @@
 package com.qingji.app.ui.screen
 
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -14,8 +15,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -44,6 +48,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -52,6 +58,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -77,6 +84,7 @@ import com.qingji.app.ui.theme.MacroProtein
 import com.qingji.app.ui.theme.MultiColor
 import com.qingji.app.ui.theme.pressable
 import com.qingji.app.ui.theme.QingJiGreen
+import com.qingji.app.ui.theme.WarnOrange
 import com.qingji.app.ui.theme.QingJiGreenDark
 import com.qingji.app.ui.theme.QingJiGreenLight
 import com.qingji.app.ui.theme.TextPrimary
@@ -114,6 +122,14 @@ fun HomeScreen(
     /** 点「食物库」→ 进食物库页 */
     onOpenFoodLibrary: () -> Unit = {},
     modifier: Modifier = Modifier,
+    /**
+     * tabfix：状态栏高度，由 QingJiAppRoot 在 Scaffold 消耗 insets 之前读好传进来。
+     * Scaffold 现在对所有路由统一给默认 top inset，首页内容区因此从状态栏下方开始；
+     * 把顶部渐变往上挪这么多，渐变起点就还是屏幕最顶端，视觉和修复前完全一致。
+     */
+    statusBarTop: Dp = 0.dp,
+    /** tabfix：滚动状态由 Root 持有，页面被导航销毁再重建时位置不丢。 */
+    scrollState: ScrollState = rememberScrollState(),
     vm: HomeViewModel = viewModel()
 ) {
     val state by vm.uiState.collectAsState()
@@ -139,9 +155,13 @@ fun HomeScreen(
     ) {
         // 顶部一层很淡的主题色渐变：日期、周历都落在这一块上。
         // 颜色取 QingJiGreenLight（跟着主题色变），不用写死任何青色。
+        // tabfix：Scaffold 统一给 top inset 后，内容区顶部 = 状态栏下沿，
+        // 这里用负 offset 把渐变补回状态栏后面（高度仍是 250dp，
+        // 起止位置与修复前逐像素一致）。Box 默认不裁剪子内容，能画到边界外。
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .offset(y = -statusBarTop)
                 .height(250.dp)
                 .background(
                     Brush.verticalGradient(
@@ -156,10 +176,9 @@ fun HomeScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                // 正式版 v1.1：渐变已延伸到状态栏后面（Scaffold 在首页放开 top inset），
-                // 这里自己补状态栏内边距，保证日期标题不被时钟 / 电量压住
-                .statusBarsPadding()
-                .verticalScroll(rememberScrollState())
+                // tabfix：状态栏内边距已由 Scaffold 统一提供，这里不能再加，
+                // 否则首页内容会比其它页面多沉一个状态栏高度、切页时又跳一次。
+                .verticalScroll(scrollState)
                 .padding(horizontal = 16.dp)
         ) {
         Spacer(Modifier.height(12.dp))
@@ -247,24 +266,8 @@ fun HomeScreen(
                     .background(MultiColor.StreakBackground)
                     .padding(horizontal = 8.dp, vertical = 5.dp)
             )
-            // 目标状态：宽度跟着文字走，同样锁死单行。
-            // 文案统一叫「减脂」——和进展页、引导里的说法一致，不再「减肥」「减脂」混着叫。
-            Spacer(Modifier.width(6.dp))
-            Text(
-                text = when (settings.goalMode) {
-                    "gain" -> s("增肌")
-                    "keep" -> s("保持")
-                    else -> s("减脂")
-                },
-                fontSize = 11.sp,
-                color = QingJiGreenDark,
-                maxLines = 1,
-                softWrap = false,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(QingJiGreenLight)
-                    .padding(horizontal = 8.dp, vertical = 5.dp)
-            )
+            // 目标状态（减脂/增肌/保持）：v1.0.7 挪进「今日剩余」卡标题右侧，
+            // 顶部只留连续天数，两个胶囊不再挤一行。
         }
 
         Spacer(Modifier.height(12.dp))
@@ -284,12 +287,15 @@ fun HomeScreen(
             animateProgress = settings.progressAnimation,
             waterBubbles = settings.waterBubbles,
             exerciseCompensation = settings.exerciseCompensation,
+            exerciseCompensationPct = settings.exerciseCompensationPct,
+            goalMode = settings.goalMode,
             onCupClick = { showCupMenu = true },
             fastingEnabled = settings.fastingEnabled,
             fastingPlanHours = settings.fastingPlanHours,
             fastingEatStart = settings.fastingEatStartMinute,
             fastingEatEnd = settings.fastingEatEndMinute,
             fastingDays = settings.fastingDays,
+            fastingFreeStart = settings.fastingFreeStart,
             onOpenFasting = { onOpenFasting() }
         )
         }
@@ -314,7 +320,7 @@ fun HomeScreen(
                 if (settings.showAiAnalysis) {
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = "✦ AI 分析",
+                        text = s("✦ AI 分析"),
                         fontSize = 11.sp,
                         color = QingJiGreenDark,
                         modifier = Modifier
@@ -757,6 +763,8 @@ private fun TodaySummaryCard(
     waterBubbles: Int = 2,
     /** v3.4.0 R5：关掉后运动消耗不计入预计热量缺口 */
     exerciseCompensation: Boolean = false,
+    /** v1.0.7：补偿比例 0-100（默认 50），设备普遍高估消耗，全额加回会放大误差 */
+    exerciseCompensationPct: Int = 50,
     /** 点水杯时通知外面弹「首页设置 / 查看详情」的选择 */
     onCupClick: () -> Unit = {},
     /** 轻断食：开了才在卡片底部显示断食按钮 */
@@ -766,6 +774,10 @@ private fun TodaySummaryCard(
     fastingEatEnd: Int = 940,
     /** v1.0.3：生效周期（周几），今天不在周期内按钮显示「今日休息」 */
     fastingDays: String = "1,2,3,4,5,6,7",
+    /** 自由断食开始时刻（0 = 没有）；首页状态条三态要用 */
+    fastingFreeStart: Long = 0L,
+    /** 目标状态（减脂/增肌/保持）：显示在「今日剩余」标题右侧 */
+    goalMode: String = "lose",
     onOpenFasting: () -> Unit = {}
 ) {
     val profile = state.profile
@@ -801,8 +813,24 @@ private fun TodaySummaryCard(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // v1.0.2：目标状态（减脂/增肌/保持）挪到顶栏连续天数右边了
             Text(text = s("今日剩余"), fontSize = 14.sp, color = TextSecondary)
+            Spacer(Modifier.weight(1f))
+            // v1.0.7：目标状态从顶栏挪进来，和「今日剩余」同一行、水杯上方
+            Text(
+                text = when (goalMode) {
+                    "gain" -> s("增肌")
+                    "keep" -> s("保持")
+                    else -> s("减脂")
+                },
+                fontSize = 11.sp,
+                color = QingJiGreenDark,
+                maxLines = 1,
+                softWrap = false,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(QingJiGreenLight)
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            )
         }
 
         Spacer(Modifier.height(6.dp))
@@ -840,9 +868,13 @@ private fun TodaySummaryCard(
             }
         }
         Spacer(Modifier.height(8.dp))
-        // 预计热量缺口 = 每日预算 + 运动消耗 − 已吃（动得多缺口大）
-        // v3.4.0 R5：由「运动消耗补偿」开关决定运动要不要计入
-        val exerciseBonus = if (exerciseCompensation) state.exerciseKcal.toInt() else 0
+        // 预计热量缺口 = 每日预算 + 运动消耗×补偿比例 − 已吃
+        // v1.0.7：全额加回会放大设备高估误差，默认只补 50%（对标竞品策略）
+        val exerciseBonus = if (exerciseCompensationPct > 0) {
+            (state.exerciseKcal * exerciseCompensationPct / 100).toInt()
+        } else {
+            0
+        }
         val gap = remainingKcal + exerciseBonus
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -862,7 +894,7 @@ private fun TodaySummaryCard(
         androidx.compose.material3.HorizontalDivider(color = DividerColor)
         Spacer(Modifier.height(14.dp))
 
-        Text(text = "营养素 (g)", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+        Text(text = s("营养素 (g)"), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
         Spacer(Modifier.height(10.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             NutrientColumn(
@@ -891,65 +923,7 @@ private fun TodaySummaryCard(
         // 饮水不再单独占一块 + 四颗快捷按钮：进度收进右侧的高水杯，
         // 加水操作收进「快速记录喝水」弹层（点杯子打开），卡片更接近参考样式。
 
-        // ---------- 轻断食条（放在「今日剩余」这张卡的最底下） ----------
-        if (fastingEnabled) {
-            Spacer(Modifier.height(14.dp))
 
-            // 每分钟刷一次，「剩余 xx:xx」才会自己走
-            var fastingNow by remember { mutableStateOf(java.time.LocalTime.now()) }
-            LaunchedEffect(Unit) {
-                while (true) {
-                    kotlinx.coroutines.delay(60_000L)
-                    fastingNow = java.time.LocalTime.now()
-                }
-            }
-            val fasting = com.qingji.app.domain.FastingRules.status(
-                now = fastingNow,
-                planHours = fastingPlanHours,
-                eatStartMinute = fastingEatStart,
-                eatEndMinute = fastingEatEnd,
-                enabled = true
-            )
-
-            // v1.0.3：改成明显的实底绿按钮（之前浅色条看着不像能点）
-            val fastingDaySet = fastingDays.split(',').mapNotNull { it.trim().toIntOrNull() }.toSet()
-            val isFastingDay = java.time.LocalDate.now().dayOfWeek.value in fastingDaySet
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(QingJiGreen)
-                    .clickable { onOpenFasting() }
-                    .padding(horizontal = 14.dp, vertical = 11.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(text = "🕐", fontSize = 13.sp)
-                Spacer(Modifier.size(8.dp))
-                Text(
-                    text = if (!isFastingDay) {
-                        "轻断食 · 今日休息"
-                    } else {
-                        "轻断食 · " + com.qingji.app.domain.FastingRules.planLabel(fastingPlanHours)
-                    },
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.White
-                )
-                Text(
-                    text = if (!isFastingDay) {
-                        ""
-                    } else if (fasting.active) {
-                        " · 断食中 · 剩余 ${com.qingji.app.domain.FastingRules.durationLabel(fasting.remainMinutes)}"
-                    } else {
-                        " · 进食中"
-                    },
-                    fontSize = 12.sp,
-                    color = Color.White.copy(alpha = 0.85f)
-                )
-            }
-        }
             } // 左栏 Column 结束
 
             // 右栏：一根贯穿整张卡的高水杯，中间挂完成度胶囊，下面写「已喝/目标」
@@ -975,17 +949,46 @@ private fun TodaySummaryCard(
                             bubbleTint = Color.White.copy(alpha = 0.75f),
                             // v1.5：杯内容量数字整个去掉（主人不要杯内计量数字）
                         )
-                        Text(
-                            text = "$waterPercent%",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MultiColor.WaterText,
-                            modifier = Modifier
-                                .padding(bottom = 46.dp)
-                                .clip(RoundedCornerShape(999.dp))
-                                .background(MultiColor.WaterFill.copy(alpha = 0.24f))
-                                .padding(horizontal = 9.dp, vertical = 3.dp)
+                        // v1.0.7：完成度胶囊改成白色圆按钮（竖条高光已删）。
+                        // 拖拽时缩小跟手，松手弹回水位对应位置并放大；纯视觉交互，不改水量。
+                        var cupDragY by remember { mutableStateOf(0f) }
+                        var cupDragging by remember { mutableStateOf(false) }
+                        val cupScale by androidx.compose.animation.core.animateFloatAsState(
+                            targetValue = if (cupDragging) 0.82f else 1f,
+                            animationSpec = androidx.compose.animation.core.spring(
+                                dampingRatio = 0.5f,
+                                stiffness = 320f
+                            ),
+                            label = "cupBtnScale"
                         )
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .offset(y = (-(46.dp).value + cupDragY).dp)
+                                .size(44.dp)
+                                .scale(cupScale)
+                                .clip(CircleShape)
+                                .background(Color.White)
+                                .draggable(
+                                    orientation = Orientation.Vertical,
+                                    onDragStarted = { cupDragging = true },
+                                    onDragStopped = {
+                                        cupDragging = false
+                                        cupDragY = 0f
+                                    },
+                                    state = rememberDraggableState { delta ->
+                                        cupDragY = (cupDragY + delta).coerceIn(-110f, 30f)
+                                    }
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "$waterPercent%",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MultiColor.WaterText
+                            )
+                        }
                     }
                     Spacer(Modifier.height(6.dp))
                     // 紧凑写法，窄屏也不会被截成「3200 /」
@@ -998,6 +1001,95 @@ private fun TodaySummaryCard(
                 }
             }
         } // 外层 Row 结束
+
+        // ---------- 轻断食状态条（2026-11-12 三态，对标竞品） ----------
+        // 进食中 = 浅绿底绿字、断食中 = 浅橙底橙字、未开始 = 灰底灰字；
+        // 自由断食优先于方案显示（它有自己的秒表）。浅色底不抢卡片主信息，
+        // 点一下进断食页。倒计时保留：方案显示「剩 xx:xx」，自由断食直接走秒表。
+        Spacer(Modifier.height(10.dp))
+
+        // 自由断食进行中每秒走表；其余状态每分钟刷一次就够
+        var statusNow by remember { mutableStateOf(System.currentTimeMillis()) }
+        LaunchedEffect(fastingEnabled, fastingFreeStart) {
+            while (true) {
+                statusNow = System.currentTimeMillis()
+                kotlinx.coroutines.delay(if (fastingFreeStart > 0L) 1_000L else 60_000L)
+            }
+        }
+        val freeStart = fastingFreeStart
+        val freeRunning = freeStart > 0L && freeStart <= statusNow
+        val freeScheduled = freeStart > 0L && freeStart > statusNow
+        val fasting = com.qingji.app.domain.FastingRules.status(
+            now = java.time.LocalTime.now(),
+            planHours = fastingPlanHours,
+            eatStartMinute = fastingEatStart,
+            eatEndMinute = fastingEatEnd,
+            enabled = fastingEnabled && freeStart <= 0L   // 自由断食优先，方案状态让位
+        )
+        val fastingDaySet = fastingDays.split(',').mapNotNull { it.trim().toIntOrNull() }.toSet()
+        val isFastingDay = java.time.LocalDate.now().dayOfWeek.value in fastingDaySet
+
+        val freeClock = run {
+            val s = ((statusNow - freeStart) / 1000L).coerceAtLeast(0)
+            "%02d:%02d:%02d".format(s / 3600, (s % 3600) / 60, s % 60)
+        }
+        val streakState = when {
+            freeRunning -> Triple(
+                MultiColor.FastingBackground,
+                WarnOrange,
+                "自由断食 · 断食中 · $freeClock"
+            )
+            freeScheduled -> Triple(
+                MultiColor.FastingBackground,
+                WarnOrange,
+                "自由断食 · " + com.qingji.app.domain.FastingRules.freeScheduleLabel(freeStart, statusNow)
+            )
+            fastingEnabled && isFastingDay && fasting.active -> Triple(
+                MultiColor.FastingBackground,
+                WarnOrange,
+                com.qingji.app.domain.FastingRules.planLabel(fastingPlanHours) +
+                    " 轻断食 · 断食中 · 剩 " +
+                    com.qingji.app.domain.FastingRules.durationLabel(fasting.remainMinutes)
+            )
+            fastingEnabled && isFastingDay -> Triple(
+                QingJiGreenLight,
+                QingJiGreenDark,
+                com.qingji.app.domain.FastingRules.planLabel(fastingPlanHours) + " 轻断食 · 进食中"
+            )
+            fastingEnabled && !isFastingDay -> Triple(
+                QingJiGreenLight,
+                QingJiGreenDark,
+                "轻断食 · 今日休息"
+            )
+            else -> Triple(
+                DividerColor.copy(alpha = 0.35f),
+                TextSecondary,
+                "轻断食 · 未开始"
+            )
+        }
+        val (streakBg, streakFg, streakText) = streakState
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(streakBg)
+                    .clickable { onOpenFasting() }
+                    .padding(horizontal = 10.dp, vertical = 3.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "⏱ " + streakText,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = streakFg
+                )
+            }
+        }
+
     } // SectionCard 结束
 }
 

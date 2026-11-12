@@ -223,15 +223,31 @@ fun ExerciseNumberWheelSheet(
 fun ExerciseDateTimeWheelSheet(
     initial: LocalDateTime,
     onConfirm: (LocalDateTime) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    /** 弹层标题。默认沿用运动页文案，其它页面（如自由断食）可传入自己的标题。 */
+    title: String = "选择运动时间",
+    /**
+     * 允许往后选几天。
+     * 自由断食传 7：今天放滚轮中间，向上滚是未来（预约开始时间）。
+     */
+    futureDays: Int = 0,
+    /** 允许往前选几天；0 = 不能选今天以前（断食开始时间的要求）。 */
+    pastDays: Int = 6
 ) {
     val today = AppClock.today()
-    val days = (0..6).map { today.minusDays(it.toLong()) }
+    val days = (futureDays downTo 1).map { today.plusDays(it.toLong()) } +
+        listOf(today) +
+        (1..pastDays).map { today.minusDays(it.toLong()) }
     val weekdayCn = listOf("一", "二", "三", "四", "五", "六", "日")
-    val dayLabels = days.mapIndexed { i, d ->
-        when (i) {
+    val todayIndex = days.indexOf(today)
+    // 标签按「真实日期差」算，不能按列表位置差 —— pastDays 和 futureDays 双向都有时，
+    // 位置差会把「明天」错标成「昨天」（2026-11-12 修）
+    val dayLabels = days.mapIndexed { _, d ->
+        when ((d.toEpochDay() - today.toEpochDay()).toInt()) {
             0 -> "今天"
-            1 -> "昨天"
+            -1 -> "昨天"
+            1 -> "明天"
+            2 -> "后天"
             else -> "${d.monthValue}月${d.dayOfMonth}日周${weekdayCn[d.dayOfWeek.value - 1]}"
         }
     }
@@ -258,7 +274,7 @@ fun ExerciseDateTimeWheelSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "选择运动时间",
+                    text = title,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = TextPrimary

@@ -313,7 +313,7 @@ fun ImageRecordScreen(
                 )
                 Spacer(Modifier.height(6.dp))
                 ConfirmSaveBar(
-                    count = items.size,
+                    items = items,
                     onSave = {
                         scope.launch {
                             val logs = items.toFoodLogs(

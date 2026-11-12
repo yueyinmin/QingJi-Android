@@ -2,8 +2,7 @@ package com.qingji.app.ui.screen
 
 import android.content.Context
 import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -82,6 +81,7 @@ import kotlinx.coroutines.launch
 import java.io.File
 import java.time.LocalDate
 import java.time.Period
+import com.qingji.app.ui.i18n.s
 
 /**
  * ============================================================
@@ -97,7 +97,10 @@ import java.time.Period
 @Composable
 fun MineScreen(
     onOpenSettings: () -> Unit,
+    onOpenProfile: () -> Unit,
     modifier: Modifier = Modifier,
+    /** tabfix：滚动状态由 Root 持有，切 Tab 回来不丢位置。 */
+    scrollState: ScrollState = rememberScrollState(),
     vm: MineViewModel = viewModel()
 ) {
     val totals by vm.totals.collectAsState()
@@ -110,33 +113,14 @@ fun MineScreen(
     val settings by remember { SettingsStore.observe(context) }
         .collectAsState(initial = QingJiSettings())
 
-    var showNicknameSheet by remember { mutableStateOf(false) }
     var showGoalDialog by remember { mutableStateOf(false) }
     var showAchievementDialog by remember { mutableStateOf(false) }
-
-    // 选头像：系统相册选一张，拷进 App 私有目录，只存路径
-    val pickAvatar = rememberLauncherForActivityResult(
-        ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            val path = copyAvatarToPrivate(context, uri)
-            if (path != null) {
-                scope.launch {
-                    SettingsStore.set(
-                        context,
-                        com.qingji.app.data.prefs.SettingsKeys.AVATAR_PATH,
-                        path
-                    )
-                }
-            }
-        }
-    }
 
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(PageBackground)
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
             .padding(horizontal = 16.dp)
     ) {
         Spacer(Modifier.height(12.dp))
@@ -148,7 +132,7 @@ fun MineScreen(
         ) {
             Spacer(Modifier.size(24.dp))
             Text(
-                text = "我的",
+                text = s("我的"),
                 fontSize = TextSizes.PageTitle,
                 fontWeight = FontWeight.Bold,
                 color = TextPrimary
@@ -171,8 +155,7 @@ fun MineScreen(
             nickname = settings.nickname,
             profile = profile,
             settings = settings,
-            onPickAvatar = { pickAvatar.launch("image/*") },
-            onEditNickname = { showNicknameSheet = true }
+            onOpenProfile = onOpenProfile
         )
 
         Spacer(Modifier.height(12.dp))
@@ -202,37 +185,6 @@ fun MineScreen(
         Spacer(Modifier.height(24.dp))
     }
 
-    // v1.5：改昵称（留空随机生成「轻er~XXX」）
-    if (showNicknameSheet) {
-        var nameInput by remember { mutableStateOf(settings.nickname) }
-        com.qingji.app.ui.components.AppBottomSheet(
-            title = "改个称呼",
-            subtitle = "留空就随机给你一个",
-            confirmText = "保存",
-            onConfirm = {
-                // MineViewModel 没有 setNickname，直接写 DataStore（与头像同一条路）
-                val finalName = nameInput.trim().ifBlank { "轻er~" + (100..999).random() }
-                scope.launch {
-                    com.qingji.app.data.prefs.SettingsStore.set(
-                        context,
-                        com.qingji.app.data.prefs.SettingsKeys.NICKNAME,
-                        finalName
-                    )
-                }
-                showNicknameSheet = false
-            },
-            onDismiss = { showNicknameSheet = false }
-        ) {
-            androidx.compose.material3.OutlinedTextField(
-                value = nameInput,
-                onValueChange = { nameInput = it },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("轻er~888", fontSize = 13.sp, color = TextSecondary) }
-            )
-        }
-    }
-
     if (showGoalDialog) {
         GoalDialog(
             profile = profile,
@@ -253,14 +205,13 @@ fun MineScreen(
     }
 }
 
-/** v1.5：头像 + 昵称（点击可改名）+ 性别年龄身高 + 加入天数。 */
+/** v1.0.7：头像 + 昵称（整块可点，进个人资料页）+ 性别年龄身高 + 加入天数。 */
 @Composable
 private fun ProfileHeaderCard(
     nickname: String,
     profile: UserProfile?,
     settings: QingJiSettings,
-    onPickAvatar: () -> Unit,
-    onEditNickname: () -> Unit
+    onOpenProfile: () -> Unit
 ) {
     val genderText = if (profile?.gender == "female") "女" else "男"
     val age = profile?.birthday?.let { Period.between(it, AppClock.today()).years } ?: 0
@@ -278,7 +229,7 @@ private fun ProfileHeaderCard(
                     .clip(CircleShape)
                     .background(QingJiGreenLight)
                     .border(2.dp, QingJiGreen.copy(alpha = 0.3f), CircleShape)
-                    .clickable { onPickAvatar() },
+                    .clickable { onOpenProfile() },
                 contentAlignment = Alignment.Center
             ) {
                 if (settings.avatarPath.isNotBlank() && File(settings.avatarPath).exists()) {
@@ -308,7 +259,7 @@ private fun ProfileHeaderCard(
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color = TextPrimary,
-                        modifier = Modifier.clickable { onEditNickname() }
+                        modifier = Modifier.clickable { onOpenProfile() }
                     )
                     Spacer(Modifier.width(6.dp))
                     Icon(
@@ -317,7 +268,7 @@ private fun ProfileHeaderCard(
                         tint = QingJiGreen,
                         modifier = Modifier
                             .size(14.dp)
-                            .clickable { onEditNickname() }
+                            .clickable { onOpenProfile() }
                     )
                 }
                 Spacer(Modifier.height(4.dp))
@@ -329,7 +280,7 @@ private fun ProfileHeaderCard(
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = "加入轻记 $joinedDays 天 · 点头像换图 · 点名字改名",
+                    text = "加入轻记 $joinedDays 天",
                     fontSize = 12.sp,
                     color = TextSecondary
                 )
@@ -344,7 +295,7 @@ private fun ProfileHeaderCard(
 private fun UsageSectionCard(totals: Map<String, Int>) {
     SectionCard {
         Text(
-            text = "使用情况",
+            text = s("使用情况"),
             fontSize = 15.sp,
             fontWeight = FontWeight.SemiBold,
             color = TextPrimary
@@ -388,7 +339,7 @@ private fun UsageSectionCard(totals: Map<String, Int>) {
         }
         Spacer(Modifier.height(8.dp))
         Text(
-            text = "这里的数字就是你实际使用轻记的记录，方便回头看自己的习惯",
+            text = s("这里的数字就是你实际使用轻记的记录，方便回头看自己的习惯"),
             fontSize = 11.sp,
             color = TextSecondary
         )
@@ -461,7 +412,7 @@ private fun UsageCard(totalAi: Int, monthAi: Int) {
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                text = "调用统计",
+                text = s("调用统计"),
                 fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = TextPrimary
@@ -493,7 +444,7 @@ private fun UsageCard(totalAi: Int, monthAi: Int) {
         Spacer(Modifier.height(12.dp))
 
         Text(
-            text = "token 与费用以服务商账单为准，本地只记调用次数 · 数据只存在本机",
+            text = s("token 与费用以服务商账单为准，本地只记调用次数 · 数据只存在本机"),
             fontSize = 11.sp,
             color = TextSecondary
         )
@@ -540,7 +491,7 @@ private fun DataEntryCard(
 ) {
     SectionCard {
         Text(
-            text = "数据",
+            text = s("数据"),
             fontSize = 15.sp,
             fontWeight = FontWeight.SemiBold,
             color = TextPrimary
@@ -717,7 +668,7 @@ private fun GoalDialog(
 
                 Spacer(Modifier.height(10.dp))
                 Text(
-                    text = "保存后按新目标重算每日热量与三大营养素（公式：Mifflin-St Jeor）。",
+                    text = s("保存后按新目标重算每日热量与三大营养素（公式：Mifflin-St Jeor）。"),
                     fontSize = 11.sp,
                     color = TextSecondary
                 )
@@ -823,7 +774,7 @@ private fun AchievementDialog(
 }
 
 /** 把用户选的头像拷进 App 私有目录，返回文件路径。 */
-private fun copyAvatarToPrivate(context: Context, uri: Uri): String? {
+fun copyAvatarToPrivate(context: Context, uri: Uri): String? {
     return try {
         val dir = File(context.filesDir, "images").apply { mkdirs() }
         val target = File(dir, "avatar.jpg")

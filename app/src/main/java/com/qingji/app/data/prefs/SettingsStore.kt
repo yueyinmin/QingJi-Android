@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -39,6 +40,8 @@ object SettingsKeys {
     val CARB_PCT = intPreferencesKey("carb_pct")
     val FAT_PCT = intPreferencesKey("fat_pct")
     val EXERCISE_COMPENSATION = booleanPreferencesKey("exercise_compensation")
+    /** 运动消耗补偿比例（0-100，默认 50）：设备普遍高估消耗，全额加回会让人越练越多吃 */
+    val EXERCISE_COMPENSATION_PCT = intPreferencesKey("exercise_compensation_pct")
     val DIET_PREFERENCE = stringPreferencesKey("diet_preference")
     val AUTO_MEAL = booleanPreferencesKey("auto_meal")
     val CONSERVATIVE_ESTIMATE = booleanPreferencesKey("conservative_estimate")
@@ -120,6 +123,10 @@ object SettingsKeys {
     val FASTING_DAYS = stringPreferencesKey("fasting_days")
     /** 时段切换提醒：按进食窗口自动在开始/结束时提醒 */
     val FASTING_PHASE_ALERT = booleanPreferencesKey("fasting_phase_alert")
+    /** 断食常驻通知：前台服务在通知栏显示已断食时长（只读现有方案，不改断食规则） */
+    val FASTING_ONGOING_NOTIFICATION = booleanPreferencesKey("fasting_ongoing_notification")
+    /** 自由断食开始时刻（毫秒）；0 = 当前没有进行中的自由断食。放 DataStore 所以进程重启也能恢复 */
+    val FASTING_FREE_START = longPreferencesKey("fasting_free_start")
     /** 界面语言：zh 简体中文（默认）/ en English。只影响核心页文案，未翻译条目回落中文 */
     val UI_LANGUAGE = stringPreferencesKey("ui_language")
 }
@@ -133,6 +140,8 @@ data class QingJiSettings(
     val carbPct: Int = 50,
     val fatPct: Int = 25,
     val exerciseCompensation: Boolean = false,
+    /** 运动消耗补偿比例 0-100，默认 50（对标竞品：全额加回会放大设备高估误差） */
+    val exerciseCompensationPct: Int = 50,
     val dietPreference: String = "",
     val autoMeal: Boolean = true,
     val conservativeEstimate: Boolean = true,
@@ -189,7 +198,10 @@ data class QingJiSettings(
     val goalMode: String = "lose",
     /** 轻断食生效周期（1..7 逗号分隔）与时段切换提醒 */
     val fastingDays: String = "1,2,3,4,5,6,7",
-    val fastingPhaseAlert: Boolean = false
+    val fastingPhaseAlert: Boolean = false,
+    /** 断食常驻通知开关（前台服务显示计时）；自由断食开始时刻（0 = 未进行） */
+    val fastingOngoingNotification: Boolean = false,
+    val fastingFreeStart: Long = 0L
 )
 
 object SettingsStore {
@@ -207,6 +219,7 @@ object SettingsStore {
                     carbPct = p[SettingsKeys.CARB_PCT] ?: 50,
                     fatPct = p[SettingsKeys.FAT_PCT] ?: 25,
                     exerciseCompensation = p[SettingsKeys.EXERCISE_COMPENSATION] ?: false,
+                    exerciseCompensationPct = p[SettingsKeys.EXERCISE_COMPENSATION_PCT] ?: 50,
                     dietPreference = p[SettingsKeys.DIET_PREFERENCE] ?: "",
                     autoMeal = p[SettingsKeys.AUTO_MEAL] ?: true,
                     conservativeEstimate = p[SettingsKeys.CONSERVATIVE_ESTIMATE] ?: true,
@@ -259,7 +272,9 @@ object SettingsStore {
                     uiLanguage = p[SettingsKeys.UI_LANGUAGE] ?: "zh",
                     goalMode = p[SettingsKeys.GOAL_MODE] ?: "lose",
                     fastingDays = p[SettingsKeys.FASTING_DAYS] ?: "1,2,3,4,5,6,7",
-                    fastingPhaseAlert = p[SettingsKeys.FASTING_PHASE_ALERT] ?: false
+                    fastingPhaseAlert = p[SettingsKeys.FASTING_PHASE_ALERT] ?: false,
+                    fastingOngoingNotification = p[SettingsKeys.FASTING_ONGOING_NOTIFICATION] ?: false,
+                    fastingFreeStart = p[SettingsKeys.FASTING_FREE_START] ?: 0L
                 )
             }
 

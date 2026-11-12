@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -32,6 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.qingji.app.ui.components.AppBottomSheet
 import com.qingji.app.ui.components.HintBox
 import com.qingji.app.ui.components.PageTopBar
 import com.qingji.app.ui.components.SectionCard
@@ -66,13 +68,28 @@ import com.qingji.app.ui.theme.TextSizes
  * ============================================================
  */
 
-/** 二级页骨架：顶栏返回 + 可滚动内容。 */
+/**
+ * 二级页骨架：顶栏返回 + 可滚动内容。
+ *
+ * v1.0.7：`useSheet = true` 时换成「从底部浮起的操作面板」，和轻断食
+ * 设置（FastingSettingsDialog 用的 AppBottomSheet）同一套形态。
+ * 设置里所有二级项都用这一套，不再整屏翻页；条目多的在弹层里滚动。
+ * 内容区完全复用，交互也保持「点一下就生效」，只是容器换了。
+ */
 @Composable
 fun SettingsDetailScaffold(
     title: String,
     onBack: () -> Unit,
+    subtitle: String = "",
+    useSheet: Boolean = false,
     content: @Composable ColumnScope.() -> Unit
 ) {
+    if (useSheet) {
+        SettingsDetailSheet(title = title, subtitle = subtitle, onDismiss = onBack) {
+            content()
+        }
+        return
+    }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -93,6 +110,46 @@ fun SettingsDetailScaffold(
     }
 }
 
+/**
+ * 底部弹层壳子（设置二级项通用）。
+ *
+ * 和轻断食设置同款：白色圆角卡片、顶部小横条、标题、轻遮罩，
+ * 下滑或点外面关闭。
+ *
+ * 高度跟内容走（wrapContent）：只有两个选项时弹层就只有两行高，
+ * 不会出现下方一大片空白；最多长到 420dp，超了才在弹层内部滚动，
+ * 这样「关于」这类长说明也不会把弹层撑满整屏。
+ * 另外跳过 Material 默认的「半屏」档（skipPartiallyExpanded）：
+ * 营养素 / 通知提醒这类表单底部有「保存」按钮，半屏会把它挤到屏幕外。
+ * 壳子本身不设「保存」主按钮 —— 点选即生效的设置项不加保存，
+ * 需要保存的表单由页面自己在内容里放按钮。
+ */
+@Composable
+fun SettingsDetailSheet(
+    title: String,
+    subtitle: String = "",
+    onDismiss: () -> Unit,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    AppBottomSheet(
+        title = title,
+        subtitle = subtitle.takeIf { it.isNotBlank() },
+        // 设置二级项里有表单（营养素 / 通知提醒），底部带「保存」按钮；
+        // 默认的「半屏」档会把主按钮挤到屏幕外，所以一打开就展开到位。
+        skipPartiallyExpanded = true,
+        onDismiss = onDismiss
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 420.dp)
+                .verticalScroll(rememberScrollState())
+        ) {
+            content()
+        }
+    }
+}
+
 /** 一个选项：key 给代码用，label 给人看，hint 是右侧补充说明。 */
 data class OptionItem(
     val key: String,
@@ -108,10 +165,16 @@ fun OptionDetailPage(
     options: List<OptionItem>,
     selectedKey: String,
     onPick: (String) -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    useSheet: Boolean = false
 ) {
-    SettingsDetailScaffold(title = title, onBack = onBack) {
-        if (subtitle.isNotBlank()) {
+    SettingsDetailScaffold(
+        title = title,
+        onBack = onBack,
+        subtitle = if (useSheet) subtitle else "",
+        useSheet = useSheet
+    ) {
+        if (subtitle.isNotBlank() && !useSheet) {
             HintBox(text = subtitle)
             Spacer(Modifier.height(Dimens.Gap))
         }
@@ -164,10 +227,16 @@ fun ToggleDetailPage(
     items: List<ToggleItem>,
     onBack: () -> Unit,
     /** 列表下方额外的自定义内容（比如气泡量选择器） */
-    extra: (@Composable ColumnScope.() -> Unit)? = null
+    extra: (@Composable ColumnScope.() -> Unit)? = null,
+    useSheet: Boolean = false
 ) {
-    SettingsDetailScaffold(title = title, onBack = onBack) {
-        if (subtitle.isNotBlank()) {
+    SettingsDetailScaffold(
+        title = title,
+        onBack = onBack,
+        subtitle = if (useSheet) subtitle else "",
+        useSheet = useSheet
+    ) {
+        if (subtitle.isNotBlank() && !useSheet) {
             HintBox(text = subtitle)
             Spacer(Modifier.height(Dimens.Gap))
         }
@@ -198,9 +267,10 @@ fun InfoDetailPage(
     body: String,
     onBack: () -> Unit,
     actionText: String? = null,
-    onAction: (() -> Unit)? = null
+    onAction: (() -> Unit)? = null,
+    useSheet: Boolean = false
 ) {
-    SettingsDetailScaffold(title = title, onBack = onBack) {
+    SettingsDetailScaffold(title = title, onBack = onBack, useSheet = useSheet) {
         SectionCard {
             Text(
                 text = body,
@@ -243,13 +313,19 @@ fun NumberDetailPage(
     hint: String,
     onSave: (String) -> Unit,
     onBack: () -> Unit,
-    keyboardType: KeyboardType = KeyboardType.Number
+    keyboardType: KeyboardType = KeyboardType.Number,
+    useSheet: Boolean = false
 ) {
     // 本地先存着，点「保存」才写进去：避免输入到一半（比如清空了）就把 0 存下来
     var text by remember { mutableStateOf(initial) }
 
-    SettingsDetailScaffold(title = title, onBack = onBack) {
-        if (subtitle.isNotBlank()) {
+    SettingsDetailScaffold(
+        title = title,
+        onBack = onBack,
+        subtitle = if (useSheet) subtitle else "",
+        useSheet = useSheet
+    ) {
+        if (subtitle.isNotBlank() && !useSheet) {
             HintBox(text = subtitle)
             Spacer(Modifier.height(Dimens.Gap))
         }

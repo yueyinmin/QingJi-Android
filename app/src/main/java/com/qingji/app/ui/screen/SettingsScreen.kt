@@ -6,6 +6,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import kotlin.math.roundToInt
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -60,7 +61,6 @@ import com.qingji.app.ui.screen.settings.GroupTitle
 import com.qingji.app.ui.screen.settings.RowDivider
 import com.qingji.app.ui.screen.settings.SettingValueRow
 import com.qingji.app.ui.screen.settings.SettingsCard
-import com.qingji.app.ui.screen.settings.SettingsNote
 import com.qingji.app.ui.screen.settings.SwitchRow
 import com.qingji.app.ui.screen.settings.ToggleItem
 import com.qingji.app.ui.screen.settings.ToggleDetailPage
@@ -84,6 +84,8 @@ import com.qingji.app.ui.theme.QingJiGreenDark
 import com.qingji.app.ui.theme.DividerColor
 import com.qingji.app.ui.i18n.s
 import com.qingji.app.ui.theme.PageBackground
+import com.qingji.app.ui.theme.WarnOrange
+import com.qingji.app.ui.theme.QingJiGreenLight
 import com.qingji.app.ui.theme.pressable
 import com.qingji.app.ui.theme.QingJiGreen
 import com.qingji.app.ui.theme.TextPrimary
@@ -105,17 +107,32 @@ import com.qingji.app.widget.WeightWidgetReceiver
  * - 底部导航、首页显隐：回首页就能看到变化
  * - 数据备份：跳到导出/导入页
  *
- * 用弹窗而不是二级页：这些项都只有一两个值，弹窗少按一次返回。
- * 只有「个人资料 / AI 服务配置 / 数据备份」是真正的独立页面。
+ * 所有二级项统一用底部弹层（ModalBottomSheet）：少按一次返回，
+ * 背后的设置列表不销毁，返回后滚动位置不丢。内容多的项在弹层内部滚动。
+ * 只有「个人资料 / AI 服务配置 / 数据备份 / 饮食偏好 / 桌面小组件」
+ * 是真正的独立页面（内容太多或带预览，不适合塞进弹层）。
  * ============================================================
  */
 
 /** 当前打开的是哪个弹窗。 */
 private enum class DialogKind {
     MACRO, WATER_GOAL, TIMEZONE, UNIT, THEME, REMINDERS,
-    BOTTOM_TABS, AI_LANG, UI_LANG, NICKNAME, PRIVACY, ICON, CACHE,
-    ABOUT, PLATFORM, VERSION
+    BOTTOM_TABS, AI_LANG, UI_LANG, PRIVACY, ICON, CACHE,
+    ABOUT, PLATFORM, VERSION, EXERCISE_PCT
 }
+
+/**
+ * v1.0.7（14:50 后）：设置里**所有**二级项都走「从底部浮起的操作面板」
+ *（AppBottomSheet，和轻断食设置同款），不再整屏翻页。
+ *
+ * 早期按「少于 4 条才用弹层」分流，是因为当时弹层高度写死 420dp，
+ * 条目一多就得在里面滚；后来弹层改成「随内容高、最多 420dp、超了内部滚」，
+ * 长内容（关于 / 主题 / 提醒）实测可滚且不撑满屏，这条分界线就撤掉了。
+ * 交互口径不变：点选即生效；只有要输入的（营养素 / 饮水目标）
+ * 才保留「保存」按钮。
+ *
+ * 所以这里不再维护白名单：dialog 非空 = 弹层，列表始终留在底下。
+ */
 
 @Composable
 fun SettingsScreen(
@@ -172,10 +189,9 @@ fun SettingsScreen(
     // 滚动状态放在最外层：进详情页再退回来，列表停在原来的位置，
     // 不会一退回去就跳到顶部（之前的问题就在这——列表被销毁重建了）。
     val listScroll = rememberScrollState()
-    val showDetail = dialog != null
-    androidx.activity.compose.BackHandler(enabled = showDetail) { dialog = null }
+    // 全部二级项都是弹层：设置列表始终留在底下，弹层叠在上面
+    androidx.activity.compose.BackHandler(enabled = dialog != null) { dialog = null }
 
-    if (!showDetail) {
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -221,21 +237,12 @@ fun SettingsScreen(
             SettingsCard {
                 SettingValueRow(
                     title = s("个人资料"),
-                    subtitle = s("性别、生日、身高、目标体重"),
                     value = settings.nickname,
                     iconColor = QingJiGreen
                 ) { onOpenProfile() }
                 RowDivider()
                 SettingValueRow(
-                    title = s("昵称"),
-                    subtitle = s("在「我的」页点头像旁的名字也能改"),
-                    value = settings.nickname,
-                    iconColor = QingJiGreen
-                ) { dialog = DialogKind.NICKNAME }
-                RowDivider()
-                SettingValueRow(
                     title = s("隐私与安全"),
-                    subtitle = s("数据存在哪、怎么彻底清掉"),
                     value = "",
                     iconColor = QingJiGreen
                 ) { dialog = DialogKind.PRIVACY }
@@ -246,58 +253,45 @@ fun SettingsScreen(
             SettingsCard {
                 SettingValueRow(
                     title = s("饮食偏好与忌口"),
-                    subtitle = s("过敏原、不吃的东西、烹饪时长、菜系"),
                     value = s("去设置"),
                     iconColor = QingJiGreen
                 ) { onOpenFoodPreference() }
                 RowDivider()
                 SettingValueRow(
                     title = s("营养素分配方案"),
-                    subtitle = s("蛋白 / 碳水 / 脂肪 比例"),
                     value = "${settings.proteinPct}/${settings.carbPct}/${settings.fatPct}",
                     iconColor = QingJiGreen
                 ) { dialog = DialogKind.MACRO }
                 RowDivider()
-                SwitchRow(
+                // v1.0.7：补偿比例改二级菜单（五档胶囊），0% 等于关闭
+                SettingValueRow(
                     title = s("运动消耗补偿"),
-                    subtitle = s("开启后把运动消耗加回当天预算"),
-                    checked = settings.exerciseCompensation
-                ) { vm.setExerciseCompensation(it) }
+                    value = "${settings.exerciseCompensationPct}%",
+                    iconColor = WarnOrange
+                ) { dialog = DialogKind.EXERCISE_PCT }
                 RowDivider()
                 SettingValueRow(
                     title = s("饮水目标"),
-                    subtitle = s("首页和小组件都按它算进度"),
                     value = "${settings.waterGoalMl}ml",
                     iconColor = QingJiGreenDark
                 ) { dialog = DialogKind.WATER_GOAL }
             }
-            SettingsNote(
-                "开启后，运动消耗会加回当天可吃额度（预计热量缺口跟着变）；" +
-                    "关掉则只按饮食记录计算，运动消耗不计入预算。"
-            )
 
             // ================= 记录与识别 =================
             GroupTitle(s("记录与识别"))
             SettingsCard {
                 SwitchRow(
                     title = s("自动识别餐次"),
-                    subtitle = s("关掉后每次都要自己选早/午/晚"),
                     checked = settings.autoMeal
                 ) { vm.setAutoMeal(it) }
                 RowDivider()
                 SwitchRow(
                     title = s("估算偏保守"),
-                    subtitle = s("AI 估算份量时宁可给少一点"),
                     checked = settings.conservativeEstimate
                 ) { vm.setConservativeEstimate(it) }
-                SettingsNote(
-                    s("AI 的份量估算误差通常有 20%～40%，中餐尤其明显。") +
-                        s("所以每次识别完都会让你确认和微调，这是故意的，不是多此一举。")
-                )
                 RowDivider()
                 SettingValueRow(
                     title = s("AI 识别语言"),
-                    subtitle = s("识别结果返回的语言"),
                     value = if (settings.aiLanguage == "auto") s("跟随输入") else s("简体中文"),
                     iconColor = QingJiGreen.copy(alpha = 0.72f)
                 ) { dialog = DialogKind.AI_LANG }
@@ -308,36 +302,28 @@ fun SettingsScreen(
             SettingsCard {
                 SettingValueRow(
                     title = s("通知与提醒"),
-                    subtitle = s("称重、断食、热量、喝水四类提醒的开关与时间"),
                     value = s("去设置"),
                     iconColor = QingJiGreen
                 ) { dialog = DialogKind.REMINDERS }
             }
-            SettingsNote(
-                s("提醒靠系统闹钟实现，误差几分钟属正常（系统省电策略所致）。") +
-                    s("小米 / 华为 / OPPO 建议把轻记加进自启动白名单，否则重启后可能不再提醒。")
-            )
 
             // ================= 通用 =================
             GroupTitle(s("通用"))
             SettingsCard {
                 SettingValueRow(
                     title = s("界面语言"),
-                    subtitle = s("核心页中英文切换，未翻译的仍显示中文"),
                     value = if (settings.uiLanguage == "en") "English" else "简体中文",
                     iconColor = QingJiGreen.copy(alpha = 0.72f)
                 ) { dialog = DialogKind.UI_LANG }
                 RowDivider()
                 SettingValueRow(
                     title = s("记录时区"),
-                    subtitle = s("记录按哪个时区的日期归档"),
                     value = timezoneLabel(settings.timeZone),
                     iconColor = QingJiGreenDark
                 ) { dialog = DialogKind.TIMEZONE }
                 RowDivider()
                 SettingValueRow(
                     title = s("体重单位"),
-                    subtitle = s("数据库统一存公斤，这里只改显示"),
                     value = if (settings.unit == "jin") s("斤") else "kg",
                     iconColor = QingJiGreen
                 ) { dialog = DialogKind.UNIT }
@@ -348,21 +334,18 @@ fun SettingsScreen(
             SettingsCard {
                 SettingValueRow(
                     title = s("主题与显示"),
-                    subtitle = s("主题色、动效、水杯气泡、首页模块开关"),
                     value = com.qingji.app.ui.theme.AccentThemes.byKey(settings.themeColor).label,
                     iconColor = QingJiGreen.copy(alpha = 0.72f)
                 ) { dialog = DialogKind.THEME }
                 RowDivider()
                 SettingValueRow(
                     title = s("桌面小组件"),
-                    subtitle = s("快捷记录 / 今日概览 / 体重闪记"),
                     value = s("3 个"),
                     iconColor = QingJiGreen
                 ) { onOpenWidget() }
                 RowDivider()
                 SettingValueRow(
                     title = s("底部导航"),
-                    subtitle = s("隐藏不常用的 Tab"),
                     value = visibleTabsLabel(settings),
                     iconColor = QingJiGreenDark
                 ) { dialog = DialogKind.BOTTOM_TABS }
@@ -373,21 +356,18 @@ fun SettingsScreen(
             SettingsCard {
                 SettingValueRow(
                     title = s("AI 服务配置"),
-                    subtitle = s("填自己的 Base URL 与 API Key"),
                     value = "",
                     iconColor = QingJiGreen.copy(alpha = 0.72f)
                 ) { onOpenAiConfig() }
                 RowDivider()
                 SettingValueRow(
                     title = s("数据备份与导出"),
-                    subtitle = s("导出 JSON / CSV，导入恢复"),
                     value = "",
                     iconColor = QingJiGreen
                 ) { onOpenBackup() }
                 RowDivider()
                 SettingValueRow(
                     title = s("缓存管理"),
-                    subtitle = s("只清拍照临时图，不动已保存的照片"),
                     value = backup.sizeText(cacheSize),
                     iconColor = TextSecondary
                 ) { dialog = DialogKind.CACHE }
@@ -398,21 +378,18 @@ fun SettingsScreen(
             SettingsCard {
                 SettingValueRow(
                     title = s("其他平台"),
-                    subtitle = s("换手机怎么把数据带走"),
                     value = "",
                     iconColor = QingJiGreenDark
                 ) { dialog = DialogKind.PLATFORM }
                 RowDivider()
                 SettingValueRow(
                     title = s("关于我们"),
-                    subtitle = s("这个 App 是谁做的、为什么做"),
                     value = "",
                     iconColor = QingJiGreen.copy(alpha = 0.72f)
                 ) { dialog = DialogKind.ABOUT }
                 RowDivider()
                 SettingValueRow(
                     title = s("版本信息"),
-                    subtitle = s("轻记 v${BuildConfig.VERSION_NAME}"),
                     value = "",
                     iconColor = DividerColor
                 ) { dialog = DialogKind.VERSION }
@@ -420,77 +397,43 @@ fun SettingsScreen(
             Spacer(Modifier.height(28.dp))
         }
     }
-    } else {
+
     // ============================================================
-    // 二级页面集中在这里：整页替换列表，顶栏带返回，和列表同一套视觉
-    //
-    // 为什么不用 AnimatedContent 双页同渲染：切换瞬间新旧两页都要参与
-    // 合成，设置列表又长，低端机上会掉帧（用户反馈的滑动卡顿主因）。
-    // 现在改成详情页自己播一次「淡入 + 上浮」，同一时刻只有一页在渲染。
+    // 全部设置二级项：底部浮起的操作面板（和轻断食设置同款）
+    // 页面内部用 SettingsDetailSheet 渲染 ModalBottomSheet，
+    // 是窗口级弹层，叠在设置列表之上；列表不销毁，返回后滚动位置不丢。
+    // 内容多的项（主题 / 提醒 / 营养素）在弹层内部滚动，不撑满屏。
     // ============================================================
-    val detailVisible = remember(dialog) {
-        androidx.compose.animation.core.MutableTransitionState(false).apply { targetState = true }
-    }
-    androidx.compose.animation.AnimatedVisibility(
-        visibleState = detailVisible,
-        enter = androidx.compose.animation.fadeIn(
-            animationSpec = androidx.compose.animation.core.tween(
-                durationMillis = com.qingji.app.ui.theme.Motion.Normal,
-                easing = com.qingji.app.ui.theme.Motion.decelerate
-            )
-        ) + androidx.compose.animation.slideInVertically(
-            animationSpec = androidx.compose.animation.core.tween(
-                durationMillis = com.qingji.app.ui.theme.Motion.Slow,
-                easing = com.qingji.app.ui.theme.Motion.decelerate
-            )
-        ) { height -> height / 22 },
-        exit = androidx.compose.animation.ExitTransition.None
-    ) {
-    val current = dialog!!
-    when (current) {
-        DialogKind.AI_LANG -> OptionDetailPage(
-            title = s("AI 识别语言"),
-            subtitle = s("默认强制简体中文——照片里的外国菜也会翻译成中文菜名"),
-            options = listOf(
-                OptionItem("zh", s("简体中文"), s("推荐：所有识别结果都是中文")),
-                OptionItem("auto", s("跟随输入"), s("AI 模型自行判断，可能返回英文"))
-            ),
-            selectedKey = settings.aiLanguage,
-            onPick = { vm.setAiLanguage(it); dialog = null },
-            onBack = { dialog = null }
+    if (dialog != null) {
+        when (dialog!!) {
+        DialogKind.MACRO -> MacroRatioPage(
+            proteinInit = settings.proteinPct,
+            carbInit = settings.carbPct,
+            fatInit = settings.fatPct,
+            fiberInit = vm.profile.collectAsState().value?.fiberGoalG ?: 25,
+            sodiumInit = vm.profile.collectAsState().value?.sodiumGoalMg ?: 2000,
+            calciumInit = vm.profile.collectAsState().value?.calciumGoalMg ?: 800,
+            onSave = { p, c, f -> vm.setMacroRatio(p, c, f) },
+            onSaveGoals = { fiber, sodium, calcium -> vm.setNutrientGoals(fiber, sodium, calcium) },
+            onBack = { dialog = null },
+            useSheet = true
         )
 
-        // v3.5.0：界面语言（核心页中英双语，未翻译条目回落中文）
-        // v1.5：昵称修改入口（「我的」页点头像旁的名字是同一套）
-        DialogKind.NICKNAME -> {
-            var nicknameInput by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(settings.nickname) }
-            com.qingji.app.ui.components.AppDialog(
-                title = s("改昵称"),
-                onDismiss = { dialog = null },
-                confirmText = s("保存"),
-                onConfirm = { vm.setNickname(nicknameInput) },
-                dismissText = s("取消")
-            ) {
-                androidx.compose.material3.OutlinedTextField(
-                    value = nicknameInput,
-                    onValueChange = { nicknameInput = it },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("轻er~888", fontSize = 13.sp, color = TextSecondary) }
-                )
-            }
-        }
+        DialogKind.EXERCISE_PCT -> ExercisePctDetailPage(
+            pct = settings.exerciseCompensationPct,
+            onSelect = { vm.setExerciseCompensationPct(it) },
+            onBack = { dialog = null },
+            useSheet = true
+        )
 
-        DialogKind.UI_LANG -> OptionDetailPage(
-            title = s("界面语言"),
-            subtitle = s("切换后立即生效，未翻译的条目仍显示中文"),
-            options = listOf(
-                OptionItem("zh", "简体中文", s("界面默认中文，核心页可切英文")),
-                OptionItem("en", "English", s("Core screens in English; the rest stays Chinese"))
-            ),
-            selectedKey = settings.uiLanguage,
-            onPick = { vm.setUiLanguage(it); dialog = null },
-            onBack = { dialog = null }
+        DialogKind.TIMEZONE -> OptionDetailPage(
+            title = "记录时区",
+            subtitle = "改这里会影响「今天」从几点开始算，跨时区出差时用得上",
+            options = timezoneOptions().map { OptionItem(it.first, it.second) },
+            selectedKey = settings.timeZone,
+            onPick = { vm.setTimezone(it); dialog = null },
+            onBack = { dialog = null },
+            useSheet = true
         )
 
         DialogKind.REMINDERS -> ReminderPage(
@@ -510,51 +453,8 @@ fun SettingsScreen(
             onSetWaterTime = { hour, minute ->
                 vm.setWaterReminder(settings.waterReminder, hour, minute, showToast = false)
             },
-            onBack = { dialog = null }
-        )
-
-        DialogKind.MACRO -> MacroRatioPage(
-            proteinInit = settings.proteinPct,
-            carbInit = settings.carbPct,
-            fatInit = settings.fatPct,
-            fiberInit = vm.profile.collectAsState().value?.fiberGoalG ?: 25,
-            sodiumInit = vm.profile.collectAsState().value?.sodiumGoalMg ?: 2000,
-            calciumInit = vm.profile.collectAsState().value?.calciumGoalMg ?: 800,
-            onSave = { p, c, f -> vm.setMacroRatio(p, c, f) },
-            onSaveGoals = { fiber, sodium, calcium -> vm.setNutrientGoals(fiber, sodium, calcium) },
-            onBack = { dialog = null }
-        )
-
-        DialogKind.WATER_GOAL -> NumberDetailPage(
-            title = "饮水目标",
-            subtitle = "首页水杯按这个目标灌满",
-            label = "每天计划喝多少",
-            initial = settings.waterGoalMl.toString(),
-            suffix = "ml",
-            hint = "常见范围 1500～3000 毫升",
-            onSave = { vm.setWaterGoal(it.toIntOrNull() ?: 2000) },
-            onBack = { dialog = null }
-        )
-
-        DialogKind.TIMEZONE -> OptionDetailPage(
-            title = "记录时区",
-            subtitle = "改这里会影响「今天」从几点开始算，跨时区出差时用得上",
-            options = timezoneOptions().map { OptionItem(it.first, it.second) },
-            selectedKey = settings.timeZone,
-            onPick = { vm.setTimezone(it); dialog = null },
-            onBack = { dialog = null }
-        )
-
-        DialogKind.UNIT -> OptionDetailPage(
-            title = "体重单位",
-            subtitle = "只改显示，数据库里永远存公斤",
-            options = listOf(
-                OptionItem("kg", "公斤（kg）"),
-                OptionItem("jin", "斤（500g）")
-            ),
-            selectedKey = settings.unit,
-            onPick = { vm.setUnit(it); dialog = null },
-            onBack = { dialog = null }
+            onBack = { dialog = null },
+            useSheet = true
         )
 
         DialogKind.THEME -> ThemeSettingsPage(
@@ -570,7 +470,59 @@ fun SettingsScreen(
             onSetWeeklySummary = { vm.setShowWeeklySummary(it) },
             onSetRefreshRate = { vm.setShowRefreshRate(it) },
             onSetFont = { vm.setCustomFontPath(it) },
-            onBack = { dialog = null }
+            onBack = { dialog = null },
+            useSheet = true
+        )
+
+        DialogKind.AI_LANG -> OptionDetailPage(
+            title = s("AI 识别语言"),
+            subtitle = s("默认强制简体中文——照片里的外国菜也会翻译成中文菜名"),
+            options = listOf(
+                OptionItem("zh", s("简体中文"), s("推荐：所有识别结果都是中文")),
+                OptionItem("auto", s("跟随输入"), s("AI 模型自行判断，可能返回英文"))
+            ),
+            selectedKey = settings.aiLanguage,
+            onPick = { vm.setAiLanguage(it); dialog = null },
+            onBack = { dialog = null },
+            useSheet = true
+        )
+
+        DialogKind.UI_LANG -> OptionDetailPage(
+            title = s("界面语言"),
+            subtitle = s("切换后立即生效，未翻译的条目仍显示中文"),
+            options = listOf(
+                OptionItem("zh", "简体中文", s("界面默认中文，核心页可切英文")),
+                OptionItem("en", "English", s("Core screens in English; the rest stays Chinese"))
+            ),
+            selectedKey = settings.uiLanguage,
+            onPick = { vm.setUiLanguage(it); dialog = null },
+            onBack = { dialog = null },
+            useSheet = true
+        )
+
+        DialogKind.UNIT -> OptionDetailPage(
+            title = "体重单位",
+            subtitle = "只改显示，数据库里永远存公斤",
+            options = listOf(
+                OptionItem("kg", "公斤（kg）"),
+                OptionItem("jin", "斤（500g）")
+            ),
+            selectedKey = settings.unit,
+            onPick = { vm.setUnit(it); dialog = null },
+            onBack = { dialog = null },
+            useSheet = true
+        )
+
+        DialogKind.WATER_GOAL -> NumberDetailPage(
+            title = "饮水目标",
+            subtitle = "首页水杯按这个目标灌满",
+            label = "每天计划喝多少",
+            initial = settings.waterGoalMl.toString(),
+            suffix = "ml",
+            hint = "常见范围 1500～3000 毫升",
+            onSave = { vm.setWaterGoal(it.toIntOrNull() ?: 2000) },
+            onBack = { dialog = null },
+            useSheet = true
         )
 
         DialogKind.BOTTOM_TABS -> ToggleDetailPage(
@@ -587,13 +539,15 @@ fun SettingsScreen(
                     vm.setTabVisible("mine", it)
                 }
             ),
-            onBack = { dialog = null }
+            onBack = { dialog = null },
+            useSheet = true
         )
 
         DialogKind.PRIVACY -> PrivacyPage(
             onClearRecords = { vm.clearRecords() },
             onFactoryReset = { vm.factoryReset() },
-            onBack = { dialog = null }
+            onBack = { dialog = null },
+            useSheet = true
         )
 
         DialogKind.ICON -> InfoDetailPage(
@@ -601,7 +555,8 @@ fun SettingsScreen(
             body = "换图标需要同时打包多套图标资源（每套都要在清单里注册一个 activity-alias），" +
                 "而且切换后系统有可能把原来的桌面快捷方式当成「已失效」直接删掉。" +
                 "\n\n所以这一条先空着，等主体功能稳了再补 —— 现在硬做，风险是图标直接消失。",
-            onBack = { dialog = null }
+            onBack = { dialog = null },
+            useSheet = true
         )
 
         DialogKind.CACHE -> InfoDetailPage(
@@ -614,7 +569,8 @@ fun SettingsScreen(
                 cacheSize = backup.cacheSize()
                 Toast.makeText(context, "已清理", Toast.LENGTH_SHORT).show()
             },
-            onBack = { dialog = null }
+            onBack = { dialog = null },
+            useSheet = true
         )
 
         DialogKind.PLATFORM -> InfoDetailPage(
@@ -626,16 +582,8 @@ fun SettingsScreen(
                 "· API Key 不在备份里（安全考虑），新手机要重新填一次；\n" +
                 "· 饮食记录和日记里引用的照片是文件路径，不会跟着 JSON 走，" +
                 "要单独把 Android/data/com.qingji.app/files/images 拷过去。",
-            onBack = { dialog = null }
-        )
-
-        DialogKind.ABOUT -> InfoDetailPage(
-            title = "关于轻记",
-            body = "轻记是一个「不用查表、不用称重，说一句或拍一张就记完」的私人减重账本。\n\n" +
-                "设计上只做三件事：记得快、看得懂趋势、数据留在自己手机里。\n" +
-                "不做社交、不做商城、不做医疗建议 —— 文案里也不出现「治疗 / 诊断 / 处方」这类词。\n\n" +
-                "AI 能力用你自己的 API Key，花多少自己控；我们不中转请求，也不收集任何数据。",
-            onBack = { dialog = null }
+            onBack = { dialog = null },
+            useSheet = true
         )
 
         DialogKind.VERSION -> InfoDetailPage(
@@ -647,12 +595,15 @@ fun SettingsScreen(
                 "小组件：Jetpack Glance 1.1.1\n\n" +
                 "当前用户：${settings.nickname}" +
                 "（档案：${profile?.heightCm?.toInt() ?: 0}cm / 目标 ${profile?.targetWeight ?: 0.0}kg）",
-            onBack = { dialog = null }
+            onBack = { dialog = null },
+            useSheet = true
         )
 
-        else -> Unit
-    }
-    }
+        DialogKind.ABOUT -> AboutScreen(onBack = { dialog = null }, useSheet = true)
+
+
+            else -> Unit
+        }
     }
 }
 
@@ -731,7 +682,8 @@ private fun MacroRatioPage(
     calciumInit: Int,
     onSave: (Int, Int, Int) -> Unit,
     onSaveGoals: (fiberGoalG: Int, sodiumGoalMg: Int, calciumGoalMg: Int) -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    useSheet: Boolean = false
 ) {
     var protein by remember { mutableStateOf(proteinInit.toString()) }
     var carb by remember { mutableStateOf(carbInit.toString()) }
@@ -742,7 +694,7 @@ private fun MacroRatioPage(
 
     val sum = (protein.toIntOrNull() ?: 0) + (carb.toIntOrNull() ?: 0) + (fat.toIntOrNull() ?: 0)
 
-    SettingsDetailScaffold(title = "营养素分配", onBack = onBack) {
+    SettingsDetailScaffold(title = "营养素分配", onBack = onBack, useSheet = useSheet) {
         HintBox(text = "三项加起来要是 100%。改完会重新算首页和进展页的目标克数。")
         Spacer(Modifier.height(Dimens.Gap))
 
@@ -762,29 +714,11 @@ private fun MacroRatioPage(
 
         Spacer(Modifier.height(Dimens.Gap))
 
-        // v3.5.0：营养素目标细分。食物库暂未收录这三项的具体数值，
-        // 先把目标记下来；详情页有数据显示实际值，没有就显示「暂无数据」。
-        SectionCard {
-            Text(
-                text = "膳食纤维 / 钠 / 钙 每日目标",
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = TextPrimary
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = "默认值是成人参考量。食物库这三项数据还没补全，详情页会先显示「暂无数据」。",
-                fontSize = 11.sp,
-                color = TextSecondary,
-                lineHeight = 16.sp
-            )
-            Spacer(Modifier.height(10.dp))
-            MacroField("膳食纤维", fiber, "g") { fiber = it }
-            Spacer(Modifier.height(10.dp))
-            MacroField("钠", sodium, "mg") { sodium = it }
-            Spacer(Modifier.height(10.dp))
-            MacroField("钙", calcium, "mg") { calcium = it }
-        }
+        // AI 专项：核心营养口径统一为热量 + 三大营养素，
+        // 移除膳食纤维 / 钠 / 钙的每日目标录入入口。
+        // 三个值仍随 onSaveGoals 按默认值写回档案，备份 JSON 也照旧导出，
+        // 数据库字段与旧数据一行都不动（Room 的 defaultValue 与迁移 SQL
+        // 必须逐字一致，动注解会触发清库兜底）。
 
         Spacer(Modifier.height(Dimens.Gap))
 
@@ -969,12 +903,13 @@ private fun WeighReminderPage(
 private fun PrivacyPage(
     onClearRecords: () -> Unit,
     onFactoryReset: () -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    useSheet: Boolean = false
 ) {
     var confirmRecords by remember { mutableStateOf(false) }
     var confirmReset by remember { mutableStateOf(false) }
 
-    SettingsDetailScaffold(title = "隐私与安全", onBack = onBack) {
+    SettingsDetailScaffold(title = "隐私与安全", onBack = onBack, useSheet = useSheet) {
         SectionCard {
             Text(
                 text = "轻记没有账号、没有服务器、没有任何埋点统计：\n" +
@@ -1147,9 +1082,10 @@ private fun ThemeSettingsPage(
     onSetWeeklySummary: (Boolean) -> Unit,
     onSetRefreshRate: (Boolean) -> Unit,
     onSetFont: (String) -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    useSheet: Boolean = false
 ) {
-    SettingsDetailScaffold(title = "主题与显示", onBack = onBack) {
+    SettingsDetailScaffold(title = "主题与显示", onBack = onBack, useSheet = useSheet) {
         // ---------- 主题色 ----------
         DetailGroupTitle("主题色")
         SectionCard {
@@ -1413,7 +1349,8 @@ private fun ReminderPage(
     onSetKcalTime: (Int, Int) -> Unit,            // 小时、分钟
     onSetWaterSwitch: (Boolean) -> Unit,
     onSetWaterTime: (Int, Int) -> Unit,           // 小时、分钟
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    useSheet: Boolean = false
 ) {
     // 称重提醒的星期 / 小时 / 分钟在页面里先选好，点底部保存一次性写入
     var weekday by remember { mutableStateOf(settings.weighWeekday) }
@@ -1421,7 +1358,7 @@ private fun ReminderPage(
     var weighMinute by remember { mutableStateOf(settings.reminderMinute) }
     val weekdayLabels = listOf("一", "二", "三", "四", "五", "六", "日")
 
-    SettingsDetailScaffold(title = "通知与提醒", onBack = onBack) {
+    SettingsDetailScaffold(title = "通知与提醒", onBack = onBack, useSheet = useSheet) {
         // ---------- 总开关 ----------
         SectionCard(contentPadding = 0.dp) {
             SwitchRow(
@@ -1563,3 +1500,65 @@ private fun ReminderPage(
     }
 }
 
+
+/**
+ * 运动消耗补偿二级页（2026-11-12）：五档胶囊 + 机制说明。
+ * 设备普遍高估运动消耗，全额加回容易越练越多吃；0% 等于关闭。
+ */
+@Composable
+private fun ExercisePctDetailPage(
+    pct: Int,
+    onSelect: (Int) -> Unit,
+    onBack: () -> Unit,
+    useSheet: Boolean = false
+) {
+    SettingsDetailScaffold(title = "运动消耗补偿", onBack = onBack, useSheet = useSheet) {
+        SectionCard {
+            Text(
+                text = "运动消耗按比例加回当天饮食额度。运动设备和算法普遍高估消耗，" +
+                    "全额加回容易越练越多吃，所以默认只补一半。",
+                fontSize = 13.sp,
+                color = TextPrimary,
+                lineHeight = 21.sp
+            )
+            Spacer(Modifier.height(16.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(0, 25, 50, 75, 100).forEach { option ->
+                    val selected = pct == option
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(if (selected) QingJiGreenLight else PageBackground)
+                            .clickable { onSelect(option) }
+                            .padding(vertical = 12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "$option%",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (selected) QingJiGreenDark else TextPrimary
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = "0% 等于关闭；25% 和 75% 是折中档，选完立刻生效。",
+                fontSize = 11.sp,
+                color = TextSecondary
+            )
+        }
+        Spacer(Modifier.height(Dimens.Gap))
+        SectionCard {
+            Text(
+                text = "举例：今天运动消耗 500 千卡、补偿 50% → 当天预算加 250 千卡，" +
+                    "首页的「预计热量缺口」会同步变大。",
+                fontSize = 12.sp,
+                color = TextSecondary,
+                lineHeight = 18.sp
+            )
+        }
+    }
+}

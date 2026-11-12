@@ -53,6 +53,7 @@ import com.qingji.app.ui.theme.TextSecondary
 import com.qingji.app.ui.viewmodel.SearchFoodViewModel
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import com.qingji.app.ui.i18n.s
 
 /**
  * ============================================================
@@ -110,7 +111,7 @@ fun SearchFoodScreen(
             // 最近搜过的词：点一下直接回填搜索框，省得重打一遍
             if (keyword.isBlank() && history.isNotEmpty()) {
                 Spacer(Modifier.height(10.dp))
-                Text(text = "最近搜过", fontSize = 12.sp, color = TextSecondary)
+                Text(text = s("最近搜过"), fontSize = 12.sp, color = TextSecondary)
                 Spacer(Modifier.height(6.dp))
                 Row(
                     modifier = Modifier
@@ -136,9 +137,9 @@ fun SearchFoodScreen(
             // 三种状态要分开说清楚，别让用户看到空列表就以为 App 坏了：
             // 还在载入 / 一条食物都没有 / 有食物库但没搜到这个词
             when {
-                foodCount < 0 -> HintBox(text = "食物库正在载入，稍等一下下…")
+                foodCount < 0 -> HintBox(text = s("食物库正在载入，稍等一下下…"))
                 foodCount == 0 -> HintBox(
-                    text = "标准食物库没读出来。点下面的按钮重新检查一次，还不行就重启 App 试试。",
+                    text = s("标准食物库没读出来。点下面的按钮重新检查一次，还不行就重启 App 试试。"),
                     isError = true
                 )
                 results.isEmpty() -> HintBox(
@@ -151,7 +152,7 @@ fun SearchFoodScreen(
             if (foodCount == 0) {
                 Spacer(Modifier.height(10.dp))
                 PrimaryButton(
-                    text = "重新检查食物库",
+                    text = s("重新检查食物库"),
                     onClick = { scope.launch { vm.restorePresetFoods() } }
                 )
             }
@@ -224,12 +225,12 @@ fun SearchFoodScreen(
                         decimalOnly = true
                     )
                     Spacer(Modifier.height(12.dp))
-                    Text(text = "记到哪一餐", fontSize = 13.sp, color = TextSecondary)
+                    Text(text = s("记到哪一餐"), fontSize = 13.sp, color = TextSecondary)
                     Spacer(Modifier.height(6.dp))
                     MealSelector(selected = mealType, onSelect = { mealType = it })
 
                     Spacer(Modifier.height(12.dp))
-                    Text(text = "记到哪一天", fontSize = 13.sp, color = TextSecondary)
+                    Text(text = s("记到哪一天"), fontSize = 13.sp, color = TextSecondary)
                     Spacer(Modifier.height(6.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         listOf(0L to "今天", 1L to "昨天", 2L to "前天").forEach { (offset, label) ->
@@ -295,7 +296,7 @@ private fun FoodRow(food: Food, onClick: () -> Unit) {
                 fontWeight = FontWeight.SemiBold,
                 color = QingJiGreenDark
             )
-            Text(text = "千卡/100g", fontSize = 10.sp, color = TextSecondary)
+            Text(text = s("千卡/100g"), fontSize = 10.sp, color = TextSecondary)
         }
     }
 }

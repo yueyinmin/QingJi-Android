@@ -87,7 +87,7 @@ class Converters {
         FoodFavorite::class,
         FoodSearchHistory::class
     ],
-    version = 7,
+    version = 9,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -327,6 +327,74 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * 7 → 8：user_food 的四列微量营养素改成可空，并补上 sugarPer100g。
+         *
+         * 为什么要重建表：SQLite 的 ALTER TABLE 不支持把 NOT NULL 列改成可空，
+         * 也不支持删 DEFAULT；只能「建新表 → 搬数据 → 删旧表 → 改名 → 重建索引」。
+         *
+         * 语义怎么处理：老库这三列是 NOT NULL DEFAULT 0.0，但自建食物表单
+         * 从来没有录入入口，历史上所有 0 都只是「没填」而不是「测得 0」。
+         * 用 NULLIF(x, 0.0) 把这些假的 0 还原成 NULL（未收录）；
+         * 万一哪条真有非零值（手改备份导入过），原样保留。
+         * 新增的 sugarPer100g 历史无数据，一律 NULL。
+         *
+         * Entity 现在不写 @ColumnInfo(defaultValue)，所以这里也不能写 DEFAULT，
+         * 否则 Room 的 schema 校验会报「列默认值不一致」直接打不开库。
+         */
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `user_food_new` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `name` TEXT NOT NULL, `pinyin` TEXT NOT NULL, `barcode` TEXT,
+                        `kcalPer100g` REAL NOT NULL, `proteinPer100g` REAL NOT NULL,
+                        `carbPer100g` REAL NOT NULL, `fatPer100g` REAL NOT NULL,
+                        `fiberPer100g` REAL, `sodiumMgPer100g` REAL,
+                        `sugarPer100g` REAL, `calciumMgPer100g` REAL,
+                        `defaultGrams` REAL NOT NULL, `source` TEXT NOT NULL,
+                        `category` TEXT NOT NULL, `brand` TEXT NOT NULL,
+                        `favorite` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL
+                    )
+                """)
+                db.execSQL("""
+                    INSERT INTO `user_food_new` (
+                        `id`,`name`,`pinyin`,`barcode`,`kcalPer100g`,`proteinPer100g`,
+                        `carbPer100g`,`fatPer100g`,`fiberPer100g`,`sodiumMgPer100g`,
+                        `sugarPer100g`,`calciumMgPer100g`,`defaultGrams`,`source`,
+                        `category`,`brand`,`favorite`,`createdAt`
+                    ) SELECT
+                        `id`,`name`,`pinyin`,`barcode`,`kcalPer100g`,`proteinPer100g`,
+                        `carbPer100g`,`fatPer100g`,NULLIF(`fiberPer100g`,0.0),
+                        NULLIF(`sodiumMgPer100g`,0.0),NULL,
+                        NULLIF(`calciumMgPer100g`,0.0),`defaultGrams`,`source`,
+                        `category`,`brand`,`favorite`,`createdAt` FROM `user_food`
+                """)
+                db.execSQL("DROP TABLE `user_food`")
+                db.execSQL("ALTER TABLE `user_food_new` RENAME TO `user_food`")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_user_food_name` ON `user_food` (`name`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_user_food_barcode` ON `user_food` (`barcode`)")
+            }
+        }
+
+        /**
+         * 8 → 9：断食记录支持「自由断食」（2026-11-11 专项，单独一条迁移）。
+         *
+         * 只加两列，不重建表、不动任何旧列：
+         *   freeMode      = 1 时历史卡按「自由断食 · 断食 X 小时 Y 分」展示，不显示进食窗口
+         *   actualMinutes = 实际断食分钟数；老记录那时记的是「计划」不是「实际」，补 0
+         *
+         * 旧数据兼容：两个 ALTER 都带 DEFAULT 0，历史行自动补 0，
+         * 历史卡的判断是 `freeMode == true` 才走新样式，所以老记录外观完全不变。
+         * DEFAULT 字面量必须和 Entity 的 @ColumnInfo(defaultValue = "0") 逐字一致。
+         */
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `fasting_log` ADD COLUMN `freeMode` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `fasting_log` ADD COLUMN `actualMinutes` INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         fun get(context: Context): AppDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
@@ -336,12 +404,13 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                     .addMigrations(
                         MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
-                        MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7
+                        MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8,
+                        MIGRATION_8_9
                     )
                     // 不用 fallbackToDestructiveMigration()。
                     // 那行兜底在「漏写 Migration」或「schema 校验不一致」时会静默清库，
                     // 用户几年的饮食、体重记录一次性没了，而且没有任何提示。
-                    // 现在迁移链 1→6 完整，缺迁移就让 Room 明确报错（宁可打不开，也不偷偷删数据），
+                    // 现在迁移链 1→9 完整，缺迁移就让 Room 明确报错（宁可打不开，也不偷偷删数据），
                     // 开发阶段反而能第一时间发现漏写。
                     // 以后加表结构：version +1 + 写 Migration + defaultValue 逐字一致 + 核对 schemas/N.json。
                     .build()
