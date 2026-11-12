@@ -40,6 +40,8 @@ object SettingsKeys {
     val CARB_PCT = intPreferencesKey("carb_pct")
     val FAT_PCT = intPreferencesKey("fat_pct")
     val EXERCISE_COMPENSATION = booleanPreferencesKey("exercise_compensation")
+    /** 运动消耗补偿比例（0-100，默认 50）：设备普遍高估消耗，全额加回会让人越练越多吃 */
+    val EXERCISE_COMPENSATION_PCT = intPreferencesKey("exercise_compensation_pct")
     val DIET_PREFERENCE = stringPreferencesKey("diet_preference")
     val AUTO_MEAL = booleanPreferencesKey("auto_meal")
     val CONSERVATIVE_ESTIMATE = booleanPreferencesKey("conservative_estimate")
@@ -138,6 +140,8 @@ data class QingJiSettings(
     val carbPct: Int = 50,
     val fatPct: Int = 25,
     val exerciseCompensation: Boolean = false,
+    /** 运动消耗补偿比例 0-100，默认 50（对标竞品：全额加回会放大设备高估误差） */
+    val exerciseCompensationPct: Int = 50,
     val dietPreference: String = "",
     val autoMeal: Boolean = true,
     val conservativeEstimate: Boolean = true,
@@ -215,6 +219,7 @@ object SettingsStore {
                     carbPct = p[SettingsKeys.CARB_PCT] ?: 50,
                     fatPct = p[SettingsKeys.FAT_PCT] ?: 25,
                     exerciseCompensation = p[SettingsKeys.EXERCISE_COMPENSATION] ?: false,
+                    exerciseCompensationPct = p[SettingsKeys.EXERCISE_COMPENSATION_PCT] ?: 50,
                     dietPreference = p[SettingsKeys.DIET_PREFERENCE] ?: "",
                     autoMeal = p[SettingsKeys.AUTO_MEAL] ?: true,
                     conservativeEstimate = p[SettingsKeys.CONSERVATIVE_ESTIMATE] ?: true,

@@ -153,7 +153,41 @@ fun FastingScreen(
         ) {
             Spacer(Modifier.height(Dimens.Gap))
 
-            // 断食常驻通知：只读现有方案状态，不改断食规则、不碰数据库
+            // 连续断食放最上面：打开页第一眼就是「坚持了几天」
+            FastingStreakCard(days = streakDays)
+            Spacer(Modifier.height(Dimens.Gap))
+
+            if (!settings.fastingEnabled) {
+                // 未开启：方案预览卡（含断食开始/可进食的具体时间 + 一键开启）
+                FastingPreviewCard(
+                    planHours = settings.fastingPlanHours,
+                    eatStartMinute = settings.fastingEatStartMinute,
+                    eatEndMinute = settings.fastingEatEndMinute,
+                    onEnable = { vm.enableFasting() }
+                )
+            } else {
+                if (!isFastingDay) {
+                    HintBox(text = "今天不在你的断食周期里（可在设置里改生效星期），想吃就吃，计划明天继续。")
+                    Spacer(Modifier.height(Dimens.Gap))
+                }
+                // 断食时间（中上位置，打开一眼看到）
+                TimeBanner(status, vm.now)
+                Spacer(Modifier.height(Dimens.Gap))
+                // 断食方案（点一颗直接切换，进食窗口仍在右上角设置里调）
+                FastingPlanCard(
+                    planHours = settings.fastingPlanHours,
+                    onSelect = { vm.updatePlanHours(it) }
+                )
+                Spacer(Modifier.height(Dimens.Gap))
+                FastingRing(status)
+                Spacer(Modifier.height(Dimens.Gap))
+                PhaseCard(status)
+                Spacer(Modifier.height(Dimens.Gap))
+                WeekBars(weekLogs, settings.fastingPlanHours)
+            }
+
+            // 常驻通知：放在方案下面
+            Spacer(Modifier.height(Dimens.Gap))
             FastingNotifyCard(
                 enabled = settings.fastingOngoingNotification,
                 onToggle = { enabled ->
@@ -181,34 +215,6 @@ fun FastingScreen(
                 onEnd = { vm.endFreeFasting() },
                 onCancel = { vm.cancelFreeFasting() }
             )
-            Spacer(Modifier.height(Dimens.Gap))
-
-            if (!settings.fastingEnabled) {
-                // 未开启时不再只给一句文字提示：直接把方案和时间摆出来，
-                // 一个按钮就能开，省得用户去右上角翻设置。
-                FastingPreviewCard(
-                    planHours = settings.fastingPlanHours,
-                    eatStartMinute = settings.fastingEatStartMinute,
-                    eatEndMinute = settings.fastingEatEndMinute,
-                    onEnable = { vm.enableFasting() }
-                )
-            } else {
-                if (!isFastingDay) {
-                    HintBox(text = "今天不在你的断食周期里（可在设置里改生效星期），想吃就吃，计划明天继续。")
-                    Spacer(Modifier.height(Dimens.Gap))
-                }
-                TimeBanner(status, vm.now)
-                Spacer(Modifier.height(Dimens.Gap))
-                FastingRing(status)
-                Spacer(Modifier.height(Dimens.Gap))
-                PhaseCard(status)
-                Spacer(Modifier.height(Dimens.Gap))
-                WeekBars(weekLogs, settings.fastingPlanHours)
-            }
-
-            // 连续断食天数：和「有没有启用方案」无关，自由断食也算
-            Spacer(Modifier.height(Dimens.Gap))
-            FastingStreakCard(days = streakDays)
             Spacer(Modifier.height(Dimens.Gap))
 
             FastingCalendarCard(logs = yearLogs, today = AppClock.today())
@@ -517,6 +523,57 @@ private fun FastingPreviewCard(
                 fontWeight = FontWeight.SemiBold,
                 color = Color.White
             )
+        }
+    }
+}
+
+/**
+ * 断食方案卡（2026-11-12 从设置弹窗里提出来）：点一颗直接切换并保存。
+ * 进食窗口 / 生效星期是精确数字，仍保留在右上角的设置弹窗里。
+ */
+@Composable
+private fun FastingPlanCard(
+    planHours: Int,
+    onSelect: (Int) -> Unit
+) {
+    SectionCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "断食方案",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TextPrimary
+            )
+            Spacer(Modifier.weight(1f))
+            Text(text = "进食窗口在右上角「设置」里调", fontSize = 10.sp, color = TextSecondary)
+        }
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FastingRules.PLANS.forEach { hours ->
+                val selected = hours == planHours
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(if (selected) QingJiGreenLight else PageBackground)
+                        .clickable { onSelect(hours) }
+                        .padding(vertical = 10.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = FastingRules.planLabel(hours),
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (selected) QingJiGreenDark else TextPrimary
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = FastingRules.planSubtitle(hours),
+                        fontSize = 10.sp,
+                        color = TextSecondary
+                    )
+                }
+            }
         }
     }
 }

@@ -6,6 +6,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import kotlin.math.roundToInt
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -258,11 +259,57 @@ fun SettingsScreen(
                     iconColor = QingJiGreen
                 ) { dialog = DialogKind.MACRO }
                 RowDivider()
-                SwitchRow(
-                    title = s("运动消耗补偿"),
-                    subtitle = s("开启后把运动消耗加回当天预算"),
-                    checked = settings.exerciseCompensation
-                ) { vm.setExerciseCompensation(it) }
+                // v1.0.7：从「开关」升级为比例滑杆（0-100，四段 0/25/50/75/100，默认 50%）。
+                // 设备普遍高估运动消耗，全额加回会让人越练越多吃；0% 等于关闭。
+                // 阻尼感来自右侧百分数的 spring 动画（拖动时弹着追、松手后吸进档位）。
+                var compDrag by remember { mutableStateOf(settings.exerciseCompensationPct.toFloat()) }
+                val compAnimated by androidx.compose.animation.core.animateFloatAsState(
+                    targetValue = compDrag,
+                    animationSpec = androidx.compose.animation.core.spring(
+                        dampingRatio = 0.45f,
+                        stiffness = 320f
+                    ),
+                    label = "compPct"
+                )
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(text = s("运动消耗补偿"), fontSize = 15.sp, color = TextPrimary)
+                            Text(
+                                text = s("按比例加回当天预算，默认 50%；0% 等于关闭"),
+                                fontSize = 11.sp,
+                                color = TextSecondary
+                            )
+                        }
+                        Text(
+                            text = "${compAnimated.roundToInt()}%",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = QingJiGreenDark
+                        )
+                    }
+                    androidx.compose.material3.Slider(
+                        value = compDrag,
+                        onValueChange = { compDrag = it },
+                        onValueChangeFinished = {
+                            vm.setExerciseCompensationPct((compDrag / 25f).roundToInt() * 25)
+                        },
+                        valueRange = 0f..100f,
+                        steps = 3
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        listOf("0%", "25%", "50%", "75%", "100%").forEach {
+                            Text(text = it, fontSize = 9.sp, color = TextSecondary)
+                        }
+                    }
+                }
                 RowDivider()
                 SettingValueRow(
                     title = s("饮水目标"),
@@ -272,8 +319,8 @@ fun SettingsScreen(
                 ) { dialog = DialogKind.WATER_GOAL }
             }
             SettingsNote(
-                "开启后，运动消耗会加回当天可吃额度（预计热量缺口跟着变）；" +
-                    "关掉则只按饮食记录计算，运动消耗不计入预算。"
+                "运动消耗按比例加回当天可吃额度（预计热量缺口跟着变）。" +
+                    "默认 50%：运动设备和算法普遍高估消耗，全额加回容易越练越多吃。"
             )
 
             // ================= 记录与识别 =================

@@ -298,12 +298,14 @@ fun HomeScreen(
             animateProgress = settings.progressAnimation,
             waterBubbles = settings.waterBubbles,
             exerciseCompensation = settings.exerciseCompensation,
+            exerciseCompensationPct = settings.exerciseCompensationPct,
             onCupClick = { showCupMenu = true },
             fastingEnabled = settings.fastingEnabled,
             fastingPlanHours = settings.fastingPlanHours,
             fastingEatStart = settings.fastingEatStartMinute,
             fastingEatEnd = settings.fastingEatEndMinute,
             fastingDays = settings.fastingDays,
+            fastingFreeStart = settings.fastingFreeStart,
             onOpenFasting = { onOpenFasting() }
         )
         }
@@ -771,6 +773,8 @@ private fun TodaySummaryCard(
     waterBubbles: Int = 2,
     /** v3.4.0 R5：关掉后运动消耗不计入预计热量缺口 */
     exerciseCompensation: Boolean = false,
+    /** v1.0.7：补偿比例 0-100（默认 50），设备普遍高估消耗，全额加回会放大误差 */
+    exerciseCompensationPct: Int = 50,
     /** 点水杯时通知外面弹「首页设置 / 查看详情」的选择 */
     onCupClick: () -> Unit = {},
     /** 轻断食：开了才在卡片底部显示断食按钮 */
@@ -780,6 +784,8 @@ private fun TodaySummaryCard(
     fastingEatEnd: Int = 940,
     /** v1.0.3：生效周期（周几），今天不在周期内按钮显示「今日休息」 */
     fastingDays: String = "1,2,3,4,5,6,7",
+    /** 自由断食开始时刻（0 = 没有）；首页状态条三态要用 */
+    fastingFreeStart: Long = 0L,
     onOpenFasting: () -> Unit = {}
 ) {
     val profile = state.profile
@@ -854,9 +860,13 @@ private fun TodaySummaryCard(
             }
         }
         Spacer(Modifier.height(8.dp))
-        // 预计热量缺口 = 每日预算 + 运动消耗 − 已吃（动得多缺口大）
-        // v3.4.0 R5：由「运动消耗补偿」开关决定运动要不要计入
-        val exerciseBonus = if (exerciseCompensation) state.exerciseKcal.toInt() else 0
+        // 预计热量缺口 = 每日预算 + 运动消耗×补偿比例 − 已吃
+        // v1.0.7：全额加回会放大设备高估误差，默认只补 50%（对标竞品策略）
+        val exerciseBonus = if (exerciseCompensationPct > 0) {
+            (state.exerciseKcal * exerciseCompensationPct / 100).toInt()
+        } else {
+            0
+        }
         val gap = remainingKcal + exerciseBonus
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -905,37 +915,73 @@ private fun TodaySummaryCard(
         // 饮水不再单独占一块 + 四颗快捷按钮：进度收进右侧的高水杯，
         // 加水操作收进「快速记录喝水」弹层（点杯子打开），卡片更接近参考样式。
 
-        // ---------- 轻断食入口（2026-11-11 改版） ----------
-        // 以前是整行实底绿大条，太抢眼也不居中。现在收成居中的小胶囊：
-        // 橙黄底 + 白字，一眼能找到但不抢卡片主信息；断食时长直接写在文案里。
-        Spacer(Modifier.height(12.dp))
+        // ---------- 轻断食状态条（2026-11-12 三态，对标竞品） ----------
+        // 进食中 = 浅绿底绿字、断食中 = 浅橙底橙字、未开始 = 灰底灰字；
+        // 自由断食优先于方案显示（它有自己的秒表）。浅色底不抢卡片主信息，
+        // 点一下进断食页。倒计时保留：方案显示「剩 xx:xx」，自由断食直接走秒表。
+        Spacer(Modifier.height(10.dp))
 
-        // 每分钟刷一次，「剩余 xx:xx」才会自己走（只在开启时才转）
-        var fastingNow by remember { mutableStateOf(java.time.LocalTime.now()) }
-        LaunchedEffect(fastingEnabled) {
-            if (!fastingEnabled) return@LaunchedEffect
+        // 自由断食进行中每秒走表；其余状态每分钟刷一次就够
+        var statusNow by remember { mutableStateOf(System.currentTimeMillis()) }
+        LaunchedEffect(fastingEnabled, fastingFreeStart) {
             while (true) {
-                kotlinx.coroutines.delay(60_000L)
-                fastingNow = java.time.LocalTime.now()
+                statusNow = System.currentTimeMillis()
+                kotlinx.coroutines.delay(if (fastingFreeStart > 0L) 1_000L else 60_000L)
             }
         }
+
+        val freeStart = fastingFreeStart
+        val freeRunning = freeStart > 0L && freeStart <= statusNow
+        val freeScheduled = freeStart > 0L && freeStart > statusNow
         val fasting = com.qingji.app.domain.FastingRules.status(
-            now = fastingNow,
+            now = java.time.LocalTime.now(),
             planHours = fastingPlanHours,
             eatStartMinute = fastingEatStart,
             eatEndMinute = fastingEatEnd,
-            enabled = fastingEnabled
+            enabled = fastingEnabled && freeStart <= 0L   // 自由断食优先，方案状态让位
         )
         val fastingDaySet = fastingDays.split(',').mapNotNull { it.trim().toIntOrNull() }.toSet()
         val isFastingDay = java.time.LocalDate.now().dayOfWeek.value in fastingDaySet
 
-        val fastingText = when {
-            !fastingEnabled -> "轻断食"
-            !isFastingDay -> "${com.qingji.app.domain.FastingRules.planLabel(fastingPlanHours)} 轻断食 · 今日休息"
-            fasting.active -> "${com.qingji.app.domain.FastingRules.planLabel(fastingPlanHours)} 轻断食 · 剩 " +
-                com.qingji.app.domain.FastingRules.durationLabel(fasting.remainMinutes)
-            else -> "${com.qingji.app.domain.FastingRules.planLabel(fastingPlanHours)} 轻断食 · 进食中"
+        val freeClock = run {
+            val s = ((statusNow - freeStart) / 1000L).coerceAtLeast(0)
+            "%02d:%02d:%02d".format(s / 3600, (s % 3600) / 60, s % 60)
         }
+        val streakState = when {
+            freeRunning -> Triple(
+                MultiColor.FastingBackground,
+                WarnOrange,
+                "自由断食 · 断食中 · $freeClock"
+            )
+            freeScheduled -> Triple(
+                MultiColor.FastingBackground,
+                WarnOrange,
+                "自由断食 · " + com.qingji.app.domain.FastingRules.freeScheduleLabel(freeStart, statusNow)
+            )
+            fastingEnabled && isFastingDay && fasting.active -> Triple(
+                MultiColor.FastingBackground,
+                WarnOrange,
+                com.qingji.app.domain.FastingRules.planLabel(fastingPlanHours) +
+                    " 轻断食 · 断食中 · 剩 " +
+                    com.qingji.app.domain.FastingRules.durationLabel(fasting.remainMinutes)
+            )
+            fastingEnabled && isFastingDay -> Triple(
+                QingJiGreenLight,
+                QingJiGreenDark,
+                com.qingji.app.domain.FastingRules.planLabel(fastingPlanHours) + " 轻断食 · 进食中"
+            )
+            fastingEnabled && !isFastingDay -> Triple(
+                QingJiGreenLight,
+                QingJiGreenDark,
+                "轻断食 · 今日休息"
+            )
+            else -> Triple(
+                DividerColor.copy(alpha = 0.35f),
+                TextSecondary,
+                "轻断食 · 未开始"
+            )
+        }
+        val (streakBg, streakFg, streakText) = streakState
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -944,18 +990,16 @@ private fun TodaySummaryCard(
             Row(
                 modifier = Modifier
                     .clip(RoundedCornerShape(999.dp))
-                    .background(WarnOrange)
+                    .background(streakBg)
                     .clickable { onOpenFasting() }
-                    .padding(horizontal = 13.dp, vertical = 6.dp),
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = "🕐", fontSize = 11.sp)
-                Spacer(Modifier.size(6.dp))
                 Text(
-                    text = fastingText,
-                    fontSize = 12.sp,
+                    text = "⏱ " + streakText,
+                    fontSize = 10.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color.White
+                    color = streakFg
                 )
             }
         }

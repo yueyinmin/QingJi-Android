@@ -54,6 +54,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.qingji.app.data.local.entity.UserProfile
 import com.qingji.app.data.local.entity.WeightLog
 import com.qingji.app.domain.ChartMath
+import com.qingji.app.domain.DiaryRules
 import com.qingji.app.domain.NutritionCalculator
 import com.qingji.app.ui.components.SectionCard
 import com.qingji.app.ui.components.AppearItem
@@ -117,6 +118,7 @@ fun ProgressScreen(
     // 本轮新增的五个模块的数据
     val waterWeek by vm.waterWeek.collectAsState()
     val foodWeek by vm.foodWeek.collectAsState()
+    val foodMonth by vm.foodMonth.collectAsState()
     val exerciseWeek by vm.exerciseWeek.collectAsState()
     val bodyMeasures by vm.bodyMeasures.collectAsState()
     val photos by vm.photos.collectAsState()
@@ -266,8 +268,18 @@ fun ProgressScreen(
 
         Spacer(Modifier.height(Dimens.Gap))
 
-        // ---------- 本周运动消耗 ----------
+        // ---------- 饮食 30 天热力图（对标竞品「吃有数」，2026-11-12） ----------
         AppearItem(index = 2) {
+            DietHeatmapCard(
+                logs = foodMonth,
+                dailyGoal = profile?.dailyKcalGoal?.takeIf { it > 0 }?.toDouble() ?: 2000.0
+            )
+        }
+
+        Spacer(Modifier.height(Dimens.Gap))
+
+        // ---------- 本周运动消耗 ----------
+        AppearItem(index = 3) {
             ExerciseWeekCard(
                 list = exerciseWeek,
                 onAdd = onOpenExercise,
@@ -873,6 +885,121 @@ private fun LegendDot(color: Color, label: String) {
 // ============================================================
 
 /** 七根柱子：近一周每天的饮水量。 */
+/**
+ * 饮食 30 天热力图（2026-11-12，对标竞品「吃有数」）。
+ *
+ * 网格排法复用日记模块的 DiaryRules.cells（近 30 天滚动、周一开头、前后补位），
+ * 着色按当天摄入 / 目标热量：
+ *   没记录 = 灰；0-80% = 绿（吃得偏少）；80-120% = 黄（贴着预算）；120% 以上 = 红（超了）。
+ * 点一天，下方显示那天的摄入和目标。
+ */
+@Composable
+private fun DietHeatmapCard(
+    logs: List<com.qingji.app.data.local.entity.FoodLog>,
+    dailyGoal: Double
+) {
+    val today = AppClock.today()
+    val kcalByDate = remember(logs) {
+        logs.groupBy { it.date }.mapValues { entry -> entry.value.sumOf { it.kcal } }
+    }
+    var selected by remember { mutableStateOf<LocalDate?>(null) }
+
+    SectionCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "饮食 30 天",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TextPrimary
+            )
+            Spacer(Modifier.weight(1f))
+            LegendDot(color = QingJiGreen, label = "0-80%")
+            Spacer(Modifier.width(8.dp))
+            LegendDot(color = WarnOrange, label = "80-120%")
+            Spacer(Modifier.width(8.dp))
+            LegendDot(color = DangerRed, label = "120%+")
+        }
+
+        Spacer(Modifier.height(10.dp))
+
+        val cells = DiaryRules.cells(today, 30)
+        val leading = cells.first().dayOfWeek.value - 1
+        val grid: List<LocalDate?> = List(leading) { null } + cells
+
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                listOf("一", "二", "三", "四", "五", "六", "日").forEach { label ->
+                    Text(
+                        text = label,
+                        fontSize = 10.sp,
+                        color = TextSecondary,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+            grid.chunked(7).forEach { row ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    row.forEach { date ->
+                        if (date == null) {
+                            Spacer(Modifier.weight(1f))
+                            return@forEach
+                        }
+                        val eaten = kcalByDate[date] ?: 0.0
+                        val hasRecord = eaten > 0.0
+                        val isSelected = date == selected
+                        val bg = when {
+                            isSelected -> QingJiGreen
+                            !hasRecord -> DividerColor.copy(alpha = 0.5f)
+                            eaten < dailyGoal * 0.8 -> QingJiGreen
+                            eaten <= dailyGoal * 1.2 -> WarnOrange
+                            else -> DangerRed
+                        }
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(16.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(bg)
+                                .clickable { selected = if (isSelected) null else date },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (isSelected) {
+                                Text(
+                                    text = "${date.dayOfMonth}",
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = androidx.compose.ui.graphics.Color.White
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        selected?.let { day ->
+            Spacer(Modifier.height(8.dp))
+            val eaten = kcalByDate[day] ?: 0.0
+            Text(
+                text = if (eaten > 0.0) {
+                    "${day.monthValue}月${day.dayOfMonth}日 · 摄入 ${eaten.toInt()} 千卡 / 目标 ${dailyGoal.toInt()} 千卡"
+                } else {
+                    "${day.monthValue}月${day.dayOfMonth}日 · 当天没有饮食记录"
+                },
+                fontSize = 11.sp,
+                color = TextSecondary
+            )
+        }
+    }
+}
+
 @Composable
 private fun WaterWeekCard(week: List<Pair<LocalDate, Int>>, goalMl: Int) {
     val total = week.sumOf { it.second }

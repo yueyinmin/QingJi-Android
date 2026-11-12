@@ -103,6 +103,37 @@ fun AboutScreen(onBack: () -> Unit) {
 
             Spacer(Modifier.height(Dimens.Gap))
 
+            // 数据与算法口径（2026-11-12，对标竞品「吃有数」的可信度说明）
+            GroupLabel(text = s("数据与算法口径"), subtitle = s("怎么算的、数据从哪来，都在这里"))
+            Spacer(Modifier.height(8.dp))
+            SectionCard(contentPadding = 14.dp) {
+                CaliberRow(
+                    title = "热量预算",
+                    body = "Mifflin-St Jeor 基础代谢 × 活动系数，再按减脂 / 增肌 / 保持调整。"
+                )
+                CaliberRow(
+                    title = "AI 识别校验",
+                    body = "识别结果按 4-9-4（蛋白 / 碳水 4 千卡、脂肪 9 千卡）与营养素总重规则复核，" +
+                        "数值不自洽时不能保存；每次手动编辑都会重新校验。"
+                )
+                CaliberRow(
+                    title = "运动补偿",
+                    body = "运动消耗默认按 50% 加回饮食额度（0-100% 可调）。" +
+                        "设备和算法普遍高估消耗，全额加回容易越练越多吃。"
+                )
+                CaliberRow(
+                    title = "食物库",
+                    body = "654 条常见食物随包内置，每条带来源与「未审核」标记；" +
+                        "纤维 / 钠 / 糖 / 钙未收录就不显示，不编造数值。"
+                )
+                CaliberRow(
+                    title = "免责",
+                    body = "全部为估算值，供自我参考，不构成营养或医学建议。"
+                )
+            }
+
+            Spacer(Modifier.height(Dimens.Gap))
+
             GroupLabel(text = s("维护者"), subtitle = s("一个人写的，欢迎提 issue"))
             Spacer(Modifier.height(8.dp))
             SectionCard(contentPadding = 14.dp) {
@@ -216,6 +247,20 @@ private fun GroupLabel(text: String, subtitle: String) {
         Text(text = text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
         Spacer(Modifier.height(2.dp))
         Text(text = subtitle, fontSize = 11.sp, color = TextSecondary)
+    }
+}
+
+/** 「数据与算法口径」里的一行：绿色小标题 + 灰色说明。 */
+@Composable
+private fun CaliberRow(title: String, body: String) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+    ) {
+        Text(text = title, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = QingJiGreenDark)
+        Spacer(Modifier.height(2.dp))
+        Text(text = body, fontSize = 11.sp, color = TextSecondary, lineHeight = 16.sp)
     }
 }
 

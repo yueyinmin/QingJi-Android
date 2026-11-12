@@ -417,6 +417,11 @@ class ProgressViewModel(app: Application) : AndroidViewModel(app) {
         .observeFoodRange(weekStart, AppClock.today())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /** 近 30 天饮食记录：饮食热力图用（按天聚合热量，对照目标着色）。 */
+    val foodMonth: StateFlow<List<FoodLog>> = repo
+        .observeFoodRange(AppClock.today().minusDays(29), AppClock.today())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     /** 本周运动记录。 */
     val exerciseWeek: StateFlow<List<ExerciseLog>> = repo
         .observeExerciseRange(weekStart, AppClock.today())
@@ -751,6 +756,19 @@ class FastingViewModel(app: Application) : AndroidViewModel(app) {
                 )
             )
         }
+    }
+
+    /** 只改方案小时数；进食窗口、生效星期、提醒开关保持不变。方案卡只在已启用时显示。 */
+    fun updatePlanHours(hours: Int) {
+        val s = settings.value
+        saveSettings(
+            enabled = true,
+            planHours = hours,
+            startMinute = s.fastingEatStartMinute,
+            endMinute = s.fastingEatEndMinute,
+            days = s.fastingDays,
+            phaseAlert = s.fastingPhaseAlert
+        )
     }
 
     /**
