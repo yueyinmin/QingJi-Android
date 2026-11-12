@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -113,7 +114,11 @@ fun SettingsDetailScaffold(
  * 底部弹层壳子（条目少的设置项专用）。
  *
  * 和轻断食设置同款：白色圆角卡片、顶部小横条、标题、轻遮罩，
- * 下滑或点外面关闭。内容固定 420dp 后可滚动，避免长说明把弹层撑满屏。
+ * 下滑或点外面关闭。
+ *
+ * 高度跟内容走（wrapContent）：只有两个选项时弹层就只有两行高，
+ * 不会出现下方一大片空白；最多长到 420dp，超了才在弹层内部滚动，
+ * 这样「关于」这类长说明也不会把弹层撑满整屏。
  * 刻意不设「保存」主按钮 —— 这些设置项都是点一下立刻生效，
  * 加保存反而多一步、还容易误存。
  */
@@ -132,7 +137,7 @@ fun SettingsDetailSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(420.dp)
+                .heightIn(max = 420.dp)
                 .verticalScroll(rememberScrollState())
         ) {
             content()
