@@ -912,12 +912,6 @@ private fun DietHeatmapCard(
                 fontWeight = FontWeight.SemiBold,
                 color = TextPrimary
             )
-            Spacer(Modifier.weight(1f))
-            LegendDot(color = QingJiGreen, label = "0-80%")
-            Spacer(Modifier.width(8.dp))
-            LegendDot(color = WarnOrange, label = "80-120%")
-            Spacer(Modifier.width(8.dp))
-            LegendDot(color = DangerRed, label = "120%+")
         }
 
         Spacer(Modifier.height(10.dp))
@@ -982,6 +976,22 @@ private fun DietHeatmapCard(
                     }
                 }
             }
+        }
+
+        // 图例：四种颜色（含灰=未记录），wrapContent 居中，不随宽度拉伸
+        Spacer(Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            LegendDot(color = QingJiGreen, label = "0-80%")
+            Spacer(Modifier.width(10.dp))
+            LegendDot(color = WarnOrange, label = "80-120%")
+            Spacer(Modifier.width(10.dp))
+            LegendDot(color = DangerRed, label = "120%+")
+            Spacer(Modifier.width(10.dp))
+            LegendDot(color = DividerColor.copy(alpha = 0.5f), label = "未记录")
         }
 
         selected?.let { day ->

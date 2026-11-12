@@ -85,6 +85,7 @@ import com.qingji.app.ui.theme.QingJiGreenDark
 import com.qingji.app.ui.theme.DividerColor
 import com.qingji.app.ui.i18n.s
 import com.qingji.app.ui.theme.PageBackground
+import com.qingji.app.ui.theme.QingJiGreenLight
 import com.qingji.app.ui.theme.pressable
 import com.qingji.app.ui.theme.QingJiGreen
 import com.qingji.app.ui.theme.TextPrimary
@@ -259,18 +260,8 @@ fun SettingsScreen(
                     iconColor = QingJiGreen
                 ) { dialog = DialogKind.MACRO }
                 RowDivider()
-                // v1.0.7：从「开关」升级为比例滑杆（0-100，四段 0/25/50/75/100，默认 50%）。
-                // 设备普遍高估运动消耗，全额加回会让人越练越多吃；0% 等于关闭。
-                // 阻尼感来自右侧百分数的 spring 动画（拖动时弹着追、松手后吸进档位）。
-                var compDrag by remember { mutableStateOf(settings.exerciseCompensationPct.toFloat()) }
-                val compAnimated by androidx.compose.animation.core.animateFloatAsState(
-                    targetValue = compDrag,
-                    animationSpec = androidx.compose.animation.core.spring(
-                        dampingRatio = 0.45f,
-                        stiffness = 320f
-                    ),
-                    label = "compPct"
-                )
+                // v1.0.7：比例改成 5 颗胶囊（0/25/50/75/100，默认 50%），和断食方案卡同风格。
+                // 设备普遍高估运动消耗，全额加回会让人越练多吃；0% 等于关闭。
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -285,28 +276,27 @@ fun SettingsScreen(
                                 color = TextSecondary
                             )
                         }
-                        Text(
-                            text = "${compAnimated.roundToInt()}%",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = QingJiGreenDark
-                        )
                     }
-                    androidx.compose.material3.Slider(
-                        value = compDrag,
-                        onValueChange = { compDrag = it },
-                        onValueChangeFinished = {
-                            vm.setExerciseCompensationPct((compDrag / 25f).roundToInt() * 25)
-                        },
-                        valueRange = 0f..100f,
-                        steps = 3
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        listOf("0%", "25%", "50%", "75%", "100%").forEach {
-                            Text(text = it, fontSize = 9.sp, color = TextSecondary)
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf(0, 25, 50, 75, 100).forEach { pctOption ->
+                            val selected = settings.exerciseCompensationPct == pctOption
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(999.dp))
+                                    .background(if (selected) QingJiGreenLight else PageBackground)
+                                    .clickable { vm.setExerciseCompensationPct(pctOption) }
+                                    .padding(vertical = 7.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "$pctOption%",
+                                    fontSize = 12.sp,
+                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (selected) QingJiGreenDark else TextSecondary
+                                )
+                            }
                         }
                     }
                 }

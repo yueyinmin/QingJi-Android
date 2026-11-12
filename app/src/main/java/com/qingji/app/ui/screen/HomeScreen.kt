@@ -261,24 +261,8 @@ fun HomeScreen(
                     .background(MultiColor.StreakBackground)
                     .padding(horizontal = 8.dp, vertical = 5.dp)
             )
-            // 目标状态：宽度跟着文字走，同样锁死单行。
-            // 文案统一叫「减脂」——和进展页、引导里的说法一致，不再「减肥」「减脂」混着叫。
-            Spacer(Modifier.width(6.dp))
-            Text(
-                text = when (settings.goalMode) {
-                    "gain" -> s("增肌")
-                    "keep" -> s("保持")
-                    else -> s("减脂")
-                },
-                fontSize = 11.sp,
-                color = QingJiGreenDark,
-                maxLines = 1,
-                softWrap = false,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(QingJiGreenLight)
-                    .padding(horizontal = 8.dp, vertical = 5.dp)
-            )
+            // 目标状态（减脂/增肌/保持）：v1.0.7 挪进「今日剩余」卡标题右侧，
+            // 顶部只留连续天数，两个胶囊不再挤一行。
         }
 
         Spacer(Modifier.height(12.dp))
@@ -299,6 +283,7 @@ fun HomeScreen(
             waterBubbles = settings.waterBubbles,
             exerciseCompensation = settings.exerciseCompensation,
             exerciseCompensationPct = settings.exerciseCompensationPct,
+            goalMode = settings.goalMode,
             onCupClick = { showCupMenu = true },
             fastingEnabled = settings.fastingEnabled,
             fastingPlanHours = settings.fastingPlanHours,
@@ -786,6 +771,8 @@ private fun TodaySummaryCard(
     fastingDays: String = "1,2,3,4,5,6,7",
     /** 自由断食开始时刻（0 = 没有）；首页状态条三态要用 */
     fastingFreeStart: Long = 0L,
+    /** 目标状态（减脂/增肌/保持）：显示在「今日剩余」标题右侧 */
+    goalMode: String = "lose",
     onOpenFasting: () -> Unit = {}
 ) {
     val profile = state.profile
@@ -821,8 +808,24 @@ private fun TodaySummaryCard(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // v1.0.2：目标状态（减脂/增肌/保持）挪到顶栏连续天数右边了
             Text(text = s("今日剩余"), fontSize = 14.sp, color = TextSecondary)
+            Spacer(Modifier.weight(1f))
+            // v1.0.7：目标状态从顶栏挪进来，和「今日剩余」同一行、水杯上方
+            Text(
+                text = when (goalMode) {
+                    "gain" -> s("增肌")
+                    "keep" -> s("保持")
+                    else -> s("减脂")
+                },
+                fontSize = 11.sp,
+                color = QingJiGreenDark,
+                maxLines = 1,
+                softWrap = false,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(QingJiGreenLight)
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            )
         }
 
         Spacer(Modifier.height(6.dp))
@@ -915,6 +918,56 @@ private fun TodaySummaryCard(
         // 饮水不再单独占一块 + 四颗快捷按钮：进度收进右侧的高水杯，
         // 加水操作收进「快速记录喝水」弹层（点杯子打开），卡片更接近参考样式。
 
+
+            } // 左栏 Column 结束
+
+            // 右栏：一根贯穿整张卡的高水杯，中间挂完成度胶囊，下面写「已喝/目标」
+            if (showWater) {
+                Spacer(Modifier.width(12.dp))
+                Column(
+                    modifier = Modifier.width(82.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(
+                        modifier = Modifier.size(width = 78.dp, height = 190.dp),
+                        contentAlignment = Alignment.BottomCenter
+                    ) {
+                        WaterCup(
+                            ratio = state.waterMl.toFloat() / goalWater.coerceAtLeast(1),
+                            bubbleLevel = waterBubbles,
+                            modifier = Modifier.fillMaxSize(),
+                            onClick = onCupClick,
+                            // 参考图里水是蓝色的：固定语义色，不跟主题变
+                            fillColor = MultiColor.WaterFill,
+                            surfaceColor = MultiColor.WaterSurface,
+                            outlineColor = MultiColor.WaterOutline,
+                            bubbleTint = Color.White.copy(alpha = 0.75f),
+                            // v1.5：杯内容量数字整个去掉（主人不要杯内计量数字）
+                        )
+                        Text(
+                            text = "$waterPercent%",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MultiColor.WaterText,
+                            modifier = Modifier
+                                .padding(bottom = 46.dp)
+                                .clip(RoundedCornerShape(999.dp))
+                                .background(MultiColor.WaterFill.copy(alpha = 0.24f))
+                                .padding(horizontal = 9.dp, vertical = 3.dp)
+                        )
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    // 紧凑写法，窄屏也不会被截成「3200 /」
+                    Text(
+                        text = "${state.waterMl}/${goalWater}ml",
+                        fontSize = 10.sp,
+                        color = TextSecondary,
+                        maxLines = 1
+                    )
+                }
+            }
+        } // 外层 Row 结束
+
         // ---------- 轻断食状态条（2026-11-12 三态，对标竞品） ----------
         // 进食中 = 浅绿底绿字、断食中 = 浅橙底橙字、未开始 = 灰底灰字；
         // 自由断食优先于方案显示（它有自己的秒表）。浅色底不抢卡片主信息，
@@ -929,7 +982,6 @@ private fun TodaySummaryCard(
                 kotlinx.coroutines.delay(if (fastingFreeStart > 0L) 1_000L else 60_000L)
             }
         }
-
         val freeStart = fastingFreeStart
         val freeRunning = freeStart > 0L && freeStart <= statusNow
         val freeScheduled = freeStart > 0L && freeStart > statusNow
@@ -992,7 +1044,7 @@ private fun TodaySummaryCard(
                     .clip(RoundedCornerShape(999.dp))
                     .background(streakBg)
                     .clickable { onOpenFasting() }
-                    .padding(horizontal = 10.dp, vertical = 4.dp),
+                    .padding(horizontal = 10.dp, vertical = 3.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
@@ -1003,54 +1055,7 @@ private fun TodaySummaryCard(
                 )
             }
         }
-            } // 左栏 Column 结束
 
-            // 右栏：一根贯穿整张卡的高水杯，中间挂完成度胶囊，下面写「已喝/目标」
-            if (showWater) {
-                Spacer(Modifier.width(12.dp))
-                Column(
-                    modifier = Modifier.width(82.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Box(
-                        modifier = Modifier.size(width = 78.dp, height = 190.dp),
-                        contentAlignment = Alignment.BottomCenter
-                    ) {
-                        WaterCup(
-                            ratio = state.waterMl.toFloat() / goalWater.coerceAtLeast(1),
-                            bubbleLevel = waterBubbles,
-                            modifier = Modifier.fillMaxSize(),
-                            onClick = onCupClick,
-                            // 参考图里水是蓝色的：固定语义色，不跟主题变
-                            fillColor = MultiColor.WaterFill,
-                            surfaceColor = MultiColor.WaterSurface,
-                            outlineColor = MultiColor.WaterOutline,
-                            bubbleTint = Color.White.copy(alpha = 0.75f),
-                            // v1.5：杯内容量数字整个去掉（主人不要杯内计量数字）
-                        )
-                        Text(
-                            text = "$waterPercent%",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MultiColor.WaterText,
-                            modifier = Modifier
-                                .padding(bottom = 46.dp)
-                                .clip(RoundedCornerShape(999.dp))
-                                .background(MultiColor.WaterFill.copy(alpha = 0.24f))
-                                .padding(horizontal = 9.dp, vertical = 3.dp)
-                        )
-                    }
-                    Spacer(Modifier.height(6.dp))
-                    // 紧凑写法，窄屏也不会被截成「3200 /」
-                    Text(
-                        text = "${state.waterMl}/${goalWater}ml",
-                        fontSize = 10.sp,
-                        color = TextSecondary,
-                        maxLines = 1
-                    )
-                }
-            }
-        } // 外层 Row 结束
     } // SectionCard 结束
 }
 
