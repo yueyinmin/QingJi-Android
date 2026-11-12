@@ -321,16 +321,19 @@ fun DiaryScreen(
 
         // ---------- 右下角固定的「写一篇」 ----------
         // 为什么放右下角：这个页面会越写越长，放右上角要滚回顶部才能点。
-        // v1.0.7：按钮块必须放在快捷按钮**之后**组合 —— Compose 后组合的在上层，
-        // 以前它在快捷按钮前面，「写一篇」的弹出动画经过快捷按钮区域时会被盖住，看着像被遮挡。
+        // v1.0.7 两连修：
+        //   ① 按钮块必须在快捷按钮**之后**组合 —— Compose 后组合的在上层，否则动画
+        //      经过快捷按钮区域时被盖住；
+        //   ② enter 里去掉 slideInVertically —— Scaffold 的 bottomBar 绘制在 content
+        //      **之后**，按钮从下方滑入时会越出内容区底边，越界部分正好被**方形的
+        //      导航栏**盖住，看起来就是「圆形按钮被方形遮挡」。改成原位缩放 + 淡入，
+        //      不做任何位移，弹出感还在，也不会再穿到导航栏底下。
         AnimatedVisibility(
             visible = fabVisible,
             enter = scaleIn(
                 animationSpec = spring(dampingRatio = 0.45f, stiffness = 380f),
                 initialScale = 0.5f
-            ) + fadeIn(animationSpec = tween(180)) + slideInVertically(
-                animationSpec = spring(dampingRatio = 0.5f, stiffness = 380f)
-            ) { height -> height / 2 },
+            ) + fadeIn(animationSpec = tween(180)),
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(end = 20.dp, bottom = 20.dp)
