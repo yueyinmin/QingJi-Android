@@ -54,9 +54,21 @@ class FastingRulesFreeTest {
     fun `开始时间非法时给出可读原因`() {
         val now = 1_700_000_000_000L
         assertNotNull(FastingRules.freeStartIssue(0L, now))
-        assertNotNull(FastingRules.freeStartIssue(now + hour, now))
+        // 2026-11-11：未来时间改为允许（预约），只有约到 7 天外才拒绝
+        assertNull(FastingRules.freeStartIssue(now + hour, now))
+        assertNotNull(FastingRules.freeStartIssue(now + 8 * 24 * hour, now))
+        assertNull(FastingRules.freeStartIssue(now + 7 * 24 * hour, now))
         assertNotNull(FastingRules.freeStartIssue(now - 73 * hour, now))
         assertNull(FastingRules.freeStartIssue(now - 12 * hour, now))
+    }
+
+    @Test
+    fun `预约状态判定与倒计时文案`() {
+        val now = 1_700_000_000_000L
+        assertTrue(FastingRules.freeIsScheduled(now + hour, now))
+        assertTrue(!FastingRules.freeIsScheduled(now - hour, now))
+        assertTrue(FastingRules.freeScheduleLabel(now + 3 * hour, now).contains("还有 3 小时"))
+        assertTrue(FastingRules.freeScheduleLabel(now + hour, now).contains("开始"))
     }
 
     @Test

@@ -20,8 +20,14 @@ import java.time.YearMonth
  */
 object FastingRules {
 
-    /** 常见方案：断食小时数 */
-    val PLANS = listOf(16, 14, 12, 18, 20)
+    /**
+     * 常见方案：断食小时数。
+     *
+     * 2026-11-11：从 5 个减到 3 个。18:6 / 20:4 对刚开始的人基本做不到，
+     * 而且 5 个方案在设置里排成「3 + 2」两行，第二行两颗被拉宽、看着像连在一起。
+     * 已有用户如果之前选过 18 / 20，planHours 仍是那个值，显示和计算都不受影响。
+     */
+    val PLANS = listOf(16, 14, 12)
 
     fun planLabel(hours: Int): String = "$hours:${24 - hours}"
 
@@ -163,14 +169,33 @@ object FastingRules {
     /**
      * 开始时间是否可用。null = 没问题，否则是一句给用户看的话。
      *
-     * 上限 72 小时：再长基本是日期选错或忘了结束，不该直接写进历史。
-     * 未来时间也不接受 —— 那样瞬间时长会变成 0，看着像 bug。
+     * 2026-11-11：允许「预约」未来的开始时间（用户明确要的）——
+     * 选了明天 20:00，就是预约一段明天开始的断食，到点计时自动走。
+     * 上限：往前往后都不超过 7 天，再长基本是选错日期。
      */
     fun freeStartIssue(startMillis: Long, nowMillis: Long): String? = when {
         startMillis <= 0L -> "还没选开始时间"
-        startMillis > nowMillis -> "开始时间不能晚于现在"
+        startMillis - nowMillis > 7L * 24 * 60 * 60 * 1000 -> "开始时间最多只能约到 7 天后"
         nowMillis - startMillis > 72L * 60 * 60 * 1000 -> "开始时间超过 72 小时了，确认一下日期有没有选错"
         else -> null
+    }
+
+    /** 是否处于「预约」状态：开始时间在未来，还没真正开始断。 */
+    fun freeIsScheduled(startMillis: Long, nowMillis: Long): Boolean = startMillis > nowMillis
+
+    /** 预约状态文案：「明天 20:00 开始 · 还有 8 小时」。 */
+    fun freeScheduleLabel(startMillis: Long, nowMillis: Long): String {
+        val zone = java.time.ZoneId.systemDefault()
+        val start = java.time.Instant.ofEpochMilli(startMillis).atZone(zone)
+        val startDay = start.toLocalDate()
+        val nowDay = java.time.Instant.ofEpochMilli(nowMillis).atZone(zone).toLocalDate()
+        val day = when ((startDay.toEpochDay() - nowDay.toEpochDay()).toInt()) {
+            0 -> "今天"
+            1 -> "明天"
+            else -> "${startDay.monthValue}月${startDay.dayOfMonth}日"
+        }
+        val gapMinutes = freeElapsedMinutes(nowMillis, startMillis)
+        return "$day ${"%02d:%02d".format(start.hour, start.minute)} 开始 · 还有 ${freeDurationLabel(gapMinutes)}"
     }
 
     /** 结束时不足 1 分钟不值得记一条，返回提示语；null = 正常可记录。 */

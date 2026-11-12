@@ -753,6 +753,24 @@ class FastingViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * 一键开启轻断食（2026-11-11 改版）。
+     *
+     * 沿用当前方案和进食窗口，顺手把「时段切换提醒」打开 ——
+     * 用户要的就是「选了就自动提醒」，不该让他再去设置里找开关。
+     */
+    fun enableFasting() {
+        val s = settings.value
+        saveSettings(
+            enabled = true,
+            planHours = s.fastingPlanHours,
+            startMinute = s.fastingEatStartMinute,
+            endMinute = s.fastingEatEndMinute,
+            days = s.fastingDays,
+            phaseAlert = true
+        )
+    }
+
     /** 断食常驻通知开关（前台服务只负责把现有断食状态挂到通知栏）。 */
     fun setOngoingNotification(enabled: Boolean) {
         viewModelScope.launch {
@@ -803,6 +821,24 @@ class FastingViewModel(app: Application) : AndroidViewModel(app) {
             )
             freeMessage = ""
             com.qingji.app.notify.FastingService.sync(ctx)
+        }
+    }
+
+    /** 取消一段还没开始的预约（只有预约状态才有意义，进行中的请走「结束并保存」）。 */
+    fun cancelFreeFasting() {
+        if (settings.value.fastingFreeStart <= 0L) {
+            freeMessage = "当前没有进行中或预约中的自由断食"
+            return
+        }
+        viewModelScope.launch {
+            val ctx = getApplication<Application>()
+            com.qingji.app.data.prefs.SettingsStore.set(
+                ctx,
+                com.qingji.app.data.prefs.SettingsKeys.FASTING_FREE_START,
+                0L
+            )
+            com.qingji.app.notify.FastingService.sync(ctx)
+            freeMessage = "已取消预约"
         }
     }
 

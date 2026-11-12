@@ -64,6 +64,7 @@ import com.qingji.app.ui.theme.QingJiGreenDark
 import com.qingji.app.ui.theme.QingJiGreenLight
 import com.qingji.app.ui.theme.TextPrimary
 import com.qingji.app.ui.theme.TextSecondary
+import com.qingji.app.ui.theme.WarnOrange
 import com.qingji.app.ui.theme.TextSizes
 import com.qingji.app.ui.viewmodel.FastingViewModel
 import kotlinx.coroutines.delay
@@ -177,18 +178,26 @@ fun FastingScreen(
                 message = vm.freeMessage,
                 onStartNow = { vm.startFreeFasting() },
                 onPickStart = { showFreeStartPicker = true },
-                onEnd = { vm.endFreeFasting() }
+                onEnd = { vm.endFreeFasting() },
+                onCancel = { vm.cancelFreeFasting() }
             )
             Spacer(Modifier.height(Dimens.Gap))
 
             if (!settings.fastingEnabled) {
-                HintBox(text = "还没开启轻断食。点右上角「设置」选个方案（16:8 / 14:10 / 12:12 / 18:6 / 20:4）就能开始。")
+                // 未开启时不再只给一句文字提示：直接把方案和时间摆出来，
+                // 一个按钮就能开，省得用户去右上角翻设置。
+                FastingPreviewCard(
+                    planHours = settings.fastingPlanHours,
+                    eatStartMinute = settings.fastingEatStartMinute,
+                    eatEndMinute = settings.fastingEatEndMinute,
+                    onEnable = { vm.enableFasting() }
+                )
             } else {
                 if (!isFastingDay) {
                     HintBox(text = "今天不在你的断食周期里（可在设置里改生效星期），想吃就吃，计划明天继续。")
                     Spacer(Modifier.height(Dimens.Gap))
                 }
-                TimeBanner(status)
+                TimeBanner(status, vm.now)
                 Spacer(Modifier.height(Dimens.Gap))
                 FastingRing(status)
                 Spacer(Modifier.height(Dimens.Gap))
@@ -217,6 +226,7 @@ fun FastingScreen(
         com.qingji.app.ui.components.ExerciseDateTimeWheelSheet(
             initial = java.time.LocalDateTime.now(),
             title = "选择断食开始时间",
+            futureDays = 7,
             onConfirm = { picked ->
                 showFreeStartPicker = false
                 vm.startFreeFasting(
@@ -282,9 +292,12 @@ private fun FastingFreeCard(
     message: String,
     onStartNow: () -> Unit,
     onPickStart: () -> Unit,
-    onEnd: () -> Unit
+    onEnd: () -> Unit,
+    onCancel: () -> Unit
 ) {
     val running = freeStart > 0L
+    // 预约状态：开始时间在未来。这时不显示计时，显示「还有多久开始」
+    val scheduled = running && FastingRules.freeIsScheduled(freeStart, System.currentTimeMillis())
     var elapsedSeconds by remember(freeStart) { mutableStateOf(0) }
     LaunchedEffect(freeStart) {
         while (freeStart > 0L) {
@@ -303,40 +316,61 @@ private fun FastingFreeCard(
                 color = TextPrimary
             )
             Spacer(Modifier.height(3.dp))
-            if (running) {
-                val minutes = elapsedSeconds / 60
-                Text(
-                    text = "已断食 ${clockText(elapsedSeconds)} · " +
-                        FastingRules.phase(minutes / 60.0).first,
-                    fontSize = 12.sp,
-                    color = QingJiGreenDark
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = "开始于 ${startLabel(freeStart)}",
-                    fontSize = 11.sp,
-                    color = TextSecondary
-                )
-            } else {
-                Text(
-                    text = "不预设方案，自己定开始时间；结束后记进历史",
-                    fontSize = 11.sp,
-                    color = TextSecondary
-                )
+            when {
+                scheduled -> {
+                    Text(
+                        text = "预约中 · ${FastingRules.freeScheduleLabel(freeStart, System.currentTimeMillis())}",
+                        fontSize = 12.sp,
+                        color = WarnOrange
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = "到点自动开始计时并更新常驻通知，不需要守着",
+                        fontSize = 11.sp,
+                        color = TextSecondary
+                    )
+                }
+                running -> {
+                    val minutes = elapsedSeconds / 60
+                    Text(
+                        text = "已断食 ${clockText(elapsedSeconds)} · " +
+                            FastingRules.phase(minutes / 60.0).first,
+                        fontSize = 12.sp,
+                        color = QingJiGreenDark
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = "开始于 ${startLabel(freeStart)}",
+                        fontSize = 11.sp,
+                        color = TextSecondary
+                    )
+                }
+                else -> {
+                    Text(
+                        text = "不预设方案；可约未来 7 天内的开始时间，结束后记进历史",
+                        fontSize = 11.sp,
+                        color = TextSecondary
+                    )
+                }
             }
         }
 
         Spacer(Modifier.height(10.dp))
 
-        if (running) {
-            PillText(
+        when {
+            scheduled -> PillText(
+                text = "取消预约",
+                filled = false,
+                modifier = Modifier.fillMaxWidth(),
+                onClick = onCancel
+            )
+            running -> PillText(
                 text = "结束并保存",
                 filled = true,
                 modifier = Modifier.fillMaxWidth(),
                 onClick = onEnd
             )
-        } else {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            else -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 PillText(
                     text = "现在开始",
                     filled = true,
@@ -403,20 +437,43 @@ private fun startLabel(millis: Long): String {
     return "%s %02d:%02d".format(day, zoned.hour, zoned.minute)
 }
 
-/** 顶部时间条：断食开始 → 可进食。 */
+/**
+ * 未开启时的方案预览（2026-11-11 改版）。
+ *
+ * 以前这里只有一句「点右上角设置选个方案」：看不到具体时间，也不知道开完会怎样。
+ * 现在直接把方案和时间摆出来，一个按钮开启，并写明「开启后全自动、不用手动」。
+ */
 @Composable
-private fun TimeBanner(status: FastingStatus) {
+private fun FastingPreviewCard(
+    planHours: Int,
+    eatStartMinute: Int,
+    eatEndMinute: Int,
+    onEnable: () -> Unit
+) {
     SectionCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "${FastingRules.planLabel(planHours)} 方案",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TextPrimary
+            )
+            Spacer(Modifier.weight(1f))
+            Text(text = "未开启", fontSize = 11.sp, color = WarnOrange)
+        }
+
+        Spacer(Modifier.height(10.dp))
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
-                Text(text = "断食开始", fontSize = 11.sp, color = TextSecondary)
+                Text(text = "断食开始时间", fontSize = 11.sp, color = TextSecondary)
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = FastingRules.minuteLabel(status.eatEndMinute),
+                    text = "今天 ${FastingRules.minuteLabel(eatEndMinute)}",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     color = TextPrimary
@@ -424,16 +481,92 @@ private fun TimeBanner(status: FastingStatus) {
             }
             Text(text = "→", fontSize = 18.sp, color = QingJiGreen)
             Column(horizontalAlignment = Alignment.End) {
-                Text(text = "可以进食", fontSize = 11.sp, color = TextSecondary)
+                Text(text = "可进食时间", fontSize = 11.sp, color = TextSecondary)
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = FastingRules.minuteLabel(status.eatStartMinute),
+                    text = "明天 ${FastingRules.minuteLabel(eatStartMinute)}",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     color = QingJiGreenDark
                 )
             }
         }
+
+        Spacer(Modifier.height(10.dp))
+        Text(
+            text = "开启后按这个时间自动开始和结束，到点前会提醒，不需要你手动操作；" +
+                "吃饭时间想改，右上角「设置」里能调。",
+            fontSize = 11.sp,
+            color = TextSecondary,
+            lineHeight = 17.sp
+        )
+
+        Spacer(Modifier.height(12.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(999.dp))
+                .background(QingJiGreen)
+                .clickable { onEnable() }
+                .padding(vertical = 10.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "开启轻断食",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White
+            )
+        }
+    }
+}
+
+/** 顶部时间条：断食开始 → 可进食。 */
+@Composable
+private fun TimeBanner(status: FastingStatus, now: java.time.LocalTime) {
+    // 2026-11-11：时间条以前只有「15:40 → 07:40」，看不出是哪天。
+    // 凌晨（还没到进食窗口开始）时断食是昨天起的、今天就能吃；
+    // 其余情况今天开始断食、明天才能吃。
+    val nowMinute = now.hour * 60 + now.minute
+    val startedYesterday = nowMinute < status.eatStartMinute
+    val startDay = if (startedYesterday) "昨天" else "今天"
+    val eatDay = if (startedYesterday) "今天" else "明天"
+
+    SectionCard {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(text = "断食开始时间", fontSize = 11.sp, color = TextSecondary)
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = "$startDay ${FastingRules.minuteLabel(status.eatEndMinute)}",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+            }
+            Text(text = "→", fontSize = 18.sp, color = QingJiGreen)
+            Column(horizontalAlignment = Alignment.End) {
+                Text(text = "可进食时间", fontSize = 11.sp, color = TextSecondary)
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = "$eatDay ${FastingRules.minuteLabel(status.eatStartMinute)}",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = QingJiGreenDark
+                )
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        // 这句是用户最常问的：到底要不要自己点开始/结束
+        Text(
+            text = "到点自动开始和结束，不需要手动操作；两段切换前会发提醒",
+            fontSize = 10.sp,
+            color = TextSecondary
+        )
     }
 }
 

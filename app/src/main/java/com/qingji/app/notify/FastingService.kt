@@ -138,7 +138,17 @@ class FastingService : Service() {
 
         // ① 自由断食优先：只看开始时刻，跟方案无关。
         //    Chronometer 从开始时刻走，服务不用每秒醒；跨日也不会算错。
+        //    预约态（开始时间在未来）：显示倒计时，到点这个分支自然切成计时。
         if (settings.fastingFreeStart > 0L) {
+            if (FastingRules.freeIsScheduled(settings.fastingFreeStart, now)) {
+                return FastingNotifier.build(
+                    this,
+                    "断食预约中",
+                    FastingRules.freeScheduleLabel(settings.fastingFreeStart, now) + " · 到点自动开始",
+                    now,
+                    chronometer = false
+                )
+            }
             val minutes = FastingRules.freeElapsedMinutes(settings.fastingFreeStart, now)
             val phase = FastingRules.phase(minutes / 60.0).first
             return FastingNotifier.build(

@@ -79,6 +79,7 @@ import com.qingji.app.ui.theme.MacroProtein
 import com.qingji.app.ui.theme.MultiColor
 import com.qingji.app.ui.theme.pressable
 import com.qingji.app.ui.theme.QingJiGreen
+import com.qingji.app.ui.theme.WarnOrange
 import com.qingji.app.ui.theme.QingJiGreenDark
 import com.qingji.app.ui.theme.QingJiGreenLight
 import com.qingji.app.ui.theme.TextPrimary
@@ -904,85 +905,57 @@ private fun TodaySummaryCard(
         // 饮水不再单独占一块 + 四颗快捷按钮：进度收进右侧的高水杯，
         // 加水操作收进「快速记录喝水」弹层（点杯子打开），卡片更接近参考样式。
 
-        // ---------- 轻断食条（放在「今日剩余」这张卡的最底下） ----------
-        Spacer(Modifier.height(14.dp))
-        if (!fastingEnabled) {
-            // 2026-11-11 合并验证修：入口以前只在「已开启」后才显示，
-            // 而开启开关本身在断食页里 —— 新装用户根本没有路径进断食页。
-            // 未开启时也给一条浅色入口，点进去选方案。
+        // ---------- 轻断食入口（2026-11-11 改版） ----------
+        // 以前是整行实底绿大条，太抢眼也不居中。现在收成居中的小胶囊：
+        // 橙黄底 + 白字，一眼能找到但不抢卡片主信息；断食时长直接写在文案里。
+        Spacer(Modifier.height(12.dp))
+
+        // 每分钟刷一次，「剩余 xx:xx」才会自己走（只在开启时才转）
+        var fastingNow by remember { mutableStateOf(java.time.LocalTime.now()) }
+        LaunchedEffect(fastingEnabled) {
+            if (!fastingEnabled) return@LaunchedEffect
+            while (true) {
+                kotlinx.coroutines.delay(60_000L)
+                fastingNow = java.time.LocalTime.now()
+            }
+        }
+        val fasting = com.qingji.app.domain.FastingRules.status(
+            now = fastingNow,
+            planHours = fastingPlanHours,
+            eatStartMinute = fastingEatStart,
+            eatEndMinute = fastingEatEnd,
+            enabled = fastingEnabled
+        )
+        val fastingDaySet = fastingDays.split(',').mapNotNull { it.trim().toIntOrNull() }.toSet()
+        val isFastingDay = java.time.LocalDate.now().dayOfWeek.value in fastingDaySet
+
+        val fastingText = when {
+            !fastingEnabled -> "轻断食"
+            !isFastingDay -> "${com.qingji.app.domain.FastingRules.planLabel(fastingPlanHours)} 轻断食 · 今日休息"
+            fasting.active -> "${com.qingji.app.domain.FastingRules.planLabel(fastingPlanHours)} 轻断食 · 剩 " +
+                com.qingji.app.domain.FastingRules.durationLabel(fasting.remainMinutes)
+            else -> "${com.qingji.app.domain.FastingRules.planLabel(fastingPlanHours)} 轻断食 · 进食中"
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center
+        ) {
             Row(
                 modifier = Modifier
-                    .fillMaxWidth()
                     .clip(RoundedCornerShape(999.dp))
-                    .background(QingJiGreenLight)
+                    .background(WarnOrange)
                     .clickable { onOpenFasting() }
-                    .padding(horizontal = 14.dp, vertical = 11.dp),
-                horizontalArrangement = Arrangement.Center,
+                    .padding(horizontal = 13.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = "🕐", fontSize = 13.sp)
-                Spacer(Modifier.size(8.dp))
+                Text(text = "🕐", fontSize = 11.sp)
+                Spacer(Modifier.size(6.dp))
                 Text(
-                    text = "轻断食 · 未开启，点这里选方案",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = QingJiGreenDark
-                )
-            }
-        } else {
-
-            // 每分钟刷一次，「剩余 xx:xx」才会自己走
-            var fastingNow by remember { mutableStateOf(java.time.LocalTime.now()) }
-            LaunchedEffect(Unit) {
-                while (true) {
-                    kotlinx.coroutines.delay(60_000L)
-                    fastingNow = java.time.LocalTime.now()
-                }
-            }
-            val fasting = com.qingji.app.domain.FastingRules.status(
-                now = fastingNow,
-                planHours = fastingPlanHours,
-                eatStartMinute = fastingEatStart,
-                eatEndMinute = fastingEatEnd,
-                enabled = true
-            )
-
-            // v1.0.3：改成明显的实底绿按钮（之前浅色条看着不像能点）
-            val fastingDaySet = fastingDays.split(',').mapNotNull { it.trim().toIntOrNull() }.toSet()
-            val isFastingDay = java.time.LocalDate.now().dayOfWeek.value in fastingDaySet
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(QingJiGreen)
-                    .clickable { onOpenFasting() }
-                    .padding(horizontal = 14.dp, vertical = 11.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(text = "🕐", fontSize = 13.sp)
-                Spacer(Modifier.size(8.dp))
-                Text(
-                    text = if (!isFastingDay) {
-                        "轻断食 · 今日休息"
-                    } else {
-                        "轻断食 · " + com.qingji.app.domain.FastingRules.planLabel(fastingPlanHours)
-                    },
-                    fontSize = 13.sp,
+                    text = fastingText,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = Color.White
-                )
-                Text(
-                    text = if (!isFastingDay) {
-                        ""
-                    } else if (fasting.active) {
-                        " · 断食中 · 剩余 ${com.qingji.app.domain.FastingRules.durationLabel(fasting.remainMinutes)}"
-                    } else {
-                        " · 进食中"
-                    },
-                    fontSize = 12.sp,
-                    color = Color.White.copy(alpha = 0.85f)
                 )
             }
         }
