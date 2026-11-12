@@ -761,11 +761,13 @@ class FastingViewModel(app: Application) : AndroidViewModel(app) {
     /** 只改方案小时数；进食窗口、生效星期、提醒开关保持不变。方案卡只在已启用时显示。 */
     fun updatePlanHours(hours: Int) {
         val s = settings.value
+        // v1.0.7：可进食时间自动对标方案（断食开始 + 方案小时数，跨零点取模），不再单独存
+        val end = s.fastingEatEndMinute
         saveSettings(
             enabled = true,
             planHours = hours,
-            startMinute = s.fastingEatStartMinute,
-            endMinute = s.fastingEatEndMinute,
+            startMinute = (end + hours * 60) % 1440,
+            endMinute = end,
             days = s.fastingDays,
             phaseAlert = s.fastingPhaseAlert
         )
@@ -779,11 +781,13 @@ class FastingViewModel(app: Application) : AndroidViewModel(app) {
      */
     fun enableFasting() {
         val s = settings.value
+        // 可进食时间按方案自动对标（断食开始 + 方案小时数）
+        val end = s.fastingEatEndMinute
         saveSettings(
             enabled = true,
             planHours = s.fastingPlanHours,
-            startMinute = s.fastingEatStartMinute,
-            endMinute = s.fastingEatEndMinute,
+            startMinute = (end + s.fastingPlanHours * 60) % 1440,
+            endMinute = end,
             days = s.fastingDays,
             phaseAlert = true
         )

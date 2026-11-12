@@ -54,12 +54,18 @@ class FastingRulesFreeTest {
     fun `开始时间非法时给出可读原因`() {
         val now = 1_700_000_000_000L
         assertNotNull(FastingRules.freeStartIssue(0L, now))
-        // 2026-11-11：未来时间改为允许（预约），只有约到 7 天外才拒绝
+        // 未来允许（预约），只有约到 7 天外才拒绝
         assertNull(FastingRules.freeStartIssue(now + hour, now))
         assertNotNull(FastingRules.freeStartIssue(now + 8 * 24 * hour, now))
         assertNull(FastingRules.freeStartIssue(now + 7 * 24 * hour, now))
+        // 2026-11-12：今天以前的日期直接拒绝
+        assertNotNull(FastingRules.freeStartIssue(now - 12 * hour, now))
         assertNotNull(FastingRules.freeStartIssue(now - 73 * hour, now))
-        assertNull(FastingRules.freeStartIssue(now - 12 * hour, now))
+        // 今天 0 点起允许
+        val midnight = java.time.Instant.ofEpochMilli(now)
+            .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+            .atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        assertNull(FastingRules.freeStartIssue(midnight, now))
     }
 
     @Test
@@ -72,9 +78,11 @@ class FastingRulesFreeTest {
     }
 
     @Test
-    fun `刚好72小时仍然允许`() {
+    fun `过去时间现在一律拒绝`() {
+        // 2026-11-12 起：自由断食开始时间不允许选今天以前，72 小时规则随之退役
         val now = 1_700_000_000_000L
-        assertNull(FastingRules.freeStartIssue(now - 72 * hour, now))
+        assertNotNull(FastingRules.freeStartIssue(now - 72 * hour, now))
+        assertNotNull(FastingRules.freeStartIssue(now - 12 * hour, now))
     }
 
     @Test

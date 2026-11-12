@@ -81,4 +81,16 @@ class FastingRulesStreakTest {
         assertEquals(30 to "一月", FastingRules.reachedMilestone(45))
         assertEquals(100 to "百日", FastingRules.reachedMilestone(200))
     }
+
+    @Test
+    fun `可进食时间由断食开始时间加方案小时自动对标`() {
+        // endMinute=940（15:40）→ 16h 方案：start=(940+960)%1440=460（07:40）
+        assertEquals(460, (940 + 16 * 60) % 1440)
+        // 14h：start=(940+840)%1440=340（05:40）
+        assertEquals(340, (940 + 14 * 60) % 1440)
+        // 跨零点：end=1320（22:00）+16h → (1320+960)%1440=840（14:00 次日）
+        assertEquals(840, (1320 + 16 * 60) % 1440)
+        // 12h：start=(940+720)%1440=220（03:40）
+        assertEquals(220, (940 + 12 * 60) % 1440)
+    }
 }

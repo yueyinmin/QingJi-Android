@@ -173,11 +173,17 @@ object FastingRules {
      * 选了明天 20:00，就是预约一段明天开始的断食，到点计时自动走。
      * 上限：往前往后都不超过 7 天，再长基本是选错日期。
      */
-    fun freeStartIssue(startMillis: Long, nowMillis: Long): String? = when {
-        startMillis <= 0L -> "还没选开始时间"
-        startMillis - nowMillis > 7L * 24 * 60 * 60 * 1000 -> "开始时间最多只能约到 7 天后"
-        nowMillis - startMillis > 72L * 60 * 60 * 1000 -> "开始时间超过 72 小时了，确认一下日期有没有选错"
-        else -> null
+    fun freeStartIssue(startMillis: Long, nowMillis: Long): String? {
+        val zone = java.time.ZoneId.systemDefault()
+        val startDay = java.time.Instant.ofEpochMilli(startMillis).atZone(zone).toLocalDate()
+        val today = java.time.Instant.ofEpochMilli(nowMillis).atZone(zone).toLocalDate()
+        return when {
+            startMillis <= 0L -> "还没选开始时间"
+            // 2026-11-12：今天以前的日期直接拒绝（用户要求），最多约到 7 天后
+            startDay.isBefore(today) -> "开始时间不能选今天以前"
+            startMillis - nowMillis > 7L * 24 * 60 * 60 * 1000 -> "开始时间最多只能约到 7 天后"
+            else -> null
+        }
     }
 
     /** 是否处于「预约」状态：开始时间在未来，还没真正开始断。 */

@@ -233,6 +233,7 @@ fun FastingScreen(
             initial = java.time.LocalDateTime.now(),
             title = "选择断食开始时间",
             futureDays = 7,
+            pastDays = 0,
             onConfirm = { picked ->
                 showFreeStartPicker = false
                 vm.startFreeFasting(
@@ -1161,8 +1162,9 @@ private fun FastingSettingsDialog(
 ) {
     var enabled by remember { mutableStateOf(current.fastingEnabled) }
     var planHours by remember { mutableStateOf(current.fastingPlanHours) }
-    var startMinute by remember { mutableStateOf(current.fastingEatStartMinute) }
     var endMinute by remember { mutableStateOf(current.fastingEatEndMinute) }
+    // v1.0.7：可进食时间不再单独选 —— 由「断食开始时间 + 方案小时数」自动对标（跨零点取模），不可修改
+    val startMinute = (endMinute + planHours * 60) % 1440
 
     var fastingDays by remember { mutableStateOf(current.fastingDays) }
     var phaseAlert by remember { mutableStateOf(current.fastingPhaseAlert) }
@@ -1297,24 +1299,43 @@ private fun FastingSettingsDialog(
                 }
 
                 Spacer(Modifier.height(14.dp))
-                Text(text = "进食窗口", fontSize = 13.sp, color = TextSecondary)
+                Text(text = "断食时间", fontSize = 13.sp, color = TextSecondary)
                 Spacer(Modifier.height(8.dp))
                 TimeAdjustRow(
-                    label = "开始进食",
-                    minute = startMinute,
-                    onMinus = { startMinute = (startMinute - 30 + 1440) % 1440 },
-                    onPlus = { startMinute = (startMinute + 30) % 1440 }
-                )
-                Spacer(Modifier.height(8.dp))
-                TimeAdjustRow(
-                    label = "结束进食",
+                    label = "断食开始时间",
                     minute = endMinute,
                     onMinus = { endMinute = (endMinute - 30 + 1440) % 1440 },
                     onPlus = { endMinute = (endMinute + 30) % 1440 }
                 )
                 Spacer(Modifier.height(8.dp))
+                // 只读行：可进食时间自动对标方案，不给加减按钮
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(Dimens.TinyCorner))
+                        .background(PageBackground)
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "可进食时间（自动）",
+                        fontSize = 13.sp,
+                        color = TextSecondary,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        text = FastingRules.minuteLabel(startMinute),
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = QingJiGreenDark,
+                        modifier = Modifier.width(64.dp),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
                 Text(
-                    text = "窗口外的时段就是断食期。结束时间可以早于开始时间（比如 22:00-06:00，跨零点也能算）。",
+                    text = "结束时间按方案自动对标（${FastingRules.planLabel(planHours)} 即 ${planHours} 小时后），不可修改。" +
+                        "窗口外的时段就是断食期，跨零点也能算。",
                     fontSize = 10.sp,
                     color = TextSecondary
                 )
