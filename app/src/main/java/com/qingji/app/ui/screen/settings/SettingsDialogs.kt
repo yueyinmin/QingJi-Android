@@ -11,11 +11,18 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,7 +33,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -87,6 +97,149 @@ fun ConfirmDialog(
         danger = danger
     ) {
         Text(body, fontSize = 13.sp, color = TextPrimary, lineHeight = 21.sp)
+    }
+}
+
+/**
+ * v1.0.8 极简设置行体系：34dp 彩色圆形图标 + 18dp 白色图标 + 单行标题。
+ * 刻意另起一套组件，不改动老组件 —— 二级页 / 小组件页还在用老的那两个。
+ */
+@Composable
+private fun SettingIconBadge(icon: ImageVector, color: Color) {
+    Box(
+        modifier = Modifier
+            .size(34.dp)
+            .clip(CircleShape)
+            .background(color),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = Color.White,
+            modifier = Modifier.size(18.dp)
+        )
+    }
+}
+
+/** 跳转行：右侧按需显示浅绿状态胶囊，最后统一一个箭头。 */
+@Composable
+fun SettingIconRow(
+    title: String,
+    icon: ImageVector,
+    iconColor: Color,
+    value: String = "",
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .clickable { onClick() }
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        SettingIconBadge(icon, iconColor)
+        Text(
+            text = title,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+            color = TextPrimary,
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 12.dp)
+        )
+        if (value.isNotBlank()) {
+            Text(
+                text = value,
+                fontSize = 12.sp,
+                color = QingJiGreen,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(Color(0xFFE8F5EF))
+                    .padding(horizontal = 8.dp, vertical = 3.dp)
+            )
+            Spacer(Modifier.width(6.dp))
+        }
+        Text(text = "›", fontSize = 20.sp, color = Color(0xFFC6CBD3))
+    }
+}
+
+/** 开关行：右侧直接放 Switch，不再放箭头（按新版视觉规范）。 */
+@Composable
+fun SettingIconSwitchRow(
+    title: String,
+    icon: ImageVector,
+    iconColor: Color,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        SettingIconBadge(icon, iconColor)
+        Text(
+            text = title,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+            color = TextPrimary,
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 12.dp)
+        )
+        androidx.compose.material3.Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange
+        )
+    }
+}
+
+/** 设置页顶部常驻搜索框：输入即过滤设置项，清空按钮一键还原。 */
+@Composable
+fun SettingsSearchBox(query: String, onQueryChange: (String) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 4.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(CardWhite)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Filled.Search,
+            contentDescription = "搜索",
+            tint = TextSecondary,
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(Modifier.width(8.dp))
+        Box(modifier = Modifier.weight(1f)) {
+            if (query.isBlank()) {
+                Text(text = "搜索设置", fontSize = 13.sp, color = TextSecondary)
+            }
+            BasicTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                singleLine = true,
+                textStyle = TextStyle(fontSize = 13.sp, color = TextPrimary),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        if (query.isNotBlank()) {
+            Spacer(Modifier.width(6.dp))
+            Icon(
+                imageVector = Icons.Filled.Close,
+                contentDescription = "清空",
+                tint = TextSecondary,
+                modifier = Modifier
+                    .size(16.dp)
+                    .clickable { onQueryChange("") }
+            )
+        }
     }
 }
 

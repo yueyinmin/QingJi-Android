@@ -29,6 +29,30 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ShowChart
+import androidx.compose.material.icons.automirrored.outlined.DirectionsRun
+import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.CleaningServices
+import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.ImportExport
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.Widgets
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.Code
+import androidx.compose.material.icons.outlined.MonitorWeight
+import androidx.compose.material.icons.outlined.PhotoCamera
+import androidx.compose.material.icons.outlined.Restaurant
+import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -48,6 +72,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -59,7 +84,9 @@ import com.qingji.app.data.backup.BackupManager
 import com.qingji.app.data.prefs.QingJiSettings
 import com.qingji.app.ui.screen.settings.GroupTitle
 import com.qingji.app.ui.screen.settings.RowDivider
-import com.qingji.app.ui.screen.settings.SettingValueRow
+import com.qingji.app.ui.screen.settings.SettingIconRow
+import com.qingji.app.ui.screen.settings.SettingIconSwitchRow
+import com.qingji.app.ui.screen.settings.SettingsSearchBox
 import com.qingji.app.ui.screen.settings.SettingsCard
 import com.qingji.app.ui.screen.settings.SwitchRow
 import com.qingji.app.ui.screen.settings.ToggleItem
@@ -114,11 +141,42 @@ import com.qingji.app.widget.WeightWidgetReceiver
  * ============================================================
  */
 
+/**
+ * v1.0.8 极简设置页：低饱和彩色图标配色 + 浅灰紫页面底色。
+ * 只在设置首页用，不改全局主题，其它页面配色不受影响。
+ */
+private val SettingsIconBlue = Color(0xFF5B8DEF)
+private val SettingsIconBlueLight = Color(0xFF4AA8E0)
+private val SettingsIconGreen = Color(0xFF4CAF88)
+private val SettingsIconOrange = Color(0xFFF2A03D)
+private val SettingsIconCoral = Color(0xFFF07C6E)
+private val SettingsIconPurple = Color(0xFF9B7BE0)
+private val SettingsIconPink = Color(0xFFE879A6)
+private val SettingsIconCyan = Color(0xFF3FB6C4)
+private val SettingsIconIndigo = Color(0xFF7A7FE0)
+private val SettingsIconRed = Color(0xFFE06A6A)
+private val SettingsIconTeal = Color(0xFF3FAE9A)
+private val SettingsIconGray = Color(0xFF8A93A6)
+private val SettingsPageBg = Color(0xFFF5F5F9)
+
+/** 设置首页一行：分组 / 标题 / 图标 / 右侧状态或开关 / 点击动作。 */
+private data class SettingEntry(
+    val group: String,
+    val title: String,
+    val icon: ImageVector,
+    val iconColor: Color,
+    val value: String = "",
+    /** 非 null 表示这一行是开关行（右侧放 Switch，不放箭头）。 */
+    val switchState: Boolean? = null,
+    val onSwitch: ((Boolean) -> Unit)? = null,
+    val onClick: (() -> Unit)? = null
+)
+
 /** 当前打开的是哪个弹窗。 */
 private enum class DialogKind {
     MACRO, WATER_GOAL, TIMEZONE, UNIT, THEME, REMINDERS,
     BOTTOM_TABS, AI_LANG, UI_LANG, PRIVACY, ICON, CACHE,
-    ABOUT, PLATFORM, VERSION, EXERCISE_PCT
+    ABOUT, PLATFORM, VERSION, EXERCISE_PCT, RECOGNITION, HOME_DISPLAY
 }
 
 /**
@@ -189,13 +247,15 @@ fun SettingsScreen(
     // 滚动状态放在最外层：进详情页再退回来，列表停在原来的位置，
     // 不会一退回去就跳到顶部（之前的问题就在这——列表被销毁重建了）。
     val listScroll = rememberScrollState()
+    // v1.0.8：搜索关键字放最外层，列表重组不会丢输入
+    var query by remember { mutableStateOf("") }
     // 全部二级项都是弹层：设置列表始终留在底下，弹层叠在上面
     androidx.activity.compose.BackHandler(enabled = dialog != null) { dialog = null }
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(PageBackground)
+            .background(SettingsPageBg)
     ) {
         // ---------- 标题栏 ----------
         Row(
@@ -226,174 +286,136 @@ fun SettingsScreen(
             )
         }
 
+        // v1.0.8：搜索框常驻，不跟着列表滚走
+        SettingsSearchBox(query = query, onQueryChange = { query = it })
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(listScroll)
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = 12.dp)
         ) {
-            // ================= 账号与安全 =================
-            GroupTitle(s("账号与安全"))
-            SettingsCard {
-                SettingValueRow(
-                    title = s("个人资料"),
-                    value = settings.nickname,
-                    iconColor = QingJiGreen
-                ) { onOpenProfile() }
-                RowDivider()
-                SettingValueRow(
-                    title = s("隐私与安全"),
-                    value = "",
-                    iconColor = QingJiGreen
-                ) { dialog = DialogKind.PRIVACY }
-            }
+            // v1.0.8：8 个分组、24 个真实功能项。文档里「设备绑定 / 导出日志」
+            // 这类代码里不存在的功能一律不做，避免出现点了没反应的假菜单。
+            val entries: List<SettingEntry> = buildList {
+                // 1 账号与安全（App 无账号，保留「隐私与安全」原名，不叫账号安全）
+                add(SettingEntry("账号与安全", s("个人资料"), Icons.Filled.Person, SettingsIconBlue,
+                    value = settings.nickname, onClick = { onOpenProfile() }))
+                add(SettingEntry("账号与安全", s("隐私与安全"), Icons.Filled.Lock, SettingsIconGreen,
+                    onClick = { dialog = DialogKind.PRIVACY }))
 
-            // ================= 热量与营养 =================
-            GroupTitle(s("热量与营养"))
-            SettingsCard {
-                SettingValueRow(
-                    title = s("饮食偏好与忌口"),
-                    value = s("去设置"),
-                    iconColor = QingJiGreen
-                ) { onOpenFoodPreference() }
-                RowDivider()
-                SettingValueRow(
-                    title = s("营养素分配方案"),
+                // 2 热量与营养
+                add(SettingEntry("热量与营养", s("营养素分配方案"), Icons.Outlined.Restaurant, SettingsIconGreen,
                     value = "${settings.proteinPct}/${settings.carbPct}/${settings.fatPct}",
-                    iconColor = QingJiGreen
-                ) { dialog = DialogKind.MACRO }
-                RowDivider()
-                // v1.0.7：补偿比例改二级菜单（五档胶囊），0% 等于关闭
-                SettingValueRow(
-                    title = s("运动消耗补偿"),
+                    onClick = { dialog = DialogKind.MACRO }))
+                add(SettingEntry("热量与营养", s("运动消耗补偿"), Icons.AutoMirrored.Outlined.DirectionsRun, SettingsIconOrange,
                     value = "${settings.exerciseCompensationPct}%",
-                    iconColor = WarnOrange
-                ) { dialog = DialogKind.EXERCISE_PCT }
-                RowDivider()
-                SettingValueRow(
-                    title = s("饮水目标"),
+                    onClick = { dialog = DialogKind.EXERCISE_PCT }))
+                add(SettingEntry("热量与营养", s("饮水目标"), Icons.Outlined.WaterDrop, SettingsIconBlueLight,
                     value = "${settings.waterGoalMl}ml",
-                    iconColor = QingJiGreenDark
-                ) { dialog = DialogKind.WATER_GOAL }
-            }
+                    onClick = { dialog = DialogKind.WATER_GOAL }))
+                add(SettingEntry("热量与营养", s("食谱偏好"), Icons.Filled.Favorite, SettingsIconCoral,
+                    onClick = { onOpenFoodPreference() }))
 
-            // ================= 记录与识别 =================
-            GroupTitle(s("记录与识别"))
-            SettingsCard {
-                SwitchRow(
-                    title = s("自动识别餐次"),
-                    checked = settings.autoMeal
-                ) { vm.setAutoMeal(it) }
-                RowDivider()
-                SwitchRow(
-                    title = s("估算偏保守"),
-                    checked = settings.conservativeEstimate
-                ) { vm.setConservativeEstimate(it) }
-                RowDivider()
-                SettingValueRow(
-                    title = s("AI 识别语言"),
-                    value = if (settings.aiLanguage == "auto") s("跟随输入") else s("简体中文"),
-                    iconColor = QingJiGreen.copy(alpha = 0.72f)
-                ) { dialog = DialogKind.AI_LANG }
-            }
+                // 3 记录与识别：3 个旧开关/选项收进一个「识别偏好」
+                add(SettingEntry("记录与识别", s("识别偏好"), Icons.Outlined.PhotoCamera, SettingsIconPurple,
+                    onClick = { dialog = DialogKind.RECOGNITION }))
 
-            // ================= 提醒 =================
-            GroupTitle(s("提醒"))
-            SettingsCard {
-                SettingValueRow(
-                    title = s("通知与提醒"),
-                    value = s("去设置"),
-                    iconColor = QingJiGreen
-                ) { dialog = DialogKind.REMINDERS }
-            }
+                // 4 提醒：保持单入口，4 类提醒 + 总开关都在原弹层里
+                add(SettingEntry("提醒", s("通知与提醒"), Icons.Filled.Notifications, SettingsIconPurple,
+                    onClick = { dialog = DialogKind.REMINDERS }))
 
-            // ================= 通用 =================
-            GroupTitle(s("通用"))
-            SettingsCard {
-                SettingValueRow(
-                    title = s("界面语言"),
+                // 5 通用（界面语言文档没列，但功能在，保留入口）
+                add(SettingEntry("通用", s("界面语言"), Icons.Filled.Language, SettingsIconBlue,
                     value = if (settings.uiLanguage == "en") "English" else "简体中文",
-                    iconColor = QingJiGreen.copy(alpha = 0.72f)
-                ) { dialog = DialogKind.UI_LANG }
-                RowDivider()
-                SettingValueRow(
-                    title = s("记录时区"),
+                    onClick = { dialog = DialogKind.UI_LANG }))
+                add(SettingEntry("通用", s("记录时区"), Icons.Filled.Schedule, SettingsIconCyan,
                     value = timezoneLabel(settings.timeZone),
-                    iconColor = QingJiGreenDark
-                ) { dialog = DialogKind.TIMEZONE }
-                RowDivider()
-                SettingValueRow(
-                    title = s("体重单位"),
+                    onClick = { dialog = DialogKind.TIMEZONE }))
+                add(SettingEntry("通用", s("体重单位"), Icons.Outlined.MonitorWeight, SettingsIconTeal,
                     value = if (settings.unit == "jin") s("斤") else "kg",
-                    iconColor = QingJiGreen
-                ) { dialog = DialogKind.UNIT }
-            }
+                    onClick = { dialog = DialogKind.UNIT }))
 
-            // ================= 显示与外观 =================
-            GroupTitle(s("显示与外观"))
-            SettingsCard {
-                SettingValueRow(
-                    title = s("主题与显示"),
+                // 6 显示与外观：主题弹层里现成的 3 组开关拆成独立行，setter 完全复用
+                add(SettingEntry("显示与外观", s("主题设置"), Icons.Filled.Palette, SettingsIconIndigo,
                     value = com.qingji.app.ui.theme.AccentThemes.byKey(settings.themeColor).label,
-                    iconColor = QingJiGreen.copy(alpha = 0.72f)
-                ) { dialog = DialogKind.THEME }
-                RowDivider()
-                SettingValueRow(
-                    title = s("桌面小组件"),
-                    value = s("3 个"),
-                    iconColor = QingJiGreen
-                ) { onOpenWidget() }
-                RowDivider()
-                SettingValueRow(
-                    title = s("底部导航"),
+                    onClick = { dialog = DialogKind.THEME }))
+                add(SettingEntry("显示与外观", s("应用图标"), Icons.Filled.Apps, SettingsIconPurple,
+                    onClick = { dialog = DialogKind.ICON }))
+                add(SettingEntry("显示与外观", s("桌面小组件"), Icons.Filled.Widgets, SettingsIconOrange,
+                    value = s("3 个"), onClick = { onOpenWidget() }))
+                add(SettingEntry("显示与外观", s("首页快捷入口"), Icons.Filled.Bolt, SettingsIconBlue,
+                    switchState = settings.showQuickButtons,
+                    onSwitch = { vm.setShowQuickButtons(it) }))
+                add(SettingEntry("显示与外观", s("底部导航"), Icons.Filled.Home, SettingsIconGreen,
                     value = visibleTabsLabel(settings),
-                    iconColor = QingJiGreenDark
-                ) { dialog = DialogKind.BOTTOM_TABS }
-            }
+                    onClick = { dialog = DialogKind.BOTTOM_TABS }))
+                add(SettingEntry("显示与外观", s("首页显示设置"), Icons.Filled.Dashboard, SettingsIconPink,
+                    onClick = { dialog = DialogKind.HOME_DISPLAY }))
+                add(SettingEntry("显示与外观", s("进度条特效"), Icons.AutoMirrored.Filled.ShowChart, SettingsIconCoral,
+                    switchState = settings.progressAnimation,
+                    onSwitch = { vm.setProgressAnimation(it) }))
 
-            // ================= 设备与数据 =================
-            GroupTitle(s("设备与数据"))
-            SettingsCard {
-                SettingValueRow(
-                    title = s("AI 服务配置"),
-                    value = "",
-                    iconColor = QingJiGreen.copy(alpha = 0.72f)
-                ) { onOpenAiConfig() }
-                RowDivider()
-                SettingValueRow(
-                    title = s("数据备份与导出"),
-                    value = "",
-                    iconColor = QingJiGreen
-                ) { onOpenBackup() }
-                RowDivider()
-                SettingValueRow(
-                    title = s("缓存管理"),
+                // 7 设备与数据
+                add(SettingEntry("设备与数据", s("AI 服务配置"), Icons.Outlined.AutoAwesome, SettingsIconCyan,
+                    onClick = { onOpenAiConfig() }))
+                add(SettingEntry("设备与数据", s("数据导入与导出"), Icons.Filled.ImportExport, SettingsIconBlue,
+                    onClick = { onOpenBackup() }))
+                add(SettingEntry("设备与数据", s("缓存管理"), Icons.Filled.CleaningServices, SettingsIconRed,
                     value = backup.sizeText(cacheSize),
-                    iconColor = TextSecondary
-                ) { dialog = DialogKind.CACHE }
+                    onClick = { dialog = DialogKind.CACHE }))
+
+                // 8 关于
+                add(SettingEntry("关于", s("其他平台"), Icons.Filled.SwapHoriz, SettingsIconBlueLight,
+                    onClick = { dialog = DialogKind.PLATFORM }))
+                add(SettingEntry("关于", s("关于我们"), Icons.Filled.Info, SettingsIconPink,
+                    onClick = { dialog = DialogKind.ABOUT }))
+                add(SettingEntry("关于", s("版本信息"), Icons.Outlined.Code, SettingsIconGray,
+                    onClick = { dialog = DialogKind.VERSION }))
             }
 
-            // ================= 关于 =================
-            GroupTitle(s("关于"))
-            SettingsCard {
-                SettingValueRow(
-                    title = s("其他平台"),
-                    value = "",
-                    iconColor = QingJiGreenDark
-                ) { dialog = DialogKind.PLATFORM }
-                RowDivider()
-                SettingValueRow(
-                    title = s("关于我们"),
-                    value = "",
-                    iconColor = QingJiGreen.copy(alpha = 0.72f)
-                ) { dialog = DialogKind.ABOUT }
-                RowDivider()
-                SettingValueRow(
-                    title = s("版本信息"),
-                    value = "",
-                    iconColor = DividerColor
-                ) { dialog = DialogKind.VERSION }
+            // 搜索：只按标题过滤；分组顺序由 groupBy 的插入序保证
+            val visibleEntries = if (query.isBlank()) entries else entries.filter {
+                it.title.contains(query.trim(), ignoreCase = true)
             }
+
+            if (visibleEntries.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 48.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(text = "没有找到相关设置", fontSize = 13.sp, color = TextSecondary)
+                }
+            } else {
+                visibleEntries.groupBy { it.group }.forEach { (group, rows) ->
+                    GroupTitle(group)
+                    SettingsCard {
+                        rows.forEachIndexed { index, row ->
+                            if (row.switchState != null) {
+                                SettingIconSwitchRow(
+                                    title = row.title,
+                                    icon = row.icon,
+                                    iconColor = row.iconColor,
+                                    checked = row.switchState,
+                                    onCheckedChange = { row.onSwitch?.invoke(it) }
+                                )
+                            } else {
+                                SettingIconRow(
+                                    title = row.title,
+                                    icon = row.icon,
+                                    iconColor = row.iconColor,
+                                    value = row.value,
+                                    onClick = { row.onClick?.invoke() }
+                                )
+                            }
+                            if (index < rows.lastIndex) RowDivider()
+                        }
+                    }
+                }
+            }
+
             Spacer(Modifier.height(28.dp))
         }
     }
@@ -406,6 +428,55 @@ fun SettingsScreen(
     // ============================================================
     if (dialog != null) {
         when (dialog!!) {
+        DialogKind.RECOGNITION -> ToggleDetailPage(
+            title = "识别偏好",
+            subtitle = "",
+            items = listOf(
+                ToggleItem("自动识别餐次", "", settings.autoMeal) { vm.setAutoMeal(it) },
+                ToggleItem("估算偏保守", "", settings.conservativeEstimate) {
+                    vm.setConservativeEstimate(it)
+                }
+            ),
+            extra = {
+                DetailGroupTitle("AI 识别语言")
+                listOf(
+                    OptionItem("zh", "简体中文"),
+                    OptionItem("auto", "跟随输入")
+                ).forEach { option ->
+                    val selected = option.key == settings.aiLanguage
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { vm.setAiLanguage(option.key) }
+                            .padding(vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = option.label,
+                            fontSize = 14.sp,
+                            color = if (selected) QingJiGreenDark else TextPrimary,
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (selected) Text(text = "✓", fontSize = 16.sp, color = QingJiGreen)
+                    }
+                }
+            },
+            onBack = { dialog = null },
+            useSheet = true
+        )
+
+        DialogKind.HOME_DISPLAY -> ToggleDetailPage(
+            title = "首页显示设置",
+            subtitle = "",
+            items = listOf(
+                ToggleItem("AI 分析按钮", "", settings.showAiAnalysis) { vm.setShowAiAnalysis(it) },
+                ToggleItem("饮水卡", "", settings.showWaterCard) { vm.setShowWaterCard(it) },
+                ToggleItem("每周小结", "", settings.showWeeklySummary) { vm.setShowWeeklySummary(it) }
+            ),
+            onBack = { dialog = null },
+            useSheet = true
+        )
+
         DialogKind.MACRO -> MacroRatioPage(
             proteinInit = settings.proteinPct,
             carbInit = settings.carbPct,
