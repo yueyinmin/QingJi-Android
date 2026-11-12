@@ -96,7 +96,7 @@ class QingJiRepository(private val context: Context) {
         db.weightLogDao().save(log)
         db.usageStatDao().increment(log.date, "weight")
         // 桌面小组件显示「当前体重」，写完立刻推一把（PRD 要求 3 秒内数字变化）
-        com.qingji.app.widget.WidgetRefresher.refresh(context)
+        com.qingji.app.widget.WidgetRefresher.refresh(context, setOf(com.qingji.app.widget.WidgetTarget.WEIGHT))
     }
 
     // ---------- 进展页：身体维度 / 进度照片 / 运动 / 饮水区间 ----------
@@ -337,7 +337,7 @@ class QingJiRepository(private val context: Context) {
         db.foodLogDao().insert(log)
         db.usageStatDao().increment(log.date, log.source)
         // 首页数字变了，桌面小组件也要跟着变（不等系统 30 分钟周期刷新）
-        com.qingji.app.widget.WidgetRefresher.refresh(context)
+        com.qingji.app.widget.WidgetRefresher.refresh(context, setOf(com.qingji.app.widget.WidgetTarget.OVERVIEW))
     }
 
     suspend fun addFoodLogs(logs: List<FoodLog>) {
@@ -352,7 +352,7 @@ class QingJiRepository(private val context: Context) {
     suspend fun moveMeal(ids: List<Long>, newDate: LocalDate, newMealType: String) {
         if (ids.isEmpty()) return
         db.foodLogDao().moveLogs(ids, newDate, newMealType)
-        com.qingji.app.widget.WidgetRefresher.refresh(context)
+        com.qingji.app.widget.WidgetRefresher.refresh(context, setOf(com.qingji.app.widget.WidgetTarget.OVERVIEW))
     }
 
     /**
@@ -364,7 +364,7 @@ class QingJiRepository(private val context: Context) {
             db.foodLogDao().deleteByMeal(date, mealType)
             if (logs.isNotEmpty()) db.foodLogDao().insertAll(logs)
         }
-        com.qingji.app.widget.WidgetRefresher.refresh(context)
+        com.qingji.app.widget.WidgetRefresher.refresh(context, setOf(com.qingji.app.widget.WidgetTarget.OVERVIEW))
     }
 
     /**
@@ -400,7 +400,7 @@ class QingJiRepository(private val context: Context) {
         if (ml <= 0) return
         db.waterLogDao().insert(WaterLog(date = date, ml = ml))
         db.usageStatDao().increment(date, "water")
-        com.qingji.app.widget.WidgetRefresher.refresh(context)
+        com.qingji.app.widget.WidgetRefresher.refresh(context, setOf(com.qingji.app.widget.WidgetTarget.OVERVIEW))
     }
 
     // ---------- AI 调用（带单日熔断） ----------

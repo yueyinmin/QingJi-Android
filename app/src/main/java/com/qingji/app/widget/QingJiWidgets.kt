@@ -99,6 +99,8 @@ private data class WidgetData(
     val fatGoal: Int = 0,
     val water: Int = 0,
     val waterGoal: Int = 2000,
+    /** v1.1.0：读库失败时为 true —— 展示的是最近一次成功数据，不是真实 0。 */
+    val stale: Boolean = false,
     val latestWeight: Double? = null,
     val unit: String = "kg"
 )
@@ -128,6 +130,9 @@ private suspend fun loadWidgetAppearance(context: Context): WidgetAppearance = t
 }
 
 /** 从数据库现查，查不到就给默认值 —— 小组件绝不能因为读库失败而变空白。 */
+@Volatile
+private var lastGoodData: WidgetData? = null
+
 private suspend fun loadWidgetData(context: Context): WidgetData {
     return try {
         val repo = QingJiRepository(context)
@@ -149,9 +154,11 @@ private suspend fun loadWidgetData(context: Context): WidgetData {
             waterGoal = profile?.waterGoalMl?.takeIf { it > 0 } ?: 2000,
             latestWeight = latest,
             unit = profile?.unit ?: "kg"
-        )
+        ).also { lastGoodData = it }
     } catch (e: Exception) {
-        WidgetData()
+        // v1.1.0：读库失败绝不再伪装成「全 0」——用最近一次成功的数据 + stale 标记；
+        // 从来没成功过才给带 stale 标记的空数据（桌面显示「数据暂不可用」）。
+        (lastGoodData ?: WidgetData()).copy(stale = true)
     }
 }
 
@@ -295,6 +302,12 @@ class OverviewWidget : GlanceAppWidget() {
                         text = "今日剩余",
                         style = TextStyle(color = textColor(W_SUB), fontSize = 11.sp)
                     )
+                    if (data.stale) {
+                        Text(
+                            text = "数据暂不可用 · 显示最近一次成功数据",
+                            style = TextStyle(color = textColor(W_SUB), fontSize = 9.sp)
+                        )
+                    }
                     Row(verticalAlignment = Alignment.Vertical.Bottom) {
                         Text(
                             text = "${data.goalKcal - data.eatenKcal}",
@@ -425,6 +438,12 @@ class WeightWidget : GlanceAppWidget() {
                             text = "当前体重",
                             style = TextStyle(color = textColor(W_SUB), fontSize = 11.sp)
                         )
+                        if (data.stale) {
+                            Text(
+                                text = "数据暂不可用",
+                                style = TextStyle(color = textColor(W_SUB), fontSize = 9.sp)
+                            )
+                        }
                         Text(
                             text = if (!appearance.showWeight) {
                                 "已隐藏"

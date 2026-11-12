@@ -115,7 +115,7 @@ abstract class AppDatabase : RoomDatabase() {
         private var INSTANCE: AppDatabase? = null
 
         /** 1 → 2：新增身体维度、进度照片、运动记录三张表。 */
-        private val MIGRATION_1_2 = object : Migration(1, 2) {
+        internal val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL(
                     """
@@ -161,7 +161,7 @@ abstract class AppDatabase : RoomDatabase() {
         }
 
         /** 2 → 3：旧食物库加分类/品牌/收藏三列，新增断食记录表。 */
-        private val MIGRATION_2_3 = object : Migration(2, 3) {
+        internal val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE `food` ADD COLUMN `category` TEXT NOT NULL DEFAULT '其他'")
                 db.execSQL("ALTER TABLE `food` ADD COLUMN `brand` TEXT NOT NULL DEFAULT ''")
@@ -184,7 +184,7 @@ abstract class AppDatabase : RoomDatabase() {
         }
 
         /** 3 → 4：新增运动库表（预置运动 + MET 值）。 */
-        private val MIGRATION_3_4 = object : Migration(3, 4) {
+        internal val MIGRATION_3_4 = object : Migration(3, 4) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL(
                     """
@@ -205,7 +205,7 @@ abstract class AppDatabase : RoomDatabase() {
          * 4 → 5：营养素目标细分（v3.5.0）。
          * DEFAULT 字面量必须和 Entity 的 @ColumnInfo 逐字一致（0.0 / 25 / 2000 / 800）。
          */
-        private val MIGRATION_4_5 = object : Migration(4, 5) {
+        internal val MIGRATION_4_5 = object : Migration(4, 5) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE `food` ADD COLUMN `fiberPer100g` REAL NOT NULL DEFAULT 0.0")
                 db.execSQL("ALTER TABLE `food` ADD COLUMN `sodiumMgPer100g` REAL NOT NULL DEFAULT 0.0")
@@ -229,7 +229,7 @@ abstract class AppDatabase : RoomDatabase() {
          * 顺序很关键：先建表 → 再搬数据 → 最后 DROP，中途失败还有旧表兜底。
          * user_food 的列和旧 food 表逐字对齐，所以能整行 INSERT ... SELECT。
          */
-        private val MIGRATION_5_6 = object : Migration(5, 6) {
+        internal val MIGRATION_5_6 = object : Migration(5, 6) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL(
                     """
@@ -320,7 +320,7 @@ abstract class AppDatabase : RoomDatabase() {
          * 反推出来的「步数」是算出来的，不是用户填的，冒充原始值会误导）。
          * DEFAULT 字面量必须和 Entity 的 @ColumnInfo 逐字一致（0 / 0.0）。
          */
-        private val MIGRATION_6_7 = object : Migration(6, 7) {
+        internal val MIGRATION_6_7 = object : Migration(6, 7) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE `exercise_log` ADD COLUMN `steps` INTEGER NOT NULL DEFAULT 0")
                 db.execSQL("ALTER TABLE `exercise_log` ADD COLUMN `distanceKm` REAL NOT NULL DEFAULT 0.0")
@@ -342,7 +342,7 @@ abstract class AppDatabase : RoomDatabase() {
          * Entity 现在不写 @ColumnInfo(defaultValue)，所以这里也不能写 DEFAULT，
          * 否则 Room 的 schema 校验会报「列默认值不一致」直接打不开库。
          */
-        private val MIGRATION_7_8 = object : Migration(7, 8) {
+        internal val MIGRATION_7_8 = object : Migration(7, 8) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("""
                     CREATE TABLE IF NOT EXISTS `user_food_new` (
@@ -388,12 +388,19 @@ abstract class AppDatabase : RoomDatabase() {
          * 历史卡的判断是 `freeMode == true` 才走新样式，所以老记录外观完全不变。
          * DEFAULT 字面量必须和 Entity 的 @ColumnInfo(defaultValue = "0") 逐字一致。
          */
-        private val MIGRATION_8_9 = object : Migration(8, 9) {
+        internal val MIGRATION_8_9 = object : Migration(8, 9) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE `fasting_log` ADD COLUMN `freeMode` INTEGER NOT NULL DEFAULT 0")
                 db.execSQL("ALTER TABLE `fasting_log` ADD COLUMN `actualMinutes` INTEGER NOT NULL DEFAULT 0")
             }
         }
+
+        /** v1.1.0：迁移测试用 —— 全部历史迁移，按版本顺序。 */
+        internal val ALL_MIGRATIONS: List<Migration> = listOf(
+            MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
+            MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8,
+            MIGRATION_8_9
+        )
 
         fun get(context: Context): AppDatabase =
             INSTANCE ?: synchronized(this) {
