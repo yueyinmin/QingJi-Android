@@ -107,6 +107,10 @@ fun MineScreen(
     onOpenExerciseLibrary: () -> Unit = {},
     onOpenFavorites: () -> Unit = {},
     onOpenPersonalBest: () -> Unit = {},
+    /** 自律管理（SD-001）：模块首页 */
+    onOpenSelfDiscipline: () -> Unit = {},
+    /** 自律管理（SD-001）：模块设置 */
+    onOpenSelfDisciplineSettings: () -> Unit = {},
     modifier: Modifier = Modifier,
     /** tabfix：滚动状态由 Root 持有，切 Tab 回来不丢位置。 */
     scrollState: ScrollState = rememberScrollState(),
@@ -180,6 +184,32 @@ fun MineScreen(
             unlockedCount = achievements.count { it.unlocked },
             totalCount = achievements.size
         )
+
+        Spacer(Modifier.height(12.dp))
+
+        // 自律管理（SD-001）：入口放「我的」，不新增底部导航
+        SectionCard {
+            Text(
+                text = "自律管理",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TextPrimary
+            )
+            Spacer(Modifier.height(10.dp))
+            EntryRow(
+                title = "目标与打卡",
+                trailing = "计时 / 历史 / 统计",
+                iconColor = QingJiGreen,
+                onClick = onOpenSelfDiscipline
+            )
+            Spacer(Modifier.height(6.dp))
+            EntryRow(
+                title = "模块设置",
+                trailing = "隐私 / 提醒 / 数据",
+                iconColor = QingJiGreenDark,
+                onClick = onOpenSelfDisciplineSettings
+            )
+        }
 
         Spacer(Modifier.height(12.dp))
 

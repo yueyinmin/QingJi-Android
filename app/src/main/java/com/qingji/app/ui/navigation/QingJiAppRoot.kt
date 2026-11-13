@@ -70,6 +70,15 @@ import com.qingji.app.ui.screen.training.TrainingPlanScreen
 import com.qingji.app.ui.screen.training.PersonalBestScreen
 import com.qingji.app.ui.viewmodel.TrainingPlanViewModel
 import com.qingji.app.ui.viewmodel.TrainingViewModel
+import com.qingji.app.ui.viewmodel.SelfDisciplineViewModel
+import com.qingji.app.ui.screen.selfdiscipline.SelfDisciplineDashboardScreen
+import com.qingji.app.ui.screen.selfdiscipline.SelfDisciplineGoalsScreen
+import com.qingji.app.ui.screen.selfdiscipline.SelfDisciplineGoalEditScreen
+import com.qingji.app.ui.screen.selfdiscipline.SelfDisciplineCheckinScreen
+import com.qingji.app.ui.screen.selfdiscipline.SelfDisciplineUrgeScreen
+import com.qingji.app.ui.screen.selfdiscipline.SelfDisciplineDeviationScreen
+import com.qingji.app.ui.screen.selfdiscipline.SelfDisciplineHistoryScreen
+import com.qingji.app.ui.screen.selfdiscipline.SelfDisciplineSettingsScreen
 import com.qingji.app.ui.theme.PageBackground
 
 /**
@@ -186,6 +195,8 @@ fun QingJiAppRoot(
     val trainingVm: TrainingViewModel = viewModel()
     /** P1：计划 / 动作库 / 个人最佳也挂在 Activity 作用域，首页和设置页读同一份。 */
     val planVm: TrainingPlanViewModel = viewModel()
+    /** 自律管理：模块内所有页面共用一份（和训练中心一致，挂 Activity 作用域）。 */
+    val selfDisciplineVm: SelfDisciplineViewModel = viewModel()
     /** 日记页默认进「训练日记」（主人 2026-11-13 指定）；状态放 Root，切 Tab 回来不丢。 */
     var diaryTrainingTab by remember { mutableStateOf(true) }
 
@@ -250,8 +261,10 @@ fun QingJiAppRoot(
                         onOpenFasting = { navController.navigate(QingJiRoutes.Fasting) },
                         onOpenFoodLibrary = { navController.navigate(QingJiRoutes.FoodLibrary) },
                         onOpenTraining = { navController.navigate(QingJiRoutes.TrainingHistory) },
+                        onOpenSelfDiscipline = { navController.navigate(QingJiRoutes.SelfDiscipline) },
                         trainingVm = trainingVm,
                         planVm = planVm,
+                        selfDisciplineVm = selfDisciplineVm,
                         statusBarTop = statusBarTopDp,
                         scrollState = tabScrollStates.getValue(QingJiTab.Home),
                         vm = homeVm
@@ -294,6 +307,8 @@ fun QingJiAppRoot(
                         onOpenExerciseLibrary = { navController.navigate(QingJiRoutes.ExerciseLibrary) },
                         onOpenFavorites = { navController.navigate(QingJiRoutes.ExerciseFavorites) },
                         onOpenPersonalBest = { navController.navigate(QingJiRoutes.PersonalBest) },
+                        onOpenSelfDiscipline = { navController.navigate(QingJiRoutes.SelfDiscipline) },
+                        onOpenSelfDisciplineSettings = { navController.navigate(QingJiRoutes.SelfDisciplineSettings) },
                         scrollState = tabScrollStates.getValue(QingJiTab.Mine),
                         vm = mineVm
                     )
@@ -472,6 +487,91 @@ fun QingJiAppRoot(
                         onBack = { navController.popBackStack() }
                     )
                 }
+
+                // ==================== 自律管理（P0） ====================
+                composable(QingJiRoutes.SelfDiscipline) {
+                    SelfDisciplineDashboardScreen(
+                        onBack = { navController.popBackStack() },
+                        vm = selfDisciplineVm,
+                        onOpenGoals = { navController.navigate(QingJiRoutes.SelfDisciplineGoals) },
+                        onOpenCheckin = { id -> navController.navigate(QingJiRoutes.selfDisciplineCheckin(id)) },
+                        onOpenUrge = { id -> navController.navigate(QingJiRoutes.selfDisciplineUrge(id)) },
+                        onOpenDeviation = { id -> navController.navigate(QingJiRoutes.selfDisciplineDeviation(id)) },
+                        onOpenHistory = { id -> navController.navigate(QingJiRoutes.selfDisciplineHistory(id)) },
+                        onOpenSettings = { navController.navigate(QingJiRoutes.SelfDisciplineSettings) }
+                    )
+                }
+                composable(QingJiRoutes.SelfDisciplineGoals) {
+                    SelfDisciplineGoalsScreen(
+                        onBack = { navController.popBackStack() },
+                        vm = selfDisciplineVm,
+                        onCreate = { navController.navigate(QingJiRoutes.selfDisciplineGoalEdit(0L)) },
+                        onEdit = { id -> navController.navigate(QingJiRoutes.selfDisciplineGoalEdit(id)) },
+                        onOpenCheckin = { id -> navController.navigate(QingJiRoutes.selfDisciplineCheckin(id)) }
+                    )
+                }
+                composable(
+                    route = QingJiRoutes.SelfDisciplineGoalEdit,
+                    arguments = listOf(navArgument("goalId") {
+                        type = NavType.LongType
+                        defaultValue = 0L
+                    })
+                ) { entry ->
+                    SelfDisciplineGoalEditScreen(
+                        goalId = entry.arguments?.getLong("goalId") ?: 0L,
+                        vm = selfDisciplineVm,
+                        onBack = { navController.popBackStack() },
+                        onSaved = { navController.popBackStack() }
+                    )
+                }
+                composable(
+                    route = QingJiRoutes.SelfDisciplineCheckin,
+                    arguments = listOf(navArgument("goalId") { type = NavType.LongType })
+                ) { entry ->
+                    SelfDisciplineCheckinScreen(
+                        goalId = entry.arguments?.getLong("goalId") ?: 0L,
+                        vm = selfDisciplineVm,
+                        onBack = { navController.popBackStack() },
+                        onSaved = { navController.popBackStack() }
+                    )
+                }
+                composable(
+                    route = QingJiRoutes.SelfDisciplineUrge,
+                    arguments = listOf(navArgument("goalId") { type = NavType.LongType })
+                ) { entry ->
+                    SelfDisciplineUrgeScreen(
+                        goalId = entry.arguments?.getLong("goalId") ?: 0L,
+                        vm = selfDisciplineVm,
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+                composable(
+                    route = QingJiRoutes.SelfDisciplineDeviation,
+                    arguments = listOf(navArgument("goalId") { type = NavType.LongType })
+                ) { entry ->
+                    SelfDisciplineDeviationScreen(
+                        goalId = entry.arguments?.getLong("goalId") ?: 0L,
+                        vm = selfDisciplineVm,
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+                composable(
+                    route = QingJiRoutes.SelfDisciplineHistory,
+                    arguments = listOf(navArgument("goalId") { type = NavType.LongType })
+                ) { entry ->
+                    SelfDisciplineHistoryScreen(
+                        goalId = entry.arguments?.getLong("goalId") ?: 0L,
+                        vm = selfDisciplineVm,
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+                composable(QingJiRoutes.SelfDisciplineSettings) {
+                    SelfDisciplineSettingsScreen(
+                        onBack = { navController.popBackStack() },
+                        vm = selfDisciplineVm,
+                        onOpenGoals = { navController.navigate(QingJiRoutes.SelfDisciplineGoals) }
+                    )
+                }
             }
         }
     }
@@ -497,7 +597,26 @@ fun QingJiAppRoot(
             onExercise = { navController.navigate(QingJiRoutes.ExercisePicker) },
             onStartTraining = { navController.navigate(QingJiRoutes.TrainingActive) },
             onAerobic = { navController.navigate(QingJiRoutes.ExercisePicker) },
-            onBodyPhoto = { navController.navigate(QingJiTab.Progress.route) }
+            onBodyPhoto = { navController.navigate(QingJiTab.Progress.route) },
+            // 自律管理：有主要目标就直达对应页，没有就先回模块首页建目标
+            onSelfDisciplineCheckin = {
+                val id = selfDisciplineVm.primaryGoal.value?.id
+                navController.navigate(
+                    if (id != null) QingJiRoutes.selfDisciplineCheckin(id) else QingJiRoutes.SelfDiscipline
+                )
+            },
+            onSelfDisciplineUrge = {
+                val id = selfDisciplineVm.primaryGoal.value?.id
+                navController.navigate(
+                    if (id != null) QingJiRoutes.selfDisciplineUrge(id) else QingJiRoutes.SelfDiscipline
+                )
+            },
+            onSelfDisciplineDeviation = {
+                val id = selfDisciplineVm.primaryGoal.value?.id
+                navController.navigate(
+                    if (id != null) QingJiRoutes.selfDisciplineDeviation(id) else QingJiRoutes.SelfDiscipline
+                )
+            }
         )
     }
 }

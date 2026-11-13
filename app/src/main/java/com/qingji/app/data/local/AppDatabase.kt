@@ -29,6 +29,13 @@ import com.qingji.app.data.local.dao.TrainingPlanDayDao
 import com.qingji.app.data.local.dao.PlanExerciseDao
 import com.qingji.app.data.local.dao.WorkoutSessionDao
 import com.qingji.app.data.local.dao.WorkoutExerciseDao
+import com.qingji.app.data.local.dao.SelfDisciplineGoalDao
+import com.qingji.app.data.local.dao.SelfDisciplinePeriodDao
+import com.qingji.app.data.local.dao.SelfDisciplineCheckinDao
+import com.qingji.app.data.local.dao.SelfDisciplineUrgeDao
+import com.qingji.app.data.local.dao.SelfDisciplineSettingDao
+import com.qingji.app.data.local.dao.SelfDisciplineMilestoneDao
+import com.qingji.app.data.local.dao.SelfDisciplineInterventionDao
 import com.qingji.app.data.local.entity.AiConfig
 import com.qingji.app.data.local.entity.BodyMeasure
 import com.qingji.app.data.local.entity.Diary
@@ -50,6 +57,13 @@ import com.qingji.app.data.local.entity.TrainingPlanDay
 import com.qingji.app.data.local.entity.PlanExercise
 import com.qingji.app.data.local.entity.WorkoutSession
 import com.qingji.app.data.local.entity.WorkoutExercise
+import com.qingji.app.data.local.entity.SelfDisciplineGoalEntity
+import com.qingji.app.data.local.entity.SelfDisciplinePeriodEntity
+import com.qingji.app.data.local.entity.SelfDisciplineCheckinEntity
+import com.qingji.app.data.local.entity.SelfDisciplineUrgeEntity
+import com.qingji.app.data.local.entity.SelfDisciplineSettingEntity
+import com.qingji.app.data.local.entity.SelfDisciplineMilestoneEntity
+import com.qingji.app.data.local.entity.SelfDisciplineInterventionEntity
 import java.time.LocalDate
 
 /**
@@ -104,9 +118,17 @@ class Converters {
         TrainingPlanDay::class,
         PlanExercise::class,
         WorkoutSession::class,
-        WorkoutExercise::class
+        WorkoutExercise::class,
+        // v1.2.0 自律管理模块（SD-013）：7 张新表（5 张 P0 + 2 张 P1 预留），旧表一列不动
+        SelfDisciplineGoalEntity::class,
+        SelfDisciplinePeriodEntity::class,
+        SelfDisciplineCheckinEntity::class,
+        SelfDisciplineUrgeEntity::class,
+        SelfDisciplineSettingEntity::class,
+        SelfDisciplineMilestoneEntity::class,
+        SelfDisciplineInterventionEntity::class
     ],
-    version = 10,
+    version = 11,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -135,6 +157,15 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun planExerciseDao(): PlanExerciseDao
     abstract fun workoutSessionDao(): WorkoutSessionDao
     abstract fun workoutExerciseDao(): WorkoutExerciseDao
+
+    // ---------- 自律管理模块（Room 11） ----------
+    abstract fun selfDisciplineGoalDao(): SelfDisciplineGoalDao
+    abstract fun selfDisciplinePeriodDao(): SelfDisciplinePeriodDao
+    abstract fun selfDisciplineCheckinDao(): SelfDisciplineCheckinDao
+    abstract fun selfDisciplineUrgeDao(): SelfDisciplineUrgeDao
+    abstract fun selfDisciplineSettingDao(): SelfDisciplineSettingDao
+    abstract fun selfDisciplineMilestoneDao(): SelfDisciplineMilestoneDao
+    abstract fun selfDisciplineInterventionDao(): SelfDisciplineInterventionDao
 
     companion object {
         /** 整个 App 只保留一个数据库实例，重复创建会出问题。 */
@@ -454,12 +485,96 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        /** v1.1.0：迁移测试用 —— 全部历史迁移，按版本顺序。 */
-        internal val ALL_MIGRATIONS: List<Migration> = listOf(
-            MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
-            MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8,
-            MIGRATION_8_9, MIGRATION_9_10
-        )
+        /** v1.1.0：迁移测试用 —— 全部历史迁移，按版本顺序（lazy 避免和 MIGRATION_10_11 的顺序依赖）。 */
+        internal val ALL_MIGRATIONS: List<Migration> by lazy {
+            listOf(
+                MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
+                MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8,
+                MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11
+            )
+        }
+
+        /**
+         * 10 → 11：自律管理模块新增 7 张表。
+         *
+         * 所有 SQL 都照 `schemas/11.json` 里 Room 自己生成的 createSql 原样抄的
+         * （只把 ${TABLE_NAME} 换成真实表名），DEFAULT、NOT NULL、列顺序
+         * 与 Entity 定义逐字一致，不会在打开数据库时被告知 schema 不匹配。
+         *
+         * 关键点：一条 ALTER / DROP 都没有，11 张老表和里面的数据完全不动。
+         */
+        internal val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `self_discipline_goals` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`title` TEXT NOT NULL, `goalType` TEXT NOT NULL, " +
+                        "`isEnabled` INTEGER NOT NULL, `startDate` TEXT NOT NULL, " +
+                        "`targetDays` INTEGER NOT NULL, `reminderEnabled` INTEGER NOT NULL, " +
+                        "`reminderMinute` INTEGER NOT NULL, `note` TEXT NOT NULL, " +
+                        "`createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_self_discipline_goals_isEnabled` ON `self_discipline_goals` (`isEnabled`)")
+
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `self_discipline_periods` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`goalId` INTEGER NOT NULL, `startAt` TEXT NOT NULL, " +
+                        "`endAt` TEXT, `endReason` TEXT, `status` TEXT NOT NULL, " +
+                        "`createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_self_discipline_periods_goalId` ON `self_discipline_periods` (`goalId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_self_discipline_periods_status` ON `self_discipline_periods` (`status`)")
+
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `self_discipline_checkins` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`goalId` INTEGER NOT NULL, `localDate` TEXT NOT NULL, " +
+                        "`status` TEXT NOT NULL, `mood` TEXT NOT NULL, " +
+                        "`urgeLevel` INTEGER NOT NULL, `triggers` TEXT NOT NULL, " +
+                        "`copingMethods` TEXT NOT NULL, `note` TEXT NOT NULL, " +
+                        "`createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL)"
+                )
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS `index_self_discipline_checkins_goalId_localDate` " +
+                        "ON `self_discipline_checkins` (`goalId`, `localDate`)"
+                )
+
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `self_discipline_urge_logs` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`goalId` INTEGER NOT NULL, `occurredAt` INTEGER NOT NULL, " +
+                        "`intensity` INTEGER NOT NULL, `trigger` TEXT NOT NULL, " +
+                        "`copingMethod` TEXT NOT NULL, `intensityAfter` INTEGER NOT NULL, " +
+                        "`resolved` INTEGER NOT NULL, `note` TEXT NOT NULL, " +
+                        "`createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_self_discipline_urge_logs_goalId` ON `self_discipline_urge_logs` (`goalId`)")
+
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `self_discipline_settings` (" +
+                        "`key` TEXT NOT NULL, `value` TEXT NOT NULL, PRIMARY KEY(`key`))"
+                )
+
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `self_discipline_milestones` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`goalId` INTEGER NOT NULL, `milestoneDays` INTEGER NOT NULL, " +
+                        "`achievedAt` TEXT, `createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_self_discipline_milestones_goalId` ON `self_discipline_milestones` (`goalId`)")
+
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `self_discipline_interventions` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`goalId` INTEGER NOT NULL, `type` TEXT NOT NULL, " +
+                        "`occurredAt` INTEGER NOT NULL, `beforeIntensity` INTEGER NOT NULL, " +
+                        "`afterIntensity` INTEGER NOT NULL, `effective` INTEGER, " +
+                        "`note` TEXT NOT NULL, `createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_self_discipline_interventions_goalId` ON `self_discipline_interventions` (`goalId`)")
+            }
+        }
 
         fun get(context: Context): AppDatabase =
             INSTANCE ?: synchronized(this) {
@@ -473,7 +588,7 @@ abstract class AppDatabase : RoomDatabase() {
                         // 加新迁移时两处都要加：只改测试那份，测试会过、真机升级却打不开。
                         MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
                         MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8,
-                        MIGRATION_8_9, MIGRATION_9_10
+                        MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11
                     )
                     // 不用 fallbackToDestructiveMigration()。
                     // 那行兜底在「漏写 Migration」或「schema 校验不一致」时会静默清库，

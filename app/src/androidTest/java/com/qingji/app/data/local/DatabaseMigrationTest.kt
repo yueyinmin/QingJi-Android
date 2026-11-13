@@ -30,10 +30,10 @@ class DatabaseMigrationTest {
     )
 
     @Test
-    fun `空库从版本1逐级迁移到10每一步都通过schema校验`() {
+    fun `空库从版本1逐级迁移到11每一步都通过schema校验`() {
         helper.createDatabase(DB_NAME, 1).close()
         var version = 1
-        while (version < 10) {
+        while (version < 11) {
             val migration = AppDatabase.ALL_MIGRATIONS.first { it.startVersion == version }
             helper.runMigrationsAndValidate(DB_NAME, version + 1, true, migration).close()
             version++
@@ -67,6 +67,49 @@ class DatabaseMigrationTest {
             listOf(
                 "exercise", "training_plan", "training_plan_day",
                 "plan_exercise", "workout_session", "workout_exercise"
+            ).forEach { table ->
+                val c = migrated.query("SELECT count(*) FROM `$table`")
+                assertTrue("$table 应该已建好", c.moveToFirst())
+                assertEquals(0, c.getInt(0))
+                c.close()
+            }
+        } finally {
+            migrated.close()
+        }
+    }
+
+    /**
+     * v1.1.1（自律管理 P0）：10 → 11 只新增 7 张自律表，旧表一列不动。
+     * 断言两件事：迁移前的体重记录原样读得回来；7 张新表都能查。
+     */
+    @Test
+    fun `10到11迁移后旧数据保留且七张自律表可用`() {
+        val name = "migration-10-11.db"
+        helper.createDatabase(name, 10).apply {
+            execSQL(
+                "INSERT INTO `weight_log` (`date`,`weightKg`,`bodyFat`,`note`,`createdAt`) " +
+                    "VALUES ('2026-11-13', 70.5, NULL, '迁移前', 123)"
+            )
+            close()
+        }
+
+        val migrated = helper.runMigrationsAndValidate(
+            name, 11, true, AppDatabase.MIGRATION_10_11
+        )
+        try {
+            val cursor = migrated.query(
+                "SELECT `weightKg`, `note` FROM `weight_log` WHERE `date`='2026-11-13'"
+            )
+            assertTrue("迁移后旧体重记录不该丢", cursor.moveToFirst())
+            assertEquals(70.5, cursor.getDouble(0), 0.001)
+            assertEquals("迁移前", cursor.getString(1))
+            cursor.close()
+
+            listOf(
+                "self_discipline_goals", "self_discipline_periods",
+                "self_discipline_checkins", "self_discipline_urge_logs",
+                "self_discipline_settings", "self_discipline_milestones",
+                "self_discipline_interventions"
             ).forEach { table ->
                 val c = migrated.query("SELECT count(*) FROM `$table`")
                 assertTrue("$table 应该已建好", c.moveToFirst())

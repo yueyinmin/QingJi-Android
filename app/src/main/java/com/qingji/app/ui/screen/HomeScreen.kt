@@ -77,6 +77,9 @@ import com.qingji.app.ui.i18n.s
 import com.qingji.app.ui.screen.training.TodayTrainingCard
 import com.qingji.app.ui.viewmodel.TrainingPlanViewModel
 import com.qingji.app.ui.viewmodel.TrainingViewModel
+import com.qingji.app.ui.viewmodel.SelfDisciplineViewModel
+import com.qingji.app.ui.screen.selfdiscipline.statusLabelOf
+import kotlinx.coroutines.flow.flowOf
 import com.qingji.app.ui.theme.CardWhite
 import com.qingji.app.ui.theme.DangerRed
 import com.qingji.app.ui.theme.DividerColor
@@ -126,6 +129,10 @@ fun HomeScreen(
     onOpenFoodLibrary: () -> Unit = {},
     /** 点「今日训练」卡 → 进训练日记 */
     onOpenTraining: () -> Unit = {},
+    /** 点「自律管理」卡 → 进自律管理首页 */
+    onOpenSelfDiscipline: () -> Unit = {},
+    /** 自律模块 VM：和模块内各页共用，首页只读主要目标和统计 */
+    selfDisciplineVm: SelfDisciplineViewModel = viewModel(),
     /** 与日记页、训练页共用同一个 ViewModel，进行中状态才对得上 */
     trainingVm: TrainingViewModel = viewModel(),
     /** P1：读当前启用的计划，给「今日训练」卡显示今日安排 */
@@ -324,6 +331,11 @@ fun HomeScreen(
             onClick = onOpenTraining,
             arrangement = todayArrangement
         )
+
+        // ---------- 自律管理快捷卡片（SD-001） ----------
+        // 只在已经建过目标时出现，没建过就不占首页位置
+        Spacer(Modifier.height(12.dp))
+        SelfDisciplineQuickCard(vm = selfDisciplineVm, onClick = onOpenSelfDiscipline)
 
         Spacer(Modifier.height(20.dp))
 
@@ -1307,3 +1319,57 @@ private fun MealCard(
 /** 这条记录是不是 AI 识别出来的（手动搜索/条码不算）。 */
 internal fun isAiGenerated(log: FoodLog): Boolean =
     log.source in setOf("text", "image", "voice")
+
+/**
+ * 首页「自律管理」快捷卡（SD-001）。
+ * 没建目标时整张卡不出现，避免首页被空状态占位。
+ * 显示：主要目标名、今天记没记、已坚持天数。
+ */
+@Composable
+private fun SelfDisciplineQuickCard(
+    vm: SelfDisciplineViewModel,
+    onClick: () -> Unit
+) {
+    val primary by vm.primaryGoal.collectAsState()
+    val stats by vm.stats.collectAsState()
+    val checkinsFlow = remember(primary?.id) {
+        primary?.let { vm.observeCheckins(it.id) } ?: flowOf(emptyList())
+    }
+    val checkins by checkinsFlow.collectAsState(initial = emptyList())
+
+    val goal = primary ?: return
+    val todayStatus = checkins.firstOrNull { it.localDate == LocalDate.now() }?.status
+
+    SectionCard(modifier = Modifier.clickable { onClick() }) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    "自律管理",
+                    fontSize = TextSizes.CardTitle,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextPrimary
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(goal.title, fontSize = TextSizes.Caption, color = TextSecondary)
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    if (todayStatus == null) "今天还没记录" else "今天：${statusLabelOf(todayStatus)}",
+                    fontSize = TextSizes.Caption,
+                    color = if (todayStatus == null) TextSecondary else QingJiGreen
+                )
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        "${stats.currentDays}",
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = QingJiGreen
+                    )
+                    Text(" 天", fontSize = TextSizes.Caption, color = TextSecondary)
+                }
+                Text("已坚持", fontSize = TextSizes.Tiny, color = TextSecondary)
+            }
+        }
+    }
+}
