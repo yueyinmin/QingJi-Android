@@ -127,7 +127,25 @@ android {
         buildConfig = true
     }
 
-    // 让本地单元测试也能读到 res/ 资源和 AndroidManifest（Robolectric 需要）
+    // ------------------------------------------------------------
+// P0 签名防线（任务书要求：正式发布禁止回退 debug 签名）：
+// assembleRelease 时如果本机没配正式密钥（local.properties 缺失/路径无效），
+// 直接构建失败并说明原因，宁可报错也不让 debug 签名的包流出去。
+// 日常 debug 构建、模拟器安装完全不受影响。
+// ------------------------------------------------------------
+tasks.matching { it.name == "assembleRelease" || it.name == "bundleRelease" }.configureEach {
+    doFirst {
+        if (!hasReleaseKey) {
+            throw GradleException(
+                "assembleRelease 缺少正式签名：local.properties 里没配 qingji.keystore.path / qingji.keystore.password，" +
+                    "或密钥文件不存在。按任务书要求，正式包禁止回退 debug 签名（会导致覆盖安装失败）。" +
+                    "如果只是本地调试，请用 assembleDebug。"
+            )
+        }
+    }
+}
+
+// 让本地单元测试也能读到 res/ 资源和 AndroidManifest（Robolectric 需要）
     sourceSets {
         // v1.1.0：迁移测试 MigrationTestHelper 要把 schemas/*.json 当测试资产读
         getByName("test").assets.srcDir("$projectDir/schemas")
