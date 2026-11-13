@@ -4,7 +4,11 @@ import android.content.Context
 import androidx.room.withTransaction
 import com.qingji.app.data.local.AppDatabase
 import com.qingji.app.data.local.TrainingSeed
+import com.qingji.app.data.local.TrainingTemplateData
 import com.qingji.app.data.local.entity.ExerciseEntity
+import com.qingji.app.data.local.entity.PlanExercise
+import com.qingji.app.data.local.entity.TrainingPlan
+import com.qingji.app.data.local.entity.TrainingPlanDay
 import com.qingji.app.data.local.entity.WorkoutExercise
 import com.qingji.app.data.local.entity.WorkoutSession
 import com.qingji.app.data.prefs.WorkoutDraftStore
@@ -104,6 +108,82 @@ class TrainingRepository(context: Context) {
         sessionDao.findByUuid(uuid) to workoutExerciseDao.findBySession(uuid)
 
     suspend fun allTrainingDates() = sessionDao.findAllDates()
+
+    // ============================================================
+    // P1：训练计划 / 动作库 / 个人最佳
+    // ============================================================
+
+    fun observePlans(): Flow<List<TrainingPlan>> = planDao.observeAll()
+    fun observeActivePlan(): Flow<TrainingPlan?> = planDao.observeActive()
+    fun observePlanDays(planUuid: String): Flow<List<TrainingPlanDay>> =
+        planDayDao.observeByPlan(planUuid)
+
+    fun observePlanExercises(): Flow<List<PlanExercise>> = planExerciseDao.observeAll()
+    fun observeAllPlanDays(): Flow<List<TrainingPlanDay>> = planDayDao.observeAll()
+    fun observeFavorites(): Flow<List<ExerciseEntity>> = exerciseDao.observeFavorites()
+
+    /**
+     * 启用一份计划（模板或自定义）：先把所有旧计划停用，再整包写新计划。
+     * 旧计划只是 isActive=false，数据留着 → 「停用不清历史」。
+     */
+    suspend fun activatePlan(name: String, source: String, days: List<TrainingTemplateData.TemplateDay>): String {
+        val uuid = "plan-${java.util.UUID.randomUUID()}"
+        val now = System.currentTimeMillis()
+        val library = exerciseDao.findAll()
+        db.withTransaction {
+            planDao.deactivateAll()
+            planDao.insertAll(listOf(TrainingPlan(uuid, name, source, true, now)))
+            (1..7).forEach { weekday ->
+                val tplDay = days.firstOrNull { it.weekday == weekday }
+                val dayId = planDayDao.insertOne(
+                    TrainingPlanDay(
+                        planUuid = uuid,
+                        weekday = weekday,
+                        title = tplDay?.title ?: "休息",
+                        isRest = tplDay == null
+                    )
+                )
+                if (tplDay != null) {
+                    val items = tplDay.exerciseNames.mapIndexed { i, exerciseName ->
+                        PlanExercise(
+                            dayId = dayId,
+                            exerciseUuid = library.firstOrNull { it.name == exerciseName }?.uuid.orEmpty(),
+                            exerciseNameSnapshot = exerciseName,
+                            targetSets = 3,
+                            targetReps = 10,
+                            targetWeightKg = 0.0,
+                            orderInDay = i
+                        )
+                    }
+                    if (items.isNotEmpty()) planExerciseDao.insertAll(items)
+                }
+            }
+        }
+        return uuid
+    }
+
+    suspend fun useTemplate(template: TrainingTemplateData.Template): String =
+        activatePlan(template.name, "template:${template.id}", template.days)
+
+    suspend fun deactivatePlan(uuid: String) = planDao.setActive(uuid, false)
+
+    /** 从历史里重新启用：仍然保证同时只有一个 isActive=true。 */
+    suspend fun reactivatePlan(uuid: String) {
+        db.withTransaction {
+            planDao.deactivateAll()
+            planDao.setActive(uuid, true)
+        }
+    }
+
+    /** 删计划：连它下面的日与动作安排一起删，不留孤儿行。 */
+    suspend fun deletePlan(uuid: String) {
+        db.withTransaction {
+            val dayIds = planDayDao.findByPlan(uuid).map { it.id }
+            if (dayIds.isNotEmpty()) planExerciseDao.deleteByDayIds(dayIds)
+            planDayDao.deleteByPlan(uuid)
+            planDao.deleteByUuid(uuid)
+        }
+    }
 
     // 备份的整表导出/覆盖恢复统一放在 data/backup/TrainingBackup.kt + BackupManager，
     // 这里不再做第二套，免得以后两边字段不一致。

@@ -42,6 +42,10 @@ interface ExerciseDao {
     @Query("DELETE FROM exercise WHERE uuid = :uuid AND isBuiltIn = 0")
     suspend fun deleteCustom(uuid: String)
 
+    /** P1：我的页「动作收藏」入口。 */
+    @Query("SELECT * FROM exercise WHERE isFavorite = 1 ORDER BY name ASC")
+    fun observeFavorites(): Flow<List<ExerciseEntity>>
+
     @Query("DELETE FROM exercise")
     suspend fun clearAll()
 }
@@ -57,6 +61,23 @@ interface TrainingPlanDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(items: List<TrainingPlan>)
 
+    /** P1：首页「今日训练」卡只读当前启用的那一个计划。 */
+    @Query("SELECT * FROM training_plan WHERE isActive = 1 LIMIT 1")
+    fun observeActive(): Flow<TrainingPlan?>
+
+    @Query("SELECT * FROM training_plan WHERE isActive = 1 LIMIT 1")
+    suspend fun findActive(): TrainingPlan?
+
+    /** 启用新计划前，先把旧的置 false（调用方包在事务里，保证同时只有一个 true）。 */
+    @Query("UPDATE training_plan SET isActive = 0")
+    suspend fun deactivateAll()
+
+    @Query("UPDATE training_plan SET isActive = :active WHERE uuid = :uuid")
+    suspend fun setActive(uuid: String, active: Boolean)
+
+    @Query("DELETE FROM training_plan WHERE uuid = :uuid")
+    suspend fun deleteByUuid(uuid: String)
+
     @Query("DELETE FROM training_plan")
     suspend fun clearAll()
 }
@@ -69,6 +90,22 @@ interface TrainingPlanDayDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(items: List<TrainingPlanDay>)
 
+    /** 逐条插才能拿到自增 id，给 plan_exercise 当外键用。 */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertOne(item: TrainingPlanDay): Long
+
+    @Query("SELECT * FROM training_plan_day ORDER BY planUuid, weekday")
+    fun observeAll(): Flow<List<TrainingPlanDay>>
+
+    @Query("SELECT * FROM training_plan_day WHERE planUuid = :planUuid ORDER BY weekday ASC")
+    fun observeByPlan(planUuid: String): Flow<List<TrainingPlanDay>>
+
+    @Query("SELECT * FROM training_plan_day WHERE planUuid = :planUuid ORDER BY weekday ASC")
+    suspend fun findByPlan(planUuid: String): List<TrainingPlanDay>
+
+    @Query("DELETE FROM training_plan_day WHERE planUuid = :planUuid")
+    suspend fun deleteByPlan(planUuid: String)
+
     @Query("DELETE FROM training_plan_day")
     suspend fun clearAll()
 }
@@ -80,6 +117,15 @@ interface PlanExerciseDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(items: List<PlanExercise>)
+
+    @Query("SELECT * FROM plan_exercise ORDER BY dayId, orderInDay")
+    fun observeAll(): Flow<List<PlanExercise>>
+
+    @Query("SELECT * FROM plan_exercise WHERE dayId = :dayId ORDER BY orderInDay")
+    suspend fun findByDay(dayId: Long): List<PlanExercise>
+
+    @Query("DELETE FROM plan_exercise WHERE dayId IN (:dayIds)")
+    suspend fun deleteByDayIds(dayIds: List<Long>)
 
     @Query("DELETE FROM plan_exercise")
     suspend fun clearAll()

@@ -102,6 +102,11 @@ fun MineScreen(
     onOpenTrainingHistory: () -> Unit = {},
     /** 训练中心 P0：直接开一次训练 */
     onStartTraining: () -> Unit = {},
+    /** 训练中心 P1：计划 / 动作库 / 收藏 / 个人最佳 */
+    onOpenTrainingPlan: () -> Unit = {},
+    onOpenExerciseLibrary: () -> Unit = {},
+    onOpenFavorites: () -> Unit = {},
+    onOpenPersonalBest: () -> Unit = {},
     modifier: Modifier = Modifier,
     /** tabfix：滚动状态由 Root 持有，切 Tab 回来不丢位置。 */
     scrollState: ScrollState = rememberScrollState(),
@@ -178,8 +183,8 @@ fun MineScreen(
 
         Spacer(Modifier.height(12.dp))
 
-        // 训练管理（P0 只放两个「点了真有反应」的入口；
-        // 计划 / 收藏 / 计算器属于 P1-P2，等做完再往上加，不做摆设）
+        // 训练管理（P1 补齐，六行全部有真实页面，不做点了没反应的摆设；
+        // 健身计算器属于 P2，等做完再往上加）
         SectionCard {
             Text(
                 text = "训练管理",
@@ -200,6 +205,34 @@ fun MineScreen(
                 trailing = "",
                 iconColor = QingJiGreen,
                 onClick = onStartTraining
+            )
+            Spacer(Modifier.height(6.dp))
+            EntryRow(
+                title = "我的训练计划",
+                trailing = "",
+                iconColor = QingJiGreenDark,
+                onClick = onOpenTrainingPlan
+            )
+            Spacer(Modifier.height(6.dp))
+            EntryRow(
+                title = "动作库",
+                trailing = "",
+                iconColor = QingJiGreen,
+                onClick = onOpenExerciseLibrary
+            )
+            Spacer(Modifier.height(6.dp))
+            EntryRow(
+                title = "我的动作收藏",
+                trailing = "",
+                iconColor = QingJiGreenDark,
+                onClick = onOpenFavorites
+            )
+            Spacer(Modifier.height(6.dp))
+            EntryRow(
+                title = "个人最佳",
+                trailing = "",
+                iconColor = QingJiGreen,
+                onClick = onOpenPersonalBest
             )
         }
 

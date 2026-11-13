@@ -108,10 +108,17 @@ fun TodayTrainingCard(
     todaySessions: List<WorkoutSession>,
     draft: WorkoutDraft?,
     onClick: () -> Unit,
+    /** P1：启用计划后显示今日安排；null = 没计划，走原来的引导文案。 */
+    arrangement: com.qingji.app.ui.viewmodel.TodayArrangement? = null,
     modifier: Modifier = Modifier
 ) {
     val status = when {
         draft != null -> if (draft.editingUuid.isNotEmpty()) "正在修改一次训练" else "训练进行中 · 点这里继续"
+        arrangement != null -> if (arrangement.isRest) {
+            "今天休息 · ${arrangement.planName}"
+        } else {
+            "${arrangement.title} · ${arrangement.exercises.size} 个动作（${arrangement.planName}）"
+        }
         todaySessions.isNotEmpty() -> {
             val minutes = todaySessions.sumOf { it.durationMinutes }
             "今天已练 ${todaySessions.size} 次 · $minutes 分钟"
@@ -124,6 +131,18 @@ fun TodayTrainingCard(
                 Text("今日训练", fontSize = TextSizes.CardTitle, fontWeight = FontWeight.SemiBold, color = TextPrimary)
                 Spacer(Modifier.height(4.dp))
                 Text(status, fontSize = TextSizes.Caption, color = TextSecondary)
+                if (arrangement != null && !arrangement.isRest && arrangement.exercises.isNotEmpty()) {
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        arrangement.exercises.joinToString("、") { it.exerciseNameSnapshot },
+                        fontSize = TextSizes.Tiny, color = QingJiGreen,
+                        maxLines = 2
+                    )
+                }
+                if (arrangement != null) {
+                    Spacer(Modifier.height(3.dp))
+                    Text(arrangement.notice, fontSize = TextSizes.Tiny, color = TextSecondary)
+                }
             }
             Box(
                 modifier = Modifier

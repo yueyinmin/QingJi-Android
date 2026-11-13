@@ -64,6 +64,11 @@ import com.qingji.app.ui.screen.record.VoiceRecordScreen
 import com.qingji.app.ui.screen.record.WeightScreen
 import com.qingji.app.ui.screen.training.TrainingActiveScreen
 import com.qingji.app.ui.screen.training.TrainingHistoryScreen
+import com.qingji.app.ui.screen.training.ExerciseLibraryScreen
+import com.qingji.app.ui.screen.training.ExerciseDetailScreen
+import com.qingji.app.ui.screen.training.TrainingPlanScreen
+import com.qingji.app.ui.screen.training.PersonalBestScreen
+import com.qingji.app.ui.viewmodel.TrainingPlanViewModel
 import com.qingji.app.ui.viewmodel.TrainingViewModel
 import com.qingji.app.ui.theme.PageBackground
 
@@ -179,6 +184,8 @@ fun QingJiAppRoot(
     // 首页卡、日记页、进行中训练页、训练日记页读的是同一个 ViewModel，
     // 否则切一次页面就换一个实例，「进行中」状态会对不上。
     val trainingVm: TrainingViewModel = viewModel()
+    /** P1：计划 / 动作库 / 个人最佳也挂在 Activity 作用域，首页和设置页读同一份。 */
+    val planVm: TrainingPlanViewModel = viewModel()
     /** 日记页的「心情日记 / 训练日记」切换状态放这里，切 Tab 回来不会自己跳回心情日记。 */
     var diaryTrainingTab by remember { mutableStateOf(false) }
 
@@ -244,6 +251,7 @@ fun QingJiAppRoot(
                         onOpenFoodLibrary = { navController.navigate(QingJiRoutes.FoodLibrary) },
                         onOpenTraining = { navController.navigate(QingJiRoutes.TrainingHistory) },
                         trainingVm = trainingVm,
+                        planVm = planVm,
                         statusBarTop = statusBarTopDp,
                         scrollState = tabScrollStates.getValue(QingJiTab.Home),
                         vm = homeVm
@@ -282,6 +290,10 @@ fun QingJiAppRoot(
                         onOpenProfile = { navController.navigate(QingJiRoutes.Profile) },
                         onOpenTrainingHistory = { navController.navigate(QingJiRoutes.TrainingHistory) },
                         onStartTraining = { navController.navigate(QingJiRoutes.TrainingActive) },
+                        onOpenTrainingPlan = { navController.navigate(QingJiRoutes.TrainingPlan) },
+                        onOpenExerciseLibrary = { navController.navigate(QingJiRoutes.ExerciseLibrary) },
+                        onOpenFavorites = { navController.navigate(QingJiRoutes.ExerciseFavorites) },
+                        onOpenPersonalBest = { navController.navigate(QingJiRoutes.PersonalBest) },
                         scrollState = tabScrollStates.getValue(QingJiTab.Mine),
                         vm = mineVm
                     )
@@ -415,6 +427,49 @@ fun QingJiAppRoot(
                         onBack = { navController.popBackStack() },
                         onStartTraining = { navController.navigate(QingJiRoutes.TrainingActive) },
                         onEditSession = { navController.navigate(QingJiRoutes.TrainingActive) }
+                    )
+                }
+                // ---------- 训练中心 P1 ----------
+                composable(QingJiRoutes.ExerciseLibrary) {
+                    ExerciseLibraryScreen(
+                        vm = planVm,
+                        onBack = { navController.popBackStack() },
+                        onOpenDetail = { uuid -> navController.navigate(QingJiRoutes.exerciseDetail(uuid)) }
+                    )
+                }
+                composable(QingJiRoutes.ExerciseFavorites) {
+                    ExerciseLibraryScreen(
+                        vm = planVm,
+                        onBack = { navController.popBackStack() },
+                        onOpenDetail = { uuid -> navController.navigate(QingJiRoutes.exerciseDetail(uuid)) },
+                        favoritesOnly = true
+                    )
+                }
+                composable(
+                    route = QingJiRoutes.ExerciseDetail,
+                    arguments = listOf(navArgument("uuid") { type = NavType.StringType })
+                ) { entry ->
+                    ExerciseDetailScreen(
+                        vm = planVm,
+                        uuid = entry.arguments?.getString("uuid").orEmpty(),
+                        onBack = { navController.popBackStack() },
+                        onStartRecord = { ex ->
+                            // 先寄存在 VM，进行中训练页第一帧取走
+                            trainingVm.queueExercise(ex)
+                            navController.navigate(QingJiRoutes.TrainingActive)
+                        }
+                    )
+                }
+                composable(QingJiRoutes.TrainingPlan) {
+                    TrainingPlanScreen(
+                        vm = planVm,
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+                composable(QingJiRoutes.PersonalBest) {
+                    PersonalBestScreen(
+                        vm = planVm,
+                        onBack = { navController.popBackStack() }
                     )
                 }
             }

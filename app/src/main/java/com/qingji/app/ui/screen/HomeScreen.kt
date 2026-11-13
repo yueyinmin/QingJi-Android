@@ -75,6 +75,7 @@ import com.qingji.app.ui.components.WaterCup
 import com.qingji.app.ui.components.ThinProgressBar
 import com.qingji.app.ui.i18n.s
 import com.qingji.app.ui.screen.training.TodayTrainingCard
+import com.qingji.app.ui.viewmodel.TrainingPlanViewModel
 import com.qingji.app.ui.viewmodel.TrainingViewModel
 import com.qingji.app.ui.theme.CardWhite
 import com.qingji.app.ui.theme.DangerRed
@@ -127,6 +128,8 @@ fun HomeScreen(
     onOpenTraining: () -> Unit = {},
     /** 与日记页、训练页共用同一个 ViewModel，进行中状态才对得上 */
     trainingVm: TrainingViewModel = viewModel(),
+    /** P1：读当前启用的计划，给「今日训练」卡显示今日安排 */
+    planVm: TrainingPlanViewModel = viewModel(),
     modifier: Modifier = Modifier,
     /**
      * tabfix：状态栏高度，由 QingJiAppRoot 在 Scaffold 消耗 insets 之前读好传进来。
@@ -142,6 +145,11 @@ fun HomeScreen(
     val weeklySummary by vm.weeklySummary.collectAsState()
     val trainingSessions by trainingVm.sessions.collectAsState()
     val trainingDraft by trainingVm.draft.collectAsState()
+    // 订阅计划相关的三份流，计划一变首页卡就跟着重组
+    val activePlan by planVm.activePlan.collectAsState()
+    val planDays by planVm.activePlanDays.collectAsState()
+    val planExercises by planVm.planExercises.collectAsState()
+    val todayArrangement = planVm.todayArrangement()
     val today = AppClock.today()
 
     // 首页要读几项显示设置：饮水卡显隐、AI 分析按钮显隐、悬浮按钮开关
@@ -313,7 +321,8 @@ fun HomeScreen(
         TodayTrainingCard(
             todaySessions = trainingSessions.filter { it.date == today },
             draft = trainingDraft,
-            onClick = onOpenTraining
+            onClick = onOpenTraining,
+            arrangement = todayArrangement
         )
 
         Spacer(Modifier.height(20.dp))

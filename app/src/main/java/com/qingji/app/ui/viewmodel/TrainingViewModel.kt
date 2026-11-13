@@ -205,6 +205,17 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
         _draft.value = null
     }
 
+    // ---------- P1：从「动作详情 → 用这个动作开始训练」带一个动作过来 ----------
+    // 动作详情页在另一个路由，不能等页面建好再传参数，所以先寄存在 ViewModel 里，
+    // 进行中训练页第一帧取走。ViewModel 挂在 Activity 作用域，跨页面不会丢。
+    private var pendingExercise: ExerciseEntity? = null
+    fun queueExercise(item: ExerciseEntity) { pendingExercise = item }
+    fun consumePendingExercise(): ExerciseEntity? {
+        val item = pendingExercise
+        pendingExercise = null
+        return item
+    }
+
     /** 保存：整包写库，成功后草稿作废。返回 false 表示没达到「至少 1 组」的门槛。 */
     fun save(onDone: (Boolean) -> Unit) {
         val d = _draft.value ?: run { onDone(false); return }
