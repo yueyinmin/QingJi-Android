@@ -648,7 +648,7 @@ private fun WeightChart(
 
     SectionCard {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(end = 44.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(text = s("体重走势"), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
@@ -1012,7 +1012,7 @@ private fun WaterWeekCard(week: List<Pair<LocalDate, Int>>, goalMl: Int) {
 
     SectionCard {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(end = 44.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -1090,7 +1090,7 @@ private fun NutritionWeekCard(foodWeek: List<com.qingji.app.data.local.entity.Fo
 
     SectionCard {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(end = 44.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
@@ -1305,7 +1305,7 @@ private fun BodyMeasureCard(
 ) {
     SectionCard {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(end = 44.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {

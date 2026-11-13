@@ -162,7 +162,8 @@ private val SettingsIconIndigo = Color(0xFF7A7FE0)
 private val SettingsIconRed = Color(0xFFE06A6A)
 private val SettingsIconTeal = Color(0xFF3FAE9A)
 private val SettingsIconGray = Color(0xFF8A93A6)
-private val SettingsPageBg = Color(0xFFF5F5F9)
+// 深色模式自适应：原来写死 #F5F5F9，深色下整页还是浅灰，和深色卡片打架
+private val SettingsPageBg: Color get() = com.qingji.app.ui.theme.PageBackground
 
 /** 设置首页一行：分组 / 标题 / 图标 / 右侧状态或开关 / 点击动作。 */
 private data class SettingEntry(

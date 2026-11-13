@@ -102,7 +102,9 @@ fun SelfDisciplineHistoryScreen(
                 onPrevMonth = { month = month.minusMonths(1) },
                 onNextMonth = { month = month.plusMonths(1) },
                 onSelectDate = { selectedDate = it },
-                dateColors = dateColors
+                dateColors = dateColors,
+                // 全屏页没有悬浮按钮，不需要让位
+                fabSafeEnd = 0.dp
             )
 
             Spacer(Modifier.height(10.dp))

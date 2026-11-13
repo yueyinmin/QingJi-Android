@@ -41,8 +41,10 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.qingji.app.ui.theme.CardWhite
+import com.qingji.app.ui.theme.DividerColor
 import com.qingji.app.ui.theme.PageBackground
 import com.qingji.app.ui.theme.QingJiGreen
+import com.qingji.app.ui.theme.QingJiGreenLight
 import com.qingji.app.ui.theme.QingJiThemeState
 import com.qingji.app.ui.theme.TextPrimary
 import com.qingji.app.ui.theme.TextSecondary
@@ -162,12 +164,13 @@ fun SettingIconRow(
                 color = QingJiGreen,
                 modifier = Modifier
                     .clip(RoundedCornerShape(999.dp))
-                    .background(Color(0xFFE8F5EF))
+                    // 深浅模式自适应：浅色是浅薄荷，深色自动变深绿底
+                    .background(QingJiGreenLight)
                     .padding(horizontal = 8.dp, vertical = 3.dp)
             )
             Spacer(Modifier.width(6.dp))
         }
-        Text(text = "›", fontSize = 20.sp, color = Color(0xFFC6CBD3))
+        Text(text = "›", fontSize = 20.sp, color = TextSecondary.copy(alpha = 0.6f))
     }
 }
 
@@ -295,12 +298,13 @@ fun SettingValueRow(
                 color = QingJiGreen,
                 modifier = Modifier
                     .clip(RoundedCornerShape(999.dp))
-                    .background(Color(0xFFE8F5EF))
+                    // 深浅模式自适应：浅色是浅薄荷，深色自动变深绿底
+                    .background(QingJiGreenLight)
                     .padding(horizontal = 8.dp, vertical = 3.dp)
             )
             Spacer(Modifier.width(4.dp))
         }
-        Text(text = "›", fontSize = 18.sp, color = Color(0xFFEEF0F2))
+        Text(text = "›", fontSize = 18.sp, color = TextSecondary.copy(alpha = 0.6f))
     }
 }
 
@@ -323,7 +327,8 @@ fun RowDivider() {
             .fillMaxWidth()
             .padding(start = 64.dp)
             .height(1.dp)
-            .background(Color(0xFFEEF0F2))
+            // 深浅模式自适应（原来写死浅灰，深色下会变成一条条白线）
+            .background(DividerColor)
     )
 }
 
@@ -360,7 +365,7 @@ fun SettingsCard(content: @Composable () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
+            .clip(RoundedCornerShape(20.dp))
             .background(CardWhite)
     ) {
         content()
