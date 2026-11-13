@@ -47,6 +47,8 @@ object QingJiRoutes {
     const val ErrorLog = "error_log"
     /** 任务书 P1：诊断日志导出页 */
     const val DiagnosticExport = "diagnostic_export"
+    /** 任务书 P2：项目信息页 */
+    const val ProjectInfo = "project_info"
 
     /** 桌面小组件设置 */
     const val WidgetSettings = "widget_settings"
@@ -88,6 +90,6 @@ object QingJiRoutes {
         Fasting, FoodPreference, FoodLibrary, WidgetSettings, ExercisePicker, ExerciseConfirm,
         TrainingActive, TrainingHistory,
         ExerciseLibrary, ExerciseFavorites, ExerciseDetail, TrainingPlan, PersonalBest,
-        Update, ErrorLog, DiagnosticExport
+        Update, ErrorLog, DiagnosticExport, ProjectInfo
     )
 }

@@ -57,6 +57,7 @@ import com.qingji.app.ui.screen.ProgressScreen
 import com.qingji.app.ui.screen.DiagnosticExportScreen
 import com.qingji.app.ui.screen.ErrorLogScreen
 import com.qingji.app.ui.screen.SettingsScreen
+import com.qingji.app.ui.screen.ProjectInfoScreen
 import com.qingji.app.ui.screen.UpdateScreen
 import com.qingji.app.ui.screen.record.AddRecordSheet
 import com.qingji.app.ui.screen.record.BarcodeScreen
@@ -311,7 +312,8 @@ fun QingJiAppRoot(
                         onOpenBackup = { navController.navigate(QingJiRoutes.Backup) },
                         onOpenUpdate = { navController.navigate(QingJiRoutes.Update) },
                         onOpenErrorLog = { navController.navigate(QingJiRoutes.ErrorLog) },
-                        onOpenDiagnosticExport = { navController.navigate(QingJiRoutes.DiagnosticExport) }
+                        onOpenDiagnosticExport = { navController.navigate(QingJiRoutes.DiagnosticExport) },
+                        onOpenProjectInfo = { navController.navigate(QingJiRoutes.ProjectInfo) }
                     )
                 }
                 composable(QingJiRoutes.Backup) {
@@ -328,6 +330,9 @@ fun QingJiAppRoot(
                 }
                 composable(QingJiRoutes.DiagnosticExport) {
                     DiagnosticExportScreen(onBack = { navController.popBackStack() })
+                }
+                composable(QingJiRoutes.ProjectInfo) {
+                    ProjectInfoScreen(onBack = { navController.popBackStack() })
                 }
                 composable(QingJiRoutes.SearchFood) {
                     SearchFoodScreen(onBack = { navController.popBackStack() })

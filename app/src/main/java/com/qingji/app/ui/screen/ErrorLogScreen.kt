@@ -39,17 +39,31 @@ import com.qingji.app.ui.components.AppDialog
 import com.qingji.app.ui.components.SectionCard
 import com.qingji.app.ui.theme.DangerRed
 import com.qingji.app.ui.theme.Dimens
+import com.qingji.app.ui.theme.DividerColor
 import com.qingji.app.ui.theme.PageBackground
 import com.qingji.app.ui.theme.QingJiGreen
 import com.qingji.app.ui.theme.TextPrimary
 import com.qingji.app.ui.theme.TextSecondary
 import com.qingji.app.ui.theme.TextSizes
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.launch
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.runtime.rememberCoroutineScope
+import com.qingji.app.BuildConfig
+import com.qingji.app.diagnostics.DiagnosticInfoProvider
+import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 
 /**
  * 错误日志页状态：内存快照 + 磁盘全量合并展示（新的在前）。
@@ -98,6 +112,8 @@ fun ErrorLogScreen(
     val entries by vm.entries.collectAsState()
     var detail by remember { mutableStateOf<AppLogger.Entry?>(null) }
     var showClearConfirm by remember { mutableStateOf(false) }
+    /** 正在反馈的错误条目（P2 一键问题反馈）。 */
+    var feedbackTarget by remember { mutableStateOf<AppLogger.Entry?>(null) }
 
     val fatalCount = entries.count { it.level == AppLogger.Level.FATAL || it.level == AppLogger.Level.ERROR }
     val normalCount = entries.count { it.level == AppLogger.Level.WARN || it.level == AppLogger.Level.DEBUG }
@@ -212,6 +228,12 @@ fun ErrorLogScreen(
                     Spacer(Modifier.height(4.dp))
                     Text(it, fontSize = TextSizes.Tiny, color = TextSecondary, lineHeight = 16.sp)
                 }
+                Spacer(Modifier.height(10.dp))
+                // 任务书第七节：一键问题反馈入口（用户确认后复制 + 打开 Issues 网页）
+                OutlinedButton(
+                    onClick = { feedbackTarget = e },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("反馈此问题", fontSize = TextSizes.Body, color = QingJiGreen) }
                 Spacer(Modifier.height(14.dp))
             }
         }
@@ -229,6 +251,84 @@ fun ErrorLogScreen(
         ) {
             Text("日志清了就找不回来。如果要反馈问题给开发者，先去「导出诊断日志」。",
                 fontSize = 14.sp, color = TextPrimary)
+        }
+    }
+
+    // ---------- P2 一键问题反馈弹窗（任务书第七节） ----------
+    // 流程：自动整理版本 / 设备 / 事件代码 / 脱敏摘要，用户补一句描述；
+    // 点「复制并打开 Issues」= 复制到剪贴板 + 用浏览器打开 Issues 页，
+    // 由用户自己粘贴提交，App 绝不自动创建 Issue、绝不自动上传。
+    feedbackTarget?.let { entry ->
+        val context = androidx.compose.ui.platform.LocalContext.current
+        var userNote by remember(entry) { mutableStateOf("") }
+        val timeFmtLong = remember { SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()) }
+
+        fun buildFeedbackText(): String {
+            val dev = DiagnosticInfoProvider.deviceInfo()
+            val stack = entry.stackTrace?.take(600) ?: "（无堆栈）"
+            return buildString {
+                append("### 问题描述\n")
+                append(userNote.ifBlank { "（在这里补一句：什么操作之后出的这个错）\n" })
+                append("\n### 环境\n")
+                append("- 应用版本：v${BuildConfig.VERSION_NAME}（versionCode ${BuildConfig.VERSION_CODE}）\n")
+                append("- 设备：${dev.optString("manufacturer")} ${dev.optString("model")}\n")
+                append("- 系统：Android ${dev.optString("android_version")}（API ${dev.optString("api_level")}）\n")
+                append("- 模块：${entry.module}\n")
+                append("- 事件代码：${entry.eventCode}\n")
+                append("- 发生时间：${timeFmtLong.format(Date(entry.timestamp))}\n")
+                append("\n### 异常摘要（已脱敏）\n")
+                append("```\n")
+                append(entry.throwableType?.let { "$it\n" } ?: "")
+                append(stack)
+                append("\n```\n")
+            }
+        }
+
+        AppDialog(
+            title = "反馈此问题",
+            confirmText = "复制并打开 Issues",
+            onConfirm = {
+                val text = buildFeedbackText()
+                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                clipboard.setPrimaryClip(ClipData.newPlainText("QingJi 反馈", text))
+                Toast.makeText(context, "反馈内容已复制，粘贴提交即可", Toast.LENGTH_LONG).show()
+                context.startActivity(
+                    Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/yueyinmin/QingJi-Android/issues"))
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                )
+                feedbackTarget = null
+            },
+            dismissText = "取消",
+            onDismiss = { feedbackTarget = null }
+        ) {
+            Column {
+                Text("下面会自动带上版本、设备、错误代码（全部已脱敏）。你可以补一句当时在做什么：",
+                    fontSize = 13.sp, color = TextSecondary)
+                Spacer(Modifier.height(8.dp))
+                BasicTextField(
+                    value = userNote,
+                    onValueChange = { userNote = it },
+                    textStyle = androidx.compose.ui.text.TextStyle(
+                        fontSize = TextSizes.Body, color = TextPrimary
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(Dimens.TinyCorner))
+                        .background(DividerColor.copy(alpha = 0.5f))
+                        .padding(10.dp)
+                        .height(72.dp),
+                    decorationBox = { inner ->
+                        if (userNote.isEmpty()) {
+                            Text("例：点了「导出备份」之后弹出来的",
+                                fontSize = TextSizes.Caption, color = TextSecondary)
+                        }
+                        inner()
+                    }
+                )
+                Spacer(Modifier.height(8.dp))
+                Text("点确认后：反馈文本复制到剪贴板 → 打开 GitHub Issues 网页 → 你自己粘贴、检查、提交。不会自动发布任何内容。",
+                    fontSize = 12.sp, color = TextSecondary, lineHeight = 16.sp)
+            }
         }
     }
 }

@@ -209,6 +209,8 @@ fun SettingsScreen(
     onOpenUpdate: () -> Unit = {},
     onOpenErrorLog: () -> Unit = {},
     onOpenDiagnosticExport: () -> Unit = {},
+    /** 任务书 P2：项目信息页 */
+    onOpenProjectInfo: () -> Unit = {},
     modifier: Modifier = Modifier,
     vm: SettingsViewModel = viewModel()
 ) {
@@ -396,6 +398,8 @@ fun SettingsScreen(
                     onClick = onOpenErrorLog))
                 add(SettingEntry("关于", s("导出诊断日志"), Icons.Filled.FolderZip, SettingsIconGray,
                     onClick = onOpenDiagnosticExport))
+                add(SettingEntry("关于", s("项目信息"), Icons.Outlined.Code, SettingsIconGray,
+                    onClick = onOpenProjectInfo))
                 add(SettingEntry("关于", s("版本信息"), Icons.Outlined.Code, SettingsIconGray,
                     onClick = { dialog = DialogKind.VERSION }))
             }
