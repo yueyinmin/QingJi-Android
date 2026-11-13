@@ -45,6 +45,8 @@ android {
 
     defaultConfig {
         applicationId = "com.qingji.app" // 手机上唯一标识，上架后不能改
+        // v1.1.0：迁移链测试（androidTest）用的运行器 —— 此前项目没有任何 androidTest，从未配置过
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         minSdk = 26                      // 最低支持 Android 8.0（覆盖 95% 以上设备）
         targetSdk = 35                   // 目标版本
         // v1.5（2026-11-09）：① 杯内计量数字整个去掉；② 引导新增昵称一问（不填随机「轻er~XXX」），共 10 步；
@@ -123,6 +125,13 @@ android {
     }
 
     // 让本地单元测试也能读到 res/ 资源和 AndroidManifest（Robolectric 需要）
+    sourceSets {
+        // v1.1.0：迁移测试 MigrationTestHelper 要把 schemas/*.json 当测试资产读
+        getByName("test").assets.srcDir("$projectDir/schemas")
+        // v1.1.0：迁移测试放 androidTest 跑，schema 资产同样要挂进 androidTest
+        getByName("androidTest").assets.srcDir("$projectDir/schemas")
+    }
+
     testOptions {
         unitTests {
             isIncludeAndroidResources = true
@@ -194,7 +203,14 @@ dependencies {
     // 在电脑上「真运行」安卓界面：Robolectric 提供安卓框架，Compose 测试库负责点击
     // 用途：验证按钮真的能点、点了真的会写库，而不是只验证能编译
     testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.room.testing)
     testImplementation(libs.androidx.test.core)
+
+    // v1.1.0：迁移链测试放在 instrumentation 环境（androidTest）跑
+    androidTestImplementation(libs.androidx.room.testing)
+    androidTestImplementation(libs.androidx.test.core)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.runner)
     testImplementation(libs.androidx.test.ext.junit)
     testImplementation(platform(libs.androidx.compose.bom))
     testImplementation(libs.androidx.compose.ui.test.junit4)

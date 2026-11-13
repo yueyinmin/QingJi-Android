@@ -43,6 +43,8 @@ data class ParsedBackup(
     val version: Int = 1,
     val exportedAt: String = "",
     val profile: UserProfile? = null,
+    /** v1.1.0：备份 JSON 里是否真的写了 profile 段（区分「明确无档案」与「第三方工具生成的文件缺这段」）。 */
+    val hasProfile: Boolean = true,
     val weights: List<WeightLog> = emptyList(),
     val foods: List<UserFood> = emptyList(),
     val favorites: List<String> = emptyList(),
@@ -51,6 +53,8 @@ data class ParsedBackup(
     val diaries: List<Diary> = emptyList(),
     val usage: List<UsageStat> = emptyList(),
     val aiConfig: AiConfig? = null,
+    /** v1.1.0：备份 JSON 里是否真的写了 aiConfig 段。 */
+    val hasAiConfig: Boolean = true,
     // ---------- v2 新增的五段 ----------
     val bodyMeasures: List<BodyMeasure> = emptyList(),
     val photos: List<ProgressPhoto> = emptyList(),
@@ -95,6 +99,7 @@ fun parseBackup(text: String): Result<ParsedBackup> {
                 version = root.optInt("version", 1),
                 exportedAt = root.optString("exportedAt", ""),
                 profile = parseProfile(root.optJSONObject("profile")),
+                hasProfile = root.has("profile"),
                 weights = parseArray(root, "weights") { o -> parseWeight(o) },
                 foods = parseArray(root, "foods") { o -> parseUserFood(o) },
                 favorites = parseStringArray(root, "foodFavorites"),
@@ -103,6 +108,7 @@ fun parseBackup(text: String): Result<ParsedBackup> {
                 diaries = parseArray(root, "diaries") { o -> parseDiary(o) },
                 usage = parseArray(root, "usage") { o -> parseUsage(o) },
                 aiConfig = parseAiConfig(root.optJSONObject("aiConfig")),
+                hasAiConfig = root.has("aiConfig"),
                 bodyMeasures = parseArray(root, "bodyMeasures") { o -> parseBodyMeasure(o) },
                 photos = parseArray(root, "photos") { o -> parsePhoto(o) },
                 exercises = parseArray(root, "exercises") { o -> parseExercise(o) },

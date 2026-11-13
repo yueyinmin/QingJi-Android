@@ -410,25 +410,9 @@ class BackupManager(private val context: Context) {
             }
 
             // ---------- 第二步：解析全部成功，才开事务落库 ----------
+            // 清「记录类」+ 灌入新数据都在 restoreInto 里，任何一步失败整事务回滚。
             db.withTransaction {
-                // 清「记录类」+ 用户自建食物/收藏。
-                // 预置运动库不动 —— 它是 App 自带的，不是用户数据。
-                db.foodLogDao().clearAll()
-                db.weightLogDao().clearAll()
-                db.waterLogDao().clearAll()
-                db.diaryDao().clearAll()
-                db.usageStatDao().clearAll()
-                db.userFoodDao().clearAll()
-                db.foodFavoriteDao().clearAll()
-                db.bodyMeasureDao().clearAll()
-                db.progressPhotoDao().clearAll()
-                db.exerciseLogDao().clearAll()
-                db.fastingLogDao().clearAll()
-                // 只清用户自建的运动，预置的 30 条留着
-                db.exercisePresetDao()
-                    .deleteByCategory(com.qingji.app.domain.ExerciseCalculator.CUSTOM_CATEGORY)
-
-                applyParsed(parsed)
+                restoreInto(db, parsed)
             }
 
             Result.success(summaryText(parsed))
@@ -438,40 +422,69 @@ class BackupManager(private val context: Context) {
     }
 
     /**
-     * 把解析好的数据灌进库。**必须**在调用方的事务里执行：
+     * 覆盖恢复的完整落库（先清后灌），**必须**在调用方的事务里执行：
      * 中途任何一条写失败，整个事务回滚，数据库回到导入前。
+     *
+     * v1.1.0 覆盖恢复语义收口（任务书 P0 风险 A）：
+     * - 备份 JSON 里**明确写了** profile / aiConfig 段的：有数据就覆盖，
+     *   明确 null 就清空本机对应数据（导出端永远写这两个键，null = 导出设备本来就没有）；
+     * - 键缺失（第三方工具生成的文件）：保留本机现状，不做猜测；
+     * - API Key 依然不进备份、不恢复，保留本机安全边界。
+     * 抽成 internal 并显式传库：单测可以直接灌内存 Room 验证这套语义。
      */
-    private suspend fun applyParsed(p: ParsedBackup) {
-        p.profile?.let { db.userProfileDao().save(it) }
+    internal suspend fun restoreInto(target: AppDatabase, p: ParsedBackup) {
+        // 清「记录类」+ 用户自建食物/收藏。
+        // 预置运动库不动 —— 它是 App 自带的，不是用户数据。
+        target.foodLogDao().clearAll()
+        target.weightLogDao().clearAll()
+        target.waterLogDao().clearAll()
+        target.diaryDao().clearAll()
+        target.usageStatDao().clearAll()
+        target.userFoodDao().clearAll()
+        target.foodFavoriteDao().clearAll()
+        target.bodyMeasureDao().clearAll()
+        target.progressPhotoDao().clearAll()
+        target.exerciseLogDao().clearAll()
+        target.fastingLogDao().clearAll()
+        // 只清用户自建的运动，预置的 30 条留着
+        target.exercisePresetDao()
+            .deleteByCategory(com.qingji.app.domain.ExerciseCalculator.CUSTOM_CATEGORY)
 
-        if (p.foods.isNotEmpty()) db.userFoodDao().insertAll(p.foods)
+        if (p.hasProfile) {
+            val dao = target.userProfileDao()
+            if (p.profile != null) dao.save(p.profile!!) else dao.clear()
+        }
+        if (p.hasAiConfig) {
+            val dao = target.aiConfigDao()
+            if (p.aiConfig != null) dao.save(p.aiConfig!!) else dao.clearAll()
+        }
+
+        if (p.foods.isNotEmpty()) target.userFoodDao().insertAll(p.foods)
 
         // 收藏按名字存（标准库只读，收藏只能记在用户库里）
         if (p.favorites.isNotEmpty()) {
             p.favorites.forEach { name ->
-                db.foodFavoriteDao().add(com.qingji.app.data.local.entity.FoodFavorite(name))
+                target.foodFavoriteDao().add(com.qingji.app.data.local.entity.FoodFavorite(name))
             }
         } else if (p.version < 2) {
             // v1 的老备份没有 foodFavorites 段，用「用户食物里 favorite=1」兜底
             p.foods.filter { it.favorite }.forEach {
-                db.foodFavoriteDao().add(com.qingji.app.data.local.entity.FoodFavorite(it.name))
+                target.foodFavoriteDao().add(com.qingji.app.data.local.entity.FoodFavorite(it.name))
             }
         }
 
-        if (p.foodLogs.isNotEmpty()) db.foodLogDao().insertAll(p.foodLogs)
-        p.weights.forEach { db.weightLogDao().save(it) }
-        p.waters.forEach { db.waterLogDao().insert(it) }
-        p.diaries.forEach { db.diaryDao().save(it) }
-        p.usage.forEach { db.usageStatDao().insertIfAbsent(it) }
+        if (p.foodLogs.isNotEmpty()) target.foodLogDao().insertAll(p.foodLogs)
+        p.weights.forEach { target.weightLogDao().save(it) }
+        p.waters.forEach { target.waterLogDao().insert(it) }
+        p.diaries.forEach { target.diaryDao().save(it) }
+        p.usage.forEach { target.usageStatDao().insertIfAbsent(it) }
 
         // v2 的五段：老备份里没有，列表是空的，这里自然什么都不做
-        p.bodyMeasures.forEach { db.bodyMeasureDao().save(it) }
-        p.photos.forEach { db.progressPhotoDao().insert(it) }
-        p.exercises.forEach { db.exerciseLogDao().insert(it) }
-        p.fastings.forEach { db.fastingLogDao().save(it) }
-        p.customPresets.forEach { db.exercisePresetDao().insertOne(it) }
-
-        p.aiConfig?.let { db.aiConfigDao().save(it) }
+        p.bodyMeasures.forEach { target.bodyMeasureDao().save(it) }
+        p.photos.forEach { target.progressPhotoDao().insert(it) }
+        p.exercises.forEach { target.exerciseLogDao().insert(it) }
+        p.fastings.forEach { target.fastingLogDao().save(it) }
+        p.customPresets.forEach { target.exercisePresetDao().insertOne(it) }
     }
 
     /** 导入完成后给用户看的一句话摘要：导进了多少、哪些东西没跟过来。 */

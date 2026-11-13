@@ -661,7 +661,7 @@ fun SettingsScreen(
             title = "版本信息",
             body = "轻记 v${BuildConfig.VERSION_NAME}（versionCode ${BuildConfig.VERSION_CODE}）\n" +
                 "最低支持 Android 8.0，目标 Android 15\n\n" +
-                "数据库：Room 11 张表，本地存储\n" +
+                "数据库：Room 9 · 15 张表，本地存储\n" +
                 "AI：OpenAI 兼容协议，直连服务商\n" +
                 "小组件：Jetpack Glance 1.1.1\n\n" +
                 "当前用户：${settings.nickname}" +
