@@ -480,7 +480,7 @@ private fun BodyDataCard(
         Spacer(Modifier.height(8.dp))
         Text(
             text = if (recordCount == 0) {
-                "还没有体重记录，点底部「+」→ 记体重，就能看到曲线"
+                "还没有体重记录"
             } else {
                 "还差 ${
                     com.qingji.app.domain.WeightUnit.format(remain, unit)
@@ -677,7 +677,7 @@ private fun WeightChart(
         ) {
             if (logs.isEmpty()) {
                 Text(
-                    text = "这个时间范围还没有体重记录\n点底部「+」→ 记体重",
+                    text = "这个时间范围还没有体重记录",
                     fontSize = 13.sp,
                     color = TextSecondary
                 )
