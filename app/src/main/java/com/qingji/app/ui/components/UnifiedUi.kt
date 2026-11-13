@@ -309,24 +309,26 @@ fun UsageStatCard(
 ) {
     Row(
         modifier = modifier
-            .heightIn(min = 88.dp)
-            .clip(RoundedCornerShape(22.dp))
+            // 尺寸对齐「我的」页普通菜单行：图标 22、名称 13、次数 20，
+            // 整卡 68dp 高，比第一版 88dp 收了一圈，不再占掉半个页面
+            .heightIn(min = 64.dp)
+            .clip(RoundedCornerShape(18.dp))
             .background(tone.container)
             .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
             tint = tone.onContainer,
-            modifier = Modifier.size(26.dp)
+            modifier = Modifier.size(20.dp)
         )
-        Spacer(Modifier.size(12.dp))
+        Spacer(Modifier.size(10.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = label,
-                fontSize = 14.sp,
+                fontSize = 12.sp,
                 color = TextPrimary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -334,7 +336,7 @@ fun UsageStatCard(
             Spacer(Modifier.height(2.dp))
             Text(
                 text = value,
-                fontSize = 24.sp,
+                fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 color = tone.onContainer,
                 maxLines = 1,

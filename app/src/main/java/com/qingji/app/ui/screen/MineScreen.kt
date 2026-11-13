@@ -365,13 +365,13 @@ private fun UsageSectionCard(totals: Map<String, Int>) {
         StatCell("体型图", (totals["body"] ?: 0).toString(), Icons.Outlined.AccessibilityNew, IconTones.Pink),
         StatCell("体重", (totals["weight"] ?: 0).toString(), Icons.Outlined.MonitorWeight, IconTones.Orange)
     )
-    GroupCard(contentPadding = 14.dp) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    GroupCard(contentPadding = 10.dp) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             // 8 项正好 4 排，不需要补空位；每排两个 weight(1f)，宽度随屏幕自适应
             items.chunked(2).forEach { rowItems ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     rowItems.forEach { cell ->
                         UsageStatCard(

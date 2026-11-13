@@ -338,26 +338,6 @@ fun HomeScreen(
         )
         }
 
-        // ---------- 今日训练（训练中心 P0，放在热量主卡下面） ----------
-        Spacer(Modifier.height(12.dp))
-        TodayTrainingCard(
-            todaySessions = trainingSessions.filter { it.date == today },
-            draft = trainingDraft,
-            onClick = onOpenTraining,
-            arrangement = todayArrangement
-        )
-
-        // ---------- 自律管理快捷卡片（SD-001） ----------
-        // 只在已经建过目标时出现，没建过就不占首页位置
-        Spacer(Modifier.height(12.dp))
-        SelfDisciplineQuickCard(
-            vm = selfDisciplineVm,
-            onOpen = onOpenSelfDiscipline,
-            onCheckin = onSelfDisciplineCheckin,
-            onUrge = onSelfDisciplineUrge,
-            onHistory = onSelfDisciplineHistory
-        )
-
         Spacer(Modifier.height(20.dp))
 
         // ---------- 今日记录 ----------
@@ -408,6 +388,26 @@ fun HomeScreen(
             }
             Spacer(Modifier.height(10.dp))
         }
+
+        // ---------- 今日训练（训练中心 P0，放在今日记录下面） ----------
+        Spacer(Modifier.height(12.dp))
+        TodayTrainingCard(
+            todaySessions = trainingSessions.filter { it.date == today },
+            draft = trainingDraft,
+            onClick = onOpenTraining,
+            arrangement = todayArrangement
+        )
+
+        // ---------- 自律管理快捷卡片（SD-001） ----------
+        // 只在已经建过目标时出现，没建过就不占首页位置
+        Spacer(Modifier.height(12.dp))
+        SelfDisciplineQuickCard(
+            vm = selfDisciplineVm,
+            onOpen = onOpenSelfDiscipline,
+            onCheckin = onSelfDisciplineCheckin,
+            onUrge = onSelfDisciplineUrge,
+            onHistory = onSelfDisciplineHistory
+        )
 
         // 本周运动消耗（从进展页搬过来，放本周小结上方）
         Spacer(Modifier.height(20.dp))
