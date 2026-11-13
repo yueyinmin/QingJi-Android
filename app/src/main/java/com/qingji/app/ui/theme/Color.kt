@@ -42,11 +42,11 @@ object Light {
     val Green = Color(0xFF1F8A70)
     val GreenDark = Color(0xFF16795F)
     val GreenLight = Color(0xFFE8F5EF)
-    val Page = Color(0xFFF4F5F6)
+    val Page = Color(0xFFF3F3F6)
     val Card = Color(0xFFFFFFFF)
-    val Text = Color(0xFF1A1A1A)
-    val TextSub = Color(0xFF8A8F98)
-    val Divider = Color(0xFFEEF0F2)
+    val Text = Color(0xFF263B33)
+    val TextSub = Color(0xFF9AA8A1)
+    val Divider = Color(0xFFEEF0F0)
 }
 
 object Dark {
@@ -144,7 +144,7 @@ object MultiColor {
 
     // 四餐：橙 / 绿 / 蓝 / 紫
     val Breakfast = Color(0xFFF5A623)
-    val Lunch = Color(0xFF1F8A70)
+    val Lunch = Color(0xFF299D76)
     val Dinner = Color(0xFF5B8DEF)
     val Snack = Color(0xFF9B8AFB)
 
@@ -152,7 +152,7 @@ object MultiColor {
     // （v1.0.2 加第四颗「记体重」时漏了这个绿，直接复用了 QuickWater，
     //   结果水滴和体重秤都是蓝的，和设置页里的说明对不上）
     val QuickWater = Color(0xFF4FA9C9)
-    val QuickWeight = Color(0xFF1F8A70)
+    val QuickWeight = Color(0xFF299D76)
     val QuickBook = Color(0xFF9B8AFB)
     val QuickCamera = Color(0xFF26A69A)
 
