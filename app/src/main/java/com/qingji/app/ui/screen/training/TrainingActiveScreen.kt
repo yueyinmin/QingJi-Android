@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -72,6 +73,8 @@ fun TrainingActiveScreen(
     // 进页面：没有草稿就开一次新训练；每秒刷一次计时显示
     LaunchedEffect(Unit) {
         vm.startNew()
+        // P1：动作详情「用这个动作开始训练」带过来的动作，第一帧就加进草稿
+        vm.consumePendingExercise()?.let { vm.addExercise(it) }
         while (true) {
             vm.tick()
             delay(1000)
@@ -199,6 +202,9 @@ fun TrainingActiveScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(CardWhite)
+                // 实测：手势导航下，按钮贴近屏幕底边时会有一截点不到。
+                // 主动给底部导航条让位，把整排按钮抬到手势区之上。
+                .navigationBarsPadding()
                 .padding(horizontal = Dimens.ScreenPadding, vertical = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
