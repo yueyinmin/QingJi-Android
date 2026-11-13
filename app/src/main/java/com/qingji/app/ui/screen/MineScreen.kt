@@ -81,7 +81,7 @@ import com.qingji.app.ui.components.GroupHeader
 import com.qingji.app.ui.components.IconTones
 import com.qingji.app.ui.components.SettingsRow
 import com.qingji.app.ui.components.StatCell
-import com.qingji.app.ui.components.StatisticGrid
+import com.qingji.app.ui.components.UsageStatCard
 import com.qingji.app.ui.components.ThinProgressBar
 import com.qingji.app.ui.theme.CardWhite
 import com.qingji.app.ui.theme.DividerColor
@@ -354,6 +354,7 @@ private fun ProfileHeaderCard(
  */
 @Composable
 private fun UsageSectionCard(totals: Map<String, Int>) {
+    // 顺序、数据来源、统计口径全部保持原样，只换成 2 列 × 4 排的横卡
     val items = listOf(
         StatCell("图像识别", (totals["image"] ?: 0).toString(), Icons.Outlined.PhotoCamera, IconTones.Blue),
         StatCell("文字识别", (totals["text"] ?: 0).toString(), Icons.Outlined.Description, IconTones.Teal),
@@ -364,8 +365,26 @@ private fun UsageSectionCard(totals: Map<String, Int>) {
         StatCell("体型图", (totals["body"] ?: 0).toString(), Icons.Outlined.AccessibilityNew, IconTones.Pink),
         StatCell("体重", (totals["weight"] ?: 0).toString(), Icons.Outlined.MonitorWeight, IconTones.Orange)
     )
-    GroupCard {
-        StatisticGrid(items = items, modifier = Modifier.padding(12.dp))
+    GroupCard(contentPadding = 14.dp) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            // 8 项正好 4 排，不需要补空位；每排两个 weight(1f)，宽度随屏幕自适应
+            items.chunked(2).forEach { rowItems ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    rowItems.forEach { cell ->
+                        UsageStatCard(
+                            label = cell.label,
+                            value = cell.value,
+                            icon = cell.icon,
+                            tone = cell.tone,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 

@@ -25,8 +25,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -57,6 +59,14 @@ data class IconTone(val icon: Color, val containerLight: Color)
 /** 底板色：浅色模式用固定的低饱和色，深色模式用图标色加透明度。 */
 val IconTone.container: Color
     get() = if (QingJiThemeState.darkMode) icon.copy(alpha = 0.18f) else containerLight
+
+/**
+ * 深色底板上的前景色。
+ * 深色下底板是「图标色 18% 叠深底」，直接用原色画数字会糊成一团，
+ * 往白色混 32% 提亮，保证图标和统计数字都看得清。
+ */
+val IconTone.onContainer: Color
+    get() = if (QingJiThemeState.darkMode) lerp(icon, Color.White, 0.32f) else icon
 
 /**
  * 八种语义色（颜色值按工单给的建议值，已与现有主题校准）。
@@ -274,6 +284,61 @@ private fun StatisticCell(cell: StatCell, modifier: Modifier = Modifier) {
                 fontWeight = FontWeight.SemiBold,
                 color = TextPrimary,
                 maxLines = 1
+            )
+        }
+    }
+}
+
+
+/**
+ * 使用情况统计卡（2 列 × 4 排用）。
+ * 横向结构：左侧功能图标（26dp）+ 右侧「名称 / 次数」两行，次数是视觉重点。
+ * 底板沿用语义色，数字跟图标同色，8 张卡只写这一个 Composable。
+ *
+ * 高度用 heightIn(min) 而不是固定 height：系统字体放大时卡片能自己长高，
+ * 不会把数字裁掉。
+ */
+@Composable
+fun UsageStatCard(
+    label: String,
+    value: String,
+    icon: ImageVector,
+    tone: IconTone,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null
+) {
+    Row(
+        modifier = modifier
+            .heightIn(min = 88.dp)
+            .clip(RoundedCornerShape(22.dp))
+            .background(tone.container)
+            .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = tone.onContainer,
+            modifier = Modifier.size(26.dp)
+        )
+        Spacer(Modifier.size(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                fontSize = 14.sp,
+                color = TextPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = value,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = tone.onContainer,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }
