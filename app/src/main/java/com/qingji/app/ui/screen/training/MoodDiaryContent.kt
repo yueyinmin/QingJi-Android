@@ -124,8 +124,10 @@ fun MoodDiaryContent(
                 Row(modifier = Modifier.fillMaxWidth()) {
                     SummaryColumn("${monthDiaries.size} 篇", "篇数", Modifier.weight(1f))
                     SummaryColumn(
+                        // 当月平均：只对「这个月真的写了的日记」求平均，不是按 30 天摊
+                        //（例如当月写了 10 篇，就是这 10 篇评分的平均；没写日记的天数不参与计算）
                         if (monthDiaries.isEmpty()) "--" else "%.1f / 5".format(avgRating),
-                        "平均心情", Modifier.weight(1f)
+                        "平均评分", Modifier.weight(1f)
                     )
                     SummaryColumn("$streak 天", "连续记录", Modifier.weight(1f))
                 }
