@@ -58,6 +58,10 @@ object SelfDisciplineContracts {
     const val SETTING_ENABLED = "module_enabled"   // 模块是否启用（"0"/"1"）
     const val SETTING_DEFAULT_GOAL = "default_goal_id" // 主要目标 id
     const val SETTING_PRIVACY_HIDDEN = "privacy_hidden" // 隐私：隐藏敏感明细（"0"/"1"）
+    // 用户自己新增的选项（逗号分隔），打卡 / 冲动 / 偏离三个页面共用同一份
+    const val SETTING_CUSTOM_TRIGGERS = "custom_triggers"
+    const val SETTING_CUSTOM_COPING = "custom_coping"
+    const val SETTING_CUSTOM_MOODS = "custom_moods"
 
     /** 把逗号分隔的多选字符串拆成列表。 */
     fun splitCsv(value: String): List<String> =

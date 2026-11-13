@@ -157,19 +157,26 @@ fun SelfDisciplineDeviationScreen(
 
                     Text("诱因（可选，多选）", fontSize = TextSizes.Body, color = TextPrimary)
                     Spacer(Modifier.height(8.dp))
-                    MultiSelectChips(
+                    EditableChips(
                         options = SelfDisciplineContracts.TRIGGERS,
                         selected = triggers,
-                        onToggle = { triggers = if (it in triggers) triggers - it else triggers + it }
+                        onSelectedChange = { triggers = it },
+                        customKey = SelfDisciplineContracts.SETTING_CUSTOM_TRIGGERS,
+                        vm = vm,
+                        addLabel = "新增诱因"
                     )
                     Spacer(Modifier.height(14.dp))
 
                     Text("当时的情绪（可选）", fontSize = TextSizes.Body, color = TextPrimary)
                     Spacer(Modifier.height(8.dp))
-                    MultiSelectChips(
+                    EditableChips(
                         options = SelfDisciplineContracts.MOODS,
                         selected = if (mood.isBlank()) emptySet() else setOf(mood),
-                        onToggle = { mood = if (mood == it) "" else it }
+                        onSelectedChange = { mood = it.firstOrNull().orEmpty() },
+                        customKey = SelfDisciplineContracts.SETTING_CUSTOM_MOODS,
+                        vm = vm,
+                        single = true,
+                        addLabel = "新增情绪"
                     )
                     Spacer(Modifier.height(14.dp))
 

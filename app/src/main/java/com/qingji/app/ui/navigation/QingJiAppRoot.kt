@@ -374,9 +374,29 @@ fun QingJiAppRoot(
                         onOpenFoodLibrary = { navController.navigate(QingJiRoutes.FoodLibrary) },
                         onOpenTraining = { navController.navigate(QingJiRoutes.TrainingHistory) },
                         onOpenSelfDiscipline = { navController.navigate(QingJiRoutes.SelfDiscipline) },
+                        onOpenExercise = { navController.navigate(QingJiRoutes.ExercisePicker) },
+                        onSelfDisciplineCheckin = {
+                            val id = selfDisciplineVm.primaryGoal.value?.id
+                            navController.navigate(
+                                if (id != null) QingJiRoutes.selfDisciplineCheckin(id) else QingJiRoutes.SelfDiscipline
+                            )
+                        },
+                        onSelfDisciplineUrge = {
+                            val id = selfDisciplineVm.primaryGoal.value?.id
+                            navController.navigate(
+                                if (id != null) QingJiRoutes.selfDisciplineUrge(id) else QingJiRoutes.SelfDiscipline
+                            )
+                        },
+                        onSelfDisciplineHistory = {
+                            val id = selfDisciplineVm.primaryGoal.value?.id
+                            navController.navigate(
+                                if (id != null) QingJiRoutes.selfDisciplineHistory(id) else QingJiRoutes.SelfDiscipline
+                            )
+                        },
                         trainingVm = trainingVm,
                         planVm = planVm,
                         selfDisciplineVm = selfDisciplineVm,
+                        progressVm = progressVm,
                         statusBarTop = statusBarTopDp,
                         scrollState = tabScrollStates.getValue(QingJiTab.Home),
                         vm = homeVm
@@ -405,6 +425,7 @@ fun QingJiAppRoot(
                         onStartTraining = { navController.navigate(QingJiRoutes.TrainingActive) },
                         onEditTraining = { navController.navigate(QingJiRoutes.TrainingActive) },
                         trainingVm = trainingVm,
+                        progressVm = progressVm,
                         scrollState = tabScrollStates.getValue(QingJiTab.Diary),
                         vm = diaryVm
                     )

@@ -62,6 +62,12 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.qingji.app.ui.viewmodel.ProgressViewModel
+import com.qingji.app.ui.components.IconTones
+import com.qingji.app.ui.components.container
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.outlined.History
 import com.qingji.app.data.local.entity.FoodLog
 import com.qingji.app.data.prefs.QingJiSettings
 import com.qingji.app.data.prefs.SettingsStore
@@ -133,6 +139,14 @@ fun HomeScreen(
     onOpenSelfDiscipline: () -> Unit = {},
     /** 自律模块 VM：和模块内各页共用，首页只读主要目标和统计 */
     selfDisciplineVm: SelfDisciplineViewModel = viewModel(),
+    /** 首页「本周运动消耗」复用进展页数据源 */
+    progressVm: ProgressViewModel = viewModel(),
+    /** 今日自律菜单的三个快捷动作（Root 解析当前主要目标） */
+    onSelfDisciplineCheckin: () -> Unit = {},
+    onSelfDisciplineUrge: () -> Unit = {},
+    onSelfDisciplineHistory: () -> Unit = {},
+    /** 记一次运动（走现有的运动选择页） */
+    onOpenExercise: () -> Unit = {},
     /** 与日记页、训练页共用同一个 ViewModel，进行中状态才对得上 */
     trainingVm: TrainingViewModel = viewModel(),
     /** P1：读当前启用的计划，给「今日训练」卡显示今日安排 */
@@ -157,6 +171,7 @@ fun HomeScreen(
     val planDays by planVm.activePlanDays.collectAsState()
     val planExercises by planVm.planExercises.collectAsState()
     val todayArrangement = planVm.todayArrangement()
+    val exerciseWeek by progressVm.exerciseWeek.collectAsState()
     val today = AppClock.today()
 
     // 首页要读几项显示设置：饮水卡显隐、AI 分析按钮显隐、悬浮按钮开关
@@ -335,7 +350,13 @@ fun HomeScreen(
         // ---------- 自律管理快捷卡片（SD-001） ----------
         // 只在已经建过目标时出现，没建过就不占首页位置
         Spacer(Modifier.height(12.dp))
-        SelfDisciplineQuickCard(vm = selfDisciplineVm, onClick = onOpenSelfDiscipline)
+        SelfDisciplineQuickCard(
+            vm = selfDisciplineVm,
+            onOpen = onOpenSelfDiscipline,
+            onCheckin = onSelfDisciplineCheckin,
+            onUrge = onSelfDisciplineUrge,
+            onHistory = onSelfDisciplineHistory
+        )
 
         Spacer(Modifier.height(20.dp))
 
@@ -388,6 +409,14 @@ fun HomeScreen(
             Spacer(Modifier.height(10.dp))
         }
 
+        // 本周运动消耗（从进展页搬过来，放本周小结上方）
+        Spacer(Modifier.height(20.dp))
+        com.qingji.app.ui.screen.ExerciseWeekCard(
+            list = exerciseWeek,
+            onAdd = onOpenExercise,
+            onDelete = { id -> progressVm.deleteExercise(id) }
+        )
+
         // v3.4.0 R2：本周小结放四餐之后、底部留白之前（受「主题与显示」开关控制）
         if (settings.showWeeklySummary) {
             Spacer(Modifier.height(20.dp))
@@ -420,8 +449,8 @@ fun HomeScreen(
                 onPhoto = onOpenImage,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    // v1.2：往下贴到底栏上方，减少遮挡「今日记录」右侧按钮的窗口
-                    .padding(end = 16.dp, bottom = 10.dp)
+                    // 2026-11-13：和进展 / 日记两页统一成 end=16 / bottom=20
+                    .padding(end = 16.dp, bottom = 20.dp)
             )
         }
     }
@@ -1170,7 +1199,8 @@ private fun MealCard(
         modifier = Modifier.clickable { onOpenDetail() }
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            // 右侧要让出悬浮按钮的宽度，否则「小计 xx 千卡」会被 50dp 的按钮压住
+            modifier = Modifier.fillMaxWidth().padding(end = 44.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -1178,7 +1208,8 @@ private fun MealCard(
                 Box(
                     modifier = Modifier
                         .size(30.dp)
-                        .clip(CircleShape)
+                        // 图标底板改成小圆角方形，和设置/我的页的图标语言统一
+                        .clip(RoundedCornerShape(9.dp))
                         .background(badgeColor.copy(alpha = 0.12f)),
                     contentAlignment = Alignment.Center
                 ) {
@@ -1321,14 +1352,17 @@ internal fun isAiGenerated(log: FoodLog): Boolean =
     log.source in setOf("text", "image", "voice")
 
 /**
- * 首页「自律管理」快捷卡（SD-001）。
- * 没建目标时整张卡不出现，避免首页被空状态占位。
- * 显示：主要目标名、今天记没记、已坚持天数。
+ * 首页「今日自律」菜单（SD-001，2026-11-13 升级为菜单）。
+ * 放在今日训练卡下面：上面一行是目标与今日状态，下面三个入口直接可用，
+ * 不再需要先点进模块首页再找按钮。没建目标时整块不显示。
  */
 @Composable
 private fun SelfDisciplineQuickCard(
     vm: SelfDisciplineViewModel,
-    onClick: () -> Unit
+    onOpen: () -> Unit,
+    onCheckin: () -> Unit,
+    onUrge: () -> Unit,
+    onHistory: () -> Unit
 ) {
     val primary by vm.primaryGoal.collectAsState()
     val stats by vm.stats.collectAsState()
@@ -1340,30 +1374,72 @@ private fun SelfDisciplineQuickCard(
     val goal = primary ?: return
     val todayStatus = checkins.firstOrNull { it.localDate == LocalDate.now() }?.status
 
-    SectionCard(modifier = Modifier.clickable { onClick() }) {
-        // 信息全部靠左：右侧有一列悬浮快捷按钮，右对齐的数字会被压住
-        Text(
-            "自律管理",
-            fontSize = TextSizes.CardTitle,
-            fontWeight = FontWeight.SemiBold,
-            color = TextPrimary
-        )
-        Spacer(Modifier.height(4.dp))
-        Text(goal.title, fontSize = TextSizes.Caption, color = TextSecondary)
-        Spacer(Modifier.height(6.dp))
+    SectionCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    "今日自律",
+                    fontSize = TextSizes.CardTitle,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextPrimary
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(goal.title, fontSize = TextSizes.Caption, color = TextSecondary)
+                Spacer(Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "已坚持 ${stats.currentDays} 天",
+                        fontSize = TextSizes.Caption,
+                        fontWeight = FontWeight.Medium,
+                        color = QingJiGreen
+                    )
+                    Text("  ·  ", fontSize = TextSizes.Caption, color = TextSecondary)
+                    Text(
+                        if (todayStatus == null) "今天还没记录" else "今天：${statusLabelOf(todayStatus)}",
+                        fontSize = TextSizes.Caption,
+                        color = if (todayStatus == null) TextSecondary else QingJiGreen
+                    )
+                }
+            }
             Text(
-                "已坚持 ${stats.currentDays} 天",
+                "查看全部 ›",
                 fontSize = TextSizes.Caption,
-                fontWeight = FontWeight.Medium,
-                color = QingJiGreen
-            )
-            Text("  ·  ", fontSize = TextSizes.Caption, color = TextSecondary)
-            Text(
-                if (todayStatus == null) "今天还没记录" else "今天：${statusLabelOf(todayStatus)}",
-                fontSize = TextSizes.Caption,
-                color = if (todayStatus == null) TextSecondary else QingJiGreen
+                color = QingJiGreen,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { onOpen() }
+                    .padding(horizontal = 6.dp, vertical = 4.dp)
             )
         }
+
+        Spacer(Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SelfDisciplineMenuItem("每日打卡", Icons.Outlined.CheckCircle, IconTones.Green, Modifier.weight(1f), onCheckin)
+            SelfDisciplineMenuItem("记一次冲动", Icons.Filled.Bolt, IconTones.Orange, Modifier.weight(1f), onUrge)
+            SelfDisciplineMenuItem("历史记录", Icons.Outlined.History, IconTones.Blue, Modifier.weight(1f), onHistory)
+        }
+    }
+}
+
+/** 今日自律菜单的一格：浅色圆角底 + 图标 + 名称。 */
+@Composable
+private fun SelfDisciplineMenuItem(
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    tone: com.qingji.app.ui.components.IconTone,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(tone.container)
+            .clickable { onClick() }
+            .padding(vertical = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(icon, contentDescription = null, tint = tone.icon, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.height(4.dp))
+        Text(label, fontSize = TextSizes.Tiny, color = TextPrimary, maxLines = 1)
     }
 }

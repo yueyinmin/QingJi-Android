@@ -130,6 +130,7 @@ fun SelfDisciplineUrgeScreen(
 
     if (showSheet) {
         AddUrgeSheet(
+            vm = vm,
             onDismiss = { showSheet = false },
             onSave = { intensity, trigger, coping, after, resolved, note ->
                 scope.launch {
@@ -235,6 +236,7 @@ private fun UrgeCard(urge: SelfDisciplineUrgeEntity, onDelete: () -> Unit) {
 
 @Composable
 private fun AddUrgeSheet(
+    vm: SelfDisciplineViewModel,
     onDismiss: () -> Unit,
     onSave: (Int, String, String, Int, Boolean, String) -> Unit
 ) {
@@ -269,19 +271,27 @@ private fun AddUrgeSheet(
 
         Text("主要诱因", fontSize = TextSizes.Body, color = TextPrimary)
         Spacer(Modifier.height(8.dp))
-        MultiSelectChips(
+        EditableChips(
             options = SelfDisciplineContracts.TRIGGERS,
             selected = if (trigger.isBlank()) emptySet() else setOf(trigger),
-            onToggle = { trigger = if (trigger == it) "" else it }
+            onSelectedChange = { trigger = it.firstOrNull().orEmpty() },
+            customKey = SelfDisciplineContracts.SETTING_CUSTOM_TRIGGERS,
+            vm = vm,
+            single = true,
+            addLabel = "新增诱因"
         )
         Spacer(Modifier.height(14.dp))
 
         Text("采取的应对方式", fontSize = TextSizes.Body, color = TextPrimary)
         Spacer(Modifier.height(8.dp))
-        MultiSelectChips(
+        EditableChips(
             options = SelfDisciplineContracts.COPING_METHODS,
             selected = if (coping.isBlank()) emptySet() else setOf(coping),
-            onToggle = { coping = if (coping == it) "" else it }
+            onSelectedChange = { coping = it.firstOrNull().orEmpty() },
+            customKey = SelfDisciplineContracts.SETTING_CUSTOM_COPING,
+            vm = vm,
+            single = true,
+            addLabel = "新增应对方式"
         )
         Spacer(Modifier.height(14.dp))
 

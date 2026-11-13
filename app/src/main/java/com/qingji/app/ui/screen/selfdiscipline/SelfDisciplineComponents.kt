@@ -15,11 +15,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,6 +44,8 @@ import com.qingji.app.ui.theme.QingJiGreen
 import com.qingji.app.ui.theme.TextPrimary
 import com.qingji.app.ui.theme.TextSecondary
 import com.qingji.app.ui.theme.TextSizes
+import com.qingji.app.ui.viewmodel.SelfDisciplineViewModel
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.YearMonth
 
@@ -353,5 +359,111 @@ fun DatePickerSheet(
             fontSize = TextSizes.Tiny,
             color = TextSecondary
         )
+    }
+}
+
+
+/**
+ * 可扩展的多选/单选胶囊（2026-11-13 新增）。
+ * 除了预置项，还能像引导页那样「新增一项」：输入后存进设置表，
+ * 打卡、冲动、偏离三个页面共用同一份自定义选项，不用各写一套。
+ *
+ * @param single true = 单选（情绪 / 单个诱因），false = 多选（诱因集合）
+ * @param customKey 自定义项存在哪（见 SelfDisciplineContracts.SETTING_CUSTOM_*）
+ */
+@Composable
+fun EditableChips(
+    options: List<String>,
+    selected: Set<String>,
+    onSelectedChange: (Set<String>) -> Unit,
+    customKey: String,
+    vm: SelfDisciplineViewModel,
+    modifier: Modifier = Modifier,
+    single: Boolean = false,
+    addLabel: String = "新增一项"
+) {
+    var extras by remember { mutableStateOf<List<String>>(emptyList()) }
+    var showInput by remember { mutableStateOf(false) }
+    var input by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(customKey) {
+        extras = SelfDisciplineContracts.splitCsv(vm.getSetting(customKey).orEmpty())
+    }
+
+    fun toggle(value: String) {
+        onSelectedChange(
+            if (single) {
+                if (value in selected) emptySet() else setOf(value)
+            } else {
+                if (value in selected) selected - value else selected + value
+            }
+        )
+    }
+
+    fun add() {
+        val v = input.trim()
+        if (v.isEmpty()) return
+        if (v !in options && v !in extras) {
+            extras = extras + v
+            onSelectedChange(if (single) setOf(v) else selected + v)
+            scope.launch {
+                vm.setSetting(customKey, SelfDisciplineContracts.joinCsv(extras))
+            }
+        } else {
+            onSelectedChange(if (single) setOf(v) else selected + v)
+        }
+        input = ""
+        showInput = false
+    }
+
+    Column(modifier) {
+        MultiSelectChips(
+            options = options + extras,
+            selected = selected,
+            onToggle = { toggle(it) }
+        )
+        Spacer(Modifier.height(8.dp))
+        if (!showInput) {
+            Text(
+                text = "＋ $addLabel",
+                fontSize = TextSizes.Caption,
+                color = QingJiGreen,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(PageBackground)
+                    .clickable { showInput = true }
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+            )
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = input,
+                    onValueChange = { input = it },
+                    singleLine = true,
+                    placeholder = { Text("写下你自己的选项", fontSize = TextSizes.Caption, color = TextSecondary) },
+                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = TextSizes.Body),
+                    shape = RoundedCornerShape(Dimens.ItemCorner),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = CardWhite,
+                        unfocusedContainerColor = CardWhite,
+                        focusedIndicatorColor = QingJiGreen,
+                        unfocusedIndicatorColor = DividerColor,
+                        cursorColor = QingJiGreen
+                    ),
+                    modifier = Modifier.weight(1f)
+                )
+                Spacer(Modifier.size(8.dp))
+                Text(
+                    "添加",
+                    fontSize = TextSizes.Body,
+                    color = if (input.isBlank()) TextSecondary else QingJiGreen,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable(enabled = input.isNotBlank()) { add() }
+                        .padding(horizontal = 10.dp, vertical = 8.dp)
+                )
+            }
+        }
     }
 }

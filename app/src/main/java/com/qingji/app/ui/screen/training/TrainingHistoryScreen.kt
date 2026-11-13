@@ -28,7 +28,6 @@ fun TrainingHistoryScreen(
             vm = vm,
             onStartTraining = onStartTraining,
             onEditSession = onEditSession,
-            showModeSwitch = false,
             modifier = Modifier.weight(1f)
         )
     }

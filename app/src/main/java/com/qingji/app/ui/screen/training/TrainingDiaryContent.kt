@@ -32,6 +32,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.qingji.app.ui.screen.DietHeatmapCard
 import com.qingji.app.data.local.entity.WorkoutExercise
 import com.qingji.app.data.local.entity.WorkoutSession
 import com.qingji.app.domain.AppClock
@@ -61,8 +62,9 @@ fun TrainingDiaryContent(
     vm: TrainingViewModel,
     onStartTraining: () -> Unit,
     onEditSession: () -> Unit,
-    showModeSwitch: Boolean = false,
-    onSwitchToMood: () -> Unit = {},
+    /** 饮食 30 天热力图的数据（从进展页搬过来的模块，口径保持一致） */
+    foodLogs: List<com.qingji.app.data.local.entity.FoodLog> = emptyList(),
+    dailyKcalGoal: Double = 2000.0,
     modifier: Modifier = Modifier
 ) {
     val sessions by vm.sessions.collectAsState()
@@ -98,10 +100,6 @@ fun TrainingDiaryContent(
                 .padding(horizontal = Dimens.ScreenPadding)
         ) {
             Spacer(Modifier.height(12.dp))
-            if (showModeSwitch) {
-                DiaryModeSwitch(training = true, onChange = { if (!it) onSwitchToMood() })
-                Spacer(Modifier.height(12.dp))
-            }
             if (message != null) {
                 Box(
                     modifier = Modifier
@@ -165,6 +163,11 @@ fun TrainingDiaryContent(
                     Spacer(Modifier.height(8.dp))
                 }
             }
+            Spacer(Modifier.height(12.dp))
+
+            // 从进展页搬过来的「饮食 30 天」，放在训练记录下面
+            DietHeatmapCard(logs = foodLogs, dailyGoal = dailyKcalGoal)
+
             Spacer(Modifier.height(Dimens.FabSpace))
         }
     }

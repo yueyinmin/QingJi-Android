@@ -7,7 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.MonitorWeight
@@ -54,11 +54,11 @@ import com.qingji.app.ui.theme.MultiColor
  * ============================================================
  */
 
-/** 圆形按钮直径。三个页面共用，改这里一处就够。 */
-private val BUTTON_SIZE = 44.dp
+/** 按钮直径。三个页面共用，改这里一处就够（2026-11-13 从 44 放大到 50）。 */
+private val BUTTON_SIZE = 50.dp
 
-/** 图标绘制框。四个图标都塞进同样大小的框里居中，尺寸天然统一。 */
-private val ICON_SIZE = 20.dp
+/** 图标绘制框。四个图标都塞进同样大小的框里居中，尺寸天然统一（20 → 24dp）。 */
+private val ICON_SIZE = 24.dp
 
 @Composable
 fun QuickActionColumn(
@@ -110,7 +110,7 @@ private fun QuickActionButton(icon: ImageVector, color: Color, onClick: () -> Un
     Box(
         modifier = Modifier
             .size(BUTTON_SIZE)
-            .clip(CircleShape)
+            .clip(RoundedCornerShape(15.dp))
             .background(CardWhite)
             .clickable { onClick() },
         contentAlignment = Alignment.Center
@@ -119,7 +119,7 @@ private fun QuickActionButton(icon: ImageVector, color: Color, onClick: () -> Un
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .clip(CircleShape)
+                .clip(RoundedCornerShape(15.dp))
                 .background(color.copy(alpha = 0.16f))
         )
         // 固定绘制框：四个图标共用同一个尺寸和同一个对齐方式，

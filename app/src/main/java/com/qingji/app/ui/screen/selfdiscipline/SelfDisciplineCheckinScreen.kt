@@ -174,10 +174,14 @@ fun SelfDisciplineCheckinScreen(
 
                 Text("情绪（可选）", fontSize = TextSizes.Body, color = TextPrimary)
                 Spacer(Modifier.height(8.dp))
-                MultiSelectChips(
+                EditableChips(
                     options = SelfDisciplineContracts.MOODS,
                     selected = if (mood.isBlank()) emptySet() else setOf(mood),
-                    onToggle = { mood = if (mood == it) "" else it }
+                    onSelectedChange = { mood = it.firstOrNull().orEmpty() },
+                    customKey = SelfDisciplineContracts.SETTING_CUSTOM_MOODS,
+                    vm = vm,
+                    single = true,
+                    addLabel = "新增情绪"
                 )
                 Spacer(Modifier.height(16.dp))
 
@@ -192,19 +196,25 @@ fun SelfDisciplineCheckinScreen(
 
                 Text("主要诱因（可选，多选）", fontSize = TextSizes.Body, color = TextPrimary)
                 Spacer(Modifier.height(8.dp))
-                MultiSelectChips(
+                EditableChips(
                     options = SelfDisciplineContracts.TRIGGERS,
                     selected = triggers,
-                    onToggle = { triggers = triggers.toggle(it) }
+                    onSelectedChange = { triggers = it },
+                    customKey = SelfDisciplineContracts.SETTING_CUSTOM_TRIGGERS,
+                    vm = vm,
+                    addLabel = "新增诱因"
                 )
                 Spacer(Modifier.height(16.dp))
 
                 Text("应对方式（可选，多选）", fontSize = TextSizes.Body, color = TextPrimary)
                 Spacer(Modifier.height(8.dp))
-                MultiSelectChips(
+                EditableChips(
                     options = SelfDisciplineContracts.COPING_METHODS,
                     selected = coping,
-                    onToggle = { coping = coping.toggle(it) }
+                    onSelectedChange = { coping = it },
+                    customKey = SelfDisciplineContracts.SETTING_CUSTOM_COPING,
+                    vm = vm,
+                    addLabel = "新增应对方式"
                 )
                 Spacer(Modifier.height(16.dp))
 
