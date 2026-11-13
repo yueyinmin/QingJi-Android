@@ -25,14 +25,14 @@ class UpdateNoticeStoreTest {
 
     @Test
     fun `全新安装或从没弹过提示的老版本升级 都弹当前版本`() {
-        // 1.0.9 及以前根本没有 last_seen 键，覆盖安装后必须能看到 1.0.10 的更新内容
-        val list = UpdateNoticeStore(context).pendingReleases(110)
+        // 1.0.9 及以前根本没有 last_seen 键，覆盖安装后必须能看到 1.1.0 的更新内容
+        val list = UpdateNoticeStore(context).pendingReleases(111)
         assertEquals(1, list.size)
-        assertEquals("1.0.10", list.first().versionName)
+        assertEquals("1.1.0", list.first().versionName)
         // 没点「我知道了」之前，重开还会弹，不会静默变成已读
-        assertEquals(1, UpdateNoticeStore(context).pendingReleases(110).size)
-        UpdateNoticeStore(context).markSeen(110)
-        assertTrue(UpdateNoticeStore(context).pendingReleases(110).isEmpty())
+        assertEquals(1, UpdateNoticeStore(context).pendingReleases(111).size)
+        UpdateNoticeStore(context).markSeen(111)
+        assertTrue(UpdateNoticeStore(context).pendingReleases(111).isEmpty())
     }
 
     @Test
@@ -40,18 +40,18 @@ class UpdateNoticeStoreTest {
         val store = UpdateNoticeStore(context)
         store.markSeen(109)
 
-        assertEquals(1, store.pendingReleases(110).size)
+        assertEquals(1, store.pendingReleases(111).size)
         // 还没点「我知道了」：中途杀进程回来仍然会弹
-        assertEquals(1, UpdateNoticeStore(context).pendingReleases(110).size)
+        assertEquals(1, UpdateNoticeStore(context).pendingReleases(111).size)
 
-        store.markSeen(110)
-        assertTrue(UpdateNoticeStore(context).pendingReleases(110).isEmpty())
+        store.markSeen(111)
+        assertTrue(UpdateNoticeStore(context).pendingReleases(111).isEmpty())
     }
 
     @Test
     fun `连跳几个版本时一次列全`() {
         val store = UpdateNoticeStore(context)
         store.markSeen(108)
-        assertEquals(2, store.pendingReleases(110).size)
+        assertEquals(2, store.pendingReleases(111).size)
     }
 }
