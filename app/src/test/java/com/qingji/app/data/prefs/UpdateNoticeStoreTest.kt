@@ -24,9 +24,14 @@ class UpdateNoticeStoreTest {
     }
 
     @Test
-    fun `全新安装不弹更新提示`() {
-        assertTrue(UpdateNoticeStore(context).pendingReleases(110).isEmpty())
-        // 同版本再打开也不弹
+    fun `全新安装或从没弹过提示的老版本升级 都弹当前版本`() {
+        // 1.0.9 及以前根本没有 last_seen 键，覆盖安装后必须能看到 1.0.10 的更新内容
+        val list = UpdateNoticeStore(context).pendingReleases(110)
+        assertEquals(1, list.size)
+        assertEquals("1.0.10", list.first().versionName)
+        // 没点「我知道了」之前，重开还会弹，不会静默变成已读
+        assertEquals(1, UpdateNoticeStore(context).pendingReleases(110).size)
+        UpdateNoticeStore(context).markSeen(110)
         assertTrue(UpdateNoticeStore(context).pendingReleases(110).isEmpty())
     }
 
