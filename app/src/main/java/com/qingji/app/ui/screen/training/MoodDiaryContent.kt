@@ -81,11 +81,12 @@ fun MoodDiaryContent(
     else monthDiaries.map { it.rating }.average()
     val streak = remember(diaries) { currentStreak(ratingByDate.keys) }
 
+    // 主人 2026-11-13 要求：日历里的灰色块去掉。没写日记的日子不再铺灰色底，
+    // 只给当天真的有记录的日子着色；没记录的日子就是透明底 + 普通数字。
     val dateColors = remember(month, ratingByDate) {
-        (1..month.lengthOfMonth()).associate { day ->
-            val date = month.atDay(day)
-            date to moodColor(DiaryRules.level(ratingByDate[date] ?: 0))
-        }
+        ratingByDate
+            .filterKeys { YearMonth.from(it) == month }
+            .mapValues { (date, rating) -> moodColor(DiaryRules.level(rating)) }
     }
 
     Box(modifier = modifier.fillMaxSize().background(PageBackground)) {
@@ -144,7 +145,6 @@ fun MoodDiaryContent(
             )
             Spacer(Modifier.height(8.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                MoodLegend("未写", DividerColor)
                 MoodLegend("低", QingJiGreenLight)
                 MoodLegend("中", QingJiGreen.copy(alpha = 0.55f))
                 MoodLegend("高", QingJiGreen)

@@ -66,7 +66,7 @@ import com.qingji.app.ui.theme.TextSizes
 import java.time.LocalDate
 import java.time.YearMonth
 
-/** 日记页顶部「心情日记 / 训练日记」切换。两个视图都放一份，切到哪边都能切回来。 */
+/** 日记页顶部「训练日记 / 心情日记」切换：训练日记在左、心情日记在右（主人 2026-11-13 指定）。两个视图都放一份，切到哪边都能切回来。 */
 @Composable
 fun DiaryModeSwitch(
     training: Boolean,
@@ -80,7 +80,7 @@ fun DiaryModeSwitch(
             .background(DividerColor)
             .padding(3.dp)
     ) {
-        listOf(false to "心情日记", true to "训练日记").forEach { (isTraining, label) ->
+        listOf(true to "训练日记", false to "心情日记").forEach { (isTraining, label) ->
             val selected = training == isTraining
             Box(
                 modifier = Modifier
