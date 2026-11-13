@@ -26,7 +26,7 @@ import java.util.zip.ZipOutputStream
 object DiagnosticExporter {
 
     /** 导出成功的结果：文件 + 展示用信息。 */
-    data class Output(val file: File, val entryCount: Int, val errorCount: Int, val fatalCount: Int)
+    data class Output(val file: File, val entryCount: Int, val errorCount: Int, val fatalCount: Int, val warnCount: Int)
 
     /**
      * 生成诊断 ZIP。放 filesDir/diagnostics/（FileProvider 白名单里），
@@ -92,7 +92,7 @@ object DiagnosticExporter {
             zip.closeEntry()
         }
 
-        Result.success(Output(outFile, entries.size, errorCount, fatalCount))
+        Result.success(Output(outFile, entries.size, errorCount, fatalCount, warnCount))
     } catch (e: Exception) {
         Result.failure(e)
     }

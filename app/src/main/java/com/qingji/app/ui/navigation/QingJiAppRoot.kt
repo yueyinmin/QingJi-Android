@@ -54,7 +54,10 @@ import com.qingji.app.ui.screen.MealDetailScreen
 import com.qingji.app.ui.screen.MineScreen
 import com.qingji.app.ui.screen.ProfileScreen
 import com.qingji.app.ui.screen.ProgressScreen
+import com.qingji.app.ui.screen.DiagnosticExportScreen
+import com.qingji.app.ui.screen.ErrorLogScreen
 import com.qingji.app.ui.screen.SettingsScreen
+import com.qingji.app.ui.screen.UpdateScreen
 import com.qingji.app.ui.screen.record.AddRecordSheet
 import com.qingji.app.ui.screen.record.BarcodeScreen
 import com.qingji.app.ui.screen.record.ImageRecordScreen
@@ -305,11 +308,26 @@ fun QingJiAppRoot(
                         onOpenWidget = { navController.navigate(QingJiRoutes.WidgetSettings) },
                         onOpenAiConfig = { navController.navigate(QingJiRoutes.AiConfig) },
                         onOpenProfile = { navController.navigate(QingJiRoutes.Profile) },
-                        onOpenBackup = { navController.navigate(QingJiRoutes.Backup) }
+                        onOpenBackup = { navController.navigate(QingJiRoutes.Backup) },
+                        onOpenUpdate = { navController.navigate(QingJiRoutes.Update) },
+                        onOpenErrorLog = { navController.navigate(QingJiRoutes.ErrorLog) },
+                        onOpenDiagnosticExport = { navController.navigate(QingJiRoutes.DiagnosticExport) }
                     )
                 }
                 composable(QingJiRoutes.Backup) {
                     BackupScreen(onBack = { navController.popBackStack() })
+                }
+                composable(QingJiRoutes.Update) {
+                    UpdateScreen(onBack = { navController.popBackStack() })
+                }
+                composable(QingJiRoutes.ErrorLog) {
+                    ErrorLogScreen(
+                        onBack = { navController.popBackStack() },
+                        onOpenDiagnosticExport = { navController.navigate(QingJiRoutes.DiagnosticExport) }
+                    )
+                }
+                composable(QingJiRoutes.DiagnosticExport) {
+                    DiagnosticExportScreen(onBack = { navController.popBackStack() })
                 }
                 composable(QingJiRoutes.SearchFood) {
                     SearchFoodScreen(onBack = { navController.popBackStack() })

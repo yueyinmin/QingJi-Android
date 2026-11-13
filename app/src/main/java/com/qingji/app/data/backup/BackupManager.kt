@@ -1,5 +1,7 @@
 package com.qingji.app.data.backup
 
+import com.qingji.app.diagnostics.AppLogger
+
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -418,6 +420,7 @@ class BackupManager(private val context: Context) {
             // 旧版是把「清表」摆在最前面，解析到一半出错就变成
             // 「老数据没了、新数据只进一半」，找都找不回来。
             val parsed = parseBackup(text).getOrElse {
+                AppLogger.e("Backup", "BACKUP_PARSE_FAILED", "备份解析失败：${it.message}", it)
                 return@withContext Result.failure(it)
             }
 
@@ -429,6 +432,7 @@ class BackupManager(private val context: Context) {
 
             Result.success(summaryText(parsed))
         } catch (e: Exception) {
+            AppLogger.e("Backup", "BACKUP_RESTORE_FAILED", "备份恢复失败：${e.message}", e)
             Result.failure(e)
         }
     }

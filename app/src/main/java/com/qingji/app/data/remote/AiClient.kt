@@ -1,5 +1,7 @@
 package com.qingji.app.data.remote
 
+import com.qingji.app.diagnostics.AppLogger
+
 import com.qingji.app.data.local.entity.AiConfig
 import com.qingji.app.domain.AiResultRules
 import com.qingji.app.domain.MealRules
@@ -59,6 +61,12 @@ data class AiRecognitionResult(
 
 /** 专门用来把错误翻成人话的异常。 */
 class AiException(message: String) : Exception(message)
+
+    /** AI 失败统一收口：先写日志（AI_REQUEST_FAILED）再翻成人话异常。 */
+    private fun aiFailure(message: String, cause: Throwable? = null): AiException {
+        AppLogger.e("AI", "AI_REQUEST_FAILED", message, cause)
+        return AiException(message)
+    }
 
 class AiClient {
 
@@ -378,11 +386,11 @@ class AiClient {
             Result.failure<AiRecognitionResult>(e)
         } catch (e: SocketTimeoutException) {
             Result.failure<AiRecognitionResult>(
-                AiException("网络较慢，超过 ${config.timeoutSec} 秒没回应；输入内容已保留，可重试")
+                aiFailure("网络较慢，超过 ${config.timeoutSec} 秒没回应；输入内容已保留，可重试", e)
             )
         } catch (e: Exception) {
             Result.failure<AiRecognitionResult>(
-                AiException("连不上 AI 服务：${e.message?.take(100) ?: "未知错误"}")
+                aiFailure("连不上 AI 服务：${e.message?.take(100) ?: "未知错误"}", e)
             )
         }
     }
@@ -435,7 +443,7 @@ class AiClient {
             )
         } catch (e: Exception) {
             Result.failure<AiRecognitionResult>(
-                AiException("连不上 AI 服务：${e.message?.take(100) ?: "未知错误"}")
+                aiFailure("连不上 AI 服务：${e.message?.take(100) ?: "未知错误"}", e)
             )
         }
     }
@@ -463,7 +471,7 @@ class AiClient {
         } catch (e: SocketTimeoutException) {
             Result.failure<String>(AiException("分析超时，稍后再试"))
         } catch (e: Exception) {
-            Result.failure<String>(AiException("连不上 AI 服务：${e.message?.take(100) ?: "未知错误"}"))
+            Result.failure<String>(aiFailure("连不上 AI 服务：${e.message?.take(100) ?: "未知错误"}", e))
         }
     }
 

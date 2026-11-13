@@ -41,6 +41,13 @@ object QingJiRoutes {
     const val DiaryEdit = "diary_edit/{diaryId}"
     fun diaryEdit(diaryId: Long = 0L) = "diary_edit/$diaryId"
 
+    /** 任务书 P1：版本更新检查页 */
+    const val Update = "update"
+    /** 任务书 P1：错误日志页 */
+    const val ErrorLog = "error_log"
+    /** 任务书 P1：诊断日志导出页 */
+    const val DiagnosticExport = "diagnostic_export"
+
     /** 桌面小组件设置 */
     const val WidgetSettings = "widget_settings"
 
@@ -80,6 +87,7 @@ object QingJiRoutes {
         ImageRecord, VoiceRecord, Barcode, AiAnalysis, Backup, DiaryEdit, MealDetail,
         Fasting, FoodPreference, FoodLibrary, WidgetSettings, ExercisePicker, ExerciseConfirm,
         TrainingActive, TrainingHistory,
-        ExerciseLibrary, ExerciseFavorites, ExerciseDetail, TrainingPlan, PersonalBest
+        ExerciseLibrary, ExerciseFavorites, ExerciseDetail, TrainingPlan, PersonalBest,
+        Update, ErrorLog, DiagnosticExport
     )
 }

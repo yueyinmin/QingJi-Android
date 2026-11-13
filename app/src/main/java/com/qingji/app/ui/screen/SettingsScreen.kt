@@ -28,6 +28,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.FolderZip
+import androidx.compose.material.icons.filled.SystemUpdateAlt
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material.icons.automirrored.outlined.DirectionsRun
@@ -202,6 +205,10 @@ fun SettingsScreen(
     onOpenFoodPreference: () -> Unit = {},
     /** 桌面小组件：改成带预览的独立页面 */
     onOpenWidget: () -> Unit = {},
+    /** 任务书 P1：检查版本更新 / 错误日志 / 导出诊断日志 三个独立页 */
+    onOpenUpdate: () -> Unit = {},
+    onOpenErrorLog: () -> Unit = {},
+    onOpenDiagnosticExport: () -> Unit = {},
     modifier: Modifier = Modifier,
     vm: SettingsViewModel = viewModel()
 ) {
@@ -383,6 +390,12 @@ fun SettingsScreen(
                     onClick = { dialog = DialogKind.PLATFORM }))
                 add(SettingEntry("关于", s("关于我们"), Icons.Filled.Info, SettingsIconPink,
                     onClick = { dialog = DialogKind.ABOUT }))
+                add(SettingEntry("关于", s("检查版本更新"), Icons.Filled.SystemUpdateAlt, SettingsIconBlueLight,
+                    onClick = onOpenUpdate))
+                add(SettingEntry("关于", s("错误日志"), Icons.Filled.BugReport, SettingsIconPink,
+                    onClick = onOpenErrorLog))
+                add(SettingEntry("关于", s("导出诊断日志"), Icons.Filled.FolderZip, SettingsIconGray,
+                    onClick = onOpenDiagnosticExport))
                 add(SettingEntry("关于", s("版本信息"), Icons.Outlined.Code, SettingsIconGray,
                     onClick = { dialog = DialogKind.VERSION }))
             }
