@@ -774,8 +774,10 @@ class QingJiRepository(private val context: Context) {
     /**
      * 清除全部记录，保留「配置类」的东西。
      *
-     * 清的（10 张）：饮食 / 饮水 / 体重 / 日记 / 围度 / 进度照片 / 运动 / 断食 / 使用统计 / 搜索历史
-     * 留的（5 张 + DataStore）：个人档案（身高体重目标）、AI 配置、自建食物、收藏、预置运动库
+     * 清的（12 张）：饮食 / 饮水 / 体重 / 日记 / 围度 / 进度照片 / 运动 / 断食 / 使用统计 / 搜索历史
+     *   + 训练会话、训练明细（训练中心是记录类，用户说「清记录」就得一起没）
+     * 留的（9 张 + DataStore）：个人档案、AI 配置、自建食物、收藏、预置运动库、
+     *   动作库、训练计划 3 张表（这些是配置/资产，不是记录）
      *
      * 为什么这么分：用户想「重新开始记」的时候，不该被迫重新填一遍身高体重、
      * 也不该丢掉自己录的几十种常吃食物 —— 那是他攒的资产，不是记录。
@@ -796,7 +798,13 @@ class QingJiRepository(private val context: Context) {
             db.fastingLogDao().clearAll()
             db.usageStatDao().clearAll()
             db.foodSearchHistoryDao().clearAll()
+            // 训练中心：记录清掉，动作库与计划保留
+            db.workoutSessionDao().clearAll()
+            db.workoutExerciseDao().clearAll()
         }
+
+        // 还没保存的「进行中训练」也算记录，一并作废
+        com.qingji.app.data.prefs.WorkoutDraftStore(context).clear()
 
         // 记录里的照片跟着删掉，否则成了占着空间的孤儿文件。
         // 头像不算记录，必须留着（它就在同一个目录里）。
@@ -811,7 +819,8 @@ class QingJiRepository(private val context: Context) {
     /**
      * 恢复出厂：回到「刚装完这个 App」的状态。
      *
-     * 15 张表全清 + DataStore 设置全清 + API Key 清掉 + 本地图片全删 + 闹钟全取消。
+     * 21 张表全清（含训练中心 6 张）+ DataStore 设置全清 + 训练草稿/单位偏好全清
+     * + API Key 清掉 + 本地图片全删 + 闹钟全取消。
      * 清完之后 `onboarding_done` 变成 false，QingJiAppRoot 订阅的 settings 流
      * 会自动把界面切回引导页 —— 不需要重启 App，也不用自己写导航逻辑。
      *
@@ -835,10 +844,19 @@ class QingJiRepository(private val context: Context) {
             db.aiConfigDao().clearAll()
             db.exercisePresetDao().clearAll()
             db.userProfileDao().clear()
+            // 训练中心 6 张表全清（下次进训练页会重新灌内置动作库）
+            db.exerciseDao().clearAll()
+            db.trainingPlanDao().clearAll()
+            db.trainingPlanDayDao().clearAll()
+            db.planExerciseDao().clearAll()
+            db.workoutSessionDao().clearAll()
+            db.workoutExerciseDao().clearAll()
         }
 
         // 设置里含主题、昵称、目标模式、AI 纠错表、引导完成标记，一起清
         SettingsStore.clear(context)
+        // 训练草稿与 kg/lb 偏好（SharedPreferences，跟 DataStore 不是一个地方）
+        com.qingji.app.data.prefs.WorkoutDraftStore(context).clearAll()
         // Key 在 AndroidKeyStore 加密存储里，跟 DataStore 是两个地方
         ApiKeyStore.clear(context)
 

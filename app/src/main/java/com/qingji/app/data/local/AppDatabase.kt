@@ -23,6 +23,12 @@ import com.qingji.app.data.local.dao.UserFoodDao
 import com.qingji.app.data.local.dao.UserProfileDao
 import com.qingji.app.data.local.dao.WaterLogDao
 import com.qingji.app.data.local.dao.WeightLogDao
+import com.qingji.app.data.local.dao.ExerciseDao
+import com.qingji.app.data.local.dao.TrainingPlanDao
+import com.qingji.app.data.local.dao.TrainingPlanDayDao
+import com.qingji.app.data.local.dao.PlanExerciseDao
+import com.qingji.app.data.local.dao.WorkoutSessionDao
+import com.qingji.app.data.local.dao.WorkoutExerciseDao
 import com.qingji.app.data.local.entity.AiConfig
 import com.qingji.app.data.local.entity.BodyMeasure
 import com.qingji.app.data.local.entity.Diary
@@ -38,6 +44,12 @@ import com.qingji.app.data.local.entity.UserFood
 import com.qingji.app.data.local.entity.UserProfile
 import com.qingji.app.data.local.entity.WaterLog
 import com.qingji.app.data.local.entity.WeightLog
+import com.qingji.app.data.local.entity.ExerciseEntity
+import com.qingji.app.data.local.entity.TrainingPlan
+import com.qingji.app.data.local.entity.TrainingPlanDay
+import com.qingji.app.data.local.entity.PlanExercise
+import com.qingji.app.data.local.entity.WorkoutSession
+import com.qingji.app.data.local.entity.WorkoutExercise
 import java.time.LocalDate
 
 /**
@@ -85,9 +97,16 @@ class Converters {
         // v1.0.4：food 表拆走，换成下面三张用户侧的表
         UserFood::class,
         FoodFavorite::class,
-        FoodSearchHistory::class
+        FoodSearchHistory::class,
+        // v1.0.10 训练中心：6 张全新表，旧表一列都不动
+        ExerciseEntity::class,
+        TrainingPlan::class,
+        TrainingPlanDay::class,
+        PlanExercise::class,
+        WorkoutSession::class,
+        WorkoutExercise::class
     ],
-    version = 9,
+    version = 10,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -108,6 +127,14 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun userFoodDao(): UserFoodDao
     abstract fun foodFavoriteDao(): FoodFavoriteDao
     abstract fun foodSearchHistoryDao(): FoodSearchHistoryDao
+
+    // ---------- 训练中心（Room 10） ----------
+    abstract fun exerciseDao(): ExerciseDao
+    abstract fun trainingPlanDao(): TrainingPlanDao
+    abstract fun trainingPlanDayDao(): TrainingPlanDayDao
+    abstract fun planExerciseDao(): PlanExerciseDao
+    abstract fun workoutSessionDao(): WorkoutSessionDao
+    abstract fun workoutExerciseDao(): WorkoutExerciseDao
 
     companion object {
         /** 整个 App 只保留一个数据库实例，重复创建会出问题。 */
@@ -395,11 +422,43 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * 9 → 10：训练中心新增 6 张表。
+         *
+         * 所有 SQL 都是照 `schemas/10.json` 里 Room 自己生成的 createSql 原样抄的
+         * （只把 ${TABLE_NAME} 换成真实表名），所以 DEFAULT、NOT NULL、列顺序
+         * 与 Entity 定义逐字一致，不会在打开数据库时被告知 schema 不匹配。
+         *
+         * 关键点：一条 ALTER / DROP 都没有，15 张老表和里面的数据完全不动。
+         */
+        internal val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS `exercise` (`uuid` TEXT NOT NULL, `name` TEXT NOT NULL, `category` TEXT NOT NULL DEFAULT '', `primaryMuscles` TEXT NOT NULL DEFAULT '', `secondaryMuscles` TEXT NOT NULL DEFAULT '', `equipment` TEXT NOT NULL DEFAULT '', `steps` TEXT NOT NULL DEFAULT '', `commonMistakes` TEXT NOT NULL DEFAULT '', `isBuiltIn` INTEGER NOT NULL DEFAULT 0, `isFavorite` INTEGER NOT NULL DEFAULT 0, `createdAt` INTEGER NOT NULL DEFAULT 0, `updatedAt` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`uuid`))")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_exercise_category` ON `exercise` (`category`)")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_exercise_name` ON `exercise` (`name`)")
+
+                db.execSQL("CREATE TABLE IF NOT EXISTS `training_plan` (`uuid` TEXT NOT NULL, `name` TEXT NOT NULL, `source` TEXT NOT NULL DEFAULT '', `isActive` INTEGER NOT NULL DEFAULT 0, `createdAt` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`uuid`))")
+
+                db.execSQL("CREATE TABLE IF NOT EXISTS `training_plan_day` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `planUuid` TEXT NOT NULL DEFAULT '', `weekday` INTEGER NOT NULL DEFAULT 0, `title` TEXT NOT NULL DEFAULT '', `isRest` INTEGER NOT NULL DEFAULT 0)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_training_plan_day_planUuid` ON `training_plan_day` (`planUuid`)")
+
+                db.execSQL("CREATE TABLE IF NOT EXISTS `plan_exercise` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `dayId` INTEGER NOT NULL DEFAULT 0, `exerciseUuid` TEXT NOT NULL DEFAULT '', `exerciseNameSnapshot` TEXT NOT NULL DEFAULT '', `targetSets` INTEGER NOT NULL DEFAULT 0, `targetReps` INTEGER NOT NULL DEFAULT 0, `targetWeightKg` REAL NOT NULL DEFAULT 0.0, `orderInDay` INTEGER NOT NULL DEFAULT 0)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_plan_exercise_dayId` ON `plan_exercise` (`dayId`)")
+
+                db.execSQL("CREATE TABLE IF NOT EXISTS `workout_session` (`uuid` TEXT NOT NULL, `date` TEXT NOT NULL, `startedAt` INTEGER NOT NULL DEFAULT 0, `endedAt` INTEGER NOT NULL DEFAULT 0, `durationMinutes` INTEGER NOT NULL DEFAULT 0, `note` TEXT NOT NULL DEFAULT '', `source` TEXT NOT NULL DEFAULT 'manual', `createdAt` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`uuid`))")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_workout_session_date` ON `workout_session` (`date`)")
+
+                db.execSQL("CREATE TABLE IF NOT EXISTS `workout_exercise` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `sessionUuid` TEXT NOT NULL DEFAULT '', `exerciseUuid` TEXT NOT NULL DEFAULT '', `exerciseNameSnapshot` TEXT NOT NULL DEFAULT '', `orderInSession` INTEGER NOT NULL DEFAULT 0, `setsJson` TEXT NOT NULL DEFAULT '', `note` TEXT NOT NULL DEFAULT '')")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_workout_exercise_sessionUuid` ON `workout_exercise` (`sessionUuid`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_workout_exercise_exerciseUuid` ON `workout_exercise` (`exerciseUuid`)")
+            }
+        }
+
         /** v1.1.0：迁移测试用 —— 全部历史迁移，按版本顺序。 */
         internal val ALL_MIGRATIONS: List<Migration> = listOf(
             MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
             MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8,
-            MIGRATION_8_9
+            MIGRATION_8_9, MIGRATION_9_10
         )
 
         fun get(context: Context): AppDatabase =
@@ -410,9 +469,11 @@ abstract class AppDatabase : RoomDatabase() {
                     "qingji.db"
                 )
                     .addMigrations(
+                        // ⚠️ 这里和 ALL_MIGRATIONS 是两份独立列表。
+                        // 加新迁移时两处都要加：只改测试那份，测试会过、真机升级却打不开。
                         MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
                         MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8,
-                        MIGRATION_8_9
+                        MIGRATION_8_9, MIGRATION_9_10
                     )
                     // 不用 fallbackToDestructiveMigration()。
                     // 那行兜底在「漏写 Migration」或「schema 校验不一致」时会静默清库，

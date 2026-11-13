@@ -61,13 +61,18 @@ data class ParsedBackup(
     val exercises: List<ExerciseLog> = emptyList(),
     val fastings: List<FastingLog> = emptyList(),
     /** 只装用户自己新建的运动（预置的 30 条随 APK 走，不进备份） */
-    val customPresets: List<ExercisePreset> = emptyList()
+    val customPresets: List<ExercisePreset> = emptyList(),
+    // ---------- v3 新增：训练中心 6 张表 ----------
+    /** 备份 JSON 里是否真的写了 training 段（v2 及更老的文件没有）。 */
+    val hasTraining: Boolean = false,
+    val training: TrainingBackup? = null
 ) {
     /** 有没有真的读到业务数据。全是空的时候导入没意义，界面上该给个提示。 */
     val isEmpty: Boolean
         get() = profile == null && weights.isEmpty() && foodLogs.isEmpty() &&
             waters.isEmpty() && diaries.isEmpty() && bodyMeasures.isEmpty() &&
-            photos.isEmpty() && exercises.isEmpty() && fastings.isEmpty()
+            photos.isEmpty() && exercises.isEmpty() && fastings.isEmpty() &&
+            (training == null || training.isEmpty())
 }
 
 /**
@@ -113,7 +118,9 @@ fun parseBackup(text: String): Result<ParsedBackup> {
                 photos = parseArray(root, "photos") { o -> parsePhoto(o) },
                 exercises = parseArray(root, "exercises") { o -> parseExercise(o) },
                 fastings = parseArray(root, "fastings") { o -> parseFasting(o) },
-                customPresets = parseArray(root, "exercisePresets") { o -> parsePreset(o) }
+                customPresets = parseArray(root, "exercisePresets") { o -> parsePreset(o) },
+                hasTraining = root.has("training"),
+                training = parseTraining(root.optJSONObject("training"))
             )
         )
     } catch (e: Exception) {

@@ -146,6 +146,15 @@ class BackupManager(private val context: Context) {
         // 导回去反而会和下次启动重灌的预置打架（同名的会变成两条）
         val customPresets = db.exercisePresetDao().observeAll().first()
             .filter { it.category == com.qingji.app.domain.ExerciseCalculator.CUSTOM_CATEGORY }
+        // v3：训练中心 6 张表整包带走，换手机不丢训练记录
+        val training = TrainingBackup(
+            exercises = db.exerciseDao().findAll(),
+            plans = db.trainingPlanDao().findAll(),
+            planDays = db.trainingPlanDayDao().findAll(),
+            planExercises = db.planExerciseDao().findAll(),
+            sessions = db.workoutSessionDao().findAll(),
+            workoutExercises = db.workoutExerciseDao().findAll()
+        )
 
         val sb = StringBuilder(1024)
         sb.append("{\n")
@@ -381,7 +390,10 @@ class BackupManager(private val context: Context) {
                     })
                 }
             }.toString()
-        ).append("\n")
+        ).append(",\n")
+
+        // ---------- v3 新增：训练中心 ----------
+        sb.append("  \"training\": ").append(training.toJson().toString()).append("\n")
 
         sb.append("}\n")
         return sb.toString()
@@ -485,6 +497,25 @@ class BackupManager(private val context: Context) {
         p.exercises.forEach { target.exerciseLogDao().insert(it) }
         p.fastings.forEach { target.fastingLogDao().save(it) }
         p.customPresets.forEach { target.exercisePresetDao().insertOne(it) }
+
+        // ---------- v3 训练段 ----------
+        // 老备份（version < 3）里根本没有训练数据，一行都不动，避免把新记的训练清掉。
+        // 段本身读坏了（hasTraining=true 但 training=null）也选择保留本机数据，宁可不覆盖。
+        val t = p.training
+        if (p.version >= 3 && t != null) {
+            target.exerciseDao().clearAll()
+            target.trainingPlanDao().clearAll()
+            target.trainingPlanDayDao().clearAll()
+            target.planExerciseDao().clearAll()
+            target.workoutSessionDao().clearAll()
+            target.workoutExerciseDao().clearAll()
+            if (t.exercises.isNotEmpty()) target.exerciseDao().insertAll(t.exercises)
+            if (t.plans.isNotEmpty()) target.trainingPlanDao().insertAll(t.plans)
+            if (t.planDays.isNotEmpty()) target.trainingPlanDayDao().insertAll(t.planDays)
+            if (t.planExercises.isNotEmpty()) target.planExerciseDao().insertAll(t.planExercises)
+            if (t.sessions.isNotEmpty()) target.workoutSessionDao().insertAll(t.sessions)
+            if (t.workoutExercises.isNotEmpty()) target.workoutExerciseDao().insertAll(t.workoutExercises)
+        }
     }
 
     /** 导入完成后给用户看的一句话摘要：导进了多少、哪些东西没跟过来。 */
@@ -499,6 +530,9 @@ class BackupManager(private val context: Context) {
         if (p.fastings.isNotEmpty()) parts.add("断食 ${p.fastings.size} 天")
         if (p.photos.isNotEmpty()) parts.add("照片条目 ${p.photos.size} 张")
         if (p.foods.isNotEmpty()) parts.add("自建食物 ${p.foods.size} 种")
+        if (p.training != null && p.training.sessions.isNotEmpty()) {
+            parts.add("训练 ${p.training.sessions.size} 次")
+        }
 
         val body = if (parts.isEmpty()) "这份备份里没有记录" else parts.joinToString("、")
         val photoNote = if (p.photos.isNotEmpty()) "照片文件本身不在备份里，需要从旧手机把图片拷过来。" else ""
