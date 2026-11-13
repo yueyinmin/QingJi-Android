@@ -4,9 +4,13 @@
   1. files/images  ：日记、饮食记录里保存的照片
   2. cache/images  ：拍照时的临时文件（交给系统相机写）
   3. external-files/backup ：导出的 JSON / CSV 备份，用系统分享面板发出去
+  4. files/update  ：从 GitHub Release 下载的更新 APK（交给系统安装器读）
+  5. files/diagnostics    ：导出的诊断 ZIP（用系统分享面板发出去，白名单内容见 DiagnosticExporter）
 -->
 <paths>
     <files-path name="app_images" path="images/" />
     <cache-path name="camera_cache" path="images/" />
     <external-files-path name="backup" path="backup/" />
+    <files-path name="update_apk" path="update/" />
+    <files-path name="diagnostics" path="diagnostics/" />
 </paths>

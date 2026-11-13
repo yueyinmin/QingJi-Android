@@ -14,6 +14,9 @@
     <!-- 断食常驻计时用前台服务；Android 14+ 必须声明具体类型（这里用 specialUse） -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!-- 更新功能：下载完 APK 后调起系统安装器；没有这条权限系统会直接拒绝安装动作。
+         安全底线在代码里：装之前先校验包名 / versionCode / 签名证书 SHA-256（ApkSignatureVerifier）。 -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
         android:name=".QingJiApp"
