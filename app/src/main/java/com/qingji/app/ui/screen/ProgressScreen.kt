@@ -164,10 +164,11 @@ fun ProgressScreen(
 
     val startWeight = profile?.startWeight?.takeIf { it > 0 } ?: 0.0
     val targetWeight = profile?.targetWeight?.takeIf { it > 0 } ?: 0.0
-    // AI 专项：范围内一条记录都没有时，以前拿「起始体重」冒充当前体重，
-    // 身体数据卡显示 80kg、同一屏「最新」却显示 --，自相矛盾。
-    // 改成 0 让卡片也显示 --，BMI / 减脂进度本来就有 > 0 保护。
-    val currentWeight = logs.lastOrNull()?.weightKg ?: 0.0
+    // 范围内一条记录都没有时，用引导里填的「当前体重」兜底。
+    // 之前硬写 0，用户明明在引导填了身高体重，进来身体数据卡和「最新」全是灰的 --。
+    // 现在引导也会写第一条体重记录（OnboardingViewModel），这里是「清除记录后」的保险，
+    // 两处用同一个值，不会再出现「卡片 80kg、最新 --」的自相矛盾。
+    val currentWeight = logs.lastOrNull()?.weightKg ?: startWeight
     val bmi = if (profile != null && currentWeight > 0) {
         NutritionCalculator.bmi(currentWeight, profile!!.heightCm)
     } else 0.0
@@ -248,6 +249,7 @@ fun ProgressScreen(
             logs = logs,
             startWeight = startWeight,
             targetWeight = targetWeight,
+            fallbackWeight = startWeight,
             unit = unit
         )
 
@@ -640,6 +642,8 @@ private fun WeightChart(
     logs: List<WeightLog>,
     startWeight: Double,
     targetWeight: Double,
+    /** 一条记录都没有时（例如刚引导完 / 清除过记录），用档案里的当前体重当起点 */
+    fallbackWeight: Double = 0.0,
     unit: String = "kg"
 ) {
     var selectedIndex by remember { mutableStateOf<Int?>(null) }
@@ -655,7 +659,9 @@ private fun WeightChart(
         label = "chartReveal"
     )
 
-    val values = logs.map { it.weightKg.toFloat() }
+    val values = logs.map { it.weightKg.toFloat() }.ifEmpty {
+        if (fallbackWeight > 0.0) listOf(fallbackWeight.toFloat()) else emptyList()
+    }
 
     SectionCard {
         Row(

@@ -830,7 +830,11 @@ private fun TodaySummaryCard(
     val waterPercent = (state.waterMl * 100 / goalWater.coerceAtLeast(1)).coerceIn(0, 100)
 
     SectionCard {
-        Row(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            // 右侧水杯跟卡片上下居中，不要贴着顶边或底边
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             // 左栏：热量 / 营养素 / 断食条；右栏：一根贯穿卡片的高水杯
             Column(modifier = Modifier.weight(1f)) {
         Row(
@@ -960,7 +964,7 @@ private fun TodaySummaryCard(
                 ) {
                     Box(
                         modifier = Modifier.size(width = 78.dp, height = 190.dp),
-                        contentAlignment = Alignment.BottomCenter
+                        contentAlignment = Alignment.Center
                     ) {
                         WaterCup(
                             ratio = state.waterMl.toFloat() / goalWater.coerceAtLeast(1),
@@ -971,54 +975,19 @@ private fun TodaySummaryCard(
                             fillColor = MultiColor.WaterFill,
                             surfaceColor = MultiColor.WaterSurface,
                             outlineColor = MultiColor.WaterOutline,
-                            bubbleTint = Color.White.copy(alpha = 0.75f),
+                            // 气泡用浅水蓝，不要纯白 —— 白色小圆点看着像杯身上的脏点
+                            bubbleTint = MultiColor.WaterSurface.copy(alpha = 0.9f),
                             // v1.5：杯内容量数字整个去掉（主人不要杯内计量数字）
                         )
-                        // v1.0.7：完成度胶囊改成白色圆按钮（竖条高光已删）。
-                        // 拖拽时缩小跟手，松手弹回水位对应位置并放大；纯视觉交互，不改水量。
-                        var cupDragY by remember { mutableStateOf(0f) }
-                        var cupDragging by remember { mutableStateOf(false) }
-                        val cupScale by androidx.compose.animation.core.animateFloatAsState(
-                            targetValue = if (cupDragging) 0.82f else 1f,
-                            animationSpec = androidx.compose.animation.core.spring(
-                                dampingRatio = 0.5f,
-                                stiffness = 320f
-                            ),
-                            label = "cupBtnScale"
-                        )
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.BottomCenter)
-                                .offset(y = (-(46.dp).value + cupDragY).dp)
-                                .size(44.dp)
-                                .scale(cupScale)
-                                .clip(CircleShape)
-                                .background(Color.White)
-                                .draggable(
-                                    orientation = Orientation.Vertical,
-                                    onDragStarted = { cupDragging = true },
-                                    onDragStopped = {
-                                        cupDragging = false
-                                        cupDragY = 0f
-                                    },
-                                    state = rememberDraggableState { delta ->
-                                        cupDragY = (cupDragY + delta).coerceIn(-110f, 30f)
-                                    }
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "$waterPercent%",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MultiColor.WaterText
-                            )
-                        }
+                        // v1.0.10：水杯上叠的那个白色圆按钮去掉了。
+                        // 它只是个可拖拽的完成度胶囊（纯视觉、不改水量），
+                        // 在杯身上凭空多一个白圆，主人反馈「不正常」。
+                        // 完成度改到杯子下方的文字里，一眼能看懂，杯身保持干净。
                     }
                     Spacer(Modifier.height(6.dp))
-                    // 紧凑写法，窄屏也不会被截成「3200 /」
+                    // 紧凑写法，窄屏也不会被截成「3200 /」；顺带带上完成度
                     Text(
-                        text = "${state.waterMl}/${goalWater}ml",
+                        text = "${state.waterMl}/${goalWater}ml · $waterPercent%",
                         fontSize = 10.sp,
                         color = TextSecondary,
                         maxLines = 1

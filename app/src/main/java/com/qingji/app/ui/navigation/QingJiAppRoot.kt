@@ -186,8 +186,8 @@ fun QingJiAppRoot(
     val trainingVm: TrainingViewModel = viewModel()
     /** P1：计划 / 动作库 / 个人最佳也挂在 Activity 作用域，首页和设置页读同一份。 */
     val planVm: TrainingPlanViewModel = viewModel()
-    /** 日记页的「心情日记 / 训练日记」切换状态放这里，切 Tab 回来不会自己跳回心情日记。 */
-    var diaryTrainingTab by remember { mutableStateOf(false) }
+    /** 日记页默认进「训练日记」（主人 2026-11-13 指定）；状态放 Root，切 Tab 回来不丢。 */
+    var diaryTrainingTab by remember { mutableStateOf(true) }
 
     // tabfix（首页→进展抖动的真正根因）：这里原来按路由切 contentWindowInsets
     // —— 首页给全 0，其他页给默认 systemBars。currentRoute 在 navigate() 那一帧

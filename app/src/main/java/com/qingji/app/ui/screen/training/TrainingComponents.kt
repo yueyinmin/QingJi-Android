@@ -170,6 +170,11 @@ fun TrainingCalendarCard(
     onPrevMonth: () -> Unit,
     onNextMonth: () -> Unit,
     onSelectDate: (LocalDate) -> Unit = {},
+    /**
+     * P1：心情日记复用同一套月历时传这个，格子按当天心情档位着色；
+     * 不传就是训练日记原来的「练过的日子打绿点」。
+     */
+    dateColors: Map<LocalDate, Color>? = null,
     modifier: Modifier = Modifier
 ) {
     SectionCard(modifier = modifier) {
@@ -206,31 +211,42 @@ fun TrainingCalendarCard(
                         val index = row * 7 + col
                         val dayNumber = index - leading + 1
                         val date = if (dayNumber in 1..days) month.atDay(dayNumber) else null
+                        val moodColor = if (dateColors != null && date != null) dateColors[date] else null
                         Box(
                             modifier = Modifier
                                 .weight(1f)
                                 .height(36.dp)
                                 .clip(RoundedCornerShape(8.dp))
+                                .background(moodColor ?: Color.Transparent)
                                 .clickable(enabled = date != null) {
                                     if (date != null) onSelectDate(date)
                                 },
                             contentAlignment = Alignment.Center
                         ) {
                             if (date != null) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                if (dateColors != null) {
+                                    // 心情日记：颜色已经铺在格子上，只留日期数字
                                     Text(
                                         text = dayNumber.toString(),
                                         fontSize = TextSizes.Tiny,
-                                        color = if (date in trainingDates) QingJiGreen else TextPrimary
+                                        color = TextPrimary
                                     )
-                                    if (date in trainingDates) {
-                                        Box(
-                                            Modifier
-                                                .padding(top = 2.dp)
-                                                .size(5.dp)
-                                                .clip(CircleShape)
-                                                .background(QingJiGreen)
+                                } else {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(
+                                            text = dayNumber.toString(),
+                                            fontSize = TextSizes.Tiny,
+                                            color = if (date in trainingDates) QingJiGreen else TextPrimary
                                         )
+                                        if (date in trainingDates) {
+                                            Box(
+                                                Modifier
+                                                    .padding(top = 2.dp)
+                                                    .size(5.dp)
+                                                    .clip(CircleShape)
+                                                    .background(QingJiGreen)
+                                            )
+                                        }
                                     }
                                 }
                             }
