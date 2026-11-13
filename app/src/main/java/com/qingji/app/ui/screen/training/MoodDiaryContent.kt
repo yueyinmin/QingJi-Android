@@ -96,11 +96,9 @@ fun MoodDiaryContent(
                 .verticalScroll(scrollState)
                 .padding(horizontal = Dimens.ScreenPadding)
         ) {
-            Spacer(Modifier.height(16.dp))
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("日记", fontSize = TextSizes.PageTitle,
-                    fontWeight = FontWeight.Bold, color = TextPrimary,
-                    modifier = Modifier.weight(1f))
+            Spacer(Modifier.height(12.dp))
+            // 主人 2026-11-13：页标题「日记」两个字去掉，只留右上角的「清空」。
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 if (diaries.isNotEmpty()) {
                     Text("清空", fontSize = 13.sp, color = Color(0xFFD64545),
                         modifier = Modifier

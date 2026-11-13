@@ -88,17 +88,18 @@ fun DiaryScreen(
                 onRequestDelete = { pendingDelete = it },
                 scrollState = scrollState
             )
-            // 心情日记保留原来的三个快捷按钮（水 / 体重 / 食物库 / 照片）
-            QuickActionColumn(
-                onWater = { vm.addWater(200) },
-                onWeight = onOpenWeight,
-                onOpenFoodLibrary = onOpenFoodLibrary,
-                onPhoto = onOpenImage,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = 16.dp, bottom = 20.dp)
-            )
         }
+        // 右下角悬浮快捷按钮：两个 Tab 都显示（旧版日记页就是这样，
+        // 主人 2026-11-13 反馈训练日记这边没了）。放在内容之后组合，保证浮在最上层。
+        QuickActionColumn(
+            onWater = { vm.addWater(200) },
+            onWeight = onOpenWeight,
+            onOpenFoodLibrary = onOpenFoodLibrary,
+            onPhoto = onOpenImage,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 16.dp, bottom = 20.dp)
+        )
     }
 
     // ---------- 清空全部确认 ----------
