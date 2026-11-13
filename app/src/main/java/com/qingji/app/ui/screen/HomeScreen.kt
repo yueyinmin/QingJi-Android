@@ -1341,35 +1341,29 @@ private fun SelfDisciplineQuickCard(
     val todayStatus = checkins.firstOrNull { it.localDate == LocalDate.now() }?.status
 
     SectionCard(modifier = Modifier.clickable { onClick() }) {
+        // 信息全部靠左：右侧有一列悬浮快捷按钮，右对齐的数字会被压住
+        Text(
+            "自律管理",
+            fontSize = TextSizes.CardTitle,
+            fontWeight = FontWeight.SemiBold,
+            color = TextPrimary
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(goal.title, fontSize = TextSizes.Caption, color = TextSecondary)
+        Spacer(Modifier.height(6.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    "自律管理",
-                    fontSize = TextSizes.CardTitle,
-                    fontWeight = FontWeight.SemiBold,
-                    color = TextPrimary
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(goal.title, fontSize = TextSizes.Caption, color = TextSecondary)
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    if (todayStatus == null) "今天还没记录" else "今天：${statusLabelOf(todayStatus)}",
-                    fontSize = TextSizes.Caption,
-                    color = if (todayStatus == null) TextSecondary else QingJiGreen
-                )
-            }
-            Column(horizontalAlignment = Alignment.End) {
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text(
-                        "${stats.currentDays}",
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = QingJiGreen
-                    )
-                    Text(" 天", fontSize = TextSizes.Caption, color = TextSecondary)
-                }
-                Text("已坚持", fontSize = TextSizes.Tiny, color = TextSecondary)
-            }
+            Text(
+                "已坚持 ${stats.currentDays} 天",
+                fontSize = TextSizes.Caption,
+                fontWeight = FontWeight.Medium,
+                color = QingJiGreen
+            )
+            Text("  ·  ", fontSize = TextSizes.Caption, color = TextSecondary)
+            Text(
+                if (todayStatus == null) "今天还没记录" else "今天：${statusLabelOf(todayStatus)}",
+                fontSize = TextSizes.Caption,
+                color = if (todayStatus == null) TextSecondary else QingJiGreen
+            )
         }
     }
 }

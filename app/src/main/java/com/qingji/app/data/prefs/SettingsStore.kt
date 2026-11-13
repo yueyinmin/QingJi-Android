@@ -101,6 +101,8 @@ object SettingsKeys {
     val SHOW_DIARY_TAB = booleanPreferencesKey("show_diary_tab")
     val SHOW_MINE_TAB = booleanPreferencesKey("show_mine_tab")
     val PROGRESS_ANIMATION = booleanPreferencesKey("progress_animation")
+    val SWIPE_NAVIGATE = booleanPreferencesKey("swipe_navigate")
+    val PAGE_TRANSITION = booleanPreferencesKey("page_transition")
     val NICKNAME = stringPreferencesKey("nickname")
     val AVATAR_PATH = stringPreferencesKey("avatar_path")
 
@@ -182,6 +184,10 @@ data class QingJiSettings(
     val showDiaryTab: Boolean = true,
     val showMineTab: Boolean = true,
     val progressAnimation: Boolean = true,
+    // 一级页面左右滑动切换（默认开）
+    val swipeNavigate: Boolean = true,
+    // 页面切换动画（关掉只留淡入淡出，老机器更稳）
+    val pageTransition: Boolean = true,
     val nickname: String = "轻er~",
     val avatarPath: String = "",
     // ---------- v3.4.0 新增 ----------
@@ -259,6 +265,8 @@ object SettingsStore {
                     showDiaryTab = p[SettingsKeys.SHOW_DIARY_TAB] ?: true,
                     showMineTab = p[SettingsKeys.SHOW_MINE_TAB] ?: true,
                     progressAnimation = p[SettingsKeys.PROGRESS_ANIMATION] ?: true,
+                    swipeNavigate = p[SettingsKeys.SWIPE_NAVIGATE] ?: true,
+                    pageTransition = p[SettingsKeys.PAGE_TRANSITION] ?: true,
                     nickname = p[SettingsKeys.NICKNAME] ?: "轻er~",
                     avatarPath = p[SettingsKeys.AVATAR_PATH] ?: "",
                     waterReminder = p[SettingsKeys.WATER_REMINDER] ?: false,

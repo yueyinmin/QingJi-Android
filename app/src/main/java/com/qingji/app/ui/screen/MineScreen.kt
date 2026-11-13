@@ -26,7 +26,18 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.EmojiEvents
+import androidx.compose.material.icons.outlined.EventNote
+import androidx.compose.material.icons.outlined.FitnessCenter
+import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.LibraryBooks
+import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material.icons.outlined.WorkspacePremium
 import androidx.compose.material.icons.outlined.AccessibilityNew
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Description
@@ -64,7 +75,13 @@ import com.qingji.app.domain.Achievement
 import com.qingji.app.domain.AppClock
 import com.qingji.app.domain.NutritionCalculator
 import com.qingji.app.domain.WeightUnit
-import com.qingji.app.ui.components.SectionCard
+import com.qingji.app.ui.components.GroupCard
+import com.qingji.app.ui.components.GroupDivider
+import com.qingji.app.ui.components.GroupHeader
+import com.qingji.app.ui.components.IconTones
+import com.qingji.app.ui.components.SettingsRow
+import com.qingji.app.ui.components.StatCell
+import com.qingji.app.ui.components.StatisticGrid
 import com.qingji.app.ui.components.ThinProgressBar
 import com.qingji.app.ui.theme.CardWhite
 import com.qingji.app.ui.theme.DividerColor
@@ -162,8 +179,7 @@ fun MineScreen(
 
         Spacer(Modifier.height(16.dp))
 
-        // v1.5：资料卡（头像 + 昵称，点名字可改）与使用情况宫格拆成两卡，
-        // 「数据（我的目标 / 我的成就）」挪到使用情况上方
+        // 资料卡：横向布局、头像 58dp、整张卡可点进个人资料
         ProfileHeaderCard(
             nickname = settings.nickname,
             profile = profile,
@@ -171,9 +187,8 @@ fun MineScreen(
             onOpenProfile = onOpenProfile
         )
 
-        Spacer(Modifier.height(12.dp))
-
-        DataEntryCard(
+        GroupHeader("数据")
+        DataGroup(
             goalLabel = when (settings.goalMode) {
                 "gain" -> "增肌计划"
                 "keep" -> "保持计划"
@@ -185,90 +200,36 @@ fun MineScreen(
             totalCount = achievements.size
         )
 
-        Spacer(Modifier.height(12.dp))
-
-        // 自律管理（SD-001）：入口放「我的」，不新增底部导航
-        SectionCard {
-            Text(
-                text = "自律管理",
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = TextPrimary
-            )
-            Spacer(Modifier.height(10.dp))
-            EntryRow(
+        GroupHeader("自律管理")
+        GroupCard {
+            SettingsRow(
                 title = "目标与打卡",
-                trailing = "计时 / 历史 / 统计",
-                iconColor = QingJiGreen,
+                icon = Icons.Outlined.CheckCircle,
+                tone = IconTones.Green,
+                trailing = "计时 / 历史",
                 onClick = onOpenSelfDiscipline
             )
-            Spacer(Modifier.height(6.dp))
-            EntryRow(
+            GroupDivider()
+            SettingsRow(
                 title = "模块设置",
-                trailing = "隐私 / 提醒 / 数据",
-                iconColor = QingJiGreenDark,
+                icon = Icons.Outlined.Tune,
+                tone = IconTones.Gray,
+                trailing = "隐私 / 提醒",
                 onClick = onOpenSelfDisciplineSettings
             )
         }
 
-        Spacer(Modifier.height(12.dp))
+        GroupHeader("训练管理")
+        TrainingGroup(
+            onOpenTrainingHistory = onOpenTrainingHistory,
+            onStartTraining = onStartTraining,
+            onOpenTrainingPlan = onOpenTrainingPlan,
+            onOpenExerciseLibrary = onOpenExerciseLibrary,
+            onOpenFavorites = onOpenFavorites,
+            onOpenPersonalBest = onOpenPersonalBest
+        )
 
-        // 训练管理（P1 补齐，六行全部有真实页面，不做点了没反应的摆设；
-        // 健身计算器属于 P2，等做完再往上加）
-        SectionCard {
-            Text(
-                text = "训练管理",
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = TextPrimary
-            )
-            Spacer(Modifier.height(10.dp))
-            EntryRow(
-                title = "训练记录",
-                trailing = "",
-                iconColor = QingJiGreenDark,
-                onClick = onOpenTrainingHistory
-            )
-            Spacer(Modifier.height(6.dp))
-            EntryRow(
-                title = "开始训练",
-                trailing = "",
-                iconColor = QingJiGreen,
-                onClick = onStartTraining
-            )
-            Spacer(Modifier.height(6.dp))
-            EntryRow(
-                title = "我的训练计划",
-                trailing = "",
-                iconColor = QingJiGreenDark,
-                onClick = onOpenTrainingPlan
-            )
-            Spacer(Modifier.height(6.dp))
-            EntryRow(
-                title = "动作库",
-                trailing = "",
-                iconColor = QingJiGreen,
-                onClick = onOpenExerciseLibrary
-            )
-            Spacer(Modifier.height(6.dp))
-            EntryRow(
-                title = "我的动作收藏",
-                trailing = "",
-                iconColor = QingJiGreenDark,
-                onClick = onOpenFavorites
-            )
-            Spacer(Modifier.height(6.dp))
-            EntryRow(
-                title = "个人最佳",
-                trailing = "",
-                iconColor = QingJiGreen,
-                onClick = onOpenPersonalBest
-            )
-        }
-
-        Spacer(Modifier.height(12.dp))
-
-        // v1.5：使用情况单独成卡，附一句说明
+        GroupHeader("使用情况")
         UsageSectionCard(totals = totals)
 
         Spacer(Modifier.height(12.dp))
@@ -315,15 +276,21 @@ private fun ProfileHeaderCard(
         (AppClock.today().toEpochDay() - created.toEpochDay()).toInt() + 1
     } ?: 1
 
-    SectionCard {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+    // 统一工单：头像缩小到 58dp、横向布局、昵称做主信息、整张卡可点、右侧统一箭头
+    GroupCard {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onOpenProfile() }
+                .padding(horizontal = 14.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Box(
                 modifier = Modifier
-                    .size(64.dp)
+                    .size(58.dp)
                     .clip(CircleShape)
                     .background(QingJiGreenLight)
-                    .border(2.dp, QingJiGreen.copy(alpha = 0.3f), CircleShape)
-                    .clickable { onOpenProfile() },
+                    .border(1.dp, QingJiGreen.copy(alpha = 0.25f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 if (settings.avatarPath.isNotBlank() && File(settings.avatarPath).exists()) {
@@ -332,168 +299,80 @@ private fun ProfileHeaderCard(
                         contentDescription = "头像",
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
-                            .size(64.dp)
+                            .size(58.dp)
                             .clip(CircleShape)
                     )
                 } else {
                     Text(
                         text = settings.nickname.take(1),
-                        fontSize = 24.sp,
+                        fontSize = 22.sp,
                         color = QingJiGreen,
                         fontWeight = FontWeight.Bold
                     )
                 }
             }
 
-            Column(modifier = Modifier.padding(start = 14.dp)) {
-                // v1.5：昵称可点击改名
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = nickname,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary,
-                        modifier = Modifier.clickable { onOpenProfile() }
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Icon(
-                        imageVector = Icons.Filled.Edit,
-                        contentDescription = "改昵称",
-                        tint = QingJiGreen,
-                        modifier = Modifier
-                            .size(14.dp)
-                            .clickable { onOpenProfile() }
-                    )
-                }
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 12.dp)
+            ) {
+                Text(
+                    text = nickname,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
                 Spacer(Modifier.height(4.dp))
                 Text(
                     text = "$genderText · ${if (age > 0) "${age}岁" else "未填生日"} · " +
                         "${if (height > 0) "${height}cm" else "未填身高"}",
-                    fontSize = 13.sp,
-                    color = QingJiGreen
+                    fontSize = 12.sp,
+                    color = TextSecondary
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
                     text = "加入轻记 $joinedDays 天",
-                    fontSize = 12.sp,
+                    fontSize = 11.sp,
                     color = TextSecondary
                 )
             }
-        }
 
-    }
-}
-
-/** v1.5：使用情况宫格单独成卡，附一句说明（数字是用户实际使用的记录）。 */
-@Composable
-private fun UsageSectionCard(totals: Map<String, Int>) {
-    SectionCard {
-        Text(
-            text = s("使用情况"),
-            fontSize = 15.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = TextPrimary
-        )
-
-        Spacer(Modifier.height(10.dp))
-
-        // 每项带一个语义图标；颜色统一取主题色 QingJiGreen（getter 读 accentKey，
-        // 用户在设置里换主题色时这里会自动重组跟着变色）。
-        val items = listOf(
-            UsageStat("图像识别", (totals["image"] ?: 0).toString(), Icons.Outlined.PhotoCamera),
-            UsageStat("文字识别", (totals["text"] ?: 0).toString(), Icons.Outlined.Description),
-            UsageStat("语音识别", (totals["voice"] ?: 0).toString(), Icons.Outlined.Mic),
-            UsageStat("条码", (totals["barcode"] ?: 0).toString(), Icons.Outlined.QrCode),
-            UsageStat("AI 分析", (totals["ai"] ?: 0).toString(), Icons.Outlined.AutoAwesome),
-            UsageStat("日记", (totals["diary"] ?: 0).toString(), Icons.AutoMirrored.Outlined.MenuBook),
-            UsageStat("体型图", (totals["body"] ?: 0).toString(), Icons.Outlined.AccessibilityNew),
-            UsageStat("体重", (totals["weight"] ?: 0).toString(), Icons.Outlined.MonitorWeight)
-        )
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(14.dp))
-                .background(PageBackground)
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items.chunked(2).forEach { rowItems ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    rowItems.forEach { stat ->
-                        UsageStatRow(stat = stat, modifier = Modifier.weight(1f))
-                    }
-                    if (rowItems.size == 1) {
-                        Spacer(modifier = Modifier.weight(1f))
-                    }
-                }
-            }
-        }
-    }
-}
-
-/** 使用情况的一项：标签 + 次数 + 对应图标。 */
-private data class UsageStat(
-    val label: String,
-    val value: String,
-    val icon: ImageVector
-)
-
-/**
- * 横条状统计条：左边主题色图标（带浅色图标底），中间名称，右边数字。
- * 图标底色 QingJiGreenLight、图标和数字 QingJiGreen / QingJiGreenDark
- * 都会随设置的主题色变化，不写死任何颜色。
- */
-@Composable
-private fun UsageStatRow(
-    stat: UsageStat,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier
-            .heightIn(min = 46.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .background(CardWhite)
-            .padding(horizontal = 9.dp, vertical = 7.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(28.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(QingJiGreenLight),
-            contentAlignment = Alignment.Center
-        ) {
             Icon(
-                imageVector = stat.icon,
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = null,
-                tint = QingJiGreen,
-                modifier = Modifier.size(16.dp)
+                tint = TextSecondary.copy(alpha = 0.55f),
+                modifier = Modifier.size(20.dp)
             )
         }
-        Spacer(Modifier.width(7.dp))
-        Text(
-            text = stat.label,
-            fontSize = 11.sp,
-            color = TextSecondary,
-            maxLines = 1,
-            modifier = Modifier.weight(1f)
-        )
-        Text(
-            text = stat.value,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = QingJiGreenDark
-        )
+    }
+}
+
+/**
+ * 使用情况：三列宫格，每格浅色底 + 小图标 + 名称 + 累计次数。
+ * 统计口径一条都没动，只是换了排版（工单要求：不创建独立大卡片、不重复显示）。
+ */
+@Composable
+private fun UsageSectionCard(totals: Map<String, Int>) {
+    val items = listOf(
+        StatCell("图像识别", (totals["image"] ?: 0).toString(), Icons.Outlined.PhotoCamera, IconTones.Blue),
+        StatCell("文字识别", (totals["text"] ?: 0).toString(), Icons.Outlined.Description, IconTones.Teal),
+        StatCell("语音识别", (totals["voice"] ?: 0).toString(), Icons.Outlined.Mic, IconTones.Purple),
+        StatCell("条码", (totals["barcode"] ?: 0).toString(), Icons.Outlined.QrCode, IconTones.Gray),
+        StatCell("AI 分析", (totals["ai"] ?: 0).toString(), Icons.Outlined.AutoAwesome, IconTones.Teal),
+        StatCell("日记", (totals["diary"] ?: 0).toString(), Icons.AutoMirrored.Outlined.MenuBook, IconTones.Green),
+        StatCell("体型图", (totals["body"] ?: 0).toString(), Icons.Outlined.AccessibilityNew, IconTones.Pink),
+        StatCell("体重", (totals["weight"] ?: 0).toString(), Icons.Outlined.MonitorWeight, IconTones.Orange)
+    )
+    GroupCard {
+        StatisticGrid(items = items, modifier = Modifier.padding(12.dp))
     }
 }
 
 /** 调用统计（对应需求文档 M6 的会员卡区域）。token 和费用不瞎估。 */
 @Composable
 private fun UsageCard(totalAi: Int, monthAi: Int) {
-    SectionCard {
+    GroupCard(contentPadding = 16.dp) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -568,86 +447,56 @@ private fun UsageNumber(
     }
 }
 
-/** 我的目标 / 我的成就 两个入口。 */
+/** 数据：目标 + 成就两个入口。 */
 @Composable
-private fun DataEntryCard(
+private fun DataGroup(
     goalLabel: String,
     onOpenGoal: () -> Unit,
     onOpenAchievements: () -> Unit,
     unlockedCount: Int,
     totalCount: Int
 ) {
-    SectionCard {
-        Text(
-            text = s("数据"),
-            fontSize = 15.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = TextPrimary
-        )
-        Spacer(Modifier.height(10.dp))
-        EntryRow(
+    GroupCard {
+        SettingsRow(
             title = "我的目标",
-            // 这里以前写死「减重计划」，选了增肌也照样显示减重，和首页胶囊对不上。
-            // 改成跟着 goalMode 走，和首页顶栏用同一套判断。
+            icon = Icons.Outlined.Flag,
+            tone = IconTones.Orange,
             trailing = goalLabel,
-            iconColor = QingJiGreenDark,
             onClick = onOpenGoal
         )
-        Spacer(Modifier.height(6.dp))
-        EntryRow(
+        GroupDivider()
+        SettingsRow(
             title = "我的成就",
+            icon = Icons.Outlined.EmojiEvents,
+            tone = IconTones.Purple,
             trailing = if (totalCount > 0) "$unlockedCount/$totalCount" else "",
-            iconColor = QingJiGreen,
             onClick = onOpenAchievements
         )
     }
 }
 
+/** 训练管理：六个入口，全部统一列表行（「开始训练」也走普通行，不做大绿按钮）。 */
 @Composable
-private fun EntryRow(
-    title: String,
-    trailing: String,
-    iconColor: Color,
-    onClick: () -> Unit
+private fun TrainingGroup(
+    onOpenTrainingHistory: () -> Unit,
+    onStartTraining: () -> Unit,
+    onOpenTrainingPlan: () -> Unit,
+    onOpenExerciseLibrary: () -> Unit,
+    onOpenFavorites: () -> Unit,
+    onOpenPersonalBest: () -> Unit
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .clickable { onClick() }
-            .padding(vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(32.dp)
-                .clip(CircleShape)
-                .background(iconColor.copy(alpha = 0.15f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(12.dp)
-                    .clip(CircleShape)
-                    .background(iconColor)
-            )
-        }
-        Text(
-            text = title,
-            fontSize = 15.sp,
-            color = TextPrimary,
-            modifier = Modifier.padding(start = 12.dp)
-        )
-        Spacer(modifier = Modifier.weight(1f))
-        if (trailing.isNotBlank()) {
-            Text(text = trailing, fontSize = 12.sp, color = TextSecondary)
-        }
-        Text(
-            text = "›",
-            fontSize = 18.sp,
-            color = DividerColor,
-            modifier = Modifier.padding(start = 6.dp)
-        )
+    GroupCard {
+        SettingsRow("训练记录", Icons.Outlined.History, IconTones.Blue, onClick = onOpenTrainingHistory)
+        GroupDivider()
+        SettingsRow("开始训练", Icons.Outlined.FitnessCenter, IconTones.Orange, onClick = onStartTraining)
+        GroupDivider()
+        SettingsRow("我的训练计划", Icons.Outlined.EventNote, IconTones.Purple, onClick = onOpenTrainingPlan)
+        GroupDivider()
+        SettingsRow("动作库", Icons.Outlined.LibraryBooks, IconTones.Teal, onClick = onOpenExerciseLibrary)
+        GroupDivider()
+        SettingsRow("我的动作收藏", Icons.Filled.Favorite, IconTones.Pink, onClick = onOpenFavorites)
+        GroupDivider()
+        SettingsRow("个人最佳", Icons.Outlined.WorkspacePremium, IconTones.Green, onClick = onOpenPersonalBest)
     }
 }
 
