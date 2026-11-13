@@ -146,8 +146,40 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     /** 自定义字体文件路径（空串 = 恢复默认字体） */
     fun setCustomFontPath(path: String) = put(SettingsKeys.CUSTOM_FONT_PATH, path)
 
-    /** 禁用所有通知（总开关） */
-    fun setAllNotificationsDisabled(disabled: Boolean) = put(SettingsKeys.ALL_NOTIFICATIONS_DISABLED, disabled)
+    /**
+     * 禁用所有通知（总开关）。
+     * v1.1.0 修复：之前只存开关状态，闹钟照排、到点在 Receiver 里拦一下，
+     * 白白唤醒设备。现在关闭时把六类闹钟全部真正取消；
+     * 重新打开时按各类提醒各自的开关 + 时间重新排好。
+     * 各提醒独立开关的原始设置不动，恢复后原样生效。
+     */
+    fun setAllNotificationsDisabled(disabled: Boolean) {
+        viewModelScope.launch {
+            SettingsStore.set(context, SettingsKeys.ALL_NOTIFICATIONS_DISABLED, disabled)
+            val latest = SettingsStore.observe(context).first()
+            if (disabled) {
+                Reminders.cancel(context, Reminders.TYPE_WEIGH)
+                Reminders.cancel(context, Reminders.TYPE_FASTING)
+                Reminders.cancel(context, Reminders.TYPE_KCAL)
+                Reminders.cancel(context, Reminders.TYPE_WATER)
+                Reminders.cancel(context, Reminders.TYPE_FASTING_EAT)
+                Reminders.cancel(context, Reminders.TYPE_FASTING_FAST)
+                toast("已禁用所有提醒，闹钟已全部取消")
+            } else {
+                Reminders.apply(context, latest)
+                toast("提醒已恢复，按各类提醒各自的开关重新排好")
+            }
+        }
+    }
+
+    /** v1.1.0：应用图标真实切换（activity-alias，见 AppIconManager）。 */
+    fun setIconVariant(variant: String) {
+        viewModelScope.launch {
+            SettingsStore.set(context, SettingsKeys.ICON_VARIANT, variant)
+            com.qingji.app.domain.AppIconManager.apply(context, variant)
+            toast("已切换为「${com.qingji.app.domain.AppIconManager.label(variant)}」图标，桌面可能延迟几秒刷新")
+        }
+    }
 
     /** AI 返回语言：zh 强制中文 / auto 跟随输入 */
     fun setAiLanguage(lang: String) = put(SettingsKeys.AI_LANGUAGE, lang)

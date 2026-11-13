@@ -226,22 +226,34 @@ fun SettingsScreen(
         if (dialog == DialogKind.CACHE) cacheSize = backup.cacheSize()
     }
 
-    // 安卓 13 以上要通知权限，否则提醒到点不会弹
+    // v1.1.0 修复：安卓 13 以上开启提醒要先拿到通知权限——
+    // 授权成功才执行开启动作，拒绝则保持关闭（之前是弹窗和开启同时进行，
+    // 用户拒绝了开关也会变成开）。
+    var pendingNotifAction by remember { mutableStateOf<(() -> Unit)?>(null) }
     val notifLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
-        if (!granted) {
-            Toast.makeText(context, "没给通知权限，提醒不会弹出来", Toast.LENGTH_LONG).show()
+        val action = pendingNotifAction
+        pendingNotifAction = null
+        if (granted) {
+            action?.invoke()
+        } else {
+            Toast.makeText(context, "没给通知权限，提醒保持关闭", Toast.LENGTH_LONG).show()
         }
     }
 
-    fun askNotificationThen(action: () -> Unit) {
+    /** 开启提醒前检查权限：没有就先弹系统授权框，授权成功才执行 action。 */
+    fun enableReminderWithPermission(action: () -> Unit) {
         val needAsk = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(
                 context, Manifest.permission.POST_NOTIFICATIONS
             ) != PackageManager.PERMISSION_GRANTED
-        if (needAsk) notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        action()
+        if (needAsk) {
+            pendingNotifAction = action
+            notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            action()
+        }
     }
 
     // 滚动状态放在最外层：进详情页再退回来，列表停在原来的位置，
@@ -341,6 +353,7 @@ fun SettingsScreen(
                     value = com.qingji.app.ui.theme.AccentThemes.byKey(settings.themeColor).label,
                     onClick = { dialog = DialogKind.THEME }))
                 add(SettingEntry("显示与外观", s("应用图标"), Icons.Filled.Apps, SettingsIconPurple,
+                    value = com.qingji.app.domain.AppIconManager.label(settings.iconVariant),
                     onClick = { dialog = DialogKind.ICON }))
                 add(SettingEntry("显示与外观", s("桌面小组件"), Icons.Filled.Widgets, SettingsIconOrange,
                     value = s("3 个"), onClick = { onOpenWidget() }))
@@ -366,7 +379,7 @@ fun SettingsScreen(
                     onClick = { dialog = DialogKind.CACHE }))
 
                 // 8 关于
-                add(SettingEntry("关于", s("其他平台"), Icons.Filled.SwapHoriz, SettingsIconBlueLight,
+                add(SettingEntry("关于", s("换机与数据迁移"), Icons.Filled.SwapHoriz, SettingsIconBlueLight,
                     onClick = { dialog = DialogKind.PLATFORM }))
                 add(SettingEntry("关于", s("关于我们"), Icons.Filled.Info, SettingsIconPink,
                     onClick = { dialog = DialogKind.ABOUT }))
@@ -512,15 +525,25 @@ fun SettingsScreen(
             allDisabled = settings.allNotificationsDisabled,
             onSetAllDisabled = { vm.setAllNotificationsDisabled(it) },
             onSetWeighReminder = { weekday, hour, minute -> vm.setWeighWeekday(weekday, hour, minute) },
-            onSetFastingSwitch = { on -> askNotificationThen { vm.setFastingReminder(on) } },
+            onSetFastingSwitch = { on ->
+                // 只在开启时需要通知权限；关闭提醒不弹系统授权框
+                if (on) enableReminderWithPermission { vm.setFastingReminder(true) }
+                else vm.setFastingReminder(false)
+            },
             onSetFastingTime = { hour, minute ->
                 vm.setFastingReminder(settings.fastingReminder, hour, minute, showToast = false)
             },
-            onSetKcalSwitch = { on -> askNotificationThen { vm.setKcalReminder(on) } },
+            onSetKcalSwitch = { on ->
+                if (on) enableReminderWithPermission { vm.setKcalReminder(true) }
+                else vm.setKcalReminder(false)
+            },
             onSetKcalTime = { hour, minute ->
                 vm.setKcalReminder(settings.kcalReminder, hour, minute, showToast = false)
             },
-            onSetWaterSwitch = { on -> askNotificationThen { vm.setWaterReminder(on) } },
+            onSetWaterSwitch = { on ->
+                if (on) enableReminderWithPermission { vm.setWaterReminder(true) }
+                else vm.setWaterReminder(false)
+            },
             onSetWaterTime = { hour, minute ->
                 vm.setWaterReminder(settings.waterReminder, hour, minute, showToast = false)
             },
@@ -621,11 +644,9 @@ fun SettingsScreen(
             useSheet = true
         )
 
-        DialogKind.ICON -> InfoDetailPage(
-            title = "应用图标",
-            body = "换图标需要同时打包多套图标资源（每套都要在清单里注册一个 activity-alias），" +
-                "而且切换后系统有可能把原来的桌面快捷方式当成「已失效」直接删掉。" +
-                "\n\n所以这一条先空着，等主体功能稳了再补 —— 现在硬做，风险是图标直接消失。",
+        DialogKind.ICON -> com.qingji.app.ui.screen.settings.AppIconSettingsPage(
+            currentVariant = settings.iconVariant,
+            onSelect = { vm.setIconVariant(it) },
             onBack = { dialog = null },
             useSheet = true
         )
@@ -645,14 +666,14 @@ fun SettingsScreen(
         )
 
         DialogKind.PLATFORM -> InfoDetailPage(
-            title = "换手机怎么带走数据",
+            title = "换机与数据迁移",
             body = "轻记的数据全部存在本机，不上云、不需要账号。换手机两步：\n" +
-                "1. 旧手机：设置 → 数据备份与导出 → 导出全量 JSON → 用系统分享发到微信 / 网盘；\n" +
+                "1. 旧手机：设置 → 数据导入与导出 → 导出全量 JSON → 用系统分享发到微信 / 网盘；\n" +
                 "2. 新手机：装好轻记 → 同一页面 → 导入备份 → 选中那个 JSON 文件。\n\n" +
-                "注意两点：\n" +
-                "· API Key 不在备份里（安全考虑），新手机要重新填一次；\n" +
-                "· 饮食记录和日记里引用的照片是文件路径，不会跟着 JSON 走，" +
-                "要单独把 Android/data/com.qingji.app/files/images 拷过去。",
+                "注意三点：\n" +
+                "· 备份是本地 JSON 文件，目前没有云端同步；\n" +
+                "· API Key 不进备份（安全考虑），换机后要重新配置 AI 服务；\n" +
+                "· 饮食记录和日记里引用的照片文件不在 JSON 里，换机后这些位置会显示占位图。",
             onBack = { dialog = null },
             useSheet = true
         )
@@ -661,7 +682,7 @@ fun SettingsScreen(
             title = "版本信息",
             body = "轻记 v${BuildConfig.VERSION_NAME}（versionCode ${BuildConfig.VERSION_CODE}）\n" +
                 "最低支持 Android 8.0，目标 Android 15\n\n" +
-                "数据库：Room 9 · 15 张表，本地存储\n" +
+                "数据库：Room 本地存储\n" +
                 "AI：OpenAI 兼容协议，直连服务商\n" +
                 "小组件：Jetpack Glance 1.1.1\n\n" +
                 "当前用户：${settings.nickname}" +
@@ -1399,8 +1420,6 @@ private fun ThemeSettingsPage(
             ) { onSetQuickButtons(it) }
         }
 
-        Spacer(Modifier.height(Dimens.Gap))
-        HintBox(text = "应用图标暂不支持更换：需要打包多套图标且切换可能导致桌面快捷方式失效。")
     }
 }
 

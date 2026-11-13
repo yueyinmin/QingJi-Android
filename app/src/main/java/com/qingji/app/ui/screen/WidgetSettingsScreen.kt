@@ -186,14 +186,19 @@ fun WidgetSettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = viewModel()
                     fontWeight = FontWeight.Bold,
                     color = TextPrimary
                 )
-                Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    MiniBar("蛋白", MacroProtein, Modifier.weight(1f))
-                    MiniBar("碳水", MacroCarb, Modifier.weight(1f))
-                    MiniBar("脂肪", MacroFat, Modifier.weight(1f))
+                // v1.1.0：预览跟随真实设置——关掉营养素/饮水展示，预览同步消失
+                if (settings.widgetShowMacro) {
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        MiniBar("蛋白", MacroProtein, Modifier.weight(1f))
+                        MiniBar("碳水", MacroCarb, Modifier.weight(1f))
+                        MiniBar("脂肪", MacroFat, Modifier.weight(1f))
+                    }
                 }
                 Spacer(Modifier.height(8.dp))
-                Text(text = "饮水 0 / 3200 ml", fontSize = 10.sp, color = TextSecondary)
+                if (settings.widgetShowWater) {
+                    Text(text = "饮水 0 / 3200 ml", fontSize = 10.sp, color = TextSecondary)
+                }
             }
 
             Spacer(Modifier.height(Dimens.Gap))
@@ -212,7 +217,8 @@ fun WidgetSettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = viewModel()
                     Column(modifier = Modifier.weight(1f)) {
                         Text(text = "当前体重", fontSize = 10.sp, color = TextSecondary)
                         Text(
-                            text = "92.0 kg",
+                            // v1.1.0：关掉「显示体重数字」时和桌面一致显示「已隐藏」
+                            text = if (settings.widgetShowWeight) "92.0 kg" else "已隐藏",
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold,
                             color = TextPrimary
@@ -302,7 +308,8 @@ private fun WidgetCard(
                 .padding(12.dp)
         ) {
             Text(
-                text = "预览",
+                // v1.1.0：示例数字必须明确标注，不冒充用户真实记录
+                text = "预览（示例数据，非真实记录）",
                 fontSize = 9.sp,
                 color = TextSecondary,
                 modifier = Modifier.padding(bottom = 6.dp)
