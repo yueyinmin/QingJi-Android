@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.qingji.app.BuildConfig
+import com.qingji.app.ui.components.PageTopBar
 import com.qingji.app.ui.components.SectionCard
 import com.qingji.app.ui.theme.Dimens
 import com.qingji.app.ui.theme.DangerRed
@@ -53,23 +54,15 @@ fun UpdateScreen(
 ) {
     val state by vm.state.collectAsState()
 
-    Box(modifier = Modifier.fillMaxSize().background(PageBackground)) {
+    Column(modifier = Modifier.fillMaxSize().background(PageBackground)) {
+        // 与个人资料页同款顶栏（复用 PageTopBar，返回键全 App 统一）
+        PageTopBar(title = "检查版本更新", onBack = onBack)
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = Dimens.ScreenPadding)
         ) {
-            Spacer(Modifier.height(12.dp))
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("← 返回", fontSize = TextSizes.Body, color = QingJiGreen,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(Dimens.PillCorner))
-                        .clickable { onBack() }
-                        .padding(horizontal = 10.dp, vertical = 6.dp))
-                Text("检查版本更新", fontSize = TextSizes.PageTitle,
-                    fontWeight = FontWeight.Bold, color = TextPrimary, modifier = Modifier.weight(1f))
-            }
             Spacer(Modifier.height(12.dp))
 
             // ---------- 当前版本 ----------

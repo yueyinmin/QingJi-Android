@@ -34,6 +34,7 @@ import androidx.core.content.FileProvider
 import com.qingji.app.diagnostics.AppLogger
 import com.qingji.app.diagnostics.DiagnosticExporter
 import com.qingji.app.ui.components.AppDialog
+import com.qingji.app.ui.components.PageTopBar
 import com.qingji.app.ui.components.SectionCard
 import com.qingji.app.ui.theme.DangerRed
 import com.qingji.app.ui.theme.Dimens
@@ -70,23 +71,15 @@ fun DiagnosticExportScreen(onBack: () -> Unit) {
     var failText by remember { mutableStateOf<String?>(null) }
     val timeFmt = remember { SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()) }
 
-    Box(modifier = Modifier.fillMaxSize().background(PageBackground)) {
+    Column(modifier = Modifier.fillMaxSize().background(PageBackground)) {
+        // 与个人资料页同款顶栏（复用 PageTopBar）
+        PageTopBar(title = "导出诊断日志", onBack = onBack)
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = Dimens.ScreenPadding)
         ) {
-            Spacer(Modifier.height(12.dp))
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("← 返回", fontSize = TextSizes.Body, color = QingJiGreen,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(Dimens.PillCorner))
-                        .clickable { onBack() }
-                        .padding(horizontal = 10.dp, vertical = 6.dp))
-                Text("导出诊断日志", fontSize = TextSizes.PageTitle,
-                    fontWeight = FontWeight.Bold, color = TextPrimary, modifier = Modifier.weight(1f))
-            }
             Spacer(Modifier.height(12.dp))
 
             // ---------- 会包含什么 ----------

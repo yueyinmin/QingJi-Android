@@ -24,6 +24,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.qingji.app.BuildConfig
+import com.qingji.app.ui.components.PageTopBar
 import com.qingji.app.ui.components.SectionCard
 import com.qingji.app.ui.theme.Dimens
 import com.qingji.app.ui.theme.PageBackground
@@ -51,23 +52,15 @@ fun ProjectInfoScreen(onBack: () -> Unit) {
         )
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(PageBackground)) {
+    Column(modifier = Modifier.fillMaxSize().background(PageBackground)) {
+        // 与个人资料页同款顶栏（复用 PageTopBar）
+        PageTopBar(title = "项目信息", onBack = onBack)
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = Dimens.ScreenPadding)
         ) {
-            Spacer(Modifier.height(12.dp))
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("← 返回", fontSize = TextSizes.Body, color = QingJiGreen,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(Dimens.PillCorner))
-                        .clickable { onBack() }
-                        .padding(horizontal = 10.dp, vertical = 6.dp))
-                Text("项目信息", fontSize = TextSizes.PageTitle,
-                    fontWeight = FontWeight.Bold, color = TextPrimary, modifier = Modifier.weight(1f))
-            }
             Spacer(Modifier.height(12.dp))
 
             // ---------- 基本信息 ----------

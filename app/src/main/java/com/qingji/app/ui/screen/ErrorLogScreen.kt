@@ -36,6 +36,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.qingji.app.diagnostics.AppLogger
 import com.qingji.app.ui.components.AppBottomSheet
 import com.qingji.app.ui.components.AppDialog
+import com.qingji.app.ui.components.PageTopBar
 import com.qingji.app.ui.components.SectionCard
 import com.qingji.app.ui.theme.DangerRed
 import com.qingji.app.ui.theme.Dimens
@@ -119,29 +120,19 @@ fun ErrorLogScreen(
     val normalCount = entries.count { it.level == AppLogger.Level.WARN || it.level == AppLogger.Level.DEBUG }
     val timeFmt = remember { SimpleDateFormat("MM-dd HH:mm:ss", Locale.getDefault()) }
 
-    Box(modifier = Modifier.fillMaxSize().background(PageBackground)) {
+    Column(modifier = Modifier.fillMaxSize().background(PageBackground)) {
+        // 与个人资料页同款顶栏；右上角动作位放「清空」（有日志时才显示）
+        PageTopBar(
+            title = "错误日志",
+            onBack = onBack,
+            actionText = if (entries.isNotEmpty()) "清空" else null,
+            onAction = { showClearConfirm = true }
+        )
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = Dimens.ScreenPadding)
         ) {
-            Spacer(Modifier.height(12.dp))
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("← 返回", fontSize = TextSizes.Body, color = QingJiGreen,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(Dimens.PillCorner))
-                        .clickable { onBack() }
-                        .padding(horizontal = 10.dp, vertical = 6.dp))
-                Text("错误日志", fontSize = TextSizes.PageTitle,
-                    fontWeight = FontWeight.Bold, color = TextPrimary, modifier = Modifier.weight(1f))
-                if (entries.isNotEmpty()) {
-                    Text("清空", fontSize = 13.sp, color = DangerRed,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(Dimens.PillCorner))
-                            .clickable { showClearConfirm = true }
-                            .padding(horizontal = 10.dp, vertical = 4.dp))
-                }
-            }
             Spacer(Modifier.height(12.dp))
 
             // ---------- 统计三栏 ----------
