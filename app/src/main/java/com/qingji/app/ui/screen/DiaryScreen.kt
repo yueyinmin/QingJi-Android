@@ -55,6 +55,9 @@ import com.qingji.app.domain.DiaryRules
 import com.qingji.app.ui.components.PageTopBar
 import com.qingji.app.ui.components.SectionCard
 import com.qingji.app.ui.components.QuickActionColumn
+import com.qingji.app.ui.screen.training.DiaryModeSwitch
+import com.qingji.app.ui.screen.training.TrainingDiaryContent
+import com.qingji.app.ui.viewmodel.TrainingViewModel
 import com.qingji.app.ui.theme.DangerRed
 import com.qingji.app.ui.theme.Dimens
 import com.qingji.app.ui.theme.DividerColor
@@ -92,6 +95,13 @@ fun DiaryScreen(
     onOpenImage: () -> Unit = {},
     /** v3.2.4：悬浮栏第二颗换成食物库 */
     onOpenFoodLibrary: () -> Unit = {},
+    /** 训练中心 P0：日记页顶部「心情日记 / 训练日记」切换 */
+    trainingTab: Boolean = false,
+    onTrainingTabChange: (Boolean) -> Unit = {},
+    onStartTraining: () -> Unit = {},
+    onEditTraining: () -> Unit = {},
+    /** 与首页 / 训练页共用同一个实例，草稿状态不打架 */
+    trainingVm: TrainingViewModel = viewModel(),
     modifier: Modifier = Modifier,
     /** tabfix：滚动状态由 Root 持有，切 Tab 回来不丢位置。 */
     scrollState: ScrollState = rememberScrollState(),
@@ -119,6 +129,17 @@ fun DiaryScreen(
             .fillMaxSize()
             .background(PageBackground)
     ) {
+        // 训练日记和心情日记共用这一页：切到训练视图时，下面整块心情日记内容不组合，
+        // 避免两套滚动状态、两套悬浮按钮叠在一起。
+        if (trainingTab) {
+            TrainingDiaryContent(
+                vm = trainingVm,
+                onStartTraining = onStartTraining,
+                onEditSession = onEditTraining,
+                showModeSwitch = true,
+                onSwitchToMood = { onTrainingTabChange(false) }
+            )
+        } else {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -152,6 +173,7 @@ fun DiaryScreen(
                     )
                 }
             }
+            DiaryModeSwitch(training = false, onChange = onTrainingTabChange)
             Spacer(Modifier.height(14.dp))
             Spacer(Modifier.height(12.dp))
 
@@ -347,6 +369,7 @@ fun DiaryScreen(
         ) {
             WriteEntryFab(onClick = { onOpenEdit(0L) })
         }
+        } // else（心情日记视图）结束
     }
 
     // ---------- 清空全部确认 ----------

@@ -98,6 +98,10 @@ import com.qingji.app.ui.i18n.s
 fun MineScreen(
     onOpenSettings: () -> Unit,
     onOpenProfile: () -> Unit,
+    /** 训练中心 P0：训练记录全屏页 */
+    onOpenTrainingHistory: () -> Unit = {},
+    /** 训练中心 P0：直接开一次训练 */
+    onStartTraining: () -> Unit = {},
     modifier: Modifier = Modifier,
     /** tabfix：滚动状态由 Root 持有，切 Tab 回来不丢位置。 */
     scrollState: ScrollState = rememberScrollState(),
@@ -171,6 +175,33 @@ fun MineScreen(
             unlockedCount = achievements.count { it.unlocked },
             totalCount = achievements.size
         )
+
+        Spacer(Modifier.height(12.dp))
+
+        // 训练管理（P0 只放两个「点了真有反应」的入口；
+        // 计划 / 收藏 / 计算器属于 P1-P2，等做完再往上加，不做摆设）
+        SectionCard {
+            Text(
+                text = "训练管理",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TextPrimary
+            )
+            Spacer(Modifier.height(10.dp))
+            EntryRow(
+                title = "训练记录",
+                trailing = "",
+                iconColor = QingJiGreenDark,
+                onClick = onOpenTrainingHistory
+            )
+            Spacer(Modifier.height(6.dp))
+            EntryRow(
+                title = "开始训练",
+                trailing = "",
+                iconColor = QingJiGreen,
+                onClick = onStartTraining
+            )
+        }
 
         Spacer(Modifier.height(12.dp))
 

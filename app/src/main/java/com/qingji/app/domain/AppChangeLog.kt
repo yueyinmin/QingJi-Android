@@ -1,0 +1,79 @@
+package com.qingji.app.domain
+
+/**
+ * ============================================================
+ * 版本更新记录（唯一数据源）
+ * ------------------------------------------------------------
+ * 两个地方读同一份数据，保证「更新提示」里看到的内容和
+ * 「设置 → 版本信息」里留下的记录永远一致：
+ *   1. 升级后第一次打开 App 的一次性弹窗；
+ *   2. 版本信息页底部的「更新记录」。
+ *
+ * 加新版本时只在这里最上面插一条 Release，别在界面里手写文案。
+ * versionCode 必须和 app/build.gradle.kts 里的 versionCode 对得上。
+ * ============================================================
+ */
+object AppChangeLog {
+
+    data class Release(
+        val versionName: String,
+        val versionCode: Int,
+        val date: String,
+        val items: List<String>
+    )
+
+    /** 按版本号倒序：最新的放最上面。 */
+    val releases: List<Release> = listOf(
+        Release(
+            versionName = "1.0.10",
+            versionCode = 110,
+            date = "2026-11-13",
+            items = listOf(
+                "新增「训练中心」：开始训练、记录每组重量 / 次数 / RPE，自动带出上次成绩",
+                "训练日记：月历、本月总结、历史明细；当天可修改，历史可删除",
+                "首页新增「今日训练」卡；＋面板新增「开始训练」「记录有氧」",
+                "日记页新增「心情日记 / 训练日记」切换；我的页新增「训练管理」",
+                "备份升级到 v3，训练记录可随备份换机；清除记录 / 恢复出厂同步覆盖训练数据",
+                "新增版本更新提示，更新记录保留在「设置 → 版本信息」"
+            )
+        ),
+        Release(
+            versionName = "1.0.9",
+            versionCode = 109,
+            date = "2026-11-13",
+            items = listOf(
+                "应用图标三套真实切换、通知总开关联动闹钟、权限授权后才开启",
+                "全局 UI 视觉统一（主色、底色、文字色对齐规范）",
+                "备份覆盖恢复语义收口、迁移链自动测试、小组件定向刷新"
+            )
+        ),
+        Release(
+            versionName = "1.0.8",
+            versionCode = 108,
+            date = "2026-11-12",
+            items = listOf(
+                "设置页极简单行改版、8 分组 24 项、真搜索、识别偏好二级页"
+            )
+        )
+    )
+
+    /** 当前版本对应的那一条记录；没登记就返回 null（弹窗会显示通用文案）。 */
+    fun current(currentCode: Int): Release? = releases.firstOrNull { it.versionCode == currentCode }
+
+    /**
+     * 从「上次看过」到「现在」之间漏掉的几个版本。
+     * 用户跳过好几个版本没打开时，一次弹窗把中间的更新一起列出来，不弹好几次。
+     */
+    fun since(lastSeenCode: Int, currentCode: Int): List<Release> =
+        releases.filter { it.versionCode > lastSeenCode && it.versionCode <= currentCode }
+
+    /** 版本信息页底部的「更新记录」纯文本（这个页面本来就展示一整段文字）。 */
+    fun versionInfoText(): String = buildString {
+        append("更新记录\n")
+        releases.forEach { r ->
+            append("\n")
+            append("v${r.versionName}（${r.date}）\n")
+            r.items.forEach { item -> append("· $item\n") }
+        }
+    }.trimEnd()
+}

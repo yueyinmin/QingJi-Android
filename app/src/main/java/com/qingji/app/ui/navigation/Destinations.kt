@@ -62,10 +62,15 @@ object QingJiRoutes {
     const val ExerciseConfirm = "exercise_confirm/{presetId}"
     fun exerciseConfirm(presetId: Long) = "exercise_confirm/$presetId"
 
+    /** 训练中心 P0：进行中训练 / 训练日记（全屏子页，P1 的动作详情、计划页以后再加）。 */
+    const val TrainingActive = "training_active"
+    const val TrainingHistory = "training_history"
+
     /** 这些是全屏子页面：打开时不显示底部导航栏。 */
     val fullScreenRoutes = setOf(
         Settings, SearchFood, TextAi, Weight, AiConfig, Profile,
         ImageRecord, VoiceRecord, Barcode, AiAnalysis, Backup, DiaryEdit, MealDetail,
-        Fasting, FoodPreference, FoodLibrary, WidgetSettings, ExercisePicker, ExerciseConfirm
+        Fasting, FoodPreference, FoodLibrary, WidgetSettings, ExercisePicker, ExerciseConfirm,
+        TrainingActive, TrainingHistory
     )
 }

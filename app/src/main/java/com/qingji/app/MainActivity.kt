@@ -14,7 +14,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import com.qingji.app.data.prefs.QingJiSettings
 import com.qingji.app.data.prefs.SettingsStore
+import com.qingji.app.data.prefs.UpdateNoticeStore
 import com.qingji.app.domain.AppClock
+import com.qingji.app.ui.components.UpdateNoticeDialog
 import com.qingji.app.ui.navigation.QingJiAppRoot
 import com.qingji.app.ui.theme.QingJiTheme
 import com.qingji.app.widget.WidgetRefresher
@@ -82,6 +84,23 @@ class MainActivity : ComponentActivity() {
                         // 表现成「明明点了首页，最后又跑到别的页」。
                         onTargetConsumed = { pendingTarget = null }
                     )
+
+                    // ---------- 版本更新提示（升级后第一次打开只弹一次） ----------
+                    // 放在开屏动画之后、主界面之上：全新安装不弹，覆盖安装升级才弹。
+                    // 只有点「我知道了」才写已读，中途被杀掉下次进来还会再弹。
+                    val updateStore = remember { UpdateNoticeStore(context) }
+                    var pendingUpdates by remember {
+                        mutableStateOf(updateStore.pendingReleases(BuildConfig.VERSION_CODE))
+                    }
+                    if (pendingUpdates.isNotEmpty()) {
+                        UpdateNoticeDialog(
+                            releases = pendingUpdates,
+                            onDismiss = {
+                                updateStore.markSeen(BuildConfig.VERSION_CODE)
+                                pendingUpdates = emptyList()
+                            }
+                        )
+                    }
                 }
             }
         }

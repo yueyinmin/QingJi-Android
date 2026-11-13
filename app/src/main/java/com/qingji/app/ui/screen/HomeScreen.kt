@@ -74,6 +74,8 @@ import com.qingji.app.ui.components.SectionCard
 import com.qingji.app.ui.components.WaterCup
 import com.qingji.app.ui.components.ThinProgressBar
 import com.qingji.app.ui.i18n.s
+import com.qingji.app.ui.screen.training.TodayTrainingCard
+import com.qingji.app.ui.viewmodel.TrainingViewModel
 import com.qingji.app.ui.theme.CardWhite
 import com.qingji.app.ui.theme.DangerRed
 import com.qingji.app.ui.theme.DividerColor
@@ -121,6 +123,10 @@ fun HomeScreen(
     onOpenFasting: () -> Unit = {},
     /** 点「食物库」→ 进食物库页 */
     onOpenFoodLibrary: () -> Unit = {},
+    /** 点「今日训练」卡 → 进训练日记 */
+    onOpenTraining: () -> Unit = {},
+    /** 与日记页、训练页共用同一个 ViewModel，进行中状态才对得上 */
+    trainingVm: TrainingViewModel = viewModel(),
     modifier: Modifier = Modifier,
     /**
      * tabfix：状态栏高度，由 QingJiAppRoot 在 Scaffold 消耗 insets 之前读好传进来。
@@ -134,6 +140,8 @@ fun HomeScreen(
 ) {
     val state by vm.uiState.collectAsState()
     val weeklySummary by vm.weeklySummary.collectAsState()
+    val trainingSessions by trainingVm.sessions.collectAsState()
+    val trainingDraft by trainingVm.draft.collectAsState()
     val today = AppClock.today()
 
     // 首页要读几项显示设置：饮水卡显隐、AI 分析按钮显隐、悬浮按钮开关
@@ -299,6 +307,14 @@ fun HomeScreen(
             onOpenFasting = { onOpenFasting() }
         )
         }
+
+        // ---------- 今日训练（训练中心 P0，放在热量主卡下面） ----------
+        Spacer(Modifier.height(12.dp))
+        TodayTrainingCard(
+            todaySessions = trainingSessions.filter { it.date == today },
+            draft = trainingDraft,
+            onClick = onOpenTraining
+        )
 
         Spacer(Modifier.height(20.dp))
 

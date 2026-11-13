@@ -62,6 +62,9 @@ import com.qingji.app.ui.screen.record.SearchFoodScreen
 import com.qingji.app.ui.screen.record.TextAiScreen
 import com.qingji.app.ui.screen.record.VoiceRecordScreen
 import com.qingji.app.ui.screen.record.WeightScreen
+import com.qingji.app.ui.screen.training.TrainingActiveScreen
+import com.qingji.app.ui.screen.training.TrainingHistoryScreen
+import com.qingji.app.ui.viewmodel.TrainingViewModel
 import com.qingji.app.ui.theme.PageBackground
 
 /**
@@ -172,6 +175,13 @@ fun QingJiAppRoot(
     val diaryVm: DiaryViewModel = viewModel()
     val mineVm: MineViewModel = viewModel()
 
+    // 训练中心的草稿状态必须在 Root（Activity）作用域共享：
+    // 首页卡、日记页、进行中训练页、训练日记页读的是同一个 ViewModel，
+    // 否则切一次页面就换一个实例，「进行中」状态会对不上。
+    val trainingVm: TrainingViewModel = viewModel()
+    /** 日记页的「心情日记 / 训练日记」切换状态放这里，切 Tab 回来不会自己跳回心情日记。 */
+    var diaryTrainingTab by remember { mutableStateOf(false) }
+
     // tabfix（首页→进展抖动的真正根因）：这里原来按路由切 contentWindowInsets
     // —— 首页给全 0，其他页给默认 systemBars。currentRoute 在 navigate() 那一帧
     // 就变了，可 NavHost 的转场动画才刚开始，于是：
@@ -232,6 +242,8 @@ fun QingJiAppRoot(
                         },
                         onOpenFasting = { navController.navigate(QingJiRoutes.Fasting) },
                         onOpenFoodLibrary = { navController.navigate(QingJiRoutes.FoodLibrary) },
+                        onOpenTraining = { navController.navigate(QingJiRoutes.TrainingHistory) },
+                        trainingVm = trainingVm,
                         statusBarTop = statusBarTopDp,
                         scrollState = tabScrollStates.getValue(QingJiTab.Home),
                         vm = homeVm
@@ -255,6 +267,11 @@ fun QingJiAppRoot(
                         onOpenWeight = { navController.navigate(QingJiRoutes.Weight) },
                         onOpenImage = { navController.navigate(QingJiRoutes.ImageRecord) },
                         onOpenFoodLibrary = { navController.navigate(QingJiRoutes.FoodLibrary) },
+                        trainingTab = diaryTrainingTab,
+                        onTrainingTabChange = { diaryTrainingTab = it },
+                        onStartTraining = { navController.navigate(QingJiRoutes.TrainingActive) },
+                        onEditTraining = { navController.navigate(QingJiRoutes.TrainingActive) },
+                        trainingVm = trainingVm,
                         scrollState = tabScrollStates.getValue(QingJiTab.Diary),
                         vm = diaryVm
                     )
@@ -263,6 +280,8 @@ fun QingJiAppRoot(
                     MineScreen(
                         onOpenSettings = { navController.navigate(QingJiRoutes.Settings) },
                         onOpenProfile = { navController.navigate(QingJiRoutes.Profile) },
+                        onOpenTrainingHistory = { navController.navigate(QingJiRoutes.TrainingHistory) },
+                        onStartTraining = { navController.navigate(QingJiRoutes.TrainingActive) },
                         scrollState = tabScrollStates.getValue(QingJiTab.Mine),
                         vm = mineVm
                     )
@@ -383,6 +402,21 @@ fun QingJiAppRoot(
                         onSaved = { navController.popBackStack(QingJiTab.Home.route, false) }
                     )
                 }
+                // ---------- 训练中心 P0 ----------
+                composable(QingJiRoutes.TrainingActive) {
+                    TrainingActiveScreen(
+                        vm = trainingVm,
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+                composable(QingJiRoutes.TrainingHistory) {
+                    TrainingHistoryScreen(
+                        vm = trainingVm,
+                        onBack = { navController.popBackStack() },
+                        onStartTraining = { navController.navigate(QingJiRoutes.TrainingActive) },
+                        onEditSession = { navController.navigate(QingJiRoutes.TrainingActive) }
+                    )
+                }
             }
         }
     }
@@ -406,6 +440,8 @@ fun QingJiAppRoot(
             },
             // v3.3.0：记运动改走独立的「记录运动」二级页，不再只是跳进展页
             onExercise = { navController.navigate(QingJiRoutes.ExercisePicker) },
+            onStartTraining = { navController.navigate(QingJiRoutes.TrainingActive) },
+            onAerobic = { navController.navigate(QingJiRoutes.ExercisePicker) },
             onBodyPhoto = { navController.navigate(QingJiTab.Progress.route) }
         )
     }

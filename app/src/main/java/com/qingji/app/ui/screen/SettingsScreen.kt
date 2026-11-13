@@ -686,7 +686,9 @@ fun SettingsScreen(
                 "AI：OpenAI 兼容协议，直连服务商\n" +
                 "小组件：Jetpack Glance 1.1.1\n\n" +
                 "当前用户：${settings.nickname}" +
-                "（档案：${profile?.heightCm?.toInt() ?: 0}cm / 目标 ${profile?.targetWeight ?: 0.0}kg）",
+                "（档案：${profile?.heightCm?.toInt() ?: 0}cm / 目标 ${profile?.targetWeight ?: 0.0}kg）" +
+                // 更新提示里弹过的内容，在这里长期留档，随时能回看
+                "\n\n" + com.qingji.app.domain.AppChangeLog.versionInfoText(),
             onBack = { dialog = null },
             useSheet = true
         )
@@ -1072,8 +1074,8 @@ private fun PrivacyPage(
             onDismiss = { confirmRecords = false }
         ) {
             Text(
-                text = "饮食、体重、饮水、日记、围度、照片、运动、断食记录都会删掉，" +
-                    "删了就找不回来。档案和目标会留着。\n\n" +
+                text = "饮食、体重、饮水、日记、围度、照片、运动、断食、训练记录都会删掉，" +
+                    "删了就找不回来。档案、目标、动作库和训练计划会留着。\n\n" +
                     "建议先去「数据备份与导出」导一份 JSON。",
                 fontSize = 14.sp,
                 color = TextPrimary,
