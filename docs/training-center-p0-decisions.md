@@ -106,3 +106,5 @@
 | 测试 | `AppChangeLogTest`（跨版本/同版本/文案一致）、`UpdateNoticeStoreTest`（全新安装/升级/已读后） |
 
 **注意**：弹窗内容依赖 `versionCode` 真的变大。本次已从 109 → 110（versionName 1.0.9 → 1.0.10），所以从 1.0.9 覆盖安装的设备会看到「v1.0.10 更新啦」；全新安装的设备不会弹。
+
+**实测**（模拟器 `Medium_Phone_API_37.0`，`uiautomator dump` + `input tap`）：全新安装不弹；把 `app_version_notice.xml` 的已读版本改成 109 重启 → 弹窗出现且 6 条更新项齐全；点「我知道了」后记录变 110，重启不再弹。
