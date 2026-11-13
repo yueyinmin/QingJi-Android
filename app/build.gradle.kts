@@ -75,8 +75,8 @@ android {
         //   ③ 备份补齐围度/进度照片/运动/断食/自建运动五段，补回档案三项营养目标、饮食三项微量营养素和图片路径；
         //   ④ 运动记录新增 steps / distanceKm 两列（用户库 6→7），按步数或公里记的原始数字不再丢；
         //   ⑤ 新增 BackupParsingTest 12 个用例，备份解析第一次有自动化测试。
-        versionCode = 108
-        versionName = "1.0.8"
+        versionCode = 109
+        versionName = "1.0.9"
     }
 
     signingConfigs {
