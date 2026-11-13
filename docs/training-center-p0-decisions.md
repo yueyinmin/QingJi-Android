@@ -156,3 +156,18 @@
 ### 8.4 仍未做
 
 P2（有氧心率/主观强度、拉伸图示、恢复记录、健身计算器）、P3（AI 总结/趋势/饮食-训练关联）按手册分期，等确认后再开工；发版流程（token 换新、合并 main、打 tag、发布）仍需主人操作或确认。
+
+---
+
+## 九、主人实机反馈的 6 项修复（2026-11-13）
+
+| # | 现象 | 根因 | 修法 |
+| --- | --- | --- | --- |
+| 1 | 覆盖旧版本安装后**不弹更新提示** | `UpdateNoticeStore` 把「没有 last_seen 键」当成全新安装、静默 `markSeen`。但 1.0.9 及以前根本没有这个键，升级用户全被误判 | 没有记录时改为**只展示当前版本内容**，且不写已读；只有点「我知道了」才写。全新安装也能看到当前版本更新内容，符合「每次装新版本 → 看到 → 确认 → 之后不出现」 |
+| 2 | 引导填了身高体重，**进展页身体数据发灰** | 引导只写 `user_profile`，没写 `weight_log`；进展页 `currentWeight = logs.lastOrNull() ?: 0.0`，BMI/趋势全是 0 | 引导完成时把「当前体重」写成第一条当天体重记录（同日去重，重试不重复）；进展页再用 `profile.startWeight` 兜底，`WeightChart` 加 `fallbackWeight`，卡片与「最新」用同一个值 |
+| 3 | **训练日记没放默认页** | Root 里 `diaryTrainingTab` 初始 false | 改成 true；`DiaryScreen` 默认参数同步 true |
+| 4 | **心情日记结构要和训练日记一致** | 原来是「近 30 天小格子 + 玻璃罐 + 排序胶囊」，两套样式 | 重写 `DiaryScreen`，新增 `MoodDiaryContent`：胶囊切换 → 写一篇 → 本月总结（篇数/平均心情/连续天数）→ 月历 → 历史列表 → 明细弹层。`TrainingCalendarCard` 加 `dateColors` 参数，心情日记按 `DiaryRules.level` 四档着色，评分规则仍走 domain 层 |
+| 5 | 水杯上有个**白色圆** | 水杯里叠了一个 44dp 白色 CircleShape「完成度胶囊」（可拖拽但纯视觉、不改水量）；气泡也是白色 | 删掉白圆按钮，完成度百分比移到杯下文字；气泡改浅水蓝 |
+| 6 | 水杯**上下居中** + 点击**不要长方形选中特效** | 外层 Row 未设垂直居中；`Canvas.clickable` 用默认 ripple，矩形高亮和杯形不符；`contentAlignment` 是 BottomCenter | 外层 Row 加 `Alignment.CenterVertically`，杯 Box 改 `Alignment.Center`；`WaterCup` 的 clickable 改 `indication = null`（无 ripple），要反馈也只做整体缩放 |
+
+`AppChangeLog` 的 1.0.10 条目同步补上 P1 与这轮修复的说明，弹窗和「版本信息」读的是同一份数据。
