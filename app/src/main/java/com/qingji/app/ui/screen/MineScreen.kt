@@ -98,6 +98,15 @@ import com.qingji.app.ui.i18n.s
 fun MineScreen(
     onOpenSettings: () -> Unit,
     onOpenProfile: () -> Unit,
+    /** 训练中心 P0：训练记录全屏页 */
+    onOpenTrainingHistory: () -> Unit = {},
+    /** 训练中心 P0：直接开一次训练 */
+    onStartTraining: () -> Unit = {},
+    /** 训练中心 P1：计划 / 动作库 / 收藏 / 个人最佳 */
+    onOpenTrainingPlan: () -> Unit = {},
+    onOpenExerciseLibrary: () -> Unit = {},
+    onOpenFavorites: () -> Unit = {},
+    onOpenPersonalBest: () -> Unit = {},
     modifier: Modifier = Modifier,
     /** tabfix：滚动状态由 Root 持有，切 Tab 回来不丢位置。 */
     scrollState: ScrollState = rememberScrollState(),
@@ -171,6 +180,61 @@ fun MineScreen(
             unlockedCount = achievements.count { it.unlocked },
             totalCount = achievements.size
         )
+
+        Spacer(Modifier.height(12.dp))
+
+        // 训练管理（P1 补齐，六行全部有真实页面，不做点了没反应的摆设；
+        // 健身计算器属于 P2，等做完再往上加）
+        SectionCard {
+            Text(
+                text = "训练管理",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TextPrimary
+            )
+            Spacer(Modifier.height(10.dp))
+            EntryRow(
+                title = "训练记录",
+                trailing = "",
+                iconColor = QingJiGreenDark,
+                onClick = onOpenTrainingHistory
+            )
+            Spacer(Modifier.height(6.dp))
+            EntryRow(
+                title = "开始训练",
+                trailing = "",
+                iconColor = QingJiGreen,
+                onClick = onStartTraining
+            )
+            Spacer(Modifier.height(6.dp))
+            EntryRow(
+                title = "我的训练计划",
+                trailing = "",
+                iconColor = QingJiGreenDark,
+                onClick = onOpenTrainingPlan
+            )
+            Spacer(Modifier.height(6.dp))
+            EntryRow(
+                title = "动作库",
+                trailing = "",
+                iconColor = QingJiGreen,
+                onClick = onOpenExerciseLibrary
+            )
+            Spacer(Modifier.height(6.dp))
+            EntryRow(
+                title = "我的动作收藏",
+                trailing = "",
+                iconColor = QingJiGreenDark,
+                onClick = onOpenFavorites
+            )
+            Spacer(Modifier.height(6.dp))
+            EntryRow(
+                title = "个人最佳",
+                trailing = "",
+                iconColor = QingJiGreen,
+                onClick = onOpenPersonalBest
+            )
+        }
 
         Spacer(Modifier.height(12.dp))
 

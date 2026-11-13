@@ -75,6 +75,10 @@ fun AddRecordSheet(
     onWater: () -> Unit = {},
     /** 进进展页记运动 */
     onExercise: () -> Unit = {},
+    /** 训练中心 P0：开始一次力量训练 */
+    onStartTraining: () -> Unit = {},
+    /** 训练中心 P0：记录有氧，直接复用现有「记录运动」流程，不另做新页 */
+    onAerobic: () -> Unit = {},
     /** 进进展页更新体型照片 */
     onBodyPhoto: () -> Unit = {}
 ) {
@@ -197,6 +201,19 @@ fun AddRecordSheet(
                 }
                 SheetWideCard("记录体重", "⚖️", MultiColor.Weight, Modifier.weight(1f)) {
                     go(onWeight)
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
+
+            // ---------- 3.5 训练中心（P0）：开始训练 / 记录有氧 ----------
+            // 「记录有氧」直接跳现有的运动选择页，不新建第二条数据体系。
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SheetWideCard("开始训练", "🏋️", MultiColor.Exercise, Modifier.weight(1f)) {
+                    go(onStartTraining)
+                }
+                SheetWideCard("记录有氧", "🚶", MultiColor.QuickWater, Modifier.weight(1f)) {
+                    go(onAerobic)
                 }
             }
 

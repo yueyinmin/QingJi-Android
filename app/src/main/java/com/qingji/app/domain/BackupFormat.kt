@@ -22,11 +22,13 @@ object BackupFormat {
      * 1 = v1.0.5 及以前（只有档案/体重/自建食物/饮食/饮水/日记/统计/AI配置）
      * 2 = v1.0.6 起，多五段：围度 bodyMeasures、照片 photos、运动 exercises、
      *     断食 fastings、自建运动 exercisePresets
+     * 3 = 训练中心起，多一段 training（动作库/计划 3 表/训练会话 2 表，共 6 张表）
      *
-     * 导入端**不按版本号分支**：新段缺失就当空列表，所以 v2 能直接读 v1 的备份，
-     * 反过来 v1 读 v2 也只是丢掉多出来的五段（不会报错）。
+     * 导入端基本不按版本号分支：新段缺失就当空列表，所以 v3 能直接读 v1/v2 的备份。
+     * 唯一例外是训练段：version < 3 的老备份**不清本机训练表**（那时还没有这个模块），
+     * 免得导旧备份把新记的训练弄丢；version >= 3 才按 training 段整包覆盖。
      */
-    const val VERSION = 2
+    const val VERSION = 3
 
     /** CSV 表头，顺序不能乱，Excel 里看到的列顺序就是它。 */
     val CSV_HEADER = listOf(

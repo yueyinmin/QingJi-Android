@@ -34,6 +34,8 @@ import kotlinx.coroutines.launch
  *   ① 再校验一遍数据（防止绕过界面直接调）
  *   ② 算营养目标（调 NutritionCalculator，和「我的 → 个人资料」同一个函数）
  *   ③ 档案写进 Room            —— 失败就停在这儿
+ *   ③b 把引导里填的「当前体重」写成第一条体重记录
+ *       （否则进展页 / 趋势图只读 weight_log，全是灰的「--」）
  *   ④ 目标模式 / 昵称写进 DataStore —— 失败也停在这儿
  *   ⑤ 最后才写 ONBOARDING_DONE = true
  *
@@ -141,6 +143,26 @@ class OnboardingViewModel(app: Application) : AndroidViewModel(app) {
                 repo.saveProfile(profile)
             } catch (e: Exception) {
                 _error.value = "个人档案没存上，你填的内容都还在，再点一次「完成」试试"
+                return false
+            }
+
+            // ③b 用户填的「当前体重」就是第一条体重记录。
+            // 之前只写档案不写记录，进展页只读 weight_log，于是身高体重明明填了，
+            // 身体数据卡却全是灰的「--」（2026-11-13 修）。
+            // 同一天重复引导只可能在「④ 失败后重试」时出现，先查一下再写，避免重复记录。
+            try {
+                val existing = repo.observeWeightLogs().first()
+                if (existing.none { it.date == com.qingji.app.domain.AppClock.today() }) {
+                    repo.saveWeight(
+                        com.qingji.app.data.local.entity.WeightLog(
+                            date = com.qingji.app.domain.AppClock.today(),
+                            weightKg = answers.weightKg,
+                            createdAt = answers.createdAt
+                        )
+                    )
+                }
+            } catch (e: Exception) {
+                _error.value = "第一条体重记录没存上，你填的内容都还在，再点一次「完成」试试"
                 return false
             }
 

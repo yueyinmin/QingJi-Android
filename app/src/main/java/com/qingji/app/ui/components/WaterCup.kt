@@ -116,7 +116,17 @@ fun WaterCup(
         else -> 9
     }
 
-    Canvas(modifier = modifier.clickable { onClick() }) {
+    // 点击不要长方形的 ripple：整个 Canvas 是矩形，默认的选中高亮会盖出一个方角块，
+    // 和水杯形状完全对不上。indication = null 去掉高亮，只保留点击本身；
+    // 真要反馈也该是水杯整体缩放，而不是在矩形边界里画圆角光晕。
+    val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    Canvas(
+        modifier = modifier.clickable(
+            interactionSource = interactionSource,
+            indication = null,
+            onClick = onClick
+        )
+    ) {
         val w = size.width
         val h = size.height
         val stroke = 1.5.dp.toPx()
