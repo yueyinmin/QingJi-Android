@@ -43,9 +43,9 @@ object AccentThemes {
     val ALL = listOf(
         Spec(
             key = "green", label = "松绿",
-            lightMain = 0xFF1F8A70, lightDark = 0xFF16795F, lightSoft = 0xFFE8F5EF,
+            lightMain = 0xFF299D76, lightDark = 0xFF1F7E62, lightSoft = 0xFFEAF7F1,
             darkMain = 0xFF4DBB9B, darkDark = 0xFF8FE0C4, darkSoft = 0xFF1D3A33,
-            macroProtein = 0xFF5B8DEF, macroCarb = 0xFF1F8A70, macroFat = 0xFFF5A623
+            macroProtein = 0xFF5B8DEF, macroCarb = 0xFF299D76, macroFat = 0xFFF5A623
         ),
         Spec(
             key = "blue", label = "海蓝",

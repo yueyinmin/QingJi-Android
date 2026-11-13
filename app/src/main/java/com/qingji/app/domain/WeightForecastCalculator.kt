@@ -41,8 +41,8 @@ object WeightForecastCalculator {
         targetWeight: Double,
         today: LocalDate
     ): Forecast {
-        if (targetWeight <= 0.0) return Forecast(false, "先设一个目标体重，才能估算达成时间")
-        if (currentWeight <= 0.0) return Forecast(false, "先记一次体重，才能估算达成时间")
+        if (targetWeight <= 0.0) return Forecast(false, "先设一个目标体重")
+        if (currentWeight <= 0.0) return Forecast(false, "先记一次体重")
         if (targetWeight >= currentWeight) return Forecast(false, "已经达到目标体重啦")
 
         val from = today.minusDays(WINDOW_DAYS - 1)

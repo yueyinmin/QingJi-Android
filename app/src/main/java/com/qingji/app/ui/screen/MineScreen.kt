@@ -337,12 +337,6 @@ private fun UsageSectionCard(totals: Map<String, Int>) {
                 }
             }
         }
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = s("这里的数字就是你实际使用轻记的记录，方便回头看自己的习惯"),
-            fontSize = 11.sp,
-            color = TextSecondary
-        )
     }
 }
 

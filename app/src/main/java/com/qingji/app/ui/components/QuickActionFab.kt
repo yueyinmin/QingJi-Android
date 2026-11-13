@@ -55,10 +55,10 @@ import com.qingji.app.ui.theme.MultiColor
  */
 
 /** 圆形按钮直径。三个页面共用，改这里一处就够。 */
-private val BUTTON_SIZE = 52.dp
+private val BUTTON_SIZE = 44.dp
 
 /** 图标绘制框。四个图标都塞进同样大小的框里居中，尺寸天然统一。 */
-private val ICON_SIZE = 24.dp
+private val ICON_SIZE = 20.dp
 
 @Composable
 fun QuickActionColumn(
@@ -71,7 +71,7 @@ fun QuickActionColumn(
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         // 按功能固定配色，不跟主题开关变 —— 靠颜色区分功能
         QuickActionButton(
