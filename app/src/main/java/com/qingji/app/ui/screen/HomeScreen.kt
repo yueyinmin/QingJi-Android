@@ -409,8 +409,9 @@ fun HomeScreen(
 
         // v8：本周运动消耗 + 本周小结已搬到进展页（主人指定），首页不再展示
 
-        // 底部留白：给悬浮按钮腾位置，不然会盖住最后一餐
-        Spacer(Modifier.height(88.dp))
+        // 底部留白：给悬浮按钮腾位置，不然会盖住最后一餐。
+        // v9：悬浮底栏模式再让出 Dock 高度，最后的餐卡能完整滚出来。
+        Spacer(Modifier.height(if (settings.floatingBottomBar) 170.dp else 88.dp))
         }
 
         // ---------- 实时刷新率徽章（主题与显示里开关，平时关掉） ----------

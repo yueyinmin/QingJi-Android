@@ -312,7 +312,8 @@ fun ProgressScreen(
             )
         }
 
-        Spacer(Modifier.height(Dimens.FabSpace))
+        // v9：悬浮底栏模式滚动尾部让出 Dock 高度，最后一块卡不被盖住
+        Spacer(Modifier.height(if (settings.floatingBottomBar) Dimens.FabSpace + 82.dp else Dimens.FabSpace))
     }
 
     // 和首页一样的三个快捷按钮：在进展页也能顺手记水、记体重、拍照
