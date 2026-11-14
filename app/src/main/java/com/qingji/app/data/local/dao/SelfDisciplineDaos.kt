@@ -43,6 +43,16 @@ interface SelfDisciplineGoalDao {
     /** 删除目标前先数一下它名下的记录数（用于二次确认文案）。 */
     @Query("SELECT COUNT(*) FROM self_discipline_periods WHERE goalId = :goalId")
     suspend fun countPeriods(goalId: Long): Int
+
+    // ---------- 备份 / 清理（TASK-01） ----------
+    @Query("SELECT * FROM self_discipline_goals")
+    suspend fun findAll(): List<SelfDisciplineGoalEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(items: List<SelfDisciplineGoalEntity>)
+
+    @Query("DELETE FROM self_discipline_goals")
+    suspend fun clearAll()
 }
 
 /** 自律管理：周期记录 DAO。 */
@@ -75,6 +85,16 @@ interface SelfDisciplinePeriodDao {
     /** 撤销偏离：把已结束的周期重新打开（清 endAt / endReason、状态改回 active）。 */
     @Query("UPDATE self_discipline_periods SET endAt = NULL, endReason = NULL, status = 'active' WHERE id = :id")
     suspend fun reopen(id: Long)
+
+    // ---------- 备份 / 清理（TASK-01） ----------
+    @Query("SELECT * FROM self_discipline_periods")
+    suspend fun findAll(): List<SelfDisciplinePeriodEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(items: List<SelfDisciplinePeriodEntity>)
+
+    @Query("DELETE FROM self_discipline_periods")
+    suspend fun clearAll()
 }
 
 /** 自律管理：每日打卡 DAO。 */
@@ -107,6 +127,13 @@ interface SelfDisciplineCheckinDao {
 
     @Query("DELETE FROM self_discipline_checkins WHERE goalId = :goalId")
     suspend fun deleteByGoal(goalId: Long)
+
+    // ---------- 备份 / 清理（TASK-01） ----------
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(items: List<SelfDisciplineCheckinEntity>)
+
+    @Query("DELETE FROM self_discipline_checkins")
+    suspend fun clearAll()
 }
 
 /** 自律管理：冲动记录 DAO。 */
@@ -126,6 +153,16 @@ interface SelfDisciplineUrgeDao {
 
     @Query("DELETE FROM self_discipline_urge_logs WHERE goalId = :goalId")
     suspend fun deleteByGoal(goalId: Long)
+
+    // ---------- 备份 / 清理（TASK-01） ----------
+    @Query("SELECT * FROM self_discipline_urge_logs")
+    suspend fun findAll(): List<SelfDisciplineUrgeEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(items: List<SelfDisciplineUrgeEntity>)
+
+    @Query("DELETE FROM self_discipline_urge_logs")
+    suspend fun clearAll()
 }
 
 /** 自律管理：模块设置 DAO（key-value）。 */
@@ -139,6 +176,13 @@ interface SelfDisciplineSettingDao {
 
     @Query("SELECT * FROM self_discipline_settings")
     suspend fun getAll(): List<SelfDisciplineSettingEntity>
+
+    // ---------- 备份 / 清理（TASK-01）：导出用已有的 getAll() ----------
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(items: List<SelfDisciplineSettingEntity>)
+
+    @Query("DELETE FROM self_discipline_settings")
+    suspend fun clearAll()
 }
 
 /** 自律管理：里程碑 DAO（P1 预留表，先建好）。 */
@@ -152,6 +196,16 @@ interface SelfDisciplineMilestoneDao {
 
     @Query("DELETE FROM self_discipline_milestones WHERE goalId = :goalId")
     suspend fun deleteByGoal(goalId: Long)
+
+    // ---------- 备份 / 清理（TASK-01） ----------
+    @Query("SELECT * FROM self_discipline_milestones")
+    suspend fun findAll(): List<SelfDisciplineMilestoneEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(items: List<SelfDisciplineMilestoneEntity>)
+
+    @Query("DELETE FROM self_discipline_milestones")
+    suspend fun clearAll()
 }
 
 /** 自律管理：应对工具记录 DAO（P1 预留表，先建好）。 */
@@ -165,4 +219,14 @@ interface SelfDisciplineInterventionDao {
 
     @Query("DELETE FROM self_discipline_interventions WHERE goalId = :goalId")
     suspend fun deleteByGoal(goalId: Long)
+
+    // ---------- 备份 / 清理（TASK-01） ----------
+    @Query("SELECT * FROM self_discipline_interventions")
+    suspend fun findAll(): List<SelfDisciplineInterventionEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(items: List<SelfDisciplineInterventionEntity>)
+
+    @Query("DELETE FROM self_discipline_interventions")
+    suspend fun clearAll()
 }

@@ -3,7 +3,12 @@ package com.qingji.app.data.repository
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.qingji.app.data.local.AppDatabase
+import com.qingji.app.data.local.entity.SelfDisciplineCheckinEntity
 import com.qingji.app.data.local.entity.SelfDisciplineGoalEntity
+import com.qingji.app.data.local.entity.SelfDisciplineInterventionEntity
+import com.qingji.app.data.local.entity.SelfDisciplineMilestoneEntity
+import com.qingji.app.data.local.entity.SelfDisciplinePeriodEntity
+import com.qingji.app.data.local.entity.SelfDisciplineSettingEntity
 import com.qingji.app.data.local.entity.SelfDisciplineUrgeEntity
 import com.qingji.app.domain.SelfDisciplineContracts
 import kotlinx.coroutines.flow.first
@@ -229,5 +234,57 @@ class SelfDisciplineRepositoryTest {
         assertEquals(SelfDisciplineContracts.STATUS_ON_TARGET, afterUndo!!.status)
         assertNotNull(repo.getActivePeriod(id))
         assertEquals(0, repo.computeStats(id).deviationCount)
+    }
+
+    @Test
+    fun `clearAll 连设置表与没有目标指向的孤立行一起清空`() = runBlocking {
+        val id = repo.createGoal(goal())
+        repo.saveCheckin(
+            SelfDisciplineCheckinEntity(
+                goalId = id,
+                localDate = LocalDate.now(),
+                status = SelfDisciplineContracts.STATUS_ON_TARGET
+            )
+        )
+        repo.addUrge(SelfDisciplineUrgeEntity(goalId = id, occurredAt = 1L, intensity = 3))
+        repo.setSetting(SelfDisciplineContracts.SETTING_DEFAULT_GOAL, id.toString())
+        db.selfDisciplineSettingDao().set(SelfDisciplineSettingEntity("privacy_hidden", "1"))
+        db.selfDisciplineMilestoneDao().insert(
+            SelfDisciplineMilestoneEntity(goalId = id, milestoneDays = 7)
+        )
+        db.selfDisciplineInterventionDao().insert(
+            SelfDisciplineInterventionEntity(goalId = id, type = "breath", occurredAt = 1L)
+        )
+        // 孤立行：goalId 指向一个根本不存在的目标，deleteGoal() 永远扫不到它们
+        db.selfDisciplinePeriodDao().insert(
+            SelfDisciplinePeriodEntity(goalId = 999L, startAt = LocalDate.now())
+        )
+        db.selfDisciplineCheckinDao().upsert(
+            SelfDisciplineCheckinEntity(
+                goalId = 999L,
+                localDate = LocalDate.now(),
+                status = SelfDisciplineContracts.STATUS_ON_TARGET
+            )
+        )
+        db.selfDisciplineUrgeDao().insert(SelfDisciplineUrgeEntity(goalId = 999L, occurredAt = 1L))
+        db.selfDisciplineMilestoneDao().insert(
+            SelfDisciplineMilestoneEntity(goalId = 999L, milestoneDays = 7)
+        )
+        db.selfDisciplineInterventionDao().insert(
+            SelfDisciplineInterventionEntity(goalId = 999L, type = "breath", occurredAt = 1L)
+        )
+
+        repo.clearAll()
+
+        // 7 张表逐表断言全空
+        assertTrue(db.selfDisciplineGoalDao().findAll().isEmpty())
+        assertTrue(db.selfDisciplinePeriodDao().findAll().isEmpty())
+        assertTrue(db.selfDisciplineCheckinDao().findAll().isEmpty())
+        assertTrue(db.selfDisciplineUrgeDao().findAll().isEmpty())
+        assertTrue(db.selfDisciplineSettingDao().getAll().isEmpty())
+        assertTrue(db.selfDisciplineMilestoneDao().findAll().isEmpty())
+        assertTrue(db.selfDisciplineInterventionDao().findAll().isEmpty())
+        // 设置表确实被清（不是靠 deleteGoal 级联）
+        assertNull(repo.getSetting(SelfDisciplineContracts.SETTING_DEFAULT_GOAL))
     }
 }
