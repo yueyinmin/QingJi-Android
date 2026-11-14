@@ -4,6 +4,7 @@ import com.qingji.app.domain.AppClock
 import android.content.Context
 import com.qingji.app.data.local.AppDatabase
 import com.qingji.app.data.local.FoodCatalogDatabase
+import com.qingji.app.data.local.PhotoDirs
 import com.qingji.app.data.local.SeedData
 import com.qingji.app.data.local.entity.CatalogFood
 import com.qingji.app.data.local.entity.FoodFavorite
@@ -787,6 +788,12 @@ class QingJiRepository(private val context: Context) {
         // 照片文件要先从库里取路径，清表之后就查不到了
         val photoPaths = runCatching { db.progressPhotoDao().findAll().map { it.path } }
             .getOrDefault(emptyList())
+        // 头像不算记录，必须留着（它就在同一个目录里）
+        val avatar = runCatching { SettingsStore.observe(context).first().avatarPath }
+            .getOrDefault("")
+        // 先删文件再清表：清表事务万一失败回滚，也不会留下指向空记录的孤儿图片；
+        // 反过来先清表后删文件，中途抛异常就只剩没人引用的文件了。
+        photoPaths.forEach { path -> PhotoDirs.deleteImageFile(path, avatar) }
 
         db.withTransaction {
             db.foodLogDao().clearAll()
@@ -814,12 +821,6 @@ class QingJiRepository(private val context: Context) {
 
         // 还没保存的「进行中训练」也算记录，一并作废
         com.qingji.app.data.prefs.WorkoutDraftStore(context).clear()
-
-        // 记录里的照片跟着删掉，否则成了占着空间的孤儿文件。
-        // 头像不算记录，必须留着（它就在同一个目录里）。
-        val avatar = runCatching { SettingsStore.observe(context).first().avatarPath }
-            .getOrDefault("")
-        photoPaths.forEach { path -> deleteImageFile(path, avatar) }
 
         // 断食/饮水的通知文案依赖记录，清完顺手刷一次桌面
         com.qingji.app.widget.WidgetRefresher.refresh(context)
@@ -877,14 +878,9 @@ class QingJiRepository(private val context: Context) {
         // Key 在 AndroidKeyStore 加密存储里，跟 DataStore 是两个地方
         ApiKeyStore.clear(context)
 
-        // 图片：包括头像和所有记录图，整目录重建（不删目录本身，省得后面要判空）
-        listOf(
-            java.io.File(context.filesDir, "images"),
-            java.io.File(context.cacheDir, "images")
-        ).forEach { dir ->
-            runCatching { dir.deleteRecursively() }
-            runCatching { dir.mkdirs() }
-        }
+        // 图片：头像、记录图、进度照片整目录重建（不删目录本身，省得后面要判空）。
+        // 清单里补了 filesDir/progress（TASK-03）；备份目录 getExternalFilesDir/backup 不在清单里，保留。
+        PhotoDirs.clearDirs(context)
 
         // 运动库清空了要立刻重灌预置的 30 条，
         // 否则用户走完引导点「记录运动」看到的是空列表（重启才会补）。
@@ -897,12 +893,5 @@ class QingJiRepository(private val context: Context) {
         }
 
         com.qingji.app.widget.WidgetRefresher.refresh(context)
-    }
-
-    /** 删一张图片；头像路径要放过，别把用户头像一起删了。 */
-    private fun deleteImageFile(path: String, avatarPath: String) {
-        if (path.isBlank()) return
-        if (avatarPath.isNotBlank() && path == avatarPath) return
-        runCatching { java.io.File(path).takeIf { it.exists() }?.delete() }
     }
 }

@@ -1,5 +1,6 @@
 package com.qingji.app.ui.screen
 
+import com.qingji.app.data.local.PhotoDirs
 import com.qingji.app.domain.AppClock
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
@@ -1729,7 +1730,7 @@ private fun MeasureField(label: String, value: String, onChange: (String) -> Uni
 
 /** 把相册选的图拷进 App 私有目录，返回本地路径。 */
 private fun savePhotoToPrivate(context: android.content.Context, uri: android.net.Uri): String? = try {
-    val dir = java.io.File(context.filesDir, "progress").apply { mkdirs() }
+    val dir = java.io.File(context.filesDir, PhotoDirs.PROGRESS_DIR).apply { mkdirs() }
     val target = java.io.File(dir, "photo_${System.currentTimeMillis()}.jpg")
     context.contentResolver.openInputStream(uri)?.use { input ->
         target.outputStream().use { output -> input.copyTo(output) }
