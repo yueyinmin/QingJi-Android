@@ -667,7 +667,7 @@ private fun WeightChart(
 
     SectionCard {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(end = 44.dp),
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(text = s("体重走势"), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
@@ -931,7 +931,7 @@ fun DietHeatmapCard(
         // 搬到训练日记后，右侧有 4 颗悬浮按钮（50dp + 右留 16dp）。
         // 给网格整体留 44dp 安全边距，最后一列才不会被按钮挡住点不到。
         Column(
-            modifier = Modifier.padding(end = 44.dp),
+            modifier = Modifier,
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Row(
@@ -1031,7 +1031,7 @@ private fun WaterWeekCard(week: List<Pair<LocalDate, Int>>, goalMl: Int) {
 
     SectionCard {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(end = 44.dp),
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -1109,7 +1109,7 @@ private fun NutritionWeekCard(foodWeek: List<com.qingji.app.data.local.entity.Fo
 
     SectionCard {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(end = 44.dp),
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
@@ -1207,11 +1207,9 @@ fun ExerciseWeekCard(
     // 360dp 窄屏走查：右侧 QuickActionColumn 是 4 颗 52dp 圆按钮、右留 16dp，
     // 浮在内容之上，占住屏幕右侧 (W-68dp) ~ (W-16dp) 这一条。
     // 而卡片内容区右边界是 (W-16dp 外层 - 16dp SectionCard) = W-32dp，
-    // 比悬浮栏左边界还靠右 36dp —— 行尾的「×」和「+ 记一次」正好落进按钮热区，
-    // 点下去全被悬浮按钮吃掉（第一行 360dp 下完全点不到）。
-    // 给卡内两处行尾统一留 44dp 安全边距（36dp 理论值 + 8dp 余量）：
-    // 卡片本身宽度、标题位置、与其它卡片的对齐都不变，只是内容避开悬浮区。
-    val fabSafeEnd = 44.dp
+    // v10：44dp 让位取消——快捷按钮默认收起，展开时浮到内容上层，
+    // 主人明确「不要怕遮挡」；fabSafeEnd 保留为 0，以后要恢复让位改回这里即可。
+    val fabSafeEnd = 0.dp
 
     SectionCard {
         Row(
@@ -1324,7 +1322,7 @@ private fun BodyMeasureCard(
 ) {
     SectionCard {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(end = 44.dp),
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {

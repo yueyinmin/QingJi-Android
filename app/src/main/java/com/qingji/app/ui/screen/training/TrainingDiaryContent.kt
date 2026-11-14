@@ -256,9 +256,9 @@ private fun SessionRow(
     val allSets = exercises.flatMap { TrainingMath.decodeSets(it.setsJson) }
     val volume = TrainingMath.sessionVolume(allSets)
     SectionCard(contentPadding = Dimens.CardPaddingCompact) {
-        // 右侧 44dp 让给悬浮快捷按钮：以前「明细 / 修改 / 删除」正好压在按钮下面，
-        // 手指点下去命中的是按钮而不是文字（实测踩到）。
-        Column(modifier = Modifier.padding(end = 44.dp)) {
+        // v10：右侧 44dp 让位取消——快捷按钮默认收起，展开时浮到内容上层，
+        // 主人明确「不要怕遮挡」；训练记录卡恢复满宽。
+        Column {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(session.date.toString(), fontSize = TextSizes.CardTitle,

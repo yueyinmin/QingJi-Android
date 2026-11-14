@@ -1210,10 +1210,9 @@ private fun MealCard(
         contentPadding = 14.dp,
         modifier = Modifier.clickable { onOpenDetail() }
     ) {
-        // 右侧统一给悬浮按钮让出 44dp：以前只给「小计」让位，
-        // 明细行的「315 千卡」和营养素比例条仍会被按钮压住（360dp 小屏更明显）。
-        // 让在整卡内容上，头、明细、比例条一次对齐。
-        Column(modifier = Modifier.padding(end = 44.dp)) {
+        // v10：右侧 44dp 让位取消——快捷按钮已默认收起，点开展开时浮到内容
+        // 上层即可，主人明确「不要怕遮挡」；餐卡内容恢复满宽。
+        Column {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
