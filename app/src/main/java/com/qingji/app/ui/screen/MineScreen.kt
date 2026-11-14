@@ -233,7 +233,10 @@ fun MineScreen(
         )
 
         // 使用情况已并入顶部资料卡（v6）；调用统计卡仍放整页最下方：
-        // 平时不挡视线，想看 AI 调用次数往下滑到底即可
+        // 平时不挡视线，想看 AI 调用次数往下滑到底即可。
+        // v7：补回 12dp 间距——删使用情况分组时把它一起删了，
+        // 导致训练管理和调用统计两张卡叠在一起（主人反馈）。
+        Spacer(Modifier.height(12.dp))
         UsageCard(totalAi = totals["ai"] ?: 0, monthAi = monthAi)
 
         Spacer(Modifier.height(24.dp))
@@ -386,9 +389,17 @@ private fun UsageSectionCard(
         StatCell("体型图", (totals["body"] ?: 0).toString(), Icons.Outlined.AccessibilityNew, IconTones.Pink),
         StatCell("体重", (totals["weight"] ?: 0).toString(), Icons.Outlined.MonitorWeight, IconTones.Orange)
     )
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(7.dp)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        // v7：按主人参考图排版——卡内「使用情况」标题 + 两列浅灰圆角格子，
+        // 每格「图标 + 名称」在左、数字贴右；图标沿用本 app 自己的一套。
+        Text(
+            text = s("使用情况"),
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = TextPrimary
+        )
         items.chunked(2).forEach { rowItems ->
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 rowItems.forEach { cell ->
                     UsageMiniRow(cell = cell, modifier = Modifier.weight(1f))
                 }
@@ -399,20 +410,26 @@ private fun UsageSectionCard(
     }
 }
 
-/** 单条：图标 - 文字说明 - 数字 横排，高度压到 ~20dp。 */
+/** 单格：浅灰圆角底，图标 + 名称在左、数字贴右（参考图同款排版，图标不变）。 */
 @Composable
 private fun UsageMiniRow(cell: StatCell, modifier: Modifier = Modifier) {
-    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(PageBackground)
+            .padding(horizontal = 8.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Icon(
             imageVector = cell.icon,
             contentDescription = null,
             tint = cell.tone.icon,
-            modifier = Modifier.size(13.dp)
+            modifier = Modifier.size(14.dp)
         )
-        Spacer(Modifier.width(5.dp))
+        Spacer(Modifier.width(6.dp))
         Text(
             text = cell.label,
-            fontSize = 10.sp,
+            fontSize = 11.sp,
             color = TextSecondary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,

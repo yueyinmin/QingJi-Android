@@ -2,6 +2,7 @@ package com.qingji.app.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,12 +10,20 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.MonitorWeight
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -72,39 +81,58 @@ fun QuickActionColumn(
     val compact = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 380
     val buttonSize = if (compact) 44.dp else 50.dp
     val iconSize = if (compact) 21.dp else 24.dp
+    // v7：默认收起——只露一颗「⋯」展开钮，点开才浮出四颗快捷入口，
+    // 不再常驻占掉右半屏（主人 2026-11-14 指定）。图标顺序和配色不变。
+    var expanded by remember { mutableStateOf(false) }
+    // 悬浮底栏会盖住列的底部：整列让出 Dock 高度（60 + 底悬 10 + 手势条 24 + 间距 12）
+    // 才能让「⋯」露在 Dock 上方；经典款底栏由页面 innerPadding 让位，不加。
+    val context = LocalContext.current
+    val settings by remember {
+        com.qingji.app.data.prefs.SettingsStore.observe(context)
+    }.collectAsState(initial = com.qingji.app.data.prefs.QingJiSettings())
+    val bottomGap = if (settings.floatingBottomBar) 106.dp else 0.dp
     Column(
-        modifier = modifier,
+        modifier = modifier.padding(bottom = bottomGap),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // 按功能固定配色，不跟主题开关变 —— 靠颜色区分功能
+        if (expanded) {
+            // 按功能固定配色，不跟主题开关变 —— 靠颜色区分功能
+            QuickActionButton(
+                icon = Icons.Outlined.WaterDrop,
+                color = MultiColor.QuickWater,
+                buttonSize = buttonSize,
+                iconSize = iconSize,
+                onClick = onWater
+            )
+            QuickActionButton(
+                icon = Icons.Outlined.MonitorWeight,
+                color = MultiColor.QuickWeight,
+                buttonSize = buttonSize,
+                iconSize = iconSize,
+                onClick = onWeight
+            )
+            QuickActionButton(
+                icon = Icons.AutoMirrored.Outlined.MenuBook,
+                color = MultiColor.QuickBook,
+                buttonSize = buttonSize,
+                iconSize = iconSize,
+                onClick = onOpenFoodLibrary
+            )
+            QuickActionButton(
+                icon = Icons.Outlined.PhotoCamera,
+                color = MultiColor.QuickCamera,
+                buttonSize = buttonSize,
+                iconSize = iconSize,
+                onClick = onPhoto
+            )
+        }
         QuickActionButton(
-            icon = Icons.Outlined.WaterDrop,
-            color = MultiColor.QuickWater,
+            icon = if (expanded) Icons.Filled.ExpandLess else Icons.Outlined.MoreHoriz,
+            color = if (expanded) MultiColor.QuickBook else Color(0xFF98A2AB),
             buttonSize = buttonSize,
             iconSize = iconSize,
-            onClick = onWater
-        )
-        QuickActionButton(
-            icon = Icons.Outlined.MonitorWeight,
-            color = MultiColor.QuickWeight,
-            buttonSize = buttonSize,
-            iconSize = iconSize,
-            onClick = onWeight
-        )
-        QuickActionButton(
-            icon = Icons.AutoMirrored.Outlined.MenuBook,
-            color = MultiColor.QuickBook,
-            buttonSize = buttonSize,
-            iconSize = iconSize,
-            onClick = onOpenFoodLibrary
-        )
-        QuickActionButton(
-            icon = Icons.Outlined.PhotoCamera,
-            color = MultiColor.QuickCamera,
-            buttonSize = buttonSize,
-            iconSize = iconSize,
-            onClick = onPhoto
+            onClick = { expanded = !expanded }
         )
     }
 }

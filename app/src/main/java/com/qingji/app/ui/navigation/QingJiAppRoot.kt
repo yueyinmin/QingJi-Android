@@ -374,7 +374,9 @@ fun QingJiAppRoot(
                         if (bothTabs && settings.pageTransition && navDirection != 0) {
                             slideInHorizontally(
                                 animationSpec = tween(250, easing = FastOutSlowInEasing),
-                                initialOffsetX = { (it * 0.10f * navDirection).toInt() }
+                                // v7：10% 位移太微弱，正常速度下感知不到（主人反馈「没有动效」）；
+                                // 加到 30% 才有明确的翻页方向感。
+                                initialOffsetX = { (it * 0.30f * navDirection).toInt() }
                             ) + fadeIn(tween(250))
                         } else if (bothTabs) {
                             fadeIn(tween(150))
@@ -388,7 +390,7 @@ fun QingJiAppRoot(
                         if (bothTabs && settings.pageTransition && navDirection != 0) {
                             slideOutHorizontally(
                                 animationSpec = tween(250, easing = FastOutSlowInEasing),
-                                targetOffsetX = { (-it * 0.10f * navDirection).toInt() }
+                                targetOffsetX = { (-it * 0.30f * navDirection).toInt() }
                             ) + fadeOut(tween(250))
                         } else if (bothTabs) {
                             fadeOut(tween(150))

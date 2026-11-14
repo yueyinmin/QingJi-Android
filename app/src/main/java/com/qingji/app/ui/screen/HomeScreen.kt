@@ -857,15 +857,24 @@ private fun TodaySummaryCard(
 
     // 「进度条动效」设置：开了就 400ms 补间，关了直接跳到位
     val rawProgress = eatenKcal.toFloat() / goalKcal
+    // v7：切 Tab 回首页时 Composable 重建，animateFloatAsState 会从 0 重新
+    // 补间一遍——主人看到的「闪一下」主要就是它和水杯涨水。首帧用 snap
+    // 直接落在当前值，之后数据变化才走 400ms 补间。
+    var kcalAnimReady by remember { mutableStateOf(false) }
     val animatedProgress = if (animateProgress) {
         androidx.compose.animation.core.animateFloatAsState(
             targetValue = rawProgress,
-            animationSpec = androidx.compose.animation.core.tween(400),
+            animationSpec = if (kcalAnimReady) {
+                androidx.compose.animation.core.tween(400)
+            } else {
+                androidx.compose.animation.core.snap()
+            },
             label = "kcal-progress"
         ).value
     } else {
         rawProgress
     }
+    androidx.compose.runtime.LaunchedEffect(Unit) { kcalAnimReady = true }
 
     // 右侧高水杯上挂的完成度百分比
     val waterPercent = (state.waterMl * 100 / goalWater.coerceAtLeast(1)).coerceIn(0, 100)

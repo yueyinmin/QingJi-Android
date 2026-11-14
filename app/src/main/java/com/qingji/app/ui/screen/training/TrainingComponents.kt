@@ -4,8 +4,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -73,30 +77,49 @@ fun DiaryModeSwitch(
     onChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(
+    // v7：白胶囊从「瞬切」改成滑动——底栏指示器同款平滑弹簧，
+    // 切训练/心情时高亮从一边溜到另一边，不再像跳变（主人反馈的 bug 观感）。
+    val animatedIndex by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (training) 0f else 1f,
+        animationSpec = com.qingji.app.ui.theme.Motion.smooth(),
+        label = "diaryPill"
+    )
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
+            // v7：行高固定 38dp——BoxWithConstraints 是 SubcomposeLayout，不支持 IntrinsicSize 测量，
+            // 用 IntrinsicSize 会直接崩（真机复现过）；内容是固定文字，固定高度即可。
+            .height(38.dp)
             .clip(RoundedCornerShape(Dimens.PillCorner))
             .background(DividerColor)
             .padding(3.dp)
     ) {
-        listOf(true to "训练日记", false to "心情日记").forEach { (isTraining, label) ->
-            val selected = training == isTraining
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(Dimens.PillCorner))
-                    .background(if (selected) CardWhite else Color.Transparent)
-                    .clickable { onChange(isTraining) }
-                    .padding(vertical = 8.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = label,
-                    fontSize = TextSizes.Body,
-                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                    color = if (selected) QingJiGreen else TextSecondary
-                )
+        val cellWidth = maxWidth / 2
+        Box(
+            modifier = Modifier
+                .offset(x = cellWidth * animatedIndex)
+                .width(cellWidth)
+                .fillMaxHeight()
+                .clip(RoundedCornerShape(Dimens.PillCorner))
+                .background(CardWhite)
+        )
+        Row(modifier = Modifier.fillMaxWidth()) {
+            listOf(true to "训练日记", false to "心情日记").forEach { (isTraining, label) ->
+                val selected = training == isTraining
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onChange(isTraining) }
+                        .padding(vertical = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = label,
+                        fontSize = TextSizes.Body,
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                        color = if (selected) QingJiGreen else TextSecondary
+                    )
+                }
             }
         }
     }

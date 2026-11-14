@@ -77,12 +77,20 @@ fun WaterCup(
     val bubbleColor = bubbleTint ?: QingJiGreen.copy(alpha = 0.28f)
     val textNormal = outlineColor ?: Color(0xFF8A8F98)
 
-    // 水位上涨动画：1200ms 标准减速曲线
+    // 水位上涨动画：1200ms 标准减速曲线。
+    // v7：切 Tab 回首页时 Composable 重建，水位会从 0 重新涨一遍（闪一下的
+    // 另一个来源）。首帧 snap 落在当前水位，之后加水才走 1200ms 涨水。
+    var levelReady by remember { mutableStateOf(false) }
     val level by animateFloatAsState(
         targetValue = safe,
-        animationSpec = tween(durationMillis = 1200, easing = FastOutSlowInEasing),
+        animationSpec = if (levelReady) {
+            tween(durationMillis = 1200, easing = FastOutSlowInEasing)
+        } else {
+            androidx.compose.animation.core.snap()
+        },
         label = "waterLevel"
     )
+    LaunchedEffect(Unit) { levelReady = true }
 
     // 加水波动反馈：目标一变（排除首次组合）就把脉冲打到 1，再 1.1 秒衰减到 0
     val pulse = remember { Animatable(0f) }
