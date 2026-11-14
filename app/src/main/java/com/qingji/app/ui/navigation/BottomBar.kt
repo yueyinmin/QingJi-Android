@@ -125,10 +125,11 @@ fun QingJiFloatingBar(
                 .navigationBarsPadding()
                 .padding(start = 16.dp, end = 16.dp, bottom = 10.dp)
                 .fillMaxWidth()
-                // v5：Dock 从「完全圆的胶囊」改圆角矩形（参考图同款 26dp 圆角），
-                // 两端不再各削掉一个半圆，选项排布更从容。
-                .shadow(elevation = 10.dp, shape = RoundedCornerShape(26.dp))
-                .clip(RoundedCornerShape(26.dp))
+                // v6：26dp 在 60dp 高的 Dock 上跟整圆（30dp）几乎没差别，
+                // 主人看着仍是「完全圆的」；收到 16dp——四角是明确的圆角、
+                // 上下有大段直边，和参考图的悬浮菜单一个观感。
+                .shadow(elevation = 10.dp, shape = RoundedCornerShape(16.dp))
+                .clip(RoundedCornerShape(16.dp))
                 .background(CardWhite)
         ) {
             FloatingBarSlots(
@@ -169,7 +170,8 @@ private fun FloatingBarSlots(
                 )
                 .width(pillWidth)
                 .height(40.dp)
-                .clip(RoundedCornerShape(999.dp))
+                // v6：选中高亮同参考图——12dp 圆角矩形，不再和 Dock 抢「全圆」的观感。
+                .clip(RoundedCornerShape(12.dp))
                 .background(QingJiGreenLight)
         )
         Row(
