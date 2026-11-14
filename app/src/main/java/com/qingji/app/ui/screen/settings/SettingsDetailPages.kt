@@ -402,7 +402,12 @@ fun DangerActionButton(text: String, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(Dimens.ItemCorner))
-            .background(Color(0xFFFDECEC))
+            // 深浅自适应：浅色是淡红底，深色下用红色 18% 透明，不会突然亮一块
+            .background(
+                if (com.qingji.app.ui.theme.QingJiThemeState.darkMode)
+                    Color(0xFFE5544B).copy(alpha = 0.18f)
+                else Color(0xFFFDECEC)
+            )
             .pressable { onClick() }
             .padding(vertical = 13.dp),
         contentAlignment = Alignment.Center
@@ -411,7 +416,7 @@ fun DangerActionButton(text: String, onClick: () -> Unit) {
             text = text,
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium,
-            color = Color(0xFFD64545)
+            color = com.qingji.app.ui.theme.DangerRed
         )
     }
 }

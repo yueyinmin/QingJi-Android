@@ -63,8 +63,6 @@ import java.time.YearMonth
 fun MoodDiaryContent(
     diaries: List<Diary>,
     onOpenEdit: (Long) -> Unit,
-    onSwitchToTraining: () -> Unit,
-    onClearAll: () -> Unit,
     onRequestDelete: (Diary) -> Unit,
     scrollState: ScrollState = rememberScrollState(),
     modifier: Modifier = Modifier
@@ -96,19 +94,6 @@ fun MoodDiaryContent(
                 .verticalScroll(scrollState)
                 .padding(horizontal = Dimens.ScreenPadding)
         ) {
-            Spacer(Modifier.height(12.dp))
-            // 主人 2026-11-13：页标题「日记」两个字去掉，只留右上角的「清空」。
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                if (diaries.isNotEmpty()) {
-                    Text("清空", fontSize = 13.sp, color = Color(0xFFD64545),
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(Dimens.PillCorner))
-                            .clickable { onClearAll() }
-                            .padding(horizontal = 10.dp, vertical = 4.dp))
-                }
-            }
-            Spacer(Modifier.height(12.dp))
-            DiaryModeSwitch(training = false, onChange = { if (it) onSwitchToTraining() })
             Spacer(Modifier.height(12.dp))
 
             Button(onClick = { onOpenEdit(0L) }, modifier = Modifier.fillMaxWidth()) {

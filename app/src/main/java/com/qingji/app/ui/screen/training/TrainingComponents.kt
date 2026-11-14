@@ -175,10 +175,20 @@ fun TrainingCalendarCard(
      * 不传就是训练日记原来的「练过的日子打绿点」。
      */
     dateColors: Map<LocalDate, Color>? = null,
+    /**
+     * 右侧要给悬浮快捷按钮让出的宽度。
+     * 训练日记 / 心情日记右侧有 4 颗 50dp 悬浮按钮，不留白的话
+     * 周日那一列和「下个月」会被压住（360dp 小屏上尤其明显）。
+     * 自律历史页没有悬浮按钮，传 0.dp 即可。
+     */
+    fabSafeEnd: androidx.compose.ui.unit.Dp = 44.dp,
     modifier: Modifier = Modifier
 ) {
     SectionCard(modifier = modifier) {
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(end = fabSafeEnd),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Text(
                 text = "${month.year} 年 ${month.monthValue} 月",
                 fontSize = TextSizes.CardTitle,
@@ -192,7 +202,7 @@ fun TrainingCalendarCard(
                 modifier = Modifier.clickable { onNextMonth() }.padding(horizontal = 8.dp, vertical = 4.dp))
         }
         Spacer(Modifier.height(10.dp))
-        Row(modifier = Modifier.fillMaxWidth()) {
+        Row(modifier = Modifier.fillMaxWidth().padding(end = fabSafeEnd)) {
             listOf("一", "二", "三", "四", "五", "六", "日").forEach { d ->
                 Text(d, fontSize = TextSizes.Tiny, color = TextSecondary,
                     textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
@@ -204,7 +214,10 @@ fun TrainingCalendarCard(
         val leading = (first.dayOfWeek.value - 1 + 7) % 7   // 周一=1
         val days = month.lengthOfMonth()
         val totalCells = ((leading + days + 6) / 7) * 7
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Column(
+            modifier = Modifier.padding(end = fabSafeEnd),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
             for (row in 0 until totalCells / 7) {
                 Row(modifier = Modifier.fillMaxWidth()) {
                     for (col in 0 until 7) {

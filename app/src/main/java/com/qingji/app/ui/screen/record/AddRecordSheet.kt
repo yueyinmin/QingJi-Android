@@ -80,7 +80,11 @@ fun AddRecordSheet(
     /** 训练中心 P0：记录有氧，直接复用现有「记录运动」流程，不另做新页 */
     onAerobic: () -> Unit = {},
     /** 进进展页更新体型照片 */
-    onBodyPhoto: () -> Unit = {}
+    onBodyPhoto: () -> Unit = {},
+    /** 自律管理（SD-001）：每日打卡 / 冲动记录 / 目标偏离 */
+    onSelfDisciplineCheckin: () -> Unit = {},
+    onSelfDisciplineUrge: () -> Unit = {},
+    onSelfDisciplineDeviation: () -> Unit = {}
 ) {
     // 先收起弹层再执行动作，否则弹层会盖住刚打开的新页面
     val go: (() -> Unit) -> Unit = { action ->
@@ -214,6 +218,21 @@ fun AddRecordSheet(
                 }
                 SheetWideCard("记录有氧", "🚶", MultiColor.QuickWater, Modifier.weight(1f)) {
                     go(onAerobic)
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
+
+            // ---------- 3.6 自律管理（SD-001）：三个高频操作 ----------
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SheetWideCard("每日打卡", "✅", MultiColor.Exercise, Modifier.weight(1f)) {
+                    go(onSelfDisciplineCheckin)
+                }
+                SheetWideCard("冲动记录", "⚡", MultiColor.QuickWater, Modifier.weight(1f)) {
+                    go(onSelfDisciplineUrge)
+                }
+                SheetWideCard("目标偏离", "📝", MultiColor.Weight, Modifier.weight(1f)) {
+                    go(onSelfDisciplineDeviation)
                 }
             }
 

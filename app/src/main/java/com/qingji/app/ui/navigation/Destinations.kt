@@ -74,12 +74,37 @@ object QingJiRoutes {
     const val TrainingPlan = "training_plan"
     const val PersonalBest = "personal_best"
 
+    // ---------- 自律管理模块（P0，SD-001） ----------
+    /** 模块首页 Dashboard。 */
+    const val SelfDiscipline = "self_discipline"
+    /** 目标管理列表。 */
+    const val SelfDisciplineGoals = "self_discipline_goals"
+    /** 新建（goalId=0）/ 编辑目标。 */
+    const val SelfDisciplineGoalEdit = "self_discipline_goal_edit/{goalId}"
+    fun selfDisciplineGoalEdit(goalId: Long = 0L) = "self_discipline_goal_edit/$goalId"
+    /** 每日打卡。 */
+    const val SelfDisciplineCheckin = "self_discipline_checkin/{goalId}"
+    fun selfDisciplineCheckin(goalId: Long) = "self_discipline_checkin/$goalId"
+    /** 冲动记录。 */
+    const val SelfDisciplineUrge = "self_discipline_urge/{goalId}"
+    fun selfDisciplineUrge(goalId: Long) = "self_discipline_urge/$goalId"
+    /** 目标偏离。 */
+    const val SelfDisciplineDeviation = "self_discipline_deviation/{goalId}"
+    fun selfDisciplineDeviation(goalId: Long) = "self_discipline_deviation/$goalId"
+    /** 历史日历。 */
+    const val SelfDisciplineHistory = "self_discipline_history/{goalId}"
+    fun selfDisciplineHistory(goalId: Long) = "self_discipline_history/$goalId"
+    /** 模块设置。 */
+    const val SelfDisciplineSettings = "self_discipline_settings"
+
     /** 这些是全屏子页面：打开时不显示底部导航栏。 */
     val fullScreenRoutes = setOf(
         Settings, SearchFood, TextAi, Weight, AiConfig, Profile,
         ImageRecord, VoiceRecord, Barcode, AiAnalysis, Backup, DiaryEdit, MealDetail,
         Fasting, FoodPreference, FoodLibrary, WidgetSettings, ExercisePicker, ExerciseConfirm,
         TrainingActive, TrainingHistory,
-        ExerciseLibrary, ExerciseFavorites, ExerciseDetail, TrainingPlan, PersonalBest
+        ExerciseLibrary, ExerciseFavorites, ExerciseDetail, TrainingPlan, PersonalBest,
+        SelfDiscipline, SelfDisciplineGoals, SelfDisciplineGoalEdit, SelfDisciplineCheckin,
+        SelfDisciplineUrge, SelfDisciplineDeviation, SelfDisciplineHistory, SelfDisciplineSettings
     )
 }

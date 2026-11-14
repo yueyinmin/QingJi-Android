@@ -31,13 +31,18 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material.icons.automirrored.outlined.DirectionsRun
+import androidx.compose.material.icons.filled.Animation
 import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.filled.Swipe
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.DocumentScanner
 import androidx.compose.material.icons.filled.ImportExport
+import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lock
@@ -157,7 +162,8 @@ private val SettingsIconIndigo = Color(0xFF7A7FE0)
 private val SettingsIconRed = Color(0xFFE06A6A)
 private val SettingsIconTeal = Color(0xFF3FAE9A)
 private val SettingsIconGray = Color(0xFF8A93A6)
-private val SettingsPageBg = Color(0xFFF5F5F9)
+// 深色模式自适应：原来写死 #F5F5F9，深色下整页还是浅灰，和深色卡片打架
+private val SettingsPageBg: Color get() = com.qingji.app.ui.theme.PageBackground
 
 /** 设置首页一行：分组 / 标题 / 图标 / 右侧状态或开关 / 点击动作。 */
 private data class SettingEntry(
@@ -320,7 +326,7 @@ fun SettingsScreen(
                 add(SettingEntry("热量与营养", s("营养素分配方案"), Icons.Outlined.Restaurant, SettingsIconGreen,
                     value = "${settings.proteinPct}/${settings.carbPct}/${settings.fatPct}",
                     onClick = { dialog = DialogKind.MACRO }))
-                add(SettingEntry("热量与营养", s("运动消耗补偿"), Icons.AutoMirrored.Outlined.DirectionsRun, SettingsIconOrange,
+                add(SettingEntry("热量与营养", s("运动消耗补偿"), Icons.Filled.LocalFireDepartment, SettingsIconOrange,
                     value = "${settings.exerciseCompensationPct}%",
                     onClick = { dialog = DialogKind.EXERCISE_PCT }))
                 add(SettingEntry("热量与营养", s("饮水目标"), Icons.Outlined.WaterDrop, SettingsIconBlueLight,
@@ -330,7 +336,7 @@ fun SettingsScreen(
                     onClick = { onOpenFoodPreference() }))
 
                 // 3 记录与识别：3 个旧开关/选项收进一个「识别偏好」
-                add(SettingEntry("记录与识别", s("识别偏好"), Icons.Outlined.PhotoCamera, SettingsIconPurple,
+                add(SettingEntry("记录与识别", s("识别偏好"), Icons.Filled.DocumentScanner, SettingsIconPurple,
                     onClick = { dialog = DialogKind.RECOGNITION }))
 
                 // 4 提醒：保持单入口，4 类提醒 + 总开关都在原弹层里
@@ -344,12 +350,12 @@ fun SettingsScreen(
                 add(SettingEntry("通用", s("记录时区"), Icons.Filled.Schedule, SettingsIconCyan,
                     value = timezoneLabel(settings.timeZone),
                     onClick = { dialog = DialogKind.TIMEZONE }))
-                add(SettingEntry("通用", s("体重单位"), Icons.Outlined.MonitorWeight, SettingsIconTeal,
+                add(SettingEntry("通用", s("体重单位"), Icons.Outlined.MonitorWeight, SettingsIconGreen,
                     value = if (settings.unit == "jin") s("斤") else "kg",
                     onClick = { dialog = DialogKind.UNIT }))
 
                 // 6 显示与外观：主题弹层里现成的 3 组开关拆成独立行，setter 完全复用
-                add(SettingEntry("显示与外观", s("主题设置"), Icons.Filled.Palette, SettingsIconIndigo,
+                add(SettingEntry("显示与外观", s("主题设置"), Icons.Filled.Palette, SettingsIconPurple,
                     value = com.qingji.app.ui.theme.AccentThemes.byKey(settings.themeColor).label,
                     onClick = { dialog = DialogKind.THEME }))
                 add(SettingEntry("显示与外观", s("应用图标"), Icons.Filled.Apps, SettingsIconPurple,
@@ -365,7 +371,7 @@ fun SettingsScreen(
                     onClick = { dialog = DialogKind.BOTTOM_TABS }))
                 add(SettingEntry("显示与外观", s("首页显示设置"), Icons.Filled.Dashboard, SettingsIconPink,
                     onClick = { dialog = DialogKind.HOME_DISPLAY }))
-                add(SettingEntry("显示与外观", s("进度条特效"), Icons.AutoMirrored.Filled.ShowChart, SettingsIconCoral,
+                add(SettingEntry("显示与外观", s("进度条特效"), Icons.AutoMirrored.Filled.ShowChart, SettingsIconOrange,
                     switchState = settings.progressAnimation,
                     onSwitch = { vm.setProgressAnimation(it) }))
 
@@ -374,9 +380,17 @@ fun SettingsScreen(
                     onClick = { onOpenAiConfig() }))
                 add(SettingEntry("设备与数据", s("数据导入与导出"), Icons.Filled.ImportExport, SettingsIconBlue,
                     onClick = { onOpenBackup() }))
-                add(SettingEntry("设备与数据", s("缓存管理"), Icons.Filled.CleaningServices, SettingsIconRed,
+                add(SettingEntry("设备与数据", s("缓存管理"), Icons.Filled.Storage, SettingsIconRed,
                     value = backup.sizeText(cacheSize),
                     onClick = { dialog = DialogKind.CACHE }))
+
+                // 9 页面交互（UI-NAV-006）
+                add(SettingEntry("页面交互", s("左右滑动切换页面"), Icons.Filled.Swipe, SettingsIconBlue,
+                    switchState = settings.swipeNavigate,
+                    onSwitch = { vm.setSwipeNavigate(it) }))
+                add(SettingEntry("页面交互", s("页面切换动画"), Icons.Filled.Animation, SettingsIconPurple,
+                    switchState = settings.pageTransition,
+                    onSwitch = { vm.setPageTransition(it) }))
 
                 // 8 关于
                 add(SettingEntry("关于", s("换机与数据迁移"), Icons.Filled.SwapHoriz, SettingsIconBlueLight,

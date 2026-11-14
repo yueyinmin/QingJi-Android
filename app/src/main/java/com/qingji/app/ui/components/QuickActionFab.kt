@@ -7,7 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.MonitorWeight
@@ -54,11 +54,11 @@ import com.qingji.app.ui.theme.MultiColor
  * ============================================================
  */
 
-/** 圆形按钮直径。三个页面共用，改这里一处就够。 */
-private val BUTTON_SIZE = 44.dp
+/** 按钮直径。三个页面共用，改这里一处就够（2026-11-13 从 44 放大到 50）。 */
+private val BUTTON_SIZE = 50.dp
 
-/** 图标绘制框。四个图标都塞进同样大小的框里居中，尺寸天然统一。 */
-private val ICON_SIZE = 20.dp
+/** 图标绘制框。四个图标都塞进同样大小的框里居中，尺寸天然统一（20 → 24dp）。 */
+private val ICON_SIZE = 24.dp
 
 @Composable
 fun QuickActionColumn(
@@ -68,6 +68,10 @@ fun QuickActionColumn(
     onPhoto: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // 360dp 小屏上 50dp 会占掉太多右侧空间，自动缩到 44dp
+    val compact = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 380
+    val buttonSize = if (compact) 44.dp else 50.dp
+    val iconSize = if (compact) 21.dp else 24.dp
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -77,21 +81,29 @@ fun QuickActionColumn(
         QuickActionButton(
             icon = Icons.Outlined.WaterDrop,
             color = MultiColor.QuickWater,
+            buttonSize = buttonSize,
+            iconSize = iconSize,
             onClick = onWater
         )
         QuickActionButton(
             icon = Icons.Outlined.MonitorWeight,
             color = MultiColor.QuickWeight,
+            buttonSize = buttonSize,
+            iconSize = iconSize,
             onClick = onWeight
         )
         QuickActionButton(
             icon = Icons.AutoMirrored.Outlined.MenuBook,
             color = MultiColor.QuickBook,
+            buttonSize = buttonSize,
+            iconSize = iconSize,
             onClick = onOpenFoodLibrary
         )
         QuickActionButton(
             icon = Icons.Outlined.PhotoCamera,
             color = MultiColor.QuickCamera,
+            buttonSize = buttonSize,
+            iconSize = iconSize,
             onClick = onPhoto
         )
     }
@@ -106,11 +118,17 @@ fun QuickActionColumn(
  *   ③ 内层 24dp 绘制框 + Alignment.Center，图标填满这个框
  */
 @Composable
-private fun QuickActionButton(icon: ImageVector, color: Color, onClick: () -> Unit) {
+private fun QuickActionButton(
+    icon: ImageVector,
+    color: Color,
+    buttonSize: androidx.compose.ui.unit.Dp,
+    iconSize: androidx.compose.ui.unit.Dp,
+    onClick: () -> Unit
+) {
     Box(
         modifier = Modifier
-            .size(BUTTON_SIZE)
-            .clip(CircleShape)
+            .size(buttonSize)
+            .clip(RoundedCornerShape(15.dp))
             .background(CardWhite)
             .clickable { onClick() },
         contentAlignment = Alignment.Center
@@ -119,13 +137,13 @@ private fun QuickActionButton(icon: ImageVector, color: Color, onClick: () -> Un
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .clip(CircleShape)
+                .clip(RoundedCornerShape(15.dp))
                 .background(color.copy(alpha = 0.16f))
         )
         // 固定绘制框：四个图标共用同一个尺寸和同一个对齐方式，
         // 剩下能造成"看起来歪"的只剩图标自己的形状，不会再有布局因素
         Box(
-            modifier = Modifier.size(ICON_SIZE),
+            modifier = Modifier.size(iconSize),
             contentAlignment = Alignment.Center
         ) {
             Icon(

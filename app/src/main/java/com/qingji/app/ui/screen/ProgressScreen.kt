@@ -270,26 +270,9 @@ fun ProgressScreen(
 
         Spacer(Modifier.height(Dimens.Gap))
 
-        // ---------- 饮食 30 天热力图（对标竞品「吃有数」，2026-11-12） ----------
-        AppearItem(index = 2) {
-            DietHeatmapCard(
-                logs = foodMonth,
-                dailyGoal = profile?.dailyKcalGoal?.takeIf { it > 0 }?.toDouble() ?: 2000.0
-            )
-        }
+        // 饮食 30 天已搬到「日记 → 训练日记」下方，这里不再重复展示
 
-        Spacer(Modifier.height(Dimens.Gap))
-
-        // ---------- 本周运动消耗 ----------
-        AppearItem(index = 3) {
-            ExerciseWeekCard(
-                list = exerciseWeek,
-                onAdd = onOpenExercise,
-                onDelete = vm::deleteExercise
-            )
-        }
-
-        Spacer(Modifier.height(Dimens.Gap))
+        // 本周运动消耗已搬到首页「本周小结」上方，这里不再重复展示
 
         // ---------- 身体维度 ----------
         AppearItem(index = 3) {
@@ -665,7 +648,7 @@ private fun WeightChart(
 
     SectionCard {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(end = 44.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(text = s("体重走势"), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
@@ -900,7 +883,7 @@ private fun LegendDot(color: Color, label: String) {
  * 点一天，下方显示那天的摄入和目标。
  */
 @Composable
-private fun DietHeatmapCard(
+fun DietHeatmapCard(
     logs: List<com.qingji.app.data.local.entity.FoodLog>,
     dailyGoal: Double
 ) {
@@ -926,7 +909,12 @@ private fun DietHeatmapCard(
         val leading = cells.first().dayOfWeek.value - 1
         val grid: List<LocalDate?> = List(leading) { null } + cells
 
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        // 搬到训练日记后，右侧有 4 颗悬浮按钮（50dp + 右留 16dp）。
+        // 给网格整体留 44dp 安全边距，最后一列才不会被按钮挡住点不到。
+        Column(
+            modifier = Modifier.padding(end = 44.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -1024,7 +1012,7 @@ private fun WaterWeekCard(week: List<Pair<LocalDate, Int>>, goalMl: Int) {
 
     SectionCard {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(end = 44.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -1102,7 +1090,7 @@ private fun NutritionWeekCard(foodWeek: List<com.qingji.app.data.local.entity.Fo
 
     SectionCard {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(end = 44.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
@@ -1190,7 +1178,7 @@ private fun MacroCell(label: String, grams: Double, color: Color) {
 
 /** 本周运动消耗。 */
 @Composable
-private fun ExerciseWeekCard(
+fun ExerciseWeekCard(
     list: List<com.qingji.app.data.local.entity.ExerciseLog>,
     onAdd: () -> Unit,
     onDelete: (Long) -> Unit
@@ -1317,7 +1305,7 @@ private fun BodyMeasureCard(
 ) {
     SectionCard {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(end = 44.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {

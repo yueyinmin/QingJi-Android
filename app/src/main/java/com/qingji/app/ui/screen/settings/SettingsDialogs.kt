@@ -41,8 +41,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.qingji.app.ui.theme.CardWhite
+import com.qingji.app.ui.theme.DividerColor
 import com.qingji.app.ui.theme.PageBackground
 import com.qingji.app.ui.theme.QingJiGreen
+import com.qingji.app.ui.theme.QingJiGreenLight
+import com.qingji.app.ui.theme.QingJiThemeState
 import com.qingji.app.ui.theme.TextPrimary
 import com.qingji.app.ui.theme.TextSecondary
 
@@ -106,18 +109,23 @@ fun ConfirmDialog(
  */
 @Composable
 private fun SettingIconBadge(icon: ImageVector, color: Color) {
+    // UI 统一工单：34dp 实心圆 + 白图标 → 38dp 圆角方形 + 浅色底 + 同色系图标。
+    // 形状统一、线条统一、配色统一，设置页和「我的」页共用这一套。
     Box(
         modifier = Modifier
-            .size(34.dp)
-            .clip(CircleShape)
-            .background(color),
+            .size(38.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(
+                if (QingJiThemeState.darkMode) color.copy(alpha = 0.18f)
+                else color.copy(alpha = 0.14f)
+            ),
         contentAlignment = Alignment.Center
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = Color.White,
-            modifier = Modifier.size(18.dp)
+            tint = color,
+            modifier = Modifier.size(20.dp)
         )
     }
 }
@@ -134,7 +142,7 @@ fun SettingIconRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 56.dp)
+            .heightIn(min = 60.dp)
             .clickable { onClick() }
             .padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -156,12 +164,13 @@ fun SettingIconRow(
                 color = QingJiGreen,
                 modifier = Modifier
                     .clip(RoundedCornerShape(999.dp))
-                    .background(Color(0xFFE8F5EF))
+                    // 深浅模式自适应：浅色是浅薄荷，深色自动变深绿底
+                    .background(QingJiGreenLight)
                     .padding(horizontal = 8.dp, vertical = 3.dp)
             )
             Spacer(Modifier.width(6.dp))
         }
-        Text(text = "›", fontSize = 20.sp, color = Color(0xFFC6CBD3))
+        Text(text = "›", fontSize = 20.sp, color = TextSecondary.copy(alpha = 0.6f))
     }
 }
 
@@ -177,7 +186,7 @@ fun SettingIconSwitchRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 56.dp)
+            .heightIn(min = 60.dp)
             .padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -289,12 +298,13 @@ fun SettingValueRow(
                 color = QingJiGreen,
                 modifier = Modifier
                     .clip(RoundedCornerShape(999.dp))
-                    .background(Color(0xFFE8F5EF))
+                    // 深浅模式自适应：浅色是浅薄荷，深色自动变深绿底
+                    .background(QingJiGreenLight)
                     .padding(horizontal = 8.dp, vertical = 3.dp)
             )
             Spacer(Modifier.width(4.dp))
         }
-        Text(text = "›", fontSize = 18.sp, color = Color(0xFFEEF0F2))
+        Text(text = "›", fontSize = 18.sp, color = TextSecondary.copy(alpha = 0.6f))
     }
 }
 
@@ -315,9 +325,10 @@ fun RowDivider() {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 58.dp)
+            .padding(start = 64.dp)
             .height(1.dp)
-            .background(Color(0xFFEEF0F2))
+            // 深浅模式自适应（原来写死浅灰，深色下会变成一条条白线）
+            .background(DividerColor)
     )
 }
 
@@ -354,7 +365,7 @@ fun SettingsCard(content: @Composable () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(20.dp))
             .background(CardWhite)
     ) {
         content()

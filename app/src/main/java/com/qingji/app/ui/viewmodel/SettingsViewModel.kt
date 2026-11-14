@@ -135,6 +135,8 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         put(SettingsKeys.CONSERVATIVE_ESTIMATE, enabled)
 
     fun setProgressAnimation(enabled: Boolean) = put(SettingsKeys.PROGRESS_ANIMATION, enabled)
+    fun setSwipeNavigate(enabled: Boolean) = put(SettingsKeys.SWIPE_NAVIGATE, enabled)
+    fun setPageTransition(enabled: Boolean) = put(SettingsKeys.PAGE_TRANSITION, enabled)
 
     fun setShowAiAnalysis(show: Boolean) = put(SettingsKeys.SHOW_AI_ANALYSIS, show)
 
