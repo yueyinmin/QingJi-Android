@@ -768,14 +768,15 @@ class QingJiRepository(private val context: Context) {
     //
     // 现在拆成两档，语义各自说清楚：
     //   · clearRecords()  「清除记录」：只清记录，档案/目标/AI 配置/自建食物/设置全留着
-    //   · factoryReset()  「恢复出厂」：15 张表 + 设置 + API Key + 本地图片全清，回到刚装好
+    //   · factoryReset()  「恢复出厂」：28 张表 + 设置 + API Key + 本地图片全清，回到刚装好
     // ============================================================
 
     /**
      * 清除全部记录，保留「配置类」的东西。
      *
-     * 清的（12 张）：饮食 / 饮水 / 体重 / 日记 / 围度 / 进度照片 / 运动 / 断食 / 使用统计 / 搜索历史
+     * 清的（19 张）：饮食 / 饮水 / 体重 / 日记 / 围度 / 进度照片 / 运动 / 断食 / 使用统计 / 搜索历史
      *   + 训练会话、训练明细（训练中心是记录类，用户说「清记录」就得一起没）
+     *   + 自律模块 7 张表（目标/周期/打卡/冲动/设置/里程碑/应对记录，整体清空）
      * 留的（9 张 + DataStore）：个人档案、AI 配置、自建食物、收藏、预置运动库、
      *   动作库、训练计划 3 张表（这些是配置/资产，不是记录）
      *
@@ -801,6 +802,14 @@ class QingJiRepository(private val context: Context) {
             // 训练中心：记录清掉，动作库与计划保留
             db.workoutSessionDao().clearAll()
             db.workoutExerciseDao().clearAll()
+            // 自律模块 7 张表全清（含设置与孤立行）
+            db.selfDisciplineGoalDao().clearAll()
+            db.selfDisciplinePeriodDao().clearAll()
+            db.selfDisciplineCheckinDao().clearAll()
+            db.selfDisciplineUrgeDao().clearAll()
+            db.selfDisciplineSettingDao().clearAll()
+            db.selfDisciplineMilestoneDao().clearAll()
+            db.selfDisciplineInterventionDao().clearAll()
         }
 
         // 还没保存的「进行中训练」也算记录，一并作废
@@ -819,7 +828,7 @@ class QingJiRepository(private val context: Context) {
     /**
      * 恢复出厂：回到「刚装完这个 App」的状态。
      *
-     * 21 张表全清（含训练中心 6 张）+ DataStore 设置全清 + 训练草稿/单位偏好全清
+     * 28 张表全清（含训练中心 6 张 + 自律模块 7 张）+ DataStore 设置全清 + 训练草稿/单位偏好全清
      * + API Key 清掉 + 本地图片全删 + 闹钟全取消。
      * 清完之后 `onboarding_done` 变成 false，QingJiAppRoot 订阅的 settings 流
      * 会自动把界面切回引导页 —— 不需要重启 App，也不用自己写导航逻辑。
@@ -851,6 +860,14 @@ class QingJiRepository(private val context: Context) {
             db.planExerciseDao().clearAll()
             db.workoutSessionDao().clearAll()
             db.workoutExerciseDao().clearAll()
+            // 自律模块 7 张表全清（含设置与孤立行）
+            db.selfDisciplineGoalDao().clearAll()
+            db.selfDisciplinePeriodDao().clearAll()
+            db.selfDisciplineCheckinDao().clearAll()
+            db.selfDisciplineUrgeDao().clearAll()
+            db.selfDisciplineSettingDao().clearAll()
+            db.selfDisciplineMilestoneDao().clearAll()
+            db.selfDisciplineInterventionDao().clearAll()
         }
 
         // 设置里含主题、昵称、目标模式、AI 纠错表、引导完成标记，一起清

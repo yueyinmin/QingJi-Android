@@ -198,7 +198,7 @@ fun SelfDisciplineSettingsScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(Dimens.ItemCorner))
-                        .clickable(enabled = goals.isNotEmpty()) { showClearDialog = true }
+                        .clickable { showClearDialog = true }
                         .padding(vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -206,16 +206,16 @@ fun SelfDisciplineSettingsScreen(
                         Text(
                             "清空自律数据",
                             fontSize = TextSizes.Body,
-                            color = if (goals.isEmpty()) TextSecondary else DangerRed
+                            color = DangerRed
                         )
                         Text(
-                            "删除全部目标、打卡、冲动与周期记录",
+                            "删除全部目标、周期、打卡、冲动、设置、里程碑与应对记录",
                             fontSize = TextSizes.Tiny,
                             color = TextSecondary
                         )
                     }
                     Text(
-                        if (goals.isEmpty()) "无数据" else "${goals.size} 个目标",
+                        "${goals.size} 个目标",
                         fontSize = TextSizes.Tiny,
                         color = TextSecondary
                     )
@@ -233,13 +233,13 @@ fun SelfDisciplineSettingsScreen(
             danger = true,
             onConfirm = {
                 scope.launch {
-                    goals.forEach { vm.deleteGoal(it.id) }
+                    vm.clearAll()
                 }
                 showClearDialog = false
             }
         ) {
             Text(
-                "所有目标、周期、打卡、冲动记录都会被删除，无法恢复。这个操作只影响自律管理模块，其他数据不受影响。",
+                "所有目标、周期、打卡、冲动、设置、里程碑与应对记录都会被删除，无法恢复。这个操作只影响自律管理模块，其他数据不受影响。",
                 fontSize = TextSizes.Body,
                 color = TextSecondary
             )

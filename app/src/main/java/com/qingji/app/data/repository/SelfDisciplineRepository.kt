@@ -231,4 +231,15 @@ class SelfDisciplineRepository(
 
     suspend fun getSetting(key: String): String? = settingDao.get(key)?.value
     suspend fun setSetting(key: String, value: String) = settingDao.set(SelfDisciplineSettingEntity(key, value))
+
+    /** 清空整个自律模块（含设置表与没有目标指向的孤立行），供「清空数据」与备份整包覆盖用。 */
+    suspend fun clearAll() = db.withTransaction {
+        goalDao.clearAll()
+        periodDao.clearAll()
+        checkinDao.clearAll()
+        urgeDao.clearAll()
+        settingDao.clearAll()
+        milestoneDao.clearAll()
+        interventionDao.clearAll()
+    }
 }
