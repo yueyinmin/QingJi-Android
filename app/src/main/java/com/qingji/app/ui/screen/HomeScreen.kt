@@ -1198,9 +1198,12 @@ private fun MealCard(
         contentPadding = 14.dp,
         modifier = Modifier.clickable { onOpenDetail() }
     ) {
+        // 右侧统一给悬浮按钮让出 44dp：以前只给「小计」让位，
+        // 明细行的「315 千卡」和营养素比例条仍会被按钮压住（360dp 小屏更明显）。
+        // 让在整卡内容上，头、明细、比例条一次对齐。
+        Column(modifier = Modifier.padding(end = 44.dp)) {
         Row(
-            // 右侧要让出悬浮按钮的宽度，否则「小计 xx 千卡」会被 50dp 的按钮压住
-            modifier = Modifier.fillMaxWidth().padding(end = 44.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -1344,6 +1347,7 @@ private fun MealCard(
                 )
             }
         }
+        }   // Column：悬浮按钮安全区结束
     }
 }
 

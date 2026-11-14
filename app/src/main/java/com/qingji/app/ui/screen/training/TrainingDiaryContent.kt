@@ -252,6 +252,9 @@ private fun SessionRow(
     val allSets = exercises.flatMap { TrainingMath.decodeSets(it.setsJson) }
     val volume = TrainingMath.sessionVolume(allSets)
     SectionCard(contentPadding = Dimens.CardPaddingCompact) {
+        // 右侧 44dp 让给悬浮快捷按钮：以前「明细 / 修改 / 删除」正好压在按钮下面，
+        // 手指点下去命中的是按钮而不是文字（实测踩到）。
+        Column(modifier = Modifier.padding(end = 44.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(session.date.toString(), fontSize = TextSizes.CardTitle,
@@ -270,6 +273,7 @@ private fun SessionRow(
                 TextButton(onClick = onEdit) { Text("修改", fontSize = TextSizes.Caption, color = QingJiGreen) }
             }
             TextButton(onClick = onDelete) { Text("删除", fontSize = TextSizes.Caption, color = TextSecondary) }
+        }
         }
     }
 }
