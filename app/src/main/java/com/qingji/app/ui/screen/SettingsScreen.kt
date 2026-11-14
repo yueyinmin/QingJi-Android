@@ -336,15 +336,13 @@ fun SettingsScreen(
                 add(SettingEntry("热量与营养", s("食谱偏好"), Icons.Filled.Favorite, SettingsIconCoral,
                     onClick = { onOpenFoodPreference() }))
 
-                // 3 记录与识别：3 个旧开关/选项收进一个「识别偏好」
-                add(SettingEntry("记录与识别", s("识别偏好"), Icons.Filled.DocumentScanner, SettingsIconPurple,
+                // 3 通用（v8：记录与识别、提醒并入通用——识别偏好、通知与提醒排最前）
+                add(SettingEntry("通用", s("识别偏好"), Icons.Filled.DocumentScanner, SettingsIconPurple,
                     onClick = { dialog = DialogKind.RECOGNITION }))
-
-                // 4 提醒：保持单入口，4 类提醒 + 总开关都在原弹层里
-                add(SettingEntry("提醒", s("通知与提醒"), Icons.Filled.Notifications, SettingsIconPurple,
+                add(SettingEntry("通用", s("通知与提醒"), Icons.Filled.Notifications, SettingsIconPurple,
                     onClick = { dialog = DialogKind.REMINDERS }))
 
-                // 5 通用（界面语言文档没列，但功能在，保留入口）
+                // 界面语言文档没列，但功能在，保留入口
                 add(SettingEntry("通用", s("界面语言"), Icons.Filled.Language, SettingsIconBlue,
                     value = if (settings.uiLanguage == "en") "English" else "简体中文",
                     onClick = { dialog = DialogKind.UI_LANG }))

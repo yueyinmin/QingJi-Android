@@ -191,7 +191,7 @@ fun MineScreen(
             onOpenProfile = onOpenProfile
         )
 
-        GroupHeader("数据")
+        GroupHeader(s("数据"))
         DataGroup(
             goalLabel = when (settings.goalMode) {
                 "gain" -> "增肌计划"
@@ -204,7 +204,7 @@ fun MineScreen(
             totalCount = achievements.size
         )
 
-        GroupHeader("自律管理")
+        GroupHeader(s("自律管理"))
         GroupCard {
             SettingsRow(
                 title = "目标与打卡",
@@ -223,7 +223,7 @@ fun MineScreen(
             )
         }
 
-        GroupHeader("训练管理")
+        GroupHeader(s("训练管理"))
         TrainingGroup(
             onOpenTrainingHistory = onOpenTrainingHistory,
             onStartTraining = onStartTraining,
@@ -375,14 +375,14 @@ private fun UsageSectionCard(
     modifier: Modifier = Modifier
 ) {
     val items = listOf(
-        StatCell("图像识别", (totals["image"] ?: 0).toString(), Icons.Outlined.PhotoCamera, IconTones.Blue),
-        StatCell("文字识别", (totals["text"] ?: 0).toString(), Icons.Outlined.Description, IconTones.Teal),
-        StatCell("语音识别", (totals["voice"] ?: 0).toString(), Icons.Outlined.Mic, IconTones.Purple),
-        StatCell("条码", (totals["barcode"] ?: 0).toString(), Icons.Outlined.QrCode, IconTones.Gray),
-        StatCell("AI 分析", (totals["ai"] ?: 0).toString(), Icons.Outlined.AutoAwesome, IconTones.Teal),
-        StatCell("日记", (totals["diary"] ?: 0).toString(), Icons.AutoMirrored.Outlined.MenuBook, IconTones.Green),
-        StatCell("体型图", (totals["body"] ?: 0).toString(), Icons.Outlined.AccessibilityNew, IconTones.Pink),
-        StatCell("体重", (totals["weight"] ?: 0).toString(), Icons.Outlined.MonitorWeight, IconTones.Orange)
+        StatCell(s("图像识别"), (totals["image"] ?: 0).toString(), Icons.Outlined.PhotoCamera, IconTones.Blue),
+        StatCell(s("文字识别"), (totals["text"] ?: 0).toString(), Icons.Outlined.Description, IconTones.Teal),
+        StatCell(s("语音识别"), (totals["voice"] ?: 0).toString(), Icons.Outlined.Mic, IconTones.Purple),
+        StatCell(s("条码"), (totals["barcode"] ?: 0).toString(), Icons.Outlined.QrCode, IconTones.Gray),
+        StatCell(s("AI 分析"), (totals["ai"] ?: 0).toString(), Icons.Outlined.AutoAwesome, IconTones.Teal),
+        StatCell(s("日记"), (totals["diary"] ?: 0).toString(), Icons.AutoMirrored.Outlined.MenuBook, IconTones.Green),
+        StatCell(s("体型图"), (totals["body"] ?: 0).toString(), Icons.Outlined.AccessibilityNew, IconTones.Pink),
+        StatCell(s("体重"), (totals["weight"] ?: 0).toString(), Icons.Outlined.MonitorWeight, IconTones.Orange)
     )
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         // v7：按主人参考图排版——卡内「使用情况」标题 + 两列浅灰圆角格子，
@@ -444,7 +444,7 @@ private fun UsageMiniRow(cell: StatCell, modifier: Modifier = Modifier) {
 private fun UsageCard(totalAi: Int, monthAi: Int) {
     GroupCard {
         SettingsRow(
-            title = "累计 AI 调用",
+            title = s("累计 AI 调用"),
             icon = Icons.Outlined.AutoAwesome,
             tone = IconTones.Teal,
             trailing = "$totalAi 次",
@@ -453,7 +453,7 @@ private fun UsageCard(totalAi: Int, monthAi: Int) {
         )
         GroupDivider()
         SettingsRow(
-            title = "消耗 token",
+            title = s("消耗 token"),
             icon = Icons.Outlined.Description,
             tone = IconTones.Blue,
             trailing = "—",
@@ -462,7 +462,7 @@ private fun UsageCard(totalAi: Int, monthAi: Int) {
         )
         GroupDivider()
         SettingsRow(
-            title = "估算花费",
+            title = s("估算花费"),
             icon = Icons.Outlined.Payments,
             tone = IconTones.Orange,
             trailing = "—",

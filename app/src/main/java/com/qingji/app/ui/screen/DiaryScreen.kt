@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.qingji.app.data.local.entity.Diary
 import com.qingji.app.ui.components.AppDialog
+import com.qingji.app.ui.i18n.s
 import com.qingji.app.ui.components.QuickActionColumn
 import com.qingji.app.ui.screen.training.DiaryModeSwitch
 import com.qingji.app.ui.screen.training.MoodDiaryContent
@@ -95,7 +96,7 @@ fun DiaryScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "日记",
+                    text = s("日记"),
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
                     color = TextPrimary,

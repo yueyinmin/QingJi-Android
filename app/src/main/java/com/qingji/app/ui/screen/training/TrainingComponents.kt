@@ -59,6 +59,7 @@ import com.qingji.app.data.prefs.WorkoutDraft
 import com.qingji.app.domain.TrainingMath
 import com.qingji.app.domain.WorkoutSet
 import com.qingji.app.ui.components.SectionCard
+import com.qingji.app.ui.i18n.s
 import com.qingji.app.ui.theme.CardWhite
 import com.qingji.app.ui.theme.Dimens
 import com.qingji.app.ui.theme.DividerColor
@@ -104,7 +105,7 @@ fun DiaryModeSwitch(
                 .background(CardWhite)
         )
         Row(modifier = Modifier.fillMaxWidth()) {
-            listOf(true to "训练日记", false to "心情日记").forEach { (isTraining, label) ->
+            listOf(true to s("训练日记"), false to s("心情日记")).forEach { (isTraining, label) ->
                 val selected = training == isTraining
                 Box(
                     modifier = Modifier
