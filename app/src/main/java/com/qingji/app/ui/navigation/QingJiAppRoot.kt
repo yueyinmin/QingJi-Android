@@ -280,20 +280,32 @@ fun QingJiAppRoot(
                     animationSpec = tween(com.qingji.app.ui.theme.Motion.Normal, easing = FastOutSlowInEasing)
                 ) + fadeOut(tween(com.qingji.app.ui.theme.Motion.Fast))
             ) {
-                QingJiBottomBar(
-                    currentRoute = currentRoute,
-                    onTabSelected = { tab ->
-                        // v3.2.3：已经在当前页就什么都不做。
-                        // 点击和左右滑动统一走 goToTab，动画方向按索引判断。
-                        if (tab.route != currentRoute) {
-                            val from = tabList.indexOfFirst { it.route == currentRoute }
-                            val to = tabList.indexOfFirst { it.route == tab.route }
-                            goToTab(tab, if (from >= 0 && to >= 0 && to != from) (if (to > from) 1 else -1) else 0)
-                        }
-                    },
-                    onAddClick = { showAddSheet = true },
-                    settings = settings
-                )
+                // barfx：悬浮底栏开关（设置 → 显示与外观）——开 = 圆角 Dock 悬浮款，关 = 经典通栏款。
+                // 两款共用同一套滑动指示器与弹跳动效；外面 AnimatedVisibility 的平滑收放对两款都生效。
+                val onBarTabSelected: (QingJiTab) -> Unit = { tab ->
+                    // v3.2.3：已经在当前页就什么都不做。
+                    // 点击和左右滑动统一走 goToTab，动画方向按索引判断。
+                    if (tab.route != currentRoute) {
+                        val from = tabList.indexOfFirst { it.route == currentRoute }
+                        val to = tabList.indexOfFirst { it.route == tab.route }
+                        goToTab(tab, if (from >= 0 && to >= 0 && to != from) (if (to > from) 1 else -1) else 0)
+                    }
+                }
+                if (settings.floatingBottomBar) {
+                    QingJiFloatingBar(
+                        currentRoute = currentRoute,
+                        onTabSelected = onBarTabSelected,
+                        onAddClick = { showAddSheet = true },
+                        settings = settings
+                    )
+                } else {
+                    QingJiBottomBar(
+                        currentRoute = currentRoute,
+                        onTabSelected = onBarTabSelected,
+                        onAddClick = { showAddSheet = true },
+                        settings = settings
+                    )
+                }
             }
         }
     ) { innerPadding ->
