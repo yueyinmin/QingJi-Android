@@ -12,7 +12,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -30,6 +31,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -95,14 +97,19 @@ fun QingJiBottomBar(
                 currentRoute = currentRoute,
                 barHeight = 60.dp,
                 onTabSelected = onTabSelected,
-                onAddClick = onAddClick,
-                floating = false
+                onAddClick = onAddClick
             )
         }
     }
 }
 
-/** 悬浮底栏：左右 18dp、底部悬空 10dp 的圆角 Dock，自身带投影。 */
+/**
+ * 悬浮底栏 v3（2026-11-14 主人给参考图定版）：
+ * 白色胶囊 Dock，左侧四个「图标 + 文字」横排选项，右侧一颗绿色「+ 记一笔」大按钮；
+ * 选中项底下垫一条浅绿胶囊，切换时从旧选项溜到新选项（与经典款同一套弹簧参数）。
+ * 布局是定宽的：Dock 内边距 10dp + 右侧按钮 96dp + 间隙 8dp，剩下的宽度均分给 Tab，
+ * 这样指示器的槽位是纯几何计算，不依赖子项测量。
+ */
 @Composable
 fun QingJiFloatingBar(
     currentRoute: String,
@@ -110,27 +117,162 @@ fun QingJiFloatingBar(
     onAddClick: () -> Unit,
     settings: QingJiSettings = QingJiSettings()
 ) {
-    val slots = buildBarSlots(settings)
+    // 悬浮款没有中央加号槽——「记一笔」独立成右侧按钮，Tab 列表不含 null。
+    val tabs = buildBarSlots(settings).filterNotNull()
     Box(modifier = Modifier.fillMaxWidth()) {
         Box(
             modifier = Modifier
                 .navigationBarsPadding()
-                .padding(start = 18.dp, end = 18.dp, bottom = 10.dp)
+                .padding(start = 16.dp, end = 16.dp, bottom = 10.dp)
                 .fillMaxWidth()
-                .shadow(elevation = 16.dp, shape = RoundedCornerShape(24.dp))
-                .clip(RoundedCornerShape(24.dp))
+                // v5：Dock 从「完全圆的胶囊」改圆角矩形（参考图同款 26dp 圆角），
+                // 两端不再各削掉一个半圆，选项排布更从容。
+                .shadow(elevation = 10.dp, shape = RoundedCornerShape(26.dp))
+                .clip(RoundedCornerShape(26.dp))
                 .background(CardWhite)
         ) {
-            BarSlots(
-                slots = slots,
-                activeSlot = activeBarSlot(slots, currentRoute),
+            FloatingBarSlots(
+                tabs = tabs,
                 currentRoute = currentRoute,
-                barHeight = 64.dp,
                 onTabSelected = onTabSelected,
-                onAddClick = onAddClick,
-                floating = true
+                onAddClick = onAddClick
             )
         }
+    }
+}
+
+@Composable
+private fun FloatingBarSlots(
+    tabs: List<QingJiTab>,
+    currentRoute: String,
+    onTabSelected: (QingJiTab) -> Unit,
+    onAddClick: () -> Unit
+) {
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(60.dp)
+    ) {
+        val activeSlot = tabs.indexOfFirst { it.route == currentRoute }.coerceAtLeast(0)
+        val slotWidth = (maxWidth - 20.dp - 96.dp - 8.dp) / tabs.size
+        val animatedSlot by animateFloatAsState(
+            targetValue = activeSlot.toFloat(),
+            animationSpec = spring(dampingRatio = 0.85f, stiffness = 900f),
+            label = "floatIndicator"
+        )
+        val pillWidth = slotWidth - 4.dp
+        Box(
+            modifier = Modifier
+                .offset(
+                    x = 10.dp + slotWidth * animatedSlot + 2.dp,
+                    y = 10.dp
+                )
+                .width(pillWidth)
+                .height(40.dp)
+                .clip(RoundedCornerShape(999.dp))
+                .background(QingJiGreenLight)
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(start = 10.dp, end = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            tabs.forEach { tab ->
+                FloatingTabItem(
+                    tab = tab,
+                    selected = currentRoute == tab.route,
+                    onClick = { onTabSelected(tab) },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+            AddPillButton(onClick = onAddClick)
+        }
+    }
+}
+
+/** 悬浮款的选项：图标 + 文字横排，选中整组弹一下，配色跟选中态走。 */
+@Composable
+private fun FloatingTabItem(
+    tab: QingJiTab,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val interaction = remember { MutableInteractionSource() }
+    val scale by animateFloatAsState(
+        targetValue = if (selected) 1.06f else 1f,
+        animationSpec = if (selected) {
+            spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium)
+        } else {
+            tween(durationMillis = com.qingji.app.ui.theme.Motion.Fast)
+        },
+        label = "floatTabBounce"
+    )
+    val tint by animateColorAsState(
+        targetValue = if (selected) QingJiGreen else TextSecondary,
+        animationSpec = com.qingji.app.ui.theme.Motion.fast(),
+        label = "floatTabTint"
+    )
+    Row(
+        modifier = modifier
+            .height(40.dp)
+            .clickable(interactionSource = interaction, indication = null) { onClick() }
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            },
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = tab.icon,
+            contentDescription = com.qingji.app.ui.i18n.s(tab.label),
+            tint = tint,
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(Modifier.width(4.dp))
+        Text(
+            text = com.qingji.app.ui.i18n.s(tab.label),
+            fontSize = 12.sp,
+            lineHeight = 16.sp,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+            color = tint,
+            maxLines = 1
+        )
+    }
+}
+
+/** 右侧的「+ 记一笔」：绿色胶囊大按钮，点了弹记录面板（和经典款中央加号同一个入口）。 */
+@Composable
+private fun AddPillButton(onClick: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    Row(
+        modifier = Modifier
+            .width(96.dp)
+            .height(44.dp)
+            .clip(RoundedCornerShape(999.dp))
+            .background(QingJiGreenDark)
+            .clickable(interactionSource = interaction, indication = null) { onClick() },
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Filled.Add,
+            contentDescription = com.qingji.app.ui.i18n.s("记一笔"),
+            tint = Color.White,
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(Modifier.width(4.dp))
+        Text(
+            text = com.qingji.app.ui.i18n.s("记一笔"),
+            fontSize = 12.sp,
+            lineHeight = 16.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = Color.White,
+            maxLines = 1
+        )
     }
 }
 
@@ -145,8 +287,7 @@ private fun BarSlots(
     currentRoute: String,
     barHeight: Dp,
     onTabSelected: (QingJiTab) -> Unit,
-    onAddClick: () -> Unit,
-    floating: Boolean
+    onAddClick: () -> Unit
 ) {
     BoxWithConstraints(
         modifier = Modifier
@@ -158,15 +299,27 @@ private fun BarSlots(
         // 首帧直接落在当前槽位（animateFloatAsState 首次组合不打动画），不会开场乱飞。
         val animatedSlot by animateFloatAsState(
             targetValue = activeSlot.toFloat(),
-            animationSpec = com.qingji.app.ui.theme.Motion.smooth(),
+            // v2：0.9/400 的软弹簧拖着走不跟手；0.85/900 滑得快、收得稳，
+            // 既保留一点滑行的「溜过去」感，又不会让人觉得黏。
+            animationSpec = spring(dampingRatio = 0.85f, stiffness = 900f),
             label = "barIndicator"
         )
+        // v2：胶囊收小成「图标底下的绿色阴影」——和最早的单 Tab 选中胶囊同款
+        //（46×28、全圆角、QingJiGreenLight），切换时从旧图标底下溜到新图标底下。
+        // 上一版是整槽大胶囊（约 54×46），宽高接近正方形，看起来像一块
+        // 「方形阴影」，绿色糊满整格效果很差；小胶囊只衬图标，干净得多。
+        // 纵向：胶囊中心对准图标中心（图标 + 2dp + 文字 垂直居中后，
+        // 图标中心在槽位上沿往下约 21/23dp 处）。
+        val pillWidth = 46.dp
+        val pillHeight = 28.dp
         Box(
             modifier = Modifier
-                .offset(x = slotWidth * animatedSlot)
-                .width(slotWidth)
-                .fillMaxHeight()
-                .padding(horizontal = 14.dp, vertical = if (floating) 9.dp else 7.dp)
+                .offset(
+                    x = slotWidth * animatedSlot + (slotWidth - pillWidth) / 2,
+                    y = 7.dp
+                )
+                .width(pillWidth)
+                .height(pillHeight)
                 .clip(RoundedCornerShape(999.dp))
                 .background(QingJiGreenLight)
         )
@@ -176,7 +329,7 @@ private fun BarSlots(
         ) {
             slots.forEach { slot ->
                 if (slot == null) {
-                    BarPlusSlot(onAddClick, Modifier.weight(1f), floating)
+                    BarPlusSlot(onAddClick, Modifier.weight(1f))
                 } else {
                     BarTabItem(slot, currentRoute, onTabSelected, Modifier.weight(1f))
                 }
@@ -214,10 +367,16 @@ private fun BarTabItem(
         label = "tabTint"
     )
 
+    // v2：按压涟漪关掉 —— 方块形的灰波纹是「方形阴影」的另一个来源，
+    // 而且和滑动的胶囊叠在一起显得乱。选中反馈 = 胶囊溜过来 + 图标弹一下，够了。
+    val tabInteraction = remember { MutableInteractionSource() }
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clickable { onTabSelected(tab) }
+            .clickable(
+                interactionSource = tabInteraction,
+                indication = null
+            ) { onTabSelected(tab) }
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
@@ -234,6 +393,10 @@ private fun BarTabItem(
         Text(
             text = com.qingji.app.ui.i18n.s(tab.label),
             fontSize = 11.sp,
+            // v5：行高必须钉死。中文在默认字体下行高实测 ~27dp，竖排内容被撑高，
+            // 图标在绿色胶囊里整体偏上（主人反馈「图标没有居中在选中阴影中」）。
+            // 16sp 行高 → 内容 22+2+16 = 40dp，图标中心正好落在胶囊中心。
+            lineHeight = 16.sp,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
             color = tint,
             modifier = Modifier.padding(top = 2.dp)
@@ -244,14 +407,14 @@ private fun BarTabItem(
 @Composable
 private fun BarPlusSlot(
     onAddClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    floating: Boolean
+    modifier: Modifier = Modifier
 ) {
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
         Box(
             modifier = Modifier
+                // v2：去掉上浮。52dp 圆在 64dp Dock 里上浮 8dp，顶部会超出
+                // Dock 圆角被裁掉（主人反馈「加号显示不全」），老老实实居中。
                 .size(52.dp)
-                .offset(y = if (floating) (-8).dp else 0.dp)
                 .clip(CircleShape)
                 .background(QingJiGreenDark)
                 .clickable { onAddClick() },
