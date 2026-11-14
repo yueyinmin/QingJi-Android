@@ -29,7 +29,8 @@ import java.time.LocalDate
  * 数据备份 / 导出 / 导入（M9）
  * ------------------------------------------------------------
  * 三件事：
- * 1. 导出全量 JSON（含所有表），换手机能带走；
+ * 1. 导出记录类 JSON（档案 / 饮食 / 体重 / 饮水 / 日记 / 围度 / 运动 / 断食 /
+ *    照片条目 / 训练 / 自律等；不含设置项、搜索历史、照片文件本身、API Key），换手机能带走；
  * 2. 导出饮食记录 CSV（Excel 能直接开）；
  * 3. 从 JSON 覆盖恢复（导入前界面会弹二次确认）。
  *
@@ -58,7 +59,7 @@ class BackupManager(private val context: Context) {
     // 导出
     // ============================================================
 
-    /** 全量 JSON 备份。返回文件，界面拿去分享。 */
+    /** 记录类 JSON 备份（不含设置项、搜索历史、照片文件、API Key）。返回文件，界面拿去分享。 */
     suspend fun exportJson(): Result<File> = withContext(Dispatchers.IO) {
         try {
             val text = buildJson()
@@ -173,7 +174,7 @@ class BackupManager(private val context: Context) {
         sb.append("  \"exportedAt\": ")
             .append(BackupFormat.jsonString(AppClock.now().toString())).append(",\n")
         sb.append("  \"note\": ")
-            .append(BackupFormat.jsonString("不含 API Key；导入会覆盖本机全部数据"))
+            .append(BackupFormat.jsonString("不含 API Key；导入会覆盖本机记录类数据"))
             .append(",\n")
 
         // 档案
@@ -560,7 +561,10 @@ class BackupManager(private val context: Context) {
         }
     }
 
-    /** 导入完成后给用户看的一句话摘要：导进了多少、哪些东西没跟过来。 */
+    /**
+     * 导入完成后给用户看的一句话摘要：导进了多少、哪些东西没跟过来。
+     * 只统计记录类数据（含 v4 自律摘要），与「记录类 JSON」的导出范围一致。
+     */
     private fun summaryText(p: ParsedBackup): String {
         val parts = mutableListOf<String>()
         if (p.foodLogs.isNotEmpty()) parts.add("饮食 ${p.foodLogs.size} 条")
