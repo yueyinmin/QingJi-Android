@@ -25,6 +25,15 @@ object AppChangeLog {
     /** 按版本号倒序：最新的放最上面。 */
     val releases: List<Release> = listOf(
         Release(
+            versionName = "1.1.2",
+            versionCode = 113,
+            date = "2026-11-14",
+            items = listOf(
+                "修复首页餐次卡：食物明细的「xx 千卡」和营养素比例条被右侧悬浮按钮压住",
+                "修复训练日记：训练记录卡的「明细 / 修改 / 删除」压在悬浮按钮下面点不到"
+            )
+        ),
+        Release(
             versionName = "1.1.1",
             versionCode = 112,
             date = "2026-11-14",
