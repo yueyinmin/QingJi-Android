@@ -222,6 +222,12 @@ class SelfDisciplineViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun getSetting(key: String): String? = repo.getSetting(key)
     suspend fun setSetting(key: String, value: String) = repo.setSetting(key, value)
 
+    /** 清空整个自律模块（含设置与孤立行），不用逐个 deleteGoal 拼。 */
+    suspend fun clearAll() {
+        repo.clearAll()
+        refreshPrimary()
+    }
+
     fun consumeMessage() { _message.value = null }
     fun toast(msg: String) { _message.value = msg }
 }
