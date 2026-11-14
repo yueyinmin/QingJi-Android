@@ -1149,10 +1149,28 @@ private fun NutrientColumn(
             color = TextPrimary
         )
         Spacer(Modifier.height(6.dp))
-        ThinProgressBar(
-            progress = if (goal == 0) 0f else current.toFloat() / goal,
-            barHeight = 4.dp
-        )
+        // v6：进度条按本列标注色（小圆点同款）做「浅 → 深」横向渐变，
+        // 不再是统一的主题绿；轨道照旧 DividerColor，超 100% 夹紧到满条。
+        val fraction = if (goal == 0) 0f else (current.toFloat() / goal).coerceIn(0f, 1f)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(4.dp)
+                .clip(RoundedCornerShape(999.dp))
+                .background(DividerColor)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(fraction)
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(dotColor.copy(alpha = 0.45f), dotColor)
+                        )
+                    )
+            )
+        }
         // 参考图里每列下面还有百分比 + 一颗彩色小点
         Spacer(Modifier.height(5.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {

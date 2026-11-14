@@ -63,6 +63,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -179,11 +180,13 @@ fun MineScreen(
 
         Spacer(Modifier.height(16.dp))
 
-        // 资料卡：横向布局、头像 58dp、整张卡可点进个人资料
+        // 资料卡：横向布局、头像 58dp、整张卡可点进个人资料；
+        // v6 起使用情况统计并入这张卡（图标-名称-数字横排一条）。
         ProfileHeaderCard(
             nickname = settings.nickname,
             profile = profile,
             settings = settings,
+            totals = totals,
             onOpenProfile = onOpenProfile
         )
 
@@ -229,12 +232,8 @@ fun MineScreen(
             onOpenPersonalBest = onOpenPersonalBest
         )
 
-        GroupHeader("使用情况")
-        UsageSectionCard(totals = totals)
-
-        Spacer(Modifier.height(12.dp))
-
-        // 调用统计卡放整页最下方：平时不挡视线，想看 AI 调用次数往下滑到底即可
+        // 使用情况已并入顶部资料卡（v6）；调用统计卡仍放整页最下方：
+        // 平时不挡视线，想看 AI 调用次数往下滑到底即可
         UsageCard(totalAi = totals["ai"] ?: 0, monthAi = monthAi)
 
         Spacer(Modifier.height(24.dp))
@@ -266,6 +265,8 @@ private fun ProfileHeaderCard(
     nickname: String,
     profile: UserProfile?,
     settings: QingJiSettings,
+    /** v6：使用情况统计并入资料卡（8 项，图标-名称-数字横排一条）。 */
+    totals: Map<String, Int>,
     onOpenProfile: () -> Unit
 ) {
     val genderText = if (profile?.gender == "female") "女" else "男"
@@ -345,16 +346,36 @@ private fun ProfileHeaderCard(
                 modifier = Modifier.size(20.dp)
             )
         }
+
+        // v6：使用情况并入资料卡（主人指定）——图标-名称-数字横排一条、两列四排，
+        // 比原来的独立大卡省一半以上高度；统计口径一条没动。
+        // 注意：上面的 Row 自带 14dp 水平 padding，分割线和统计块在 Row 外面，
+        // 要自己补同样的内边距，否则右列数字会贴出卡片。
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 12.dp)
+                .padding(horizontal = 14.dp)
+                .height(1.dp)
+                .background(DividerColor)
+        )
+        Spacer(Modifier.height(10.dp))
+        UsageSectionCard(
+            totals = totals,
+            modifier = Modifier.padding(horizontal = 14.dp)
+        )
     }
 }
 
 /**
- * 使用情况：三列宫格，每格浅色底 + 小图标 + 名称 + 累计次数。
- * 统计口径一条都没动，只是换了排版（工单要求：不创建独立大卡片、不重复显示）。
+ * 使用情况：图标 - 文字说明 - 数字 横排一条，两列四排。
+ * v6 并入头像资料卡：不再自带 GroupCard 底板；顺序、数据来源、统计口径一条没动。
  */
 @Composable
-private fun UsageSectionCard(totals: Map<String, Int>) {
-    // 顺序、数据来源、统计口径全部保持原样，只换成 2 列 × 4 排的横卡
+private fun UsageSectionCard(
+    totals: Map<String, Int>,
+    modifier: Modifier = Modifier
+) {
     val items = listOf(
         StatCell("图像识别", (totals["image"] ?: 0).toString(), Icons.Outlined.PhotoCamera, IconTones.Blue),
         StatCell("文字识别", (totals["text"] ?: 0).toString(), Icons.Outlined.Description, IconTones.Teal),
@@ -365,26 +386,44 @@ private fun UsageSectionCard(totals: Map<String, Int>) {
         StatCell("体型图", (totals["body"] ?: 0).toString(), Icons.Outlined.AccessibilityNew, IconTones.Pink),
         StatCell("体重", (totals["weight"] ?: 0).toString(), Icons.Outlined.MonitorWeight, IconTones.Orange)
     )
-    GroupCard(contentPadding = 10.dp) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            // 8 项正好 4 排，不需要补空位；每排两个 weight(1f)，宽度随屏幕自适应
-            items.chunked(2).forEach { rowItems ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    rowItems.forEach { cell ->
-                        UsageStatCard(
-                            label = cell.label,
-                            value = cell.value,
-                            icon = cell.icon,
-                            tone = cell.tone,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        items.chunked(2).forEach { rowItems ->
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                rowItems.forEach { cell ->
+                    UsageMiniRow(cell = cell, modifier = Modifier.weight(1f))
                 }
+                // 末行只有一项时补一个空位，保持两列对齐
+                if (rowItems.size < 2) Spacer(modifier = Modifier.weight(1f))
             }
         }
+    }
+}
+
+/** 单条：图标 - 文字说明 - 数字 横排，高度压到 ~20dp。 */
+@Composable
+private fun UsageMiniRow(cell: StatCell, modifier: Modifier = Modifier) {
+    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            imageVector = cell.icon,
+            contentDescription = null,
+            tint = cell.tone.icon,
+            modifier = Modifier.size(13.dp)
+        )
+        Spacer(Modifier.width(5.dp))
+        Text(
+            text = cell.label,
+            fontSize = 10.sp,
+            color = TextSecondary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            text = cell.value,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = TextPrimary
+        )
     }
 }
 
