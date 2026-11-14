@@ -130,6 +130,7 @@ private val EN: Map<String, String> = mapOf(
     "主题色、深色模式、自定义字体" to "Accent color, dark mode, custom font",
     "桌面小组件" to "Home-screen widgets",
     "底部导航" to "Bottom tabs",
+    "悬浮底栏" to "Floating bar",
     "AI 服务配置" to "AI service",
     "数据备份与导出" to "Backup & export",
     // v1.0.6：清除数据拆成两档，菜单词条跟着改

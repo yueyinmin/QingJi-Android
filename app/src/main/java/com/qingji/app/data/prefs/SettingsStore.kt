@@ -103,6 +103,8 @@ object SettingsKeys {
     val PROGRESS_ANIMATION = booleanPreferencesKey("progress_animation")
     val SWIPE_NAVIGATE = booleanPreferencesKey("swipe_navigate")
     val PAGE_TRANSITION = booleanPreferencesKey("page_transition")
+    /** 底栏悬浮 Dock 皮肤（设置 → 显示与外观）：关 = 经典通栏，开 = 悬浮圆角栏 */
+    val FLOATING_BOTTOM_BAR = booleanPreferencesKey("floating_bottom_bar")
     val NICKNAME = stringPreferencesKey("nickname")
     val AVATAR_PATH = stringPreferencesKey("avatar_path")
 
@@ -188,6 +190,8 @@ data class QingJiSettings(
     val swipeNavigate: Boolean = true,
     // 页面切换动画（关掉只留淡入淡出，老机器更稳）
     val pageTransition: Boolean = true,
+    // 悬浮底栏（Dock 皮肤），默认关
+    val floatingBottomBar: Boolean = false,
     val nickname: String = "轻er~",
     val avatarPath: String = "",
     // ---------- v3.4.0 新增 ----------
@@ -267,6 +271,7 @@ object SettingsStore {
                     progressAnimation = p[SettingsKeys.PROGRESS_ANIMATION] ?: true,
                     swipeNavigate = p[SettingsKeys.SWIPE_NAVIGATE] ?: true,
                     pageTransition = p[SettingsKeys.PAGE_TRANSITION] ?: true,
+                    floatingBottomBar = p[SettingsKeys.FLOATING_BOTTOM_BAR] ?: false,
                     nickname = p[SettingsKeys.NICKNAME] ?: "轻er~",
                     avatarPath = p[SettingsKeys.AVATAR_PATH] ?: "",
                     waterReminder = p[SettingsKeys.WATER_REMINDER] ?: false,

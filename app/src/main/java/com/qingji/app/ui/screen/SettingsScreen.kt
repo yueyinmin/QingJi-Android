@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.Swipe
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.Dock
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.DocumentScanner
@@ -358,6 +359,10 @@ fun SettingsScreen(
                 add(SettingEntry("显示与外观", s("主题设置"), Icons.Filled.Palette, SettingsIconPurple,
                     value = com.qingji.app.ui.theme.AccentThemes.byKey(settings.themeColor).label,
                     onClick = { dialog = DialogKind.THEME }))
+                // barfx：悬浮底栏开关，紧跟在主题设置下面（主人 2026-11-14 指定）
+                add(SettingEntry("显示与外观", s("悬浮底栏"), Icons.Filled.Dock, SettingsIconPurple,
+                    switchState = settings.floatingBottomBar,
+                    onSwitch = { vm.setFloatingBottomBar(it) }))
                 add(SettingEntry("显示与外观", s("应用图标"), Icons.Filled.Apps, SettingsIconPurple,
                     value = com.qingji.app.domain.AppIconManager.label(settings.iconVariant),
                     onClick = { dialog = DialogKind.ICON }))
