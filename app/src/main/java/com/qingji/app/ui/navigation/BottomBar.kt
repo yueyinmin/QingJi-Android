@@ -2,6 +2,7 @@ package com.qingji.app.ui.navigation
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -134,9 +135,13 @@ private fun BottomTabItem(
     )
     // 选中项背后浮出一块浅绿胶囊，配合图标放大，
     // 一眼就能看出「我现在在这一页」，不用去读页面内容反推。
+    // barfix：胶囊改用 snap 瞬时切换。原来跟图标一样走 150ms 颜色渐变，
+    // 转场期间新旧两个 Tab 的胶囊同时半透明可见，底栏上像多了两条「阴影」
+    // （慢放录屏确认：日记/我的两个 Tab 各挂一条灰胶囊）。胶囊任何时刻
+    // 只出现一个；图标的颜色/大小仍走 150ms 渐变保持柔和。
     val pillColor by animateColorAsState(
         targetValue = if (selected) QingJiGreenLight else Color.Transparent,
-        animationSpec = com.qingji.app.ui.theme.Motion.fast(),
+        animationSpec = snap(),
         label = "tabPill"
     )
 
