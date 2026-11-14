@@ -168,7 +168,11 @@ fun TrainingDiaryContent(
             // 从进展页搬过来的「饮食 30 天」，放在训练记录下面
             DietHeatmapCard(logs = foodLogs, dailyGoal = dailyKcalGoal)
 
-            Spacer(Modifier.height(Dimens.FabSpace))
+            // v9：悬浮底栏会盖住页尾内容，滚动尾部让出 Dock 高度
+            val settings = com.qingji.app.data.prefs.SettingsStore.observe(
+                androidx.compose.ui.platform.LocalContext.current
+            ).collectAsState(initial = com.qingji.app.data.prefs.QingJiSettings()).value
+            Spacer(Modifier.height(if (settings.floatingBottomBar) Dimens.FabSpace + 82.dp else Dimens.FabSpace))
         }
     }
 
