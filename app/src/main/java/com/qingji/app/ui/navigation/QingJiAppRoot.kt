@@ -5,6 +5,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -19,6 +20,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
@@ -42,6 +47,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import com.qingji.app.data.prefs.QingJiSettings
 import com.qingji.app.ui.viewmodel.OnboardingViewModel
 import com.qingji.app.ui.viewmodel.HomeViewModel
@@ -259,46 +265,36 @@ fun QingJiAppRoot(
     //   3) 内容区高度一变，slideInVertically 的 height/28 目标位移也跟着变。
     // 现在所有路由统一用 Scaffold 默认值，innerPadding 切换前后恒定；
     // 首页渐变「延伸到状态栏」改由 HomeScreen 用负 offset 补回，视觉零变化。
-    Scaffold(
-        containerColor = PageBackground,
-        bottomBar = {
-            // barfix：二级页进出时底栏不再「瞬间消失/出现」。
-            // 原来 if (showBottomBar) 直接增删 bottomBar，navigate() 那一帧
-            // 底栏整条没了、内容区高度突变，而两页转场还在淡化中段，
-            // 看起来像底栏被凭空抽走（慢放录屏里两页还在叠影时底栏已不在）。
-            // 改用 AnimatedVisibility 平滑收起/展开：尺寸动画带动 Scaffold
-            // 的 innerPadding 逐帧变化，内容区跟手长回来；底边锚定，
-            // 视觉上是「底栏沉下去、新页面同时补位」。
-            AnimatedVisibility(
-                visible = showBottomBar,
-                enter = expandVertically(
-                    expandFrom = Alignment.Bottom,
-                    animationSpec = tween(com.qingji.app.ui.theme.Motion.Normal, easing = FastOutSlowInEasing)
-                ) + fadeIn(tween(com.qingji.app.ui.theme.Motion.Fast)),
-                exit = shrinkVertically(
-                    shrinkTowards = Alignment.Bottom,
-                    animationSpec = tween(com.qingji.app.ui.theme.Motion.Normal, easing = FastOutSlowInEasing)
-                ) + fadeOut(tween(com.qingji.app.ui.theme.Motion.Fast))
-            ) {
-                // barfx：悬浮底栏开关（设置 → 显示与外观）——开 = 圆角 Dock 悬浮款，关 = 经典通栏款。
-                // 两款共用同一套滑动指示器与弹跳动效；外面 AnimatedVisibility 的平滑收放对两款都生效。
-                val onBarTabSelected: (QingJiTab) -> Unit = { tab ->
-                    // v3.2.3：已经在当前页就什么都不做。
-                    // 点击和左右滑动统一走 goToTab，动画方向按索引判断。
-                    if (tab.route != currentRoute) {
-                        val from = tabList.indexOfFirst { it.route == currentRoute }
-                        val to = tabList.indexOfFirst { it.route == tab.route }
-                        goToTab(tab, if (from >= 0 && to >= 0 && to != from) (if (to > from) 1 else -1) else 0)
-                    }
-                }
-                if (settings.floatingBottomBar) {
-                    QingJiFloatingBar(
-                        currentRoute = currentRoute,
-                        onTabSelected = onBarTabSelected,
-                        onAddClick = { showAddSheet = true },
-                        settings = settings
-                    )
-                } else {
+    // barfx v4：底栏选中回调提到 Scaffold 外——经典款（bottomBar 槽）和
+    // 悬浮款（内容上层 Overlay）共用同一个入口，切换皮肤时行为完全一致。
+    val onBarTabSelected: (QingJiTab) -> Unit = { tab ->
+        // v3.2.3：已经在当前页就什么都不做。
+        // 点击和左右滑动统一走 goToTab，动画方向按索引判断。
+        if (tab.route != currentRoute) {
+            val from = tabList.indexOfFirst { it.route == currentRoute }
+            val to = tabList.indexOfFirst { it.route == tab.route }
+            goToTab(tab, if (from >= 0 && to >= 0 && to != from) (if (to > from) 1 else -1) else 0)
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            containerColor = PageBackground,
+            // barfix：经典款进出二级页时底栏平滑收放（尺寸动画带动 innerPadding 逐帧变化，
+            // 内容区跟手长回来；底边锚定，视觉上是「底栏沉下去、新页面同时补位」）。
+            // 悬浮款不在这里——见 Scaffold 后面的 Overlay，它要盖在内容上，不能占布局槽。
+            bottomBar = {
+                AnimatedVisibility(
+                    visible = showBottomBar && !settings.floatingBottomBar,
+                    enter = expandVertically(
+                        expandFrom = Alignment.Bottom,
+                        animationSpec = tween(com.qingji.app.ui.theme.Motion.Normal, easing = FastOutSlowInEasing)
+                    ) + fadeIn(tween(com.qingji.app.ui.theme.Motion.Fast)),
+                    exit = shrinkVertically(
+                        shrinkTowards = Alignment.Bottom,
+                        animationSpec = tween(com.qingji.app.ui.theme.Motion.Normal, easing = FastOutSlowInEasing)
+                    ) + fadeOut(tween(com.qingji.app.ui.theme.Motion.Fast))
+                ) {
                     QingJiBottomBar(
                         currentRoute = currentRoute,
                         onTabSelected = onBarTabSelected,
@@ -307,437 +303,471 @@ fun QingJiAppRoot(
                     )
                 }
             }
-        }
-    ) { innerPadding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                // 一级页面左右滑动切换（UI-NAV-006）
-                // 用系统 detectHorizontalDragGestures：
-                // · 它只在横向超过 touchSlop 后才启动，纵向滚动完全不触发；
-                // · 启动后会 consume，子组件的 clickable 收到 consumed 就取消点击，
-                //   所以「在列表行上横滑」不会顺手把页面点开（第一版踩过这个坑）；
-                // · 子组件（LazyRow / 图表）先处理事件，它们消费后这里根本不会启动，
-                //   天然做到「子组件优先」。
-                .pointerInput(swipeEnabled, tabIndex, settings.swipeNavigate) {
-                    if (!swipeEnabled) return@pointerInput
-                    var total = 0f
-                    var blocked = false
-                    var startedAt = 0L
-                    detectHorizontalDragGestures(
-                        onDragStart = { offset ->
-                            total = 0f
-                            blocked = offset.x < edgeGuardPx || offset.x > size.width - edgeGuardPx
-                            startedAt = System.currentTimeMillis()
-                        },
-                        onDragCancel = { total = 0f },
-                        onHorizontalDrag = { change, dragAmount ->
-                            if (!blocked) {
-                                total += dragAmount
-                                change.consume()
-                            }
-                        },
-                        onDragEnd = {
-                            if (blocked) return@detectHorizontalDragGestures
-                            // 用户在设置里关掉了滑动切换：手势照样拦截，但不翻页
-                            if (!settings.swipeNavigate) return@detectHorizontalDragGestures
-                            val elapsed = System.currentTimeMillis() - startedAt
-                            val passed = kotlin.math.abs(total) >= triggerPx ||
-                                (kotlin.math.abs(total) >= flickPx && elapsed <= 260)
-                            if (!passed) return@detectHorizontalDragGestures
-                            if (total < 0 && tabIndex < tabList.lastIndex) {
-                                goToTab(tabList[tabIndex + 1], 1)
-                            } else if (total > 0 && tabIndex > 0) {
-                                goToTab(tabList[tabIndex - 1], -1)
-                            }
-                        }
+        ) { innerPadding ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(
+                        start = innerPadding.calculateStartPadding(LocalLayoutDirection.current),
+                        top = innerPadding.calculateTopPadding(),
+                        end = innerPadding.calculateEndPadding(LocalLayoutDirection.current),
+                        // 悬浮款：内容一直铺到手势条上沿，Dock 盖在内容上层，两侧能看见列表；
+                        // 经典款：照旧让出整个 bottomBar 的高度。
+                        bottom = if (settings.floatingBottomBar)
+                            WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+                        else
+                            innerPadding.calculateBottomPadding()
                     )
-                }
-        ) {
-            val tabRoutes = remember { tabList.map { it.route }.toSet() }
-            NavHost(
-                navController = navController,
-                startDestination = QingJiTab.Home.route,
-                // tabfix：所有路由共用 Motion 的 150ms 原地淡入淡出，
-                // 进出同节奏、零位移，转场期间两页始终占同一块区域。
-                // 一级 Tab 之间：轻微横移 10% + 淡入淡出，方向跟着手势/点击走；
-                // 其他路由（详情、弹层页）保持原来的纯淡入，不动。
-                enterTransition = {
-                    val bothTabs = initialState.destination.route in tabRoutes &&
-                        targetState.destination.route in tabRoutes
-                    if (bothTabs && settings.pageTransition && navDirection != 0) {
-                        slideInHorizontally(
-                            animationSpec = tween(250, easing = FastOutSlowInEasing),
-                            initialOffsetX = { (it * 0.10f * navDirection).toInt() }
-                        ) + fadeIn(tween(250))
-                    } else if (bothTabs) {
-                        fadeIn(tween(150))
-                    } else {
-                        com.qingji.app.ui.theme.Motion.pageEnter
+                    // 一级页面左右滑动切换（UI-NAV-006）
+                    // 用系统 detectHorizontalDragGestures：
+                    // · 它只在横向超过 touchSlop 后才启动，纵向滚动完全不触发；
+                    // · 启动后会 consume，子组件的 clickable 收到 consumed 就取消点击，
+                    //   所以「在列表行上横滑」不会顺手把页面点开（第一版踩过这个坑）；
+                    // · 子组件（LazyRow / 图表）先处理事件，它们消费后这里根本不会启动，
+                    //   天然做到「子组件优先」。
+                    .pointerInput(swipeEnabled, tabIndex, settings.swipeNavigate) {
+                        if (!swipeEnabled) return@pointerInput
+                        var total = 0f
+                        var blocked = false
+                        var startedAt = 0L
+                        detectHorizontalDragGestures(
+                            onDragStart = { offset ->
+                                total = 0f
+                                blocked = offset.x < edgeGuardPx || offset.x > size.width - edgeGuardPx
+                                startedAt = System.currentTimeMillis()
+                            },
+                            onDragCancel = { total = 0f },
+                            onHorizontalDrag = { change, dragAmount ->
+                                if (!blocked) {
+                                    total += dragAmount
+                                    change.consume()
+                                }
+                            },
+                            onDragEnd = {
+                                if (blocked) return@detectHorizontalDragGestures
+                                // 用户在设置里关掉了滑动切换：手势照样拦截，但不翻页
+                                if (!settings.swipeNavigate) return@detectHorizontalDragGestures
+                                val elapsed = System.currentTimeMillis() - startedAt
+                                val passed = kotlin.math.abs(total) >= triggerPx ||
+                                    (kotlin.math.abs(total) >= flickPx && elapsed <= 260)
+                                if (!passed) return@detectHorizontalDragGestures
+                                if (total < 0 && tabIndex < tabList.lastIndex) {
+                                    goToTab(tabList[tabIndex + 1], 1)
+                                } else if (total > 0 && tabIndex > 0) {
+                                    goToTab(tabList[tabIndex - 1], -1)
+                                }
+                            }
+                        )
                     }
-                },
-                exitTransition = {
-                    val bothTabs = initialState.destination.route in tabRoutes &&
-                        targetState.destination.route in tabRoutes
-                    if (bothTabs && settings.pageTransition && navDirection != 0) {
-                        slideOutHorizontally(
-                            animationSpec = tween(250, easing = FastOutSlowInEasing),
-                            targetOffsetX = { (-it * 0.10f * navDirection).toInt() }
-                        ) + fadeOut(tween(250))
-                    } else if (bothTabs) {
-                        fadeOut(tween(150))
-                    } else {
-                        com.qingji.app.ui.theme.Motion.pageExit
-                    }
-                },
-                popEnterTransition = { com.qingji.app.ui.theme.Motion.popEnter },
-                popExitTransition = { com.qingji.app.ui.theme.Motion.popExit }
             ) {
-                composable(QingJiTab.Home.route) {
-                    HomeScreen(
-                        onAddRecord = { showAddSheet = true },
-                        onOpenAnalysis = { navController.navigate(QingJiRoutes.AiAnalysis) },
-                        onOpenWeight = { navController.navigate(QingJiRoutes.Weight) },
-                        onOpenImage = { navController.navigate(QingJiRoutes.ImageRecord) },
-                        onOpenMealDetail = { date, meal ->
-                            navController.navigate(QingJiRoutes.mealDetail(date, meal))
-                        },
-                        onOpenFasting = { navController.navigate(QingJiRoutes.Fasting) },
-                        onOpenFoodLibrary = { navController.navigate(QingJiRoutes.FoodLibrary) },
-                        onOpenTraining = { navController.navigate(QingJiRoutes.TrainingHistory) },
-                        onOpenSelfDiscipline = { navController.navigate(QingJiRoutes.SelfDiscipline) },
-                        onOpenExercise = { navController.navigate(QingJiRoutes.ExercisePicker) },
-                        onSelfDisciplineCheckin = {
-                            val id = selfDisciplineVm.primaryGoal.value?.id
-                            navController.navigate(
-                                if (id != null) QingJiRoutes.selfDisciplineCheckin(id) else QingJiRoutes.SelfDiscipline
-                            )
-                        },
-                        onSelfDisciplineUrge = {
-                            val id = selfDisciplineVm.primaryGoal.value?.id
-                            navController.navigate(
-                                if (id != null) QingJiRoutes.selfDisciplineUrge(id) else QingJiRoutes.SelfDiscipline
-                            )
-                        },
-                        onSelfDisciplineHistory = {
-                            val id = selfDisciplineVm.primaryGoal.value?.id
-                            navController.navigate(
-                                if (id != null) QingJiRoutes.selfDisciplineHistory(id) else QingJiRoutes.SelfDiscipline
-                            )
-                        },
-                        trainingVm = trainingVm,
-                        planVm = planVm,
-                        selfDisciplineVm = selfDisciplineVm,
-                        progressVm = progressVm,
-                        statusBarTop = statusBarTopDp,
-                        scrollState = tabScrollStates.getValue(QingJiTab.Home),
-                        vm = homeVm
-                    )
-                }
-                composable(QingJiTab.Progress.route) {
-                    ProgressScreen(
-                        onOpenWeight = { navController.navigate(QingJiRoutes.Weight) },
-                        onOpenImage = { navController.navigate(QingJiRoutes.ImageRecord) },
-                        // v3.2.4：悬浮栏第二颗换成食物库，这里接上跳转
-                        onOpenFoodLibrary = { navController.navigate(QingJiRoutes.FoodLibrary) },
-                        // v1.0.6：运动卡片的「+ 记一次」走二级页，才能填步数 / 公里
-                        onOpenExercise = { navController.navigate(QingJiRoutes.ExercisePicker) },
-                        scrollState = tabScrollStates.getValue(QingJiTab.Progress),
-                        vm = progressVm
-                    )
-                }
-                composable(QingJiTab.Diary.route) {
-                    DiaryScreen(
-                        onOpenEdit = { id -> navController.navigate(QingJiRoutes.diaryEdit(id)) },
-                        onOpenWeight = { navController.navigate(QingJiRoutes.Weight) },
-                        onOpenImage = { navController.navigate(QingJiRoutes.ImageRecord) },
-                        onOpenFoodLibrary = { navController.navigate(QingJiRoutes.FoodLibrary) },
-                        trainingTab = diaryTrainingTab,
-                        onTrainingTabChange = { diaryTrainingTab = it },
-                        onStartTraining = { navController.navigate(QingJiRoutes.TrainingActive) },
-                        onEditTraining = { navController.navigate(QingJiRoutes.TrainingActive) },
-                        trainingVm = trainingVm,
-                        progressVm = progressVm,
-                        scrollState = tabScrollStates.getValue(QingJiTab.Diary),
-                        vm = diaryVm
-                    )
-                }
-                composable(QingJiTab.Mine.route) {
-                    MineScreen(
-                        onOpenSettings = { navController.navigate(QingJiRoutes.Settings) },
-                        onOpenProfile = { navController.navigate(QingJiRoutes.Profile) },
-                        onOpenTrainingHistory = { navController.navigate(QingJiRoutes.TrainingHistory) },
-                        onStartTraining = { navController.navigate(QingJiRoutes.TrainingActive) },
-                        onOpenTrainingPlan = { navController.navigate(QingJiRoutes.TrainingPlan) },
-                        onOpenExerciseLibrary = { navController.navigate(QingJiRoutes.ExerciseLibrary) },
-                        onOpenFavorites = { navController.navigate(QingJiRoutes.ExerciseFavorites) },
-                        onOpenPersonalBest = { navController.navigate(QingJiRoutes.PersonalBest) },
-                        onOpenSelfDiscipline = { navController.navigate(QingJiRoutes.SelfDiscipline) },
-                        onOpenSelfDisciplineSettings = { navController.navigate(QingJiRoutes.SelfDisciplineSettings) },
-                        scrollState = tabScrollStates.getValue(QingJiTab.Mine),
-                        vm = mineVm
-                    )
-                }
-                composable(QingJiRoutes.Settings) {
-                    SettingsScreen(
-                        onBack = { navController.popBackStack() },
-                        onOpenFoodPreference = { navController.navigate(QingJiRoutes.FoodPreference) },
-                        onOpenWidget = { navController.navigate(QingJiRoutes.WidgetSettings) },
-                        onOpenAiConfig = { navController.navigate(QingJiRoutes.AiConfig) },
-                        onOpenProfile = { navController.navigate(QingJiRoutes.Profile) },
-                        onOpenBackup = { navController.navigate(QingJiRoutes.Backup) }
-                    )
-                }
-                composable(QingJiRoutes.Backup) {
-                    BackupScreen(onBack = { navController.popBackStack() })
-                }
-                composable(QingJiRoutes.SearchFood) {
-                    SearchFoodScreen(onBack = { navController.popBackStack() })
-                }
-                composable(QingJiRoutes.TextAi) {
-                    TextAiScreen(
-                        onBack = { navController.popBackStack() },
-                        onOpenAiConfig = { navController.navigate(QingJiRoutes.AiConfig) }
-                    )
-                }
-                composable(QingJiRoutes.Weight) {
-                    WeightScreen(onBack = { navController.popBackStack() })
-                }
-                composable(QingJiRoutes.AiConfig) {
-                    AiConfigScreen(onBack = { navController.popBackStack() })
-                }
-                composable(QingJiRoutes.Profile) {
-                    ProfileScreen(onBack = { navController.popBackStack() })
-                }
-                composable(QingJiRoutes.ImageRecord) {
-                    ImageRecordScreen(
-                        onBack = { navController.popBackStack() },
-                        onFallback = { navController.navigate(QingJiRoutes.SearchFood) },
-                        onOpenAiConfig = { navController.navigate(QingJiRoutes.AiConfig) }
-                    )
-                }
-                composable(QingJiRoutes.VoiceRecord) {
-                    VoiceRecordScreen(
-                        onBack = { navController.popBackStack() },
-                        onFallback = { navController.navigate(QingJiRoutes.SearchFood) },
-                        onOpenAiConfig = { navController.navigate(QingJiRoutes.AiConfig) }
-                    )
-                }
-                composable(QingJiRoutes.Barcode) {
-                    BarcodeScreen(onBack = { navController.popBackStack() })
-                }
-                composable(QingJiRoutes.AiAnalysis) {
-                    AiAnalysisScreen(
-                        onBack = { navController.popBackStack() },
-                        onOpenAiConfig = { navController.navigate(QingJiRoutes.AiConfig) }
-                    )
-                }
-                composable(
-                    route = QingJiRoutes.DiaryEdit,
-                    arguments = listOf(navArgument("diaryId") {
-                        type = NavType.LongType
-                        defaultValue = 0L
-                    })
-                ) { entry ->
-                    DiaryEditScreen(
-                        diaryId = entry.arguments?.getLong("diaryId") ?: 0L,
-                        onBack = { navController.popBackStack() }
-                    )
-                }
-                composable(QingJiRoutes.WidgetSettings) {
-                    WidgetSettingsScreen(onBack = { navController.popBackStack() })
-                }
-                composable(QingJiRoutes.FoodLibrary) {
-                    FoodLibraryScreen(onBack = { navController.popBackStack() })
-                }
-                composable(QingJiRoutes.FoodPreference) {
-                    FoodPreferenceScreen(onBack = { navController.popBackStack() })
-                }
-                composable(QingJiRoutes.Fasting) {
-                    FastingScreen(onBack = { navController.popBackStack() })
-                }
-                composable(
-                    route = QingJiRoutes.MealDetail,
-                    arguments = listOf(
-                        navArgument("date") { type = NavType.StringType },
-                        navArgument("mealType") { type = NavType.StringType }
-                    )
-                ) { entry ->
-                    MealDetailScreen(
-                        dateIso = entry.arguments?.getString("date").orEmpty(),
-                        mealType = entry.arguments?.getString("mealType").orEmpty(),
-                        onBack = { navController.popBackStack() },
-                        onOpenDiary = { id -> navController.navigate(QingJiRoutes.diaryEdit(id)) }
-                    )
-                }
-                // v3.3.0 运动模块：二级选运动 → 三级确认记录
-                composable(QingJiRoutes.ExercisePicker) {
-                    ExercisePickerScreen(
-                        onBack = { navController.popBackStack() },
-                        onPick = { id ->
-                            // 「更换」会 pop 回本页；再选别的运动时把旧的确认页弹掉，
-                            // 避免返回栈里堆一串确认页。
-                            navController.navigate(QingJiRoutes.exerciseConfirm(id)) {
-                                popUpTo(QingJiRoutes.ExercisePicker) { inclusive = false }
-                                launchSingleTop = true
+                val tabRoutes = remember { tabList.map { it.route }.toSet() }
+                NavHost(
+                    navController = navController,
+                    startDestination = QingJiTab.Home.route,
+                    // tabfix：所有路由共用 Motion 的 150ms 原地淡入淡出，
+                    // 进出同节奏、零位移，转场期间两页始终占同一块区域。
+                    // 一级 Tab 之间：轻微横移 10% + 淡入淡出，方向跟着手势/点击走；
+                    // 其他路由（详情、弹层页）保持原来的纯淡入，不动。
+                    enterTransition = {
+                        val bothTabs = initialState.destination.route in tabRoutes &&
+                            targetState.destination.route in tabRoutes
+                        if (bothTabs && settings.pageTransition && navDirection != 0) {
+                            slideInHorizontally(
+                                animationSpec = tween(250, easing = FastOutSlowInEasing),
+                                initialOffsetX = { (it * 0.10f * navDirection).toInt() }
+                            ) + fadeIn(tween(250))
+                        } else if (bothTabs) {
+                            fadeIn(tween(150))
+                        } else {
+                            com.qingji.app.ui.theme.Motion.pageEnter
+                        }
+                    },
+                    exitTransition = {
+                        val bothTabs = initialState.destination.route in tabRoutes &&
+                            targetState.destination.route in tabRoutes
+                        if (bothTabs && settings.pageTransition && navDirection != 0) {
+                            slideOutHorizontally(
+                                animationSpec = tween(250, easing = FastOutSlowInEasing),
+                                targetOffsetX = { (-it * 0.10f * navDirection).toInt() }
+                            ) + fadeOut(tween(250))
+                        } else if (bothTabs) {
+                            fadeOut(tween(150))
+                        } else {
+                            com.qingji.app.ui.theme.Motion.pageExit
+                        }
+                    },
+                    popEnterTransition = { com.qingji.app.ui.theme.Motion.popEnter },
+                    popExitTransition = { com.qingji.app.ui.theme.Motion.popExit }
+                ) {
+                    composable(QingJiTab.Home.route) {
+                        HomeScreen(
+                            onAddRecord = { showAddSheet = true },
+                            onOpenAnalysis = { navController.navigate(QingJiRoutes.AiAnalysis) },
+                            onOpenWeight = { navController.navigate(QingJiRoutes.Weight) },
+                            onOpenImage = { navController.navigate(QingJiRoutes.ImageRecord) },
+                            onOpenMealDetail = { date, meal ->
+                                navController.navigate(QingJiRoutes.mealDetail(date, meal))
+                            },
+                            onOpenFasting = { navController.navigate(QingJiRoutes.Fasting) },
+                            onOpenFoodLibrary = { navController.navigate(QingJiRoutes.FoodLibrary) },
+                            onOpenTraining = { navController.navigate(QingJiRoutes.TrainingHistory) },
+                            onOpenSelfDiscipline = { navController.navigate(QingJiRoutes.SelfDiscipline) },
+                            onOpenExercise = { navController.navigate(QingJiRoutes.ExercisePicker) },
+                            onSelfDisciplineCheckin = {
+                                val id = selfDisciplineVm.primaryGoal.value?.id
+                                navController.navigate(
+                                    if (id != null) QingJiRoutes.selfDisciplineCheckin(id) else QingJiRoutes.SelfDiscipline
+                                )
+                            },
+                            onSelfDisciplineUrge = {
+                                val id = selfDisciplineVm.primaryGoal.value?.id
+                                navController.navigate(
+                                    if (id != null) QingJiRoutes.selfDisciplineUrge(id) else QingJiRoutes.SelfDiscipline
+                                )
+                            },
+                            onSelfDisciplineHistory = {
+                                val id = selfDisciplineVm.primaryGoal.value?.id
+                                navController.navigate(
+                                    if (id != null) QingJiRoutes.selfDisciplineHistory(id) else QingJiRoutes.SelfDiscipline
+                                )
+                            },
+                            trainingVm = trainingVm,
+                            planVm = planVm,
+                            selfDisciplineVm = selfDisciplineVm,
+                            progressVm = progressVm,
+                            statusBarTop = statusBarTopDp,
+                            scrollState = tabScrollStates.getValue(QingJiTab.Home),
+                            vm = homeVm
+                        )
+                    }
+                    composable(QingJiTab.Progress.route) {
+                        ProgressScreen(
+                            onOpenWeight = { navController.navigate(QingJiRoutes.Weight) },
+                            onOpenImage = { navController.navigate(QingJiRoutes.ImageRecord) },
+                            // v3.2.4：悬浮栏第二颗换成食物库，这里接上跳转
+                            onOpenFoodLibrary = { navController.navigate(QingJiRoutes.FoodLibrary) },
+                            // v1.0.6：运动卡片的「+ 记一次」走二级页，才能填步数 / 公里
+                            onOpenExercise = { navController.navigate(QingJiRoutes.ExercisePicker) },
+                            scrollState = tabScrollStates.getValue(QingJiTab.Progress),
+                            vm = progressVm
+                        )
+                    }
+                    composable(QingJiTab.Diary.route) {
+                        DiaryScreen(
+                            onOpenEdit = { id -> navController.navigate(QingJiRoutes.diaryEdit(id)) },
+                            onOpenWeight = { navController.navigate(QingJiRoutes.Weight) },
+                            onOpenImage = { navController.navigate(QingJiRoutes.ImageRecord) },
+                            onOpenFoodLibrary = { navController.navigate(QingJiRoutes.FoodLibrary) },
+                            trainingTab = diaryTrainingTab,
+                            onTrainingTabChange = { diaryTrainingTab = it },
+                            onStartTraining = { navController.navigate(QingJiRoutes.TrainingActive) },
+                            onEditTraining = { navController.navigate(QingJiRoutes.TrainingActive) },
+                            trainingVm = trainingVm,
+                            progressVm = progressVm,
+                            scrollState = tabScrollStates.getValue(QingJiTab.Diary),
+                            vm = diaryVm
+                        )
+                    }
+                    composable(QingJiTab.Mine.route) {
+                        MineScreen(
+                            onOpenSettings = { navController.navigate(QingJiRoutes.Settings) },
+                            onOpenProfile = { navController.navigate(QingJiRoutes.Profile) },
+                            onOpenTrainingHistory = { navController.navigate(QingJiRoutes.TrainingHistory) },
+                            onStartTraining = { navController.navigate(QingJiRoutes.TrainingActive) },
+                            onOpenTrainingPlan = { navController.navigate(QingJiRoutes.TrainingPlan) },
+                            onOpenExerciseLibrary = { navController.navigate(QingJiRoutes.ExerciseLibrary) },
+                            onOpenFavorites = { navController.navigate(QingJiRoutes.ExerciseFavorites) },
+                            onOpenPersonalBest = { navController.navigate(QingJiRoutes.PersonalBest) },
+                            onOpenSelfDiscipline = { navController.navigate(QingJiRoutes.SelfDiscipline) },
+                            onOpenSelfDisciplineSettings = { navController.navigate(QingJiRoutes.SelfDisciplineSettings) },
+                            scrollState = tabScrollStates.getValue(QingJiTab.Mine),
+                            vm = mineVm
+                        )
+                    }
+                    composable(QingJiRoutes.Settings) {
+                        SettingsScreen(
+                            onBack = { navController.popBackStack() },
+                            onOpenFoodPreference = { navController.navigate(QingJiRoutes.FoodPreference) },
+                            onOpenWidget = { navController.navigate(QingJiRoutes.WidgetSettings) },
+                            onOpenAiConfig = { navController.navigate(QingJiRoutes.AiConfig) },
+                            onOpenProfile = { navController.navigate(QingJiRoutes.Profile) },
+                            onOpenBackup = { navController.navigate(QingJiRoutes.Backup) }
+                        )
+                    }
+                    composable(QingJiRoutes.Backup) {
+                        BackupScreen(onBack = { navController.popBackStack() })
+                    }
+                    composable(QingJiRoutes.SearchFood) {
+                        SearchFoodScreen(onBack = { navController.popBackStack() })
+                    }
+                    composable(QingJiRoutes.TextAi) {
+                        TextAiScreen(
+                            onBack = { navController.popBackStack() },
+                            onOpenAiConfig = { navController.navigate(QingJiRoutes.AiConfig) }
+                        )
+                    }
+                    composable(QingJiRoutes.Weight) {
+                        WeightScreen(onBack = { navController.popBackStack() })
+                    }
+                    composable(QingJiRoutes.AiConfig) {
+                        AiConfigScreen(onBack = { navController.popBackStack() })
+                    }
+                    composable(QingJiRoutes.Profile) {
+                        ProfileScreen(onBack = { navController.popBackStack() })
+                    }
+                    composable(QingJiRoutes.ImageRecord) {
+                        ImageRecordScreen(
+                            onBack = { navController.popBackStack() },
+                            onFallback = { navController.navigate(QingJiRoutes.SearchFood) },
+                            onOpenAiConfig = { navController.navigate(QingJiRoutes.AiConfig) }
+                        )
+                    }
+                    composable(QingJiRoutes.VoiceRecord) {
+                        VoiceRecordScreen(
+                            onBack = { navController.popBackStack() },
+                            onFallback = { navController.navigate(QingJiRoutes.SearchFood) },
+                            onOpenAiConfig = { navController.navigate(QingJiRoutes.AiConfig) }
+                        )
+                    }
+                    composable(QingJiRoutes.Barcode) {
+                        BarcodeScreen(onBack = { navController.popBackStack() })
+                    }
+                    composable(QingJiRoutes.AiAnalysis) {
+                        AiAnalysisScreen(
+                            onBack = { navController.popBackStack() },
+                            onOpenAiConfig = { navController.navigate(QingJiRoutes.AiConfig) }
+                        )
+                    }
+                    composable(
+                        route = QingJiRoutes.DiaryEdit,
+                        arguments = listOf(navArgument("diaryId") {
+                            type = NavType.LongType
+                            defaultValue = 0L
+                        })
+                    ) { entry ->
+                        DiaryEditScreen(
+                            diaryId = entry.arguments?.getLong("diaryId") ?: 0L,
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
+                    composable(QingJiRoutes.WidgetSettings) {
+                        WidgetSettingsScreen(onBack = { navController.popBackStack() })
+                    }
+                    composable(QingJiRoutes.FoodLibrary) {
+                        FoodLibraryScreen(onBack = { navController.popBackStack() })
+                    }
+                    composable(QingJiRoutes.FoodPreference) {
+                        FoodPreferenceScreen(onBack = { navController.popBackStack() })
+                    }
+                    composable(QingJiRoutes.Fasting) {
+                        FastingScreen(onBack = { navController.popBackStack() })
+                    }
+                    composable(
+                        route = QingJiRoutes.MealDetail,
+                        arguments = listOf(
+                            navArgument("date") { type = NavType.StringType },
+                            navArgument("mealType") { type = NavType.StringType }
+                        )
+                    ) { entry ->
+                        MealDetailScreen(
+                            dateIso = entry.arguments?.getString("date").orEmpty(),
+                            mealType = entry.arguments?.getString("mealType").orEmpty(),
+                            onBack = { navController.popBackStack() },
+                            onOpenDiary = { id -> navController.navigate(QingJiRoutes.diaryEdit(id)) }
+                        )
+                    }
+                    // v3.3.0 运动模块：二级选运动 → 三级确认记录
+                    composable(QingJiRoutes.ExercisePicker) {
+                        ExercisePickerScreen(
+                            onBack = { navController.popBackStack() },
+                            onPick = { id ->
+                                // 「更换」会 pop 回本页；再选别的运动时把旧的确认页弹掉，
+                                // 避免返回栈里堆一串确认页。
+                                navController.navigate(QingJiRoutes.exerciseConfirm(id)) {
+                                    popUpTo(QingJiRoutes.ExercisePicker) { inclusive = false }
+                                    launchSingleTop = true
+                                }
                             }
-                        }
-                    )
-                }
-                composable(
-                    route = QingJiRoutes.ExerciseConfirm,
-                    arguments = listOf(navArgument("presetId") { type = NavType.LongType })
-                ) { entry ->
-                    ExerciseConfirmScreen(
-                        presetId = entry.arguments?.getLong("presetId") ?: 0L,
-                        onBack = { navController.popBackStack() },
-                        onSaved = { navController.popBackStack(QingJiTab.Home.route, false) }
-                    )
-                }
-                // ---------- 训练中心 P0 ----------
-                composable(QingJiRoutes.TrainingActive) {
-                    TrainingActiveScreen(
-                        vm = trainingVm,
-                        onBack = { navController.popBackStack() }
-                    )
-                }
-                composable(QingJiRoutes.TrainingHistory) {
-                    TrainingHistoryScreen(
-                        vm = trainingVm,
-                        onBack = { navController.popBackStack() },
-                        onStartTraining = { navController.navigate(QingJiRoutes.TrainingActive) },
-                        onEditSession = { navController.navigate(QingJiRoutes.TrainingActive) }
-                    )
-                }
-                // ---------- 训练中心 P1 ----------
-                composable(QingJiRoutes.ExerciseLibrary) {
-                    ExerciseLibraryScreen(
-                        vm = planVm,
-                        onBack = { navController.popBackStack() },
-                        onOpenDetail = { uuid -> navController.navigate(QingJiRoutes.exerciseDetail(uuid)) }
-                    )
-                }
-                composable(QingJiRoutes.ExerciseFavorites) {
-                    ExerciseLibraryScreen(
-                        vm = planVm,
-                        onBack = { navController.popBackStack() },
-                        onOpenDetail = { uuid -> navController.navigate(QingJiRoutes.exerciseDetail(uuid)) },
-                        favoritesOnly = true
-                    )
-                }
-                composable(
-                    route = QingJiRoutes.ExerciseDetail,
-                    arguments = listOf(navArgument("uuid") { type = NavType.StringType })
-                ) { entry ->
-                    ExerciseDetailScreen(
-                        vm = planVm,
-                        uuid = entry.arguments?.getString("uuid").orEmpty(),
-                        onBack = { navController.popBackStack() },
-                        onStartRecord = { ex ->
-                            // 先寄存在 VM，进行中训练页第一帧取走
-                            trainingVm.queueExercise(ex)
-                            navController.navigate(QingJiRoutes.TrainingActive)
-                        }
-                    )
-                }
-                composable(QingJiRoutes.TrainingPlan) {
-                    TrainingPlanScreen(
-                        vm = planVm,
-                        onBack = { navController.popBackStack() }
-                    )
-                }
-                composable(QingJiRoutes.PersonalBest) {
-                    PersonalBestScreen(
-                        vm = planVm,
-                        onBack = { navController.popBackStack() }
-                    )
-                }
+                        )
+                    }
+                    composable(
+                        route = QingJiRoutes.ExerciseConfirm,
+                        arguments = listOf(navArgument("presetId") { type = NavType.LongType })
+                    ) { entry ->
+                        ExerciseConfirmScreen(
+                            presetId = entry.arguments?.getLong("presetId") ?: 0L,
+                            onBack = { navController.popBackStack() },
+                            onSaved = { navController.popBackStack(QingJiTab.Home.route, false) }
+                        )
+                    }
+                    // ---------- 训练中心 P0 ----------
+                    composable(QingJiRoutes.TrainingActive) {
+                        TrainingActiveScreen(
+                            vm = trainingVm,
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
+                    composable(QingJiRoutes.TrainingHistory) {
+                        TrainingHistoryScreen(
+                            vm = trainingVm,
+                            onBack = { navController.popBackStack() },
+                            onStartTraining = { navController.navigate(QingJiRoutes.TrainingActive) },
+                            onEditSession = { navController.navigate(QingJiRoutes.TrainingActive) }
+                        )
+                    }
+                    // ---------- 训练中心 P1 ----------
+                    composable(QingJiRoutes.ExerciseLibrary) {
+                        ExerciseLibraryScreen(
+                            vm = planVm,
+                            onBack = { navController.popBackStack() },
+                            onOpenDetail = { uuid -> navController.navigate(QingJiRoutes.exerciseDetail(uuid)) }
+                        )
+                    }
+                    composable(QingJiRoutes.ExerciseFavorites) {
+                        ExerciseLibraryScreen(
+                            vm = planVm,
+                            onBack = { navController.popBackStack() },
+                            onOpenDetail = { uuid -> navController.navigate(QingJiRoutes.exerciseDetail(uuid)) },
+                            favoritesOnly = true
+                        )
+                    }
+                    composable(
+                        route = QingJiRoutes.ExerciseDetail,
+                        arguments = listOf(navArgument("uuid") { type = NavType.StringType })
+                    ) { entry ->
+                        ExerciseDetailScreen(
+                            vm = planVm,
+                            uuid = entry.arguments?.getString("uuid").orEmpty(),
+                            onBack = { navController.popBackStack() },
+                            onStartRecord = { ex ->
+                                // 先寄存在 VM，进行中训练页第一帧取走
+                                trainingVm.queueExercise(ex)
+                                navController.navigate(QingJiRoutes.TrainingActive)
+                            }
+                        )
+                    }
+                    composable(QingJiRoutes.TrainingPlan) {
+                        TrainingPlanScreen(
+                            vm = planVm,
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
+                    composable(QingJiRoutes.PersonalBest) {
+                        PersonalBestScreen(
+                            vm = planVm,
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
 
-                // ==================== 自律管理（P0） ====================
-                composable(QingJiRoutes.SelfDiscipline) {
-                    SelfDisciplineDashboardScreen(
-                        onBack = { navController.popBackStack() },
-                        vm = selfDisciplineVm,
-                        onOpenGoals = { navController.navigate(QingJiRoutes.SelfDisciplineGoals) },
-                        onOpenCheckin = { id -> navController.navigate(QingJiRoutes.selfDisciplineCheckin(id)) },
-                        onOpenUrge = { id -> navController.navigate(QingJiRoutes.selfDisciplineUrge(id)) },
-                        onOpenDeviation = { id -> navController.navigate(QingJiRoutes.selfDisciplineDeviation(id)) },
-                        onOpenHistory = { id -> navController.navigate(QingJiRoutes.selfDisciplineHistory(id)) },
-                        onOpenSettings = { navController.navigate(QingJiRoutes.SelfDisciplineSettings) }
-                    )
+                    // ==================== 自律管理（P0） ====================
+                    composable(QingJiRoutes.SelfDiscipline) {
+                        SelfDisciplineDashboardScreen(
+                            onBack = { navController.popBackStack() },
+                            vm = selfDisciplineVm,
+                            onOpenGoals = { navController.navigate(QingJiRoutes.SelfDisciplineGoals) },
+                            onOpenCheckin = { id -> navController.navigate(QingJiRoutes.selfDisciplineCheckin(id)) },
+                            onOpenUrge = { id -> navController.navigate(QingJiRoutes.selfDisciplineUrge(id)) },
+                            onOpenDeviation = { id -> navController.navigate(QingJiRoutes.selfDisciplineDeviation(id)) },
+                            onOpenHistory = { id -> navController.navigate(QingJiRoutes.selfDisciplineHistory(id)) },
+                            onOpenSettings = { navController.navigate(QingJiRoutes.SelfDisciplineSettings) }
+                        )
+                    }
+                    composable(QingJiRoutes.SelfDisciplineGoals) {
+                        SelfDisciplineGoalsScreen(
+                            onBack = { navController.popBackStack() },
+                            vm = selfDisciplineVm,
+                            onCreate = { navController.navigate(QingJiRoutes.selfDisciplineGoalEdit(0L)) },
+                            onEdit = { id -> navController.navigate(QingJiRoutes.selfDisciplineGoalEdit(id)) },
+                            onOpenCheckin = { id -> navController.navigate(QingJiRoutes.selfDisciplineCheckin(id)) }
+                        )
+                    }
+                    composable(
+                        route = QingJiRoutes.SelfDisciplineGoalEdit,
+                        arguments = listOf(navArgument("goalId") {
+                            type = NavType.LongType
+                            defaultValue = 0L
+                        })
+                    ) { entry ->
+                        SelfDisciplineGoalEditScreen(
+                            goalId = entry.arguments?.getLong("goalId") ?: 0L,
+                            vm = selfDisciplineVm,
+                            onBack = { navController.popBackStack() },
+                            onSaved = { navController.popBackStack() }
+                        )
+                    }
+                    composable(
+                        route = QingJiRoutes.SelfDisciplineCheckin,
+                        arguments = listOf(navArgument("goalId") { type = NavType.LongType })
+                    ) { entry ->
+                        SelfDisciplineCheckinScreen(
+                            goalId = entry.arguments?.getLong("goalId") ?: 0L,
+                            vm = selfDisciplineVm,
+                            onBack = { navController.popBackStack() },
+                            onSaved = { navController.popBackStack() }
+                        )
+                    }
+                    composable(
+                        route = QingJiRoutes.SelfDisciplineUrge,
+                        arguments = listOf(navArgument("goalId") { type = NavType.LongType })
+                    ) { entry ->
+                        SelfDisciplineUrgeScreen(
+                            goalId = entry.arguments?.getLong("goalId") ?: 0L,
+                            vm = selfDisciplineVm,
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
+                    composable(
+                        route = QingJiRoutes.SelfDisciplineDeviation,
+                        arguments = listOf(navArgument("goalId") { type = NavType.LongType })
+                    ) { entry ->
+                        SelfDisciplineDeviationScreen(
+                            goalId = entry.arguments?.getLong("goalId") ?: 0L,
+                            vm = selfDisciplineVm,
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
+                    composable(
+                        route = QingJiRoutes.SelfDisciplineHistory,
+                        arguments = listOf(navArgument("goalId") { type = NavType.LongType })
+                    ) { entry ->
+                        SelfDisciplineHistoryScreen(
+                            goalId = entry.arguments?.getLong("goalId") ?: 0L,
+                            vm = selfDisciplineVm,
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
+                    composable(QingJiRoutes.SelfDisciplineSettings) {
+                        SelfDisciplineSettingsScreen(
+                            onBack = { navController.popBackStack() },
+                            vm = selfDisciplineVm,
+                            onOpenGoals = { navController.navigate(QingJiRoutes.SelfDisciplineGoals) }
+                        )
+                    }
                 }
-                composable(QingJiRoutes.SelfDisciplineGoals) {
-                    SelfDisciplineGoalsScreen(
-                        onBack = { navController.popBackStack() },
-                        vm = selfDisciplineVm,
-                        onCreate = { navController.navigate(QingJiRoutes.selfDisciplineGoalEdit(0L)) },
-                        onEdit = { id -> navController.navigate(QingJiRoutes.selfDisciplineGoalEdit(id)) },
-                        onOpenCheckin = { id -> navController.navigate(QingJiRoutes.selfDisciplineCheckin(id)) }
-                    )
-                }
-                composable(
-                    route = QingJiRoutes.SelfDisciplineGoalEdit,
-                    arguments = listOf(navArgument("goalId") {
-                        type = NavType.LongType
-                        defaultValue = 0L
-                    })
-                ) { entry ->
-                    SelfDisciplineGoalEditScreen(
-                        goalId = entry.arguments?.getLong("goalId") ?: 0L,
-                        vm = selfDisciplineVm,
-                        onBack = { navController.popBackStack() },
-                        onSaved = { navController.popBackStack() }
-                    )
-                }
-                composable(
-                    route = QingJiRoutes.SelfDisciplineCheckin,
-                    arguments = listOf(navArgument("goalId") { type = NavType.LongType })
-                ) { entry ->
-                    SelfDisciplineCheckinScreen(
-                        goalId = entry.arguments?.getLong("goalId") ?: 0L,
-                        vm = selfDisciplineVm,
-                        onBack = { navController.popBackStack() },
-                        onSaved = { navController.popBackStack() }
-                    )
-                }
-                composable(
-                    route = QingJiRoutes.SelfDisciplineUrge,
-                    arguments = listOf(navArgument("goalId") { type = NavType.LongType })
-                ) { entry ->
-                    SelfDisciplineUrgeScreen(
-                        goalId = entry.arguments?.getLong("goalId") ?: 0L,
-                        vm = selfDisciplineVm,
-                        onBack = { navController.popBackStack() }
-                    )
-                }
-                composable(
-                    route = QingJiRoutes.SelfDisciplineDeviation,
-                    arguments = listOf(navArgument("goalId") { type = NavType.LongType })
-                ) { entry ->
-                    SelfDisciplineDeviationScreen(
-                        goalId = entry.arguments?.getLong("goalId") ?: 0L,
-                        vm = selfDisciplineVm,
-                        onBack = { navController.popBackStack() }
-                    )
-                }
-                composable(
-                    route = QingJiRoutes.SelfDisciplineHistory,
-                    arguments = listOf(navArgument("goalId") { type = NavType.LongType })
-                ) { entry ->
-                    SelfDisciplineHistoryScreen(
-                        goalId = entry.arguments?.getLong("goalId") ?: 0L,
-                        vm = selfDisciplineVm,
-                        onBack = { navController.popBackStack() }
-                    )
-                }
-                composable(QingJiRoutes.SelfDisciplineSettings) {
-                    SelfDisciplineSettingsScreen(
-                        onBack = { navController.popBackStack() },
-                        vm = selfDisciplineVm,
-                        onOpenGoals = { navController.navigate(QingJiRoutes.SelfDisciplineGoals) }
-                    )
-                }
+            }
+        }
+
+        // barfx v4：悬浮底栏是 Overlay——盖在内容上层，不占布局槽。
+        // 之前放在 bottomBar 槽里，Scaffold 给它让出一整块背景，Dock 两侧/下方
+        // 露出一截空底色，看起来像给底栏蒙了层遮罩；现在内容延伸到 Dock 背后，
+        // 两侧直接能看到页面列表。进出二级页沿用滑落/滑入 + 淡入淡出。
+        if (settings.floatingBottomBar) {
+            AnimatedVisibility(
+                visible = showBottomBar,
+                enter = slideInVertically(
+                    animationSpec = tween(com.qingji.app.ui.theme.Motion.Normal, easing = FastOutSlowInEasing)
+                ) { it } + fadeIn(tween(com.qingji.app.ui.theme.Motion.Fast)),
+                exit = slideOutVertically(
+                    animationSpec = tween(com.qingji.app.ui.theme.Motion.Normal, easing = FastOutSlowInEasing)
+                ) { it } + fadeOut(tween(com.qingji.app.ui.theme.Motion.Fast)),
+                modifier = Modifier.align(Alignment.BottomCenter)
+            ) {
+                QingJiFloatingBar(
+                    currentRoute = currentRoute,
+                    onTabSelected = onBarTabSelected,
+                    onAddClick = { showAddSheet = true },
+                    settings = settings
+                )
             }
         }
     }
