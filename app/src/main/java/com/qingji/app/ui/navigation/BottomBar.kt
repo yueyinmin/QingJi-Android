@@ -1,10 +1,19 @@
 package com.qingji.app.ui.navigation
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
+import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -31,13 +40,19 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -104,11 +119,14 @@ fun QingJiBottomBar(
 }
 
 /**
- * 悬浮底栏 v3（2026-11-14 主人给参考图定版）：
- * 白色胶囊 Dock，左侧四个「图标 + 文字」横排选项，右侧一颗绿色「+ 记一笔」大按钮；
- * 选中项底下垫一条浅绿胶囊，切换时从旧选项溜到新选项（与经典款同一套弹簧参数）。
- * 布局是定宽的：Dock 内边距 10dp + 右侧按钮 96dp + 间隙 8dp，剩下的宽度均分给 Tab，
- * 这样指示器的槽位是纯几何计算，不依赖子项测量。
+ * 悬浮底栏 v7（2026-11-14 主人按记账 App 参考图重做）：
+ * 全圆角白色胶囊 Dock，左侧四个选项、右侧一颗绿色「+ 记一笔」大按钮。
+ * 拥挤和「绿色方块阴影」两个问题一起改：
+ * 1. 未选中的选项只留图标，选中的才展开文字 —— 四个槽位一下松了；
+ * 2. 选中指示器收成贴合内容的全圆角浅绿胶囊，不再是占满整格的 12dp 方角块；
+ * 3. Dock 改回胶囊形，阴影减到 6dp，选项缩放弹跳从 1.06 收到 1.02。
+ * 布局仍是定宽几何计算：内边距 8dp×2 + 右侧按钮 88dp + 间隙 10dp，
+ * 其余宽度均分给 Tab，指示器槽位不依赖子项测量。
  */
 @Composable
 fun QingJiFloatingBar(
@@ -123,13 +141,13 @@ fun QingJiFloatingBar(
         Box(
             modifier = Modifier
                 .navigationBarsPadding()
-                .padding(start = 16.dp, end = 16.dp, bottom = 10.dp)
+                // v8：主人反馈「底栏太低」，整条 Dock 上提 10dp。
+                // 四个一级页的页尾让位同步 106→116dp（首页 / 我的 / 进展 / 日记两个 Tab）。
+                .padding(start = 16.dp, end = 16.dp, bottom = 22.dp)
                 .fillMaxWidth()
-                // v6：26dp 在 60dp 高的 Dock 上跟整圆（30dp）几乎没差别，
-                // 主人看着仍是「完全圆的」；收到 16dp——四角是明确的圆角、
-                // 上下有大段直边，和参考图的悬浮菜单一个观感。
-                .shadow(elevation = 10.dp, shape = RoundedCornerShape(16.dp))
-                .clip(RoundedCornerShape(16.dp))
+                // v9：阴影 6→4dp，白条更轻，不再像一块压在页面上的方牌。
+                .shadow(elevation = 4.dp, shape = RoundedCornerShape(31.dp))
+                .clip(RoundedCornerShape(31.dp))
                 .background(CardWhite)
         ) {
             FloatingBarSlots(
@@ -142,6 +160,13 @@ fun QingJiFloatingBar(
     }
 }
 
+/**
+ * 悬浮款内部布局 + UI-NAV-03 长按拖动导航。
+ *
+ * 状态分两层：currentRoute 由 NavController 管理（真实页面），拖动期间绝不改；
+ * previewRoute 只是底栏选中态的预览，松手才提交一次。手指划过四个图标时
+ * 不会连续加载页面，也不会和转场动画打架。
+ */
 @Composable
 private fun FloatingBarSlots(
     tabs: List<QingJiTab>,
@@ -149,52 +174,110 @@ private fun FloatingBarSlots(
     onTabSelected: (QingJiTab) -> Unit,
     onAddClick: () -> Unit
 ) {
+    var previewRoute by remember { mutableStateOf<String?>(null) }
+    // 长按拖动结束后，子项 clickable 可能补发一次点击；用这个开关吞掉，
+    // 下一次新手势开始时自动复位，不会误伤后续普通点击。
+    var suppressClick by remember { mutableStateOf(false) }
+    val displayRoute = previewRoute ?: currentRoute
+    val haptic = LocalHapticFeedback.current
+
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
-            .height(60.dp)
+            .height(62.dp)
     ) {
-        val activeSlot = tabs.indexOfFirst { it.route == currentRoute }.coerceAtLeast(0)
-        val slotWidth = (maxWidth - 20.dp - 96.dp - 8.dp) / tabs.size
+        val activeSlot = tabs.indexOfFirst { it.route == displayRoute }.coerceAtLeast(0)
+        // 与下面 Row 的 padding(8dp×2) / 按钮 80dp / 间隙 12dp 严格对齐。
+        val slotWidth = (maxWidth - 16.dp - 80.dp - 12.dp) / tabs.size
         val animatedSlot by animateFloatAsState(
             targetValue = activeSlot.toFloat(),
             animationSpec = spring(dampingRatio = 0.85f, stiffness = 900f),
             label = "floatIndicator"
         )
-        val pillWidth = slotWidth - 4.dp
+        val pillWidth = slotWidth - 2.dp
         Box(
             modifier = Modifier
                 .offset(
-                    x = 10.dp + slotWidth * animatedSlot + 2.dp,
-                    y = 10.dp
+                    x = 8.dp + slotWidth * animatedSlot + 1.dp,
+                    y = 11.dp
                 )
                 .width(pillWidth)
                 .height(40.dp)
-                // v6：选中高亮同参考图——12dp 圆角矩形，不再和 Dock 抢「全圆」的观感。
-                .clip(RoundedCornerShape(12.dp))
-                .background(QingJiGreenLight)
+                .clip(RoundedCornerShape(999.dp))
+                .background(QingJiGreenLight.copy(alpha = 0.7f))
         )
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(start = 10.dp, end = 10.dp),
+                .padding(start = 8.dp, end = 8.dp)
+                // UI-NAV-03：手势只挂内容区，不覆盖页面滚动区，也不吞普通点击。
+                .pointerInput(tabs, currentRoute) {
+                    // 坐标系是 padding 之后的内容区：四个 Tab 均分，右侧再留 80dp 按钮 + 12dp 间隙。
+                    fun hitRoute(pos: Offset): String? {
+                        val buttonPx = 80.dp.toPx()
+                        val gapPx = 12.dp.toPx()
+                        val tabAreaPx = size.width - buttonPx - gapPx
+                        if (tabAreaPx <= 0f) return null
+                        if (pos.y < 0f || pos.y > size.height) return null
+                        if (pos.x < 0f || pos.x >= tabAreaPx) return null
+                        val index = (pos.x / (tabAreaPx / tabs.size))
+                            .toInt().coerceIn(0, tabs.size - 1)
+                        return tabs[index].route
+                    }
+                    awaitEachGesture {
+                        // 新手势开始先复位，保证上一次拖动不会吞掉这次普通点击。
+                        suppressClick = false
+                        // 不消费 down：短按仍落到子项 clickable，普通点击行为零改动。
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        val startRoute = hitRoute(down.position)
+                        val longPress = awaitLongPressOrCancellation(down.id)
+                        if (longPress == null) return@awaitEachGesture
+
+                        // 长按约 400ms 成功：进入拖动预览 + 轻微触觉反馈。
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        suppressClick = true
+                        previewRoute = startRoute ?: currentRoute
+                        var finalRoute: String? = previewRoute
+                        try {
+                            drag(down.id) { change ->
+                                val target = hitRoute(change.position)
+                                previewRoute = target   // null = 按钮区 / 栏外，预览回到当前页
+                                finalRoute = target
+                            }
+                            // 松手提交：只切一次，目标必须是四个有效导航项之一。
+                            // 拖到「记一笔」或栏外时 finalRoute 为 null，本次选择取消。
+                            if (finalRoute != null && finalRoute != currentRoute) {
+                                tabs.firstOrNull { it.route == finalRoute }?.let(onTabSelected)
+                            }
+                        } finally {
+                            // 正常松手或手势被系统中断，都恢复真实页面的选中态；
+                            // 子项补发的点击由 suppressClick 拦截，不会重复跳转。
+                            previewRoute = null
+                        }
+                    }
+                },
             verticalAlignment = Alignment.CenterVertically
         ) {
             tabs.forEach { tab ->
                 FloatingTabItem(
                     tab = tab,
-                    selected = currentRoute == tab.route,
-                    onClick = { onTabSelected(tab) },
+                    selected = displayRoute == tab.route,
+                    onClick = {
+                        if (suppressClick) suppressClick = false else onTabSelected(tab)
+                    },
                     modifier = Modifier.weight(1f)
                 )
             }
-            Spacer(Modifier.width(8.dp))
-            AddPillButton(onClick = onAddClick)
+            Spacer(Modifier.width(12.dp))
+            // 手指落在「记一笔」上松手属于取消选择，绝不能弹出记录面板。
+            AddPillButton(onClick = {
+                if (suppressClick) suppressClick = false else onAddClick()
+            })
         }
     }
 }
 
-/** 悬浮款的选项：图标 + 文字横排，选中整组弹一下，配色跟选中态走。 */
+/** 悬浮款的选项：未选中只留图标，选中才展开文字；v9 收小内容，给胶囊留出余量。 */
 @Composable
 private fun FloatingTabItem(
     tab: QingJiTab,
@@ -203,8 +286,10 @@ private fun FloatingTabItem(
     modifier: Modifier = Modifier
 ) {
     val interaction = remember { MutableInteractionSource() }
+    // v7：弹跳幅度 1.06→1.02。之前整组等比放大时绿底跟着晃，
+    // 是「绿色阴影」观感的另一半来源，这里只留一点点落位反馈。
     val scale by animateFloatAsState(
-        targetValue = if (selected) 1.06f else 1f,
+        targetValue = if (selected) 1.02f else 1f,
         animationSpec = if (selected) {
             spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium)
         } else {
@@ -232,17 +317,25 @@ private fun FloatingTabItem(
             imageVector = tab.icon,
             contentDescription = com.qingji.app.ui.i18n.s(tab.label),
             tint = tint,
-            modifier = Modifier.size(18.dp)
+            modifier = Modifier.size(16.dp)
         )
-        Spacer(Modifier.width(4.dp))
-        Text(
-            text = com.qingji.app.ui.i18n.s(tab.label),
-            fontSize = 12.sp,
-            lineHeight = 16.sp,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-            color = tint,
-            maxLines = 1
-        )
+        AnimatedVisibility(
+            visible = selected,
+            enter = fadeIn(tween(150)) + expandHorizontally(animationSpec = tween(180)),
+            exit = fadeOut(tween(120)) + shrinkHorizontally(animationSpec = tween(150))
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Spacer(Modifier.width(5.dp))
+                Text(
+                    text = com.qingji.app.ui.i18n.s(tab.label),
+                    fontSize = 11.sp,
+                    lineHeight = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = tint,
+                    maxLines = 1
+                )
+            }
+        }
     }
 }
 
@@ -252,8 +345,9 @@ private fun AddPillButton(onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     Row(
         modifier = Modifier
-            .width(96.dp)
-            .height(44.dp)
+            // v9：88→80dp，再给四个 Tab 让出 8dp，选中项与胶囊之间留出余量。
+            .width(80.dp)
+            .height(42.dp)
             .clip(RoundedCornerShape(999.dp))
             .background(QingJiGreenDark)
             .clickable(interactionSource = interaction, indication = null) { onClick() },
@@ -266,11 +360,11 @@ private fun AddPillButton(onClick: () -> Unit) {
             tint = Color.White,
             modifier = Modifier.size(18.dp)
         )
-        Spacer(Modifier.width(4.dp))
+        Spacer(Modifier.width(3.dp))
         Text(
             text = com.qingji.app.ui.i18n.s("记一笔"),
-            fontSize = 12.sp,
-            lineHeight = 16.sp,
+            fontSize = 11.sp,
+            lineHeight = 14.sp,
             fontWeight = FontWeight.SemiBold,
             color = Color.White,
             maxLines = 1

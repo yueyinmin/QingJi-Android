@@ -259,6 +259,11 @@ fun ProgressScreen(
             onClick = onOpenWeight
         )
 
+        // v12：身体数据卡固定最上、不进管理列表。之前它和第一张可管理卡
+        // （默认「本周运动消耗」）之间没有任何间距，两张白卡看着连成一块。
+        // 补上和其它卡片一致的 12dp；forEach 里仍只从第二张起加间距。
+        Spacer(Modifier.height(Dimens.Gap))
+
         // v11：卡片按「管理卡片」里调好的顺序渲染，关掉开关的卡不显示。
         var appearIndex = 0
         cardOrder.filter { it !in cardHidden }.forEach { cardId ->
@@ -319,7 +324,7 @@ fun ProgressScreen(
         }
 
         // v9：悬浮底栏模式滚动尾部让出 Dock 高度，最后一块卡不被盖住
-        Spacer(Modifier.height(if (settings.floatingBottomBar) 106.dp else Dimens.FabSpace))
+        Spacer(Modifier.height(if (settings.floatingBottomBar) 116.dp else Dimens.FabSpace))
     }
 
     // v11：管理卡片弹层
