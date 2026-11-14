@@ -138,6 +138,9 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     fun setSwipeNavigate(enabled: Boolean) = put(SettingsKeys.SWIPE_NAVIGATE, enabled)
     fun setPageTransition(enabled: Boolean) = put(SettingsKeys.PAGE_TRANSITION, enabled)
     fun setFloatingBottomBar(enabled: Boolean) = put(SettingsKeys.FLOATING_BOTTOM_BAR, enabled)
+    /** v12：进展页卡片管理——顺序与显隐分开存 */
+    fun setProgressCardOrder(value: String) = put(SettingsKeys.PROGRESS_CARD_ORDER, value)
+    fun setProgressCardHidden(value: String) = put(SettingsKeys.PROGRESS_CARD_HIDDEN, value)
 
     fun setShowAiAnalysis(show: Boolean) = put(SettingsKeys.SHOW_AI_ANALYSIS, show)
 

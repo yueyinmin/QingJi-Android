@@ -105,6 +105,10 @@ object SettingsKeys {
     val PAGE_TRANSITION = booleanPreferencesKey("page_transition")
     /** 底栏悬浮 Dock 皮肤（设置 → 显示与外观）：关 = 经典通栏，开 = 悬浮圆角栏 */
     val FLOATING_BOTTOM_BAR = booleanPreferencesKey("floating_bottom_bar")
+    /** v12：进展页卡片管理——卡片顺序（逗号分隔 id，空 = 默认顺序） */
+    val PROGRESS_CARD_ORDER = stringPreferencesKey("progress_card_order")
+    /** v12：进展页卡片管理——被隐藏的卡片 id（逗号分隔，空 = 全显示） */
+    val PROGRESS_CARD_HIDDEN = stringPreferencesKey("progress_card_hidden")
     val NICKNAME = stringPreferencesKey("nickname")
     val AVATAR_PATH = stringPreferencesKey("avatar_path")
 
@@ -192,6 +196,9 @@ data class QingJiSettings(
     val pageTransition: Boolean = true,
     // 悬浮底栏（Dock 皮肤），默认关
     val floatingBottomBar: Boolean = false,
+    // v12：进展页卡片管理（空串 = 默认顺序 / 全显示）
+    val progressCardOrder: String = "",
+    val progressCardHidden: String = "",
     val nickname: String = "轻er~",
     val avatarPath: String = "",
     // ---------- v3.4.0 新增 ----------
@@ -272,6 +279,8 @@ object SettingsStore {
                     swipeNavigate = p[SettingsKeys.SWIPE_NAVIGATE] ?: true,
                     pageTransition = p[SettingsKeys.PAGE_TRANSITION] ?: true,
                     floatingBottomBar = p[SettingsKeys.FLOATING_BOTTOM_BAR] ?: false,
+                    progressCardOrder = p[SettingsKeys.PROGRESS_CARD_ORDER] ?: "",
+                    progressCardHidden = p[SettingsKeys.PROGRESS_CARD_HIDDEN] ?: "",
                     nickname = p[SettingsKeys.NICKNAME] ?: "轻er~",
                     avatarPath = p[SettingsKeys.AVATAR_PATH] ?: "",
                     waterReminder = p[SettingsKeys.WATER_REMINDER] ?: false,
