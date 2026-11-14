@@ -383,6 +383,8 @@ class BackupManager(private val context: Context) {
                         put("eatStartMinute", f.eatStartMinute)
                         put("eatEndMinute", f.eatEndMinute)
                         put("completed", f.completed)
+                        put("freeMode", f.freeMode)
+                        put("actualMinutes", f.actualMinutes)
                         put("createdAt", f.createdAt)
                     })
                 }
