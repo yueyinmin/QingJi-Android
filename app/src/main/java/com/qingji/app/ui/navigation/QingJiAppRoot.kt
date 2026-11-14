@@ -242,6 +242,8 @@ fun QingJiAppRoot(
     // 这里创建后传给页面，StateFlow 保留最后一次的值，切回来第一帧就是真数据。
     // VM 全是 WhileSubscribed(5_000) 且没有 init 副作用，常驻是安全的。
     val homeVm: HomeViewModel = viewModel()
+    // v8：本周小结数据在 HomeViewModel，进展页要展示，Root 收好传下去
+    val weeklySummary by homeVm.weeklySummary.collectAsState()
     val progressVm: ProgressViewModel = viewModel()
     val diaryVm: DiaryViewModel = viewModel()
     val mineVm: MineViewModel = viewModel()
@@ -451,6 +453,7 @@ fun QingJiAppRoot(
                             // v1.0.6：运动卡片的「+ 记一次」走二级页，才能填步数 / 公里
                             onOpenExercise = { navController.navigate(QingJiRoutes.ExercisePicker) },
                             scrollState = tabScrollStates.getValue(QingJiTab.Progress),
+                            weeklySummary = weeklySummary,
                             vm = progressVm
                         )
                     }

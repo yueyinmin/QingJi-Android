@@ -43,6 +43,7 @@ import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.MonitorWeight
+import androidx.compose.material.icons.outlined.Payments
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.QrCode
 import androidx.compose.material3.Icon
@@ -350,23 +351,15 @@ private fun ProfileHeaderCard(
             )
         }
 
-        // v6：使用情况并入资料卡（主人指定）——图标-名称-数字横排一条、两列四排，
-        // 比原来的独立大卡省一半以上高度；统计口径一条没动。
-        // 注意：上面的 Row 自带 14dp 水平 padding，分割线和统计块在 Row 外面，
-        // 要自己补同样的内边距，否则右列数字会贴出卡片。
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 12.dp)
-                .padding(horizontal = 14.dp)
-                .height(1.dp)
-                .background(DividerColor)
-        )
-        Spacer(Modifier.height(10.dp))
+        // v6：使用情况并入资料卡（主人指定）——图标-名称-数字横排一条、两列四排。
+        // v8：去掉分割线（主人反馈）；底部补 14dp——最后一排格子原先贴着卡片
+        // 圆角被裁（主人反馈「看着异常」）。
+        Spacer(Modifier.height(12.dp))
         UsageSectionCard(
             totals = totals,
             modifier = Modifier.padding(horizontal = 14.dp)
         )
+        Spacer(Modifier.height(14.dp))
     }
 }
 
@@ -444,51 +437,35 @@ private fun UsageMiniRow(cell: StatCell, modifier: Modifier = Modifier) {
     }
 }
 
-/** 调用统计（对应需求文档 M6 的会员卡区域）。token 和费用不瞎估。 */
+/** 调用统计：v8 改成和其他分组一致的行式布局，去掉「本月 X 次」徽章。token 和费用不瞎估。 */
 @Composable
 private fun UsageCard(totalAi: Int, monthAi: Int) {
-    GroupCard(contentPadding = 16.dp) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = s("调用统计"),
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = TextPrimary
-            )
-            Text(
-                text = "本月 $monthAi 次",
-                fontSize = 12.sp,
-                color = QingJiGreenDark,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(QingJiGreenLight)
-                    .padding(horizontal = 10.dp, vertical = 3.dp)
-            )
-        }
-
-        Spacer(Modifier.height(14.dp))
-
-        Row(modifier = Modifier.fillMaxWidth()) {
-            UsageNumber(
-                label = "累计 AI 调用",
-                value = totalAi.toString(),
-                unit = "次",
-                modifier = Modifier.weight(1f)
-            )
-            UsageNumber(label = "消耗 token", value = "—", unit = "", modifier = Modifier.weight(1f))
-            UsageNumber(label = "估算花费", value = "—", unit = "", modifier = Modifier.weight(1f))
-        }
-
-        Spacer(Modifier.height(12.dp))
-
-        Text(
-            text = s("token 与费用以服务商账单为准，本地只记调用次数 · 数据只存在本机"),
-            fontSize = 11.sp,
-            color = TextSecondary
+    GroupCard {
+        SettingsRow(
+            title = "累计 AI 调用",
+            icon = Icons.Outlined.AutoAwesome,
+            tone = IconTones.Teal,
+            trailing = "$totalAi 次",
+            showArrow = false,
+            onClick = {}
+        )
+        GroupDivider()
+        SettingsRow(
+            title = "消耗 token",
+            icon = Icons.Outlined.Description,
+            tone = IconTones.Blue,
+            trailing = "—",
+            showArrow = false,
+            onClick = {}
+        )
+        GroupDivider()
+        SettingsRow(
+            title = "估算花费",
+            icon = Icons.Outlined.Payments,
+            tone = IconTones.Orange,
+            trailing = "—",
+            showArrow = false,
+            onClick = {}
         )
     }
 }

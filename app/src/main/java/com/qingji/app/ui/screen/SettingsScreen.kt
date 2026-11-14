@@ -1281,7 +1281,7 @@ private fun ThemeSettingsPage(
             RowDivider()
             SwitchRow(
                 title = "本周小结",
-                subtitle = "首页底部显示近 7 天的一句话小结（纯本地计算，不调 AI）",
+                subtitle = "进展页显示近 7 天的一句话小结（纯本地计算，不调 AI）",
                 checked = settings.showWeeklySummary
             ) { onSetWeeklySummary(it) }
             RowDivider()

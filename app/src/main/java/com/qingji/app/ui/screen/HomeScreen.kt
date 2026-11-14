@@ -163,7 +163,6 @@ fun HomeScreen(
     vm: HomeViewModel = viewModel()
 ) {
     val state by vm.uiState.collectAsState()
-    val weeklySummary by vm.weeklySummary.collectAsState()
     val trainingSessions by trainingVm.sessions.collectAsState()
     val trainingDraft by trainingVm.draft.collectAsState()
     // 订阅计划相关的三份流，计划一变首页卡就跟着重组
@@ -171,7 +170,6 @@ fun HomeScreen(
     val planDays by planVm.activePlanDays.collectAsState()
     val planExercises by planVm.planExercises.collectAsState()
     val todayArrangement = planVm.todayArrangement()
-    val exerciseWeek by progressVm.exerciseWeek.collectAsState()
     val today = AppClock.today()
 
     // 首页要读几项显示设置：饮水卡显隐、AI 分析按钮显隐、悬浮按钮开关
@@ -409,21 +407,7 @@ fun HomeScreen(
             onHistory = onSelfDisciplineHistory
         )
 
-        // 本周运动消耗（从进展页搬过来，放本周小结上方）
-        Spacer(Modifier.height(20.dp))
-        com.qingji.app.ui.screen.ExerciseWeekCard(
-            list = exerciseWeek,
-            onAdd = onOpenExercise,
-            onDelete = { id -> progressVm.deleteExercise(id) }
-        )
-
-        // v3.4.0 R2：本周小结放四餐之后、底部留白之前（受「主题与显示」开关控制）
-        if (settings.showWeeklySummary) {
-            Spacer(Modifier.height(20.dp))
-            AppearItem(index = 6) {
-                com.qingji.app.ui.components.WeeklySummaryCard(summary = weeklySummary)
-            }
-        }
+        // v8：本周运动消耗 + 本周小结已搬到进展页（主人指定），首页不再展示
 
         // 底部留白：给悬浮按钮腾位置，不然会盖住最后一餐
         Spacer(Modifier.height(88.dp))

@@ -109,6 +109,8 @@ fun ProgressScreen(
     modifier: Modifier = Modifier,
     /** tabfix：滚动状态由 Root 持有，切 Tab 回来不丢位置。 */
     scrollState: ScrollState = rememberScrollState(),
+    /** v8：本周小结（数据源在 HomeViewModel，Root 传入）。 */
+    weeklySummary: com.qingji.app.domain.WeeklySummaryCalculator.Summary,
     vm: ProgressViewModel = viewModel()
 ) {
     val profile by vm.profile.collectAsState()
@@ -272,7 +274,23 @@ fun ProgressScreen(
 
         // 饮食 30 天已搬到「日记 → 训练日记」下方，这里不再重复展示
 
-        // 本周运动消耗已搬到首页「本周小结」上方，这里不再重复展示
+        // ---------- v8：本周运动消耗 + 本周小结（从首页搬回进展页，主人指定） ----------
+        AppearItem(index = 2) {
+            ExerciseWeekCard(
+                list = exerciseWeek,
+                onAdd = onOpenExercise,
+                onDelete = { id -> vm.deleteExercise(id) }
+            )
+        }
+
+        Spacer(Modifier.height(Dimens.Gap))
+
+        if (settings.showWeeklySummary) {
+            AppearItem(index = 2) {
+                com.qingji.app.ui.components.WeeklySummaryCard(summary = weeklySummary)
+            }
+            Spacer(Modifier.height(Dimens.Gap))
+        }
 
         // ---------- 身体维度 ----------
         AppearItem(index = 3) {
