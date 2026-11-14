@@ -54,11 +54,12 @@ import com.qingji.app.ui.theme.pressable
  * ============================================================
  * 底部中间「+」弹出的记录面板（v3.2 按吃有数的排法重做）
  * ------------------------------------------------------------
- * 从上到下四层：
+ * 从上到下四层（v9 重排）：
  * 1. 柔和绿渐变横幅「扫描食物」→ 拍照 AI 识别；
- * 2. 三张白色图标卡：语音输入（粉紫）/ 食物库（紫）/ 记录喝水（蓝）；
- * 3. 两张浅底宽卡：记录运动（蓝）/ 记录体重（绿）；
- * 4. 体型照片链接 + 文字录入/条形码补充入口 + 悬浮关闭键。
+ * 2. 2 行 4 列图标网格：语音输入 / 文字录入 / 扫条形码 / 食物库，
+ *    记录喝水 / 每日打卡 / 冲动记录 / 目标偏离（同一套卡片等比缩小）；
+ * 3. 2×2 浅底宽卡：记录运动 / 记录体重 / 开始训练 / 记录有氧；
+ * 4. 体型照片链接 + 悬浮关闭键。
  *
  * v3.2.2：用户要「参考图那种多彩」，这里改回固定语义色，
  * 颜色统一从 ui/theme/Color.kt 的 MultiColor 取，不随主题色开关变。
@@ -188,26 +189,39 @@ fun AddRecordSheet(
 
             Spacer(Modifier.height(12.dp))
 
-            // ---------- 2. 三张白色图标卡（粉紫 / 紫 / 蓝） ----------
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SheetIconCard(
-                    "语音输入",
-                    Icons.Outlined.Mic,
-                    MultiColor.Voice,
-                    Modifier.weight(1f)
-                ) { go(onVoice) }
-                SheetIconCard(
-                    "食物库",
-                    Icons.AutoMirrored.Outlined.MenuBook,
-                    MultiColor.FoodLibrary,
-                    Modifier.weight(1f)
-                ) { go(onSearchFood) }
-                SheetIconCard(
-                    "记录喝水",
-                    Icons.Outlined.WaterDrop,
-                    MultiColor.Drink,
-                    Modifier.weight(1f)
-                ) { go(onWater) }
+            // ---------- 2. 2 行 4 列图标网格（8 个入口，等比缩小） ----------
+            // v9：下面三个自律模块移到「记录」宽卡上方；文字录入 / 扫条形码
+            // 从底部宽按钮改成与语音输入同款的图标卡，一起进网格。
+            Column {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SheetIconCard("语音输入", Icons.Outlined.Mic, MultiColor.Voice, Modifier.weight(1f)) {
+                        go(onVoice)
+                    }
+                    SheetIconCard("文字录入", Icons.Outlined.EditNote, MultiColor.TextAi, Modifier.weight(1f)) {
+                        go(onTextAi)
+                    }
+                    SheetIconCard("扫条形码", Icons.Outlined.QrCode, MultiColor.Barcode, Modifier.weight(1f)) {
+                        go(onBarcode)
+                    }
+                    SheetIconCard("食物库", Icons.AutoMirrored.Outlined.MenuBook, MultiColor.FoodLibrary, Modifier.weight(1f)) {
+                        go(onSearchFood)
+                    }
+                }
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SheetIconCard("记录喝水", Icons.Outlined.WaterDrop, MultiColor.Drink, Modifier.weight(1f)) {
+                        go(onWater)
+                    }
+                    SheetIconCard("每日打卡", Icons.Outlined.TaskAlt, MultiColor.QuickWeight, Modifier.weight(1f)) {
+                        go(onSelfDisciplineCheckin)
+                    }
+                    SheetIconCard("冲动记录", Icons.Outlined.Bolt, MultiColor.FastingText, Modifier.weight(1f)) {
+                        go(onSelfDisciplineUrge)
+                    }
+                    SheetIconCard("目标偏离", Icons.Outlined.AltRoute, MultiColor.QuickBook, Modifier.weight(1f)) {
+                        go(onSelfDisciplineDeviation)
+                    }
+                }
             }
 
             Spacer(Modifier.height(10.dp))
@@ -235,25 +249,7 @@ fun AddRecordSheet(
                 }
             }
 
-            Spacer(Modifier.height(10.dp))
-
-            // ---------- 3.6 自律管理（SD-001）：三个高频操作 ----------
-            // sheetfix：一行塞三张宽卡（标题+箭头+emoji）太挤，和上面的
-            // 两列宽卡、三列图标卡风格都打架。改成和「语音/食物库/喝水」
-            // 同一套三列图标卡：三列的行用图标卡、两列的行用宽卡，节奏统一。
-            // 配色换专色：打卡=绿，冲动=警示橙，偏离=紫（不再借用运动/喝水/体重）。
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SheetIconCard("每日打卡", Icons.Outlined.TaskAlt, MultiColor.QuickWeight, Modifier.weight(1f)) {
-                    go(onSelfDisciplineCheckin)
-                }
-                SheetIconCard("冲动记录", Icons.Outlined.Bolt, MultiColor.FastingText, Modifier.weight(1f)) {
-                    go(onSelfDisciplineUrge)
-                }
-                SheetIconCard("目标偏离", Icons.Outlined.AltRoute, MultiColor.QuickBook, Modifier.weight(1f)) {
-                    go(onSelfDisciplineDeviation)
-                }
-            }
-
+            // v9：自律三入口已并入上方 2 行 4 列网格，放在「记录」宽卡之前。
             Spacer(Modifier.height(14.dp))
 
             // ---------- 4. 体型照片 + 补充入口 ----------
@@ -276,26 +272,7 @@ fun AddRecordSheet(
                 Text(text = "更新我的体型照片", fontSize = 12.sp, color = TextSecondary)
             }
 
-            Spacer(Modifier.height(6.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                MiniEntry(
-                    "文字录入",
-                    Icons.Outlined.EditNote,
-                    MultiColor.TextAi,
-                    Modifier.weight(1f)
-                ) { go(onTextAi) }
-                MiniEntry(
-                    "扫条形码",
-                    Icons.Outlined.QrCode,
-                    MultiColor.Barcode,
-                    Modifier.weight(1f)
-                ) { go(onBarcode) }
-            }
-
+            // v9：文字录入 / 扫条形码已改成图标卡，并入上方 2 行 4 列网格。
             Spacer(Modifier.height(18.dp))
 
             // ---------- 悬浮关闭键 ----------
@@ -338,16 +315,16 @@ private fun SheetIconCard(
 ) {
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(12.dp))
             .background(CardWhite)
-            .border(1.dp, DividerColor, RoundedCornerShape(14.dp))
+            .border(1.dp, DividerColor, RoundedCornerShape(12.dp))
             .pressable { onClick() }
-            .padding(vertical = 14.dp),
+            .padding(vertical = 10.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Box(
             modifier = Modifier
-                .size(44.dp)
+                .size(36.dp)
                 .clip(CircleShape)
                 .background(color.copy(alpha = 0.18f)),
             contentAlignment = Alignment.Center
@@ -356,13 +333,13 @@ private fun SheetIconCard(
                 imageVector = icon,
                 contentDescription = null,
                 tint = color,
-                modifier = Modifier.size(22.dp)
+                modifier = Modifier.size(18.dp)
             )
         }
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(6.dp))
         Text(
             text = label,
-            fontSize = 13.sp,
+            fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold,
             color = TextPrimary,
             maxLines = 1
@@ -422,34 +399,4 @@ private fun SheetWideCard(
     }
 }
 
-/**
- * 补充入口：文字录入 / 条形码，避免重排版把原有功能弄丢。
- * 参考图里没有这两颗，所以用低饱和淡彩，不抢上面几块的视觉。
- */
-@Composable
-private fun MiniEntry(
-    label: String,
-    icon: ImageVector,
-    color: Color,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = modifier
-            .clip(RoundedCornerShape(10.dp))
-            .background(color.copy(alpha = 0.10f))
-            .pressable { onClick() }
-            .padding(horizontal = 10.dp, vertical = 9.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = color,
-            modifier = Modifier.size(15.dp)
-        )
-        Spacer(Modifier.width(6.dp))
-        Text(text = label, fontSize = 12.sp, color = color, maxLines = 1)
-    }
-}
+// v9：MiniEntry 已删除。文字录入 / 扫条形码改成 SheetIconCard，并入上方 2 行 4 列网格。

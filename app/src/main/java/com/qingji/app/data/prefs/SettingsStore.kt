@@ -194,8 +194,8 @@ data class QingJiSettings(
     val swipeNavigate: Boolean = true,
     // 页面切换动画（关掉只留淡入淡出，老机器更稳）
     val pageTransition: Boolean = true,
-    // 悬浮底栏（Dock 皮肤），默认关
-    val floatingBottomBar: Boolean = false,
+    // 悬浮底栏（Dock 皮肤），v10 起默认开：新装用户直接用悬浮款
+    val floatingBottomBar: Boolean = true,
     // v12：进展页卡片管理（空串 = 默认顺序 / 全显示）
     val progressCardOrder: String = "",
     val progressCardHidden: String = "",
@@ -278,7 +278,7 @@ object SettingsStore {
                     progressAnimation = p[SettingsKeys.PROGRESS_ANIMATION] ?: true,
                     swipeNavigate = p[SettingsKeys.SWIPE_NAVIGATE] ?: true,
                     pageTransition = p[SettingsKeys.PAGE_TRANSITION] ?: true,
-                    floatingBottomBar = p[SettingsKeys.FLOATING_BOTTOM_BAR] ?: false,
+                    floatingBottomBar = p[SettingsKeys.FLOATING_BOTTOM_BAR] ?: true,
                     progressCardOrder = p[SettingsKeys.PROGRESS_CARD_ORDER] ?: "",
                     progressCardHidden = p[SettingsKeys.PROGRESS_CARD_HIDDEN] ?: "",
                     nickname = p[SettingsKeys.NICKNAME] ?: "轻er~",
