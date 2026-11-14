@@ -204,7 +204,8 @@ fun TrainingCalendarCard(
      * 周日那一列和「下个月」会被压住（360dp 小屏上尤其明显）。
      * 自律历史页没有悬浮按钮，传 0.dp 即可。
      */
-    fabSafeEnd: androidx.compose.ui.unit.Dp = 44.dp,
+    // v10：默认 0——快捷按钮已默认收起，月历不再让出右侧空隙（主人要求补齐）
+    fabSafeEnd: androidx.compose.ui.unit.Dp = 0.dp,
     modifier: Modifier = Modifier
 ) {
     SectionCard(modifier = modifier) {

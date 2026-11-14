@@ -90,7 +90,8 @@ fun QuickActionColumn(
     val settings by remember {
         com.qingji.app.data.prefs.SettingsStore.observe(context)
     }.collectAsState(initial = com.qingji.app.data.prefs.QingJiSettings())
-    val bottomGap = if (settings.floatingBottomBar) 106.dp else 0.dp
+    // v10：主人反馈「有点太高」——与 Dock 的间距从 12dp 收到 4dp
+    val bottomGap = if (settings.floatingBottomBar) 98.dp else 0.dp
     Column(
         modifier = modifier.padding(bottom = bottomGap),
         horizontalAlignment = Alignment.CenterHorizontally,
