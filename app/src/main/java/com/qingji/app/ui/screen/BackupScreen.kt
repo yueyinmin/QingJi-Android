@@ -307,7 +307,7 @@ fun BackupScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 Spacer(Modifier.height(8.dp))
                 listOf(
                     "API Key 不在备份里 —— Key 单独加密存在系统 Keystore，导出时根本读不到，所以新手机要重新填一次。",
-                    "照片不跟着 JSON 走 —— 照片是文件路径，需要单独拷贝 files/images 目录。",
+                    "照片不跟着 JSON 走 —— 照片是文件路径，需要单独拷贝 files/images 和 files/progress 目录。",
                     "CSV 只导饮食记录 —— 可以按月份、按餐次筛选，方便在 Excel 里做分析，但它不是备份，不能用来恢复。",
                     "卸载 App 会清掉私有目录 —— 导出后请务必用「分享出去」把文件发到别的地方。"
                 ).forEach { line ->
