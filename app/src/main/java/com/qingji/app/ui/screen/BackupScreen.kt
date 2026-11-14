@@ -56,9 +56,10 @@ import java.time.YearMonth
  * 数据备份与导出（M9）
  * ------------------------------------------------------------
  * 三条路：
- * 1. 导出全量 JSON —— 换手机用这份，能恢复全部记录和配置（v1.0.6 起含围度/照片条目/运动/断食/自建运动）；
+ * 1. 导出记录类 JSON —— 换手机用这份，覆盖档案 / 饮食 / 体重 / 饮水 / 日记 / 围度 /
+ *    运动 / 断食 / 训练 / 自律等记录类数据；不含 68 个设置项、食物搜索历史、照片文件本身、AI Key；
  * 2. 导出饮食 CSV —— 想在 Excel 里自己分析用；
- * 3. 导入 JSON —— 覆盖恢复，二次确认后才执行。
+ * 3. 导入 JSON —— 覆盖恢复（记录类数据），二次确认后才执行。
  *
  * 文件写在 App 私有外部目录，用系统分享发出去（微信/网盘/邮箱）。
  * 这样做不需要任何存储权限，安卓 10 之后的沙盒规则也能过。
@@ -117,7 +118,7 @@ fun BackupScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 Spacer(Modifier.height(12.dp))
 
                 PrimaryButton(
-                    text = if (busy) "正在导出…" else "导出全量 JSON（换手机用这个）",
+                    text = if (busy) "正在导出…" else "导出记录类 JSON（换手机用这个）",
                     enabled = !busy,
                     onClick = {
                         busy = true
@@ -146,7 +147,7 @@ fun BackupScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = "只影响下面的饮食 CSV；全量 JSON 始终是全部数据。",
+                    text = "只影响下面的饮食 CSV；记录类 JSON 始终导出全部记录，不受这里筛选影响。",
                     fontSize = 11.sp,
                     color = TextSecondary
                 )
@@ -230,6 +231,11 @@ fun BackupScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                                 fontSize = 11.sp,
                                 color = TextSecondary
                             )
+                            Text(
+                                text = "未包含：68 个设置项、食物搜索历史、照片文件本身、AI Key",
+                                fontSize = 10.sp,
+                                color = TextSecondary
+                            )
                         }
                         Text(
                             text = "分享出去",
@@ -306,6 +312,7 @@ fun BackupScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 )
                 Spacer(Modifier.height(8.dp))
                 listOf(
+                    "JSON 只导记录类数据 —— 68 个设置项、食物搜索历史、照片文件本身、AI Key 都不包含，换机后需要重新设置 / 重新配置。",
                     "API Key 不在备份里 —— Key 单独加密存在系统 Keystore，导出时根本读不到，所以新手机要重新填一次。",
                     "照片不跟着 JSON 走 —— 照片是文件路径，需要单独拷贝 files/images 和 files/progress 目录。",
                     "CSV 只导饮食记录 —— 可以按月份、按餐次筛选，方便在 Excel 里做分析，但它不是备份，不能用来恢复。",
@@ -406,8 +413,9 @@ fun BackupScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         ConfirmDialog(
             title = "确认覆盖导入？",
             // 别在文案里写 ** 这种 markdown 语法：Compose 的 Text 不认，会原样显示星号
-            body = "导入会用备份文件里的内容替换本机现有的饮食、体重、饮水、日记和档案。\n" +
-                "现有数据会被清掉，不能恢复。\n\n确定继续吗？",
+            body = "导入会用备份里的记录类数据覆盖本机现有记录：饮食、体重、饮水、日记、围度、" +
+                "运动、断食、训练、自律、照片条目等；个人档案与 AI 服务配置也按备份覆盖。\n" +
+                "68 个设置项、食物搜索历史、照片文件本身、AI Key 不在备份里，不会被改动。\n\n确定继续吗？",
             confirmText = "确认导入",
             onConfirm = {
                 pendingUri = null
