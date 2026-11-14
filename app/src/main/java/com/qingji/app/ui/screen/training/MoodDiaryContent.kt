@@ -179,7 +179,7 @@ fun MoodDiaryContent(
             val settings = com.qingji.app.data.prefs.SettingsStore.observe(
                 androidx.compose.ui.platform.LocalContext.current
             ).collectAsState(initial = com.qingji.app.data.prefs.QingJiSettings()).value
-            Spacer(Modifier.height(if (settings.floatingBottomBar) Dimens.FabSpace + 82.dp else Dimens.FabSpace))
+            Spacer(Modifier.height(if (settings.floatingBottomBar) 106.dp else Dimens.FabSpace))
         }
     }
 

@@ -228,6 +228,17 @@ fun ProgressScreen(
         // v1.5：两卡之间补一格间距，之前直接贴在一起
         Spacer(Modifier.height(Dimens.Gap))
 
+        // v9：本周运动消耗挪到「目标达成预估」上方（主人指定）
+        AppearItem(index = 2) {
+            ExerciseWeekCard(
+                list = exerciseWeek,
+                onAdd = onOpenExercise,
+                onDelete = { id -> vm.deleteExercise(id) }
+            )
+        }
+
+        Spacer(Modifier.height(Dimens.Gap))
+
         // v3.4.0 R3：目标达成预估（近 14 天趋势；数据不足时只给说明，不硬凑日期）
         val forecast = com.qingji.app.domain.WeightForecastCalculator.forecast(
             points = logs.map {
@@ -274,17 +285,7 @@ fun ProgressScreen(
 
         // 饮食 30 天已搬到「日记 → 训练日记」下方，这里不再重复展示
 
-        // ---------- v8：本周运动消耗 + 本周小结（从首页搬回进展页，主人指定） ----------
-        AppearItem(index = 2) {
-            ExerciseWeekCard(
-                list = exerciseWeek,
-                onAdd = onOpenExercise,
-                onDelete = { id -> vm.deleteExercise(id) }
-            )
-        }
-
-        Spacer(Modifier.height(Dimens.Gap))
-
+        // v9：本周小结（从首页搬回进展页）。本周运动消耗 v9 挪到「目标达成预估」上方。
         if (settings.showWeeklySummary) {
             AppearItem(index = 2) {
                 com.qingji.app.ui.components.WeeklySummaryCard(summary = weeklySummary)
@@ -313,7 +314,7 @@ fun ProgressScreen(
         }
 
         // v9：悬浮底栏模式滚动尾部让出 Dock 高度，最后一块卡不被盖住
-        Spacer(Modifier.height(if (settings.floatingBottomBar) Dimens.FabSpace + 82.dp else Dimens.FabSpace))
+        Spacer(Modifier.height(if (settings.floatingBottomBar) 106.dp else Dimens.FabSpace))
     }
 
     // 和首页一样的三个快捷按钮：在进展页也能顺手记水、记体重、拍照
