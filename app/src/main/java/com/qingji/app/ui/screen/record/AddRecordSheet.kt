@@ -2,6 +2,8 @@ package com.qingji.app.ui.screen.record
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,16 +19,20 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.material.icons.outlined.AltRoute
+import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.QrCode
+import androidx.compose.material.icons.outlined.TaskAlt
 import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -92,8 +98,15 @@ fun AddRecordSheet(
         action()
     }
 
+    // sheetfix：默认半展开高度装不下这么多入口，最后一行（每日打卡那三个）
+    // 被屏幕底边和手势条裁掉一半，后面的「文字录入/扫条形码/关闭键」全够不着。
+    // skipPartiallyExpanded 让弹层直接开到内容全高；再加 verticalScroll 兜底，
+    // 小屏上超高的部分也能滚动看到。
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        sheetState = sheetState,
         containerColor = CardWhite,
         contentColor = TextPrimary,
         scrimColor = Color.Black.copy(alpha = 0.28f),
@@ -110,6 +123,7 @@ fun AddRecordSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 18.dp)
                 .padding(bottom = 20.dp)
         ) {
@@ -224,14 +238,18 @@ fun AddRecordSheet(
             Spacer(Modifier.height(10.dp))
 
             // ---------- 3.6 自律管理（SD-001）：三个高频操作 ----------
+            // sheetfix：一行塞三张宽卡（标题+箭头+emoji）太挤，和上面的
+            // 两列宽卡、三列图标卡风格都打架。改成和「语音/食物库/喝水」
+            // 同一套三列图标卡：三列的行用图标卡、两列的行用宽卡，节奏统一。
+            // 配色换专色：打卡=绿，冲动=警示橙，偏离=紫（不再借用运动/喝水/体重）。
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SheetWideCard("每日打卡", "✅", MultiColor.Exercise, Modifier.weight(1f)) {
+                SheetIconCard("每日打卡", Icons.Outlined.TaskAlt, MultiColor.QuickWeight, Modifier.weight(1f)) {
                     go(onSelfDisciplineCheckin)
                 }
-                SheetWideCard("冲动记录", "⚡", MultiColor.QuickWater, Modifier.weight(1f)) {
+                SheetIconCard("冲动记录", Icons.Outlined.Bolt, MultiColor.FastingText, Modifier.weight(1f)) {
                     go(onSelfDisciplineUrge)
                 }
-                SheetWideCard("目标偏离", "📝", MultiColor.Weight, Modifier.weight(1f)) {
+                SheetIconCard("目标偏离", Icons.Outlined.AltRoute, MultiColor.QuickBook, Modifier.weight(1f)) {
                     go(onSelfDisciplineDeviation)
                 }
             }

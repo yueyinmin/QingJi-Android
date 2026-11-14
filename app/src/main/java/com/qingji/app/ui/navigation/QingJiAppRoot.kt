@@ -1,6 +1,9 @@
 package com.qingji.app.ui.navigation
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -28,6 +31,7 @@ import androidx.compose.runtime.remember
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -258,7 +262,24 @@ fun QingJiAppRoot(
     Scaffold(
         containerColor = PageBackground,
         bottomBar = {
-            if (showBottomBar) {
+            // barfix：二级页进出时底栏不再「瞬间消失/出现」。
+            // 原来 if (showBottomBar) 直接增删 bottomBar，navigate() 那一帧
+            // 底栏整条没了、内容区高度突变，而两页转场还在淡化中段，
+            // 看起来像底栏被凭空抽走（慢放录屏里两页还在叠影时底栏已不在）。
+            // 改用 AnimatedVisibility 平滑收起/展开：尺寸动画带动 Scaffold
+            // 的 innerPadding 逐帧变化，内容区跟手长回来；底边锚定，
+            // 视觉上是「底栏沉下去、新页面同时补位」。
+            AnimatedVisibility(
+                visible = showBottomBar,
+                enter = expandVertically(
+                    expandFrom = Alignment.Bottom,
+                    animationSpec = tween(com.qingji.app.ui.theme.Motion.Normal, easing = FastOutSlowInEasing)
+                ) + fadeIn(tween(com.qingji.app.ui.theme.Motion.Fast)),
+                exit = shrinkVertically(
+                    shrinkTowards = Alignment.Bottom,
+                    animationSpec = tween(com.qingji.app.ui.theme.Motion.Normal, easing = FastOutSlowInEasing)
+                ) + fadeOut(tween(com.qingji.app.ui.theme.Motion.Fast))
+            ) {
                 QingJiBottomBar(
                     currentRoute = currentRoute,
                     onTabSelected = { tab ->
