@@ -3,6 +3,7 @@ package com.qingji.app.data.backup
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.qingji.app.data.local.AppDatabase
+import com.qingji.app.data.local.entity.FastingLog
 import com.qingji.app.data.local.entity.UserProfile
 import com.qingji.app.data.local.entity.WeightLog
 import kotlinx.coroutines.runBlocking
@@ -87,5 +88,20 @@ class BackupRestoreTest {
         manager.restoreInto(db, backup)
         manager.restoreInto(db, backup)
         assertEquals("每次导入都先清再灌，两次不会翻倍", 1, db.weightLogDao().findAll().size)
+    }
+
+    @Test
+    fun `自由断食字段恢复落库后保持`() = runBlocking {
+        val manager = BackupManager(ApplicationProvider.getApplicationContext())
+        val fasting = FastingLog(
+            date = LocalDate.of(2026, 11, 9),
+            planHours = 18,
+            freeMode = true,
+            actualMinutes = 965
+        )
+        manager.restoreInto(db, ParsedBackup(fastings = listOf(fasting)))
+        val restored = db.fastingLogDao().findAll().single()
+        assertEquals(true, restored.freeMode)
+        assertEquals(965, restored.actualMinutes)
     }
 }

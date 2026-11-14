@@ -57,6 +57,39 @@ class BackupParsingTest {
         assertEquals(1, parsed.exercises.size)
         assertEquals(1, parsed.fastings.size)
         assertEquals(1, parsed.customPresets.size)
+        // 自由断食两列（迁移 9）：导出端曾漏写，解析必须保真
+        assertEquals(true, parsed.fastings[0].freeMode)
+        assertEquals(965, parsed.fastings[0].actualMinutes)
+    }
+
+    // ============================================================
+    // 自由断食字段（TASK-02）：新备份保真、老备份缺两键兜底
+    // ============================================================
+
+    @Test
+    fun fastingFreeModeAndActualMinutes_areRestored() {
+        val json = """
+        {"app":"qingji","version":2,
+         "fastings":[{"date":"2026-11-09","planHours":18,"freeMode":true,
+                      "actualMinutes":965,"completed":true,"createdAt":11}]}
+        """.trimIndent()
+
+        val fasting = parseBackup(json).getOrThrow().fastings.single()
+        assertEquals(true, fasting.freeMode)
+        assertEquals(965, fasting.actualMinutes)
+    }
+
+    @Test
+    fun oldFastingWithoutFreeFields_fallsBackToFalseAndZero() {
+        // 迁移 9 之前的老备份没有 freeMode / actualMinutes 两键
+        val json = """
+        {"app":"qingji","version":1,
+         "fastings":[{"date":"2026-11-09","planHours":16,"completed":false}]}
+        """.trimIndent()
+
+        val fasting = parseBackup(json).getOrThrow().fastings.single()
+        assertEquals(false, fasting.freeMode)
+        assertEquals(0, fasting.actualMinutes)
     }
 
     // ============================================================
@@ -336,7 +369,8 @@ class BackupParsingTest {
           ],
           "fastings": [
             {"date":"2026-11-09","planHours":16,"eatStartMinute":460,
-             "eatEndMinute":940,"completed":true,"createdAt":11}
+             "eatEndMinute":940,"completed":true,"freeMode":true,
+             "actualMinutes":965,"createdAt":11}
           ],
           "exercisePresets": [
             {"name":"爬楼梯","met":8.0,"category":"自定义","favorite":false}

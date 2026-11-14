@@ -372,6 +372,8 @@ private fun parseFasting(o: JSONObject): FastingLog? {
         eatStartMinute = o.optInt("eatStartMinute", 7 * 60 + 40),
         eatEndMinute = o.optInt("eatEndMinute", 15 * 60 + 40),
         completed = o.optBoolean("completed", false),
+        freeMode = o.optBoolean("freeMode", false),
+        actualMinutes = o.optInt("actualMinutes", 0),
         createdAt = o.optLong("createdAt", System.currentTimeMillis())
     )
 }
