@@ -46,7 +46,6 @@ import com.qingji.app.ui.components.PageTopBar
 import com.qingji.app.ui.components.PrimaryButton
 import com.qingji.app.ui.components.SectionCard
 import com.qingji.app.ui.theme.PageBackground
-import com.qingji.app.ui.theme.QingJiGreen
 import com.qingji.app.ui.theme.QingJiGreenDark
 import com.qingji.app.ui.theme.QingJiGreenLight
 import com.qingji.app.ui.theme.TextPrimary

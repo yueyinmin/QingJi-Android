@@ -61,12 +61,10 @@ import androidx.compose.ui.unit.sp
 import com.qingji.app.data.prefs.QingJiSettings
 import com.qingji.app.ui.theme.AccentThemes
 import com.qingji.app.ui.theme.CardWhite
-import com.qingji.app.ui.theme.DividerColor
 import com.qingji.app.ui.theme.QingJiGreen
 import com.qingji.app.ui.theme.QingJiGreenDark
 import com.qingji.app.ui.theme.QingJiGreenLight
 import com.qingji.app.ui.theme.QingJiThemeState
-import com.qingji.app.ui.theme.TextPrimary
 import com.qingji.app.ui.theme.TextSecondary
 
 /**

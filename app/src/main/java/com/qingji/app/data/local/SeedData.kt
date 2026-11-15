@@ -1,8 +1,6 @@
 package com.qingji.app.data.local
 
 import com.qingji.app.data.local.entity.Food
-import com.qingji.app.data.local.entity.UserProfile
-import java.time.LocalDate
 
 /**
  * ============================================================

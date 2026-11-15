@@ -1,7 +1,6 @@
 package com.qingji.app
 
 import android.app.Application
-import com.qingji.app.data.local.AppDatabase
 import com.qingji.app.data.repository.QingJiRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

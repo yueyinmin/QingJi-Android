@@ -4,14 +4,6 @@ import android.content.Context
 import android.net.Uri
 import androidx.room.withTransaction
 import com.qingji.app.data.local.AppDatabase
-import com.qingji.app.data.local.entity.AiConfig
-import com.qingji.app.data.local.entity.Diary
-import com.qingji.app.data.local.entity.UserFood
-import com.qingji.app.data.local.entity.FoodLog
-import com.qingji.app.data.local.entity.UsageStat
-import com.qingji.app.data.local.entity.UserProfile
-import com.qingji.app.data.local.entity.WaterLog
-import com.qingji.app.data.local.entity.WeightLog
 import com.qingji.app.domain.AppClock
 import com.qingji.app.domain.BackupFormat
 import kotlinx.coroutines.Dispatchers
@@ -20,7 +12,6 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
-import java.time.LocalDate
 
 /**
  * ============================================================

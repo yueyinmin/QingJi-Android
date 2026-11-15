@@ -32,7 +32,6 @@ import com.qingji.app.ui.components.SectionCard
 import com.qingji.app.ui.screen.training.TrainingCalendarCard
 import com.qingji.app.ui.theme.DangerRed
 import com.qingji.app.ui.theme.Dimens
-import com.qingji.app.ui.theme.DividerColor
 import com.qingji.app.ui.theme.PageBackground
 import com.qingji.app.ui.theme.QingJiGreen
 import com.qingji.app.ui.theme.TextPrimary

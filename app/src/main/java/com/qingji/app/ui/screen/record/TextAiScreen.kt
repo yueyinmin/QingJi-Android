@@ -36,7 +36,6 @@ import com.qingji.app.ui.theme.TextPrimary
 import com.qingji.app.ui.theme.TextSecondary
 import com.qingji.app.ui.viewmodel.TextAiViewModel
 import kotlinx.coroutines.launch
-import java.time.LocalDate
 
 /**
  * ============================================================
