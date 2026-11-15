@@ -98,16 +98,20 @@ private val DockHeight = 62.dp
 /**
  * 底栏左右留白 / 「记一笔」宽度 / 间距：常规一套、窄屏一套。
  * 工单要求「窄屏优先减少胶囊内边距和导航间距，其次适当压缩记一笔宽度」，
- * 所以 <360dp 时先收 14→8dp 留白、12→8dp 间距，再把按钮 116→104dp，
+ * 所以 <360dp 时先收留白 10→6dp、间距 8→6dp，再把按钮 116→104dp，
  * 图标和文字一个都不缩。
+ *
+ * v12.1（真机实测后微调）：外层 Dock 还有 16dp 外边距，内层若按 14dp 算，
+ * 411dp 屏上胶囊只有 72dp，达不到工单 76~82dp 的目标；内层收到 10dp、
+ * 间距收到 8dp 后同一块屏实测 76dp，正好进区间，图标与文字仍未缩。
  */
-private val DockHorizontalPadding = 14.dp
-private val DockHorizontalPaddingNarrow = 8.dp
+private val DockHorizontalPadding = 10.dp
+private val DockHorizontalPaddingNarrow = 6.dp
 private val AddButtonWidth = 116.dp
 private val AddButtonWidthNarrow = 104.dp
 private val AddButtonHeight = 48.dp
-private val AddButtonGap = 12.dp
-private val AddButtonGapNarrow = 8.dp
+private val AddButtonGap = 8.dp
+private val AddButtonGapNarrow = 6.dp
 
 /** 选中胶囊（v12 缩小）：46dp 高，宽度跟着槽位走、封顶 82dp。 */
 private val PillHeight = 46.dp
