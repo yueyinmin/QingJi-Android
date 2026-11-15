@@ -114,19 +114,7 @@ fun GroupCard(
     modifier: Modifier = Modifier,
     contentPadding: Dp = 0.dp,
     content: @Composable ColumnScope.() -> Unit
-) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = CardWhite),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(contentPadding),
-            content = content
-        )
-    }
-}
+) = SectionCard(modifier = modifier, contentPadding = contentPadding, content = content)
 
 /** 分组标题：13sp 次文字，和列表左边缘对齐一点留白。 */
 @Composable

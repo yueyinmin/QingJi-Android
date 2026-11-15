@@ -48,6 +48,7 @@ import com.qingji.app.ui.viewmodel.SelfDisciplineViewModel
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.YearMonth
+import com.qingji.app.ui.components.LegendDot
 
 /**
  * ============================================================
@@ -226,23 +227,12 @@ fun LevelPicker(
 @Composable
 fun SelfDisciplineLegend(modifier: Modifier = Modifier) {
     Row(modifier, horizontalArrangement = Arrangement.Center) {
-        LegendDot("符合", QingJiGreen)
-        LegendDot("偏离", DangerRed)
-        LegendDot("未记录", DividerColor)
+        LegendDot("符合", QingJiGreen, dotSize = 9.dp, horizontalPadding = 6.dp)
+        LegendDot("偏离", DangerRed, dotSize = 9.dp, horizontalPadding = 6.dp)
+        LegendDot("未记录", DividerColor, dotSize = 9.dp, horizontalPadding = 6.dp)
     }
 }
 
-@Composable
-private fun LegendDot(label: String, color: Color) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(horizontal = 6.dp)
-    ) {
-        Box(Modifier.size(9.dp).clip(RoundedCornerShape(999.dp)).background(color))
-        Spacer(Modifier.size(4.dp))
-        Text(label, fontSize = TextSizes.Tiny, color = TextSecondary)
-    }
-}
 
 /**
  * 日期选择弹层。

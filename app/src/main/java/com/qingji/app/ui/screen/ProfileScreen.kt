@@ -57,6 +57,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.Period
+import com.qingji.app.ui.components.ChoiceRow
 
 /**
  * ============================================================
@@ -408,36 +409,6 @@ private fun parseBirthday(text: String): LocalDate? = try {
 }
 
 /** 一行两列/三列的小选择按钮。 */
-@Composable
-private fun ChoiceRow(
-    options: List<Pair<String, String>>,
-    selected: String,
-    onSelect: (String) -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        options.forEach { (label, value) ->
-            val isSelected = value == selected
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(if (isSelected) QingJiGreen else PageBackground)
-                    .clickable { onSelect(value) }
-                    .padding(vertical = 10.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = label,
-                    fontSize = 13.sp,
-                    color = if (isSelected) Color.White else TextSecondary
-                )
-            }
-        }
-    }
-}
 
 @Composable
 private fun PreviewRow(label: String, value: String) {

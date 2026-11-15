@@ -252,7 +252,7 @@ fun FoodLibraryScreen(
                         ) {
                             Spacer(Modifier.height(4.dp))
                             homeFoods.filter { it.category == category }.forEach { food ->
-                                FoodRow(
+                                LibraryFoodRow(
                                     name = food.name,
                                     kcalPer100g = food.kcalPer100g,
                                     favorite = food.favorite,
@@ -289,7 +289,7 @@ fun FoodLibraryScreen(
                                 modifier = Modifier.padding(vertical = 8.dp)
                             )
                             fastFoods.forEach { food ->
-                                FoodRow(
+                                LibraryFoodRow(
                                     name = food.name,
                                     kcalPer100g = food.kcalPer100g,
                                     favorite = food.favorite,
@@ -322,7 +322,7 @@ fun FoodLibraryScreen(
                         com.qingji.app.ui.components.SwipeToRevealDelete(
                             onDelete = { vm.deleteCustomFood(food) }
                         ) {
-                            FoodRow(
+                            LibraryFoodRow(
                                 name = food.name,
                                 kcalPer100g = food.kcalPer100g,
                                 favorite = food.favorite,
@@ -376,7 +376,7 @@ fun FoodLibraryScreen(
                     HintBox(text = "点列表右边的 ♡ 收藏；右下角的心形可以只看收藏")
                 } else {
                     favorites.forEach { food ->
-                        FoodRow(
+                        LibraryFoodRow(
                             name = food.name,
                             kcalPer100g = food.kcalPer100g,
                             favorite = true,
@@ -529,7 +529,7 @@ private fun Segmented(
 }
 
 @Composable
-private fun FoodRow(
+private fun LibraryFoodRow(
     name: String,
     kcalPer100g: Double,
     favorite: Boolean,

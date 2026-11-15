@@ -89,6 +89,7 @@ import com.qingji.app.ui.theme.WarnOrange
 import com.qingji.app.ui.viewmodel.ProgressViewModel
 import java.time.LocalDate
 import com.qingji.app.ui.i18n.s
+import com.qingji.app.ui.components.LegendDot
 
 /**
  * ============================================================
@@ -873,23 +874,6 @@ internal fun WeightChart(
     }
 }
 
-@Composable
-private fun LegendDot(color: Color, label: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            modifier = Modifier
-                .size(8.dp)
-                .clip(RoundedCornerShape(4.dp))
-                .background(color)
-        )
-        Text(
-            text = label,
-            fontSize = 11.sp,
-            color = TextSecondary,
-            modifier = Modifier.padding(start = 4.dp)
-        )
-    }
-}
 
 // ============================================================
 // 以下是本轮新增的五个模块（近一周饮水 / 营养摄入 / 运动消耗 /
@@ -1172,9 +1156,9 @@ internal fun NutritionWeekCard(foodWeek: List<com.qingji.app.data.local.entity.F
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            MacroCell("日均蛋白", avgProtein, MacroProtein)
-            MacroCell("日均碳水", avgCarb, MacroCarb)
-            MacroCell("日均脂肪", avgFat, MacroFat)
+            MacroFigure("日均蛋白", avgProtein, MacroProtein)
+            MacroFigure("日均碳水", avgCarb, MacroCarb)
+            MacroFigure("日均脂肪", avgFat, MacroFat)
         }
         Spacer(Modifier.height(6.dp))
         Text(
@@ -1186,7 +1170,7 @@ internal fun NutritionWeekCard(foodWeek: List<com.qingji.app.data.local.entity.F
 }
 
 @Composable
-private fun MacroCell(label: String, grams: Double, color: Color) {
+private fun MacroFigure(label: String, grams: Double, color: Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             text = "${grams.toInt()} g",
