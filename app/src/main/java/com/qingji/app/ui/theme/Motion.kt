@@ -80,15 +80,10 @@ object Motion {
     /** 退场专用：加速离开，显得利落 */
     val accelerate: Easing = FastOutLinearInEasing
 
-    /** 轻微的「过冲」缓动，用在强调性元素上 */
-    val emphasized: Easing = CubicBezierEasing(0.2f, 0.0f, 0.0f, 1.0f)
-
     // ---------- 常用规格 ----------
     fun <T> fast(): FiniteAnimationSpec<T> = tween(durationMillis = Fast, easing = standard)
 
     fun <T> normal(): FiniteAnimationSpec<T> = tween(durationMillis = Normal, easing = standard)
-
-    fun <T> slow(): FiniteAnimationSpec<T> = tween(durationMillis = Slow, easing = decelerate)
 
     /** 带回一点弹性的弹簧，用在 Tab 选中、按钮回弹 */
     fun <T> bouncy(): FiniteAnimationSpec<T> = spring(
@@ -127,16 +122,6 @@ object Motion {
     // 返回时不再做「从上方落回 / 往下沉」的方向动画，进出节奏完全一致。
     val popEnter: EnterTransition = pageEnter
     val popExit: ExitTransition = pageExit
-
-    // ---------- 二级页面切换（设置页里列表 ↔ 详情） ----------
-    val detailEnter: EnterTransition =
-        fadeIn(animationSpec = tween(durationMillis = Normal, easing = decelerate)) +
-            slideInVertically(
-                animationSpec = tween(durationMillis = Slow, easing = decelerate)
-            ) { height -> height / 20 }
-
-    val detailExit: ExitTransition =
-        fadeOut(animationSpec = tween(durationMillis = Fast, easing = accelerate))
 }
 
 // ============================================================

@@ -472,35 +472,6 @@ private fun UsageCard(totalAi: Int, monthAi: Int) {
     }
 }
 
-@Composable
-private fun UsageNumber(
-    label: String,
-    value: String,
-    unit: String,
-    modifier: Modifier = Modifier
-) {
-    Column(modifier = modifier) {
-        Text(text = label, fontSize = 11.sp, color = TextSecondary)
-        Spacer(Modifier.height(4.dp))
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(
-                text = value,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = TextPrimary
-            )
-            if (unit.isNotEmpty()) {
-                Text(
-                    text = " $unit",
-                    fontSize = 11.sp,
-                    color = TextSecondary,
-                    modifier = Modifier.padding(bottom = 2.dp)
-                )
-            }
-        }
-    }
-}
-
 /** 数据：目标 + 成就两个入口。 */
 @Composable
 private fun DataGroup(

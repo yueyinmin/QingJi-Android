@@ -79,7 +79,6 @@ object WidgetRefresher {
     const val EXTRA_TARGET = "qingji_target"
 
     /** 目标值就是 NavHost 里的路由字符串。 */
-    const val TARGET_SEARCH = "search_food"
     const val TARGET_TEXT_AI = "text_ai"
     const val TARGET_WEIGHT = "weight"
     const val TARGET_IMAGE = "image_record"

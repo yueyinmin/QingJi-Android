@@ -23,9 +23,6 @@ object Dimens {
     /** 卡片圆角 */
     val CardCorner = 16.dp
 
-    /** 卡片内边距 */
-    val CardPadding = 16.dp
-
     /** 卡片内边距（紧凑版，用于列表项） */
     val CardPaddingCompact = 12.dp
 
@@ -38,14 +35,8 @@ object Dimens {
     /** 胶囊圆角（999dp 等效，用于筛选项、标签） */
     val PillCorner = 999.dp
 
-    /** 竖向间距：紧挨着的两个元素 */
-    val GapSmall = 8.dp
-
     /** 竖向间距：卡片之间 / 区块之间 */
     val Gap = 12.dp
-
-    /** 竖向间距：大区块之间 */
-    val GapLarge = 20.dp
 
     /** 底部给悬浮按钮留的空白 */
     val FabSpace = 96.dp
