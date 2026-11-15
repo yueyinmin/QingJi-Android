@@ -30,7 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -90,31 +90,27 @@ fun DiaryScreen(
     var pendingDelete by remember { mutableStateOf<Diary?>(null) }
     var showClearAll by remember { mutableStateOf(false) }
 
-    // 两个 Tab 的月份 / 滚动状态由本页持有，内容常驻后更是天然不会丢。
-    var trainingMonth by remember { mutableStateOf(YearMonth.now()) }
+    // 两个 Tab **共用同一个月份状态**：旧版训练页的月份在外层、心情页自己
+    // remember 一份，翻过月再切回来日历会跳到另一月，看起来像换了一整个页面。
+    var diaryMonth by remember { mutableStateOf(YearMonth.now()) }
     val trainingScrollState = rememberScrollState()
-    val density = LocalDensity.current
-    val slidePx = with(density) { 16.dp.toPx() }
 
-    // 频闪修复：两个内容常驻组合树，只改绘制层的 alpha / 位移。
-    // 旧版用 AnimatedContent，每次切换都会 dispose 旧内容、重建新内容，
-    // 公共日历/统计组件跟着反复初始化，动画期间还同时画两份 → 空白帧与重影。
-    // 现在切换只有 4 个 Float 动画，读在 graphicsLayer 绘制块里，子组件零重组。
-    val spec: androidx.compose.animation.core.AnimationSpec<Float> =
-        tween(200, easing = FastOutSlowInEasing)
-    // 故意不用 by 解构：.value 读在 graphicsLayer 的绘制块里，
-    // 动画每帧只重绘，不触发 DiaryScreen 或子内容的重组。
-    val trainAlpha = animateFloatAsState(if (trainingTab) 1f else 0f, spec, label = "trainAlpha")
-    val moodAlpha = animateFloatAsState(if (trainingTab) 0f else 1f, spec, label = "moodAlpha")
-    val trainShift = animateFloatAsState(if (trainingTab) 0f else -slidePx, spec, label = "trainShift")
-    val moodShift = animateFloatAsState(if (trainingTab) slidePx else 0f, spec, label = "moodShift")
-    // 非激活那一层虽然透明，但仍会命中点击，必须把事件吞掉
+    // 与 QingJiAppRoot 一级 Tab 完全同一套转场规格：
+    // 250ms / FastOutSlowInEasing / 30% 容器宽度横移 / 同步进出。
+    // 只用一个 progress 驱动两层，不再有 4 个各自跑的动画状态互相打架。
+    // 沿用「内容常驻组合树」的优点：不 dispose、不重建、不重查数据库，
+    // 读在 graphicsLayer 绘制块里，每帧只重绘，不触发重组。
+    val progress = animateFloatAsState(
+        targetValue = if (trainingTab) 0f else 1f,
+        animationSpec = tween(250, easing = FastOutSlowInEasing),
+        label = "diaryTabProgress"
+    )
+    // 非激活那一层虽然在屏幕外，但仍可能命中点击，把事件吞掉
     val blockGestures = Modifier.pointerInput(Unit) {
         awaitEachGesture {
             while (true) {
                 val event = awaitPointerEvent()
                 event.changes.forEach { it.consume() }
-                // 一次手势结束就退出，等下一次 awaitEachGesture
                 if (!event.changes.any { it.pressed }) break
             }
         }
@@ -160,19 +156,24 @@ fun DiaryScreen(
             Spacer(Modifier.height(12.dp))
         }
 
-        // ---------- 内容区：两个 Tab 常驻，只切换可见性与轻微位移 ----------
-        // · 不再用 AnimatedContent：它每次切换会 dispose 旧内容、重建新内容，
-        //   公共日历/统计组件反复初始化，动画期间两页同时绘制 → 空白帧和重影（频闪）。
-        // · 现在两份内容始终在组合树里，切换只改 graphicsLayer，零重建、零重查；
-        //   月份与滚动位置由本页持有，快速连点也只是把动画目标改到最新值。
+        // ---------- 内容区：两个 Tab 常驻，用一级 Tab 同款横滑转场 ----------
+        // · 上一版只有 16dp 位移、两层还同时半透明淡入淡出，两份结构不同的
+        //   内容几乎完全重叠 → 文字/日历叠在一起，就是主人说的「还是会闪」。
+        // · 现在改成 QingJiAppRoot 那套：30% 容器宽度横移 + 250ms 同步进出；
+        //   目标层 zIndex 立刻置顶且 **alpha 恒为 1（不透明）**，滑入时整块
+        //   盖住旧页，旧页只在露出的边缘轻微淡出，不会有两份半透明内容重影。
+        // · 两个 Tab 的日历、主按钮、三栏统计用同一套组件 + 同一个 month，
+        //   位置尺寸字号完全一致，切换时上半部分静止不动。
         // · 顶部标题、切换胶囊、悬浮快捷栏在这层之外，完全不参与动画。
         Box(modifier = Modifier.weight(1f)) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
+                    .zIndex(if (trainingTab) 1f else 0f)
                     .graphicsLayer {
-                        alpha = trainAlpha.value
-                        translationX = trainShift.value
+                        val w = size.width
+                        translationX = -progress.value * w * 0.30f
+                        alpha = if (trainingTab) 1f else 1f - 0.4f * progress.value
                     }
                     .then(if (trainingTab) Modifier else blockGestures)
             ) {
@@ -182,17 +183,19 @@ fun DiaryScreen(
                     onEditSession = onEditTraining,
                     foodLogs = foodMonth,
                     dailyKcalGoal = profile?.dailyKcalGoal?.takeIf { it > 0 }?.toDouble() ?: 2000.0,
-                    month = trainingMonth,
-                    onMonthChange = { trainingMonth = it },
+                    month = diaryMonth,
+                    onMonthChange = { diaryMonth = it },
                     scrollState = trainingScrollState
                 )
             }
             Box(
                 modifier = Modifier
                     .fillMaxSize()
+                    .zIndex(if (trainingTab) 0f else 1f)
                     .graphicsLayer {
-                        alpha = moodAlpha.value
-                        translationX = moodShift.value
+                        val w = size.width
+                        translationX = (1f - progress.value) * w * 0.30f
+                        alpha = if (trainingTab) 0.6f + 0.4f * progress.value else 1f
                     }
                     .then(if (trainingTab) blockGestures else Modifier)
             ) {
@@ -200,6 +203,8 @@ fun DiaryScreen(
                     diaries = diaries,
                     onOpenEdit = onOpenEdit,
                     onRequestDelete = { pendingDelete = it },
+                    month = diaryMonth,
+                    onMonthChange = { diaryMonth = it },
                     scrollState = scrollState
                 )
             }

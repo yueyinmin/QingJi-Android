@@ -120,9 +120,8 @@ fun TrainingDiaryContent(
                 Spacer(Modifier.height(8.dp))
             }
 
-            Button(onClick = onStartTraining, modifier = Modifier.fillMaxWidth()) {
-                Text("开始训练", fontSize = TextSizes.Body)
-            }
+            // 与心情日记共用同一套主按钮 / 三栏统计组件，位置尺寸字号完全一致
+            DiaryPrimaryButton("开始训练", onStartTraining)
             Spacer(Modifier.height(12.dp))
 
             // ---------- 本月总结：数字全部由明细累加，不手写 ----------
@@ -131,9 +130,9 @@ fun TrainingDiaryContent(
                     fontWeight = FontWeight.SemiBold, color = TextPrimary)
                 Spacer(Modifier.height(10.dp))
                 Row(modifier = Modifier.fillMaxWidth()) {
-                    SummaryItem("次数", "${monthSessions.size} 次", Modifier.weight(1f))
-                    SummaryItem("总时长", "$monthMinutes 分钟", Modifier.weight(1f))
-                    SummaryItem("总组数", "$monthSets 组", Modifier.weight(1f))
+                    DiarySummaryItem("${monthSessions.size} 次", "次数", Modifier.weight(1f))
+                    DiarySummaryItem("$monthMinutes 分钟", "总时长", Modifier.weight(1f))
+                    DiarySummaryItem("$monthSets 组", "总组数", Modifier.weight(1f))
                 }
             }
             Spacer(Modifier.height(12.dp))
@@ -240,14 +239,6 @@ fun TrainingDiaryContent(
             Text("这次训练的所有组记录都会一起删掉，删了找不回来。",
                 fontSize = 14.sp, color = TextPrimary)
         }
-    }
-}
-
-@Composable
-private fun SummaryItem(label: String, value: String, modifier: Modifier = Modifier) {
-    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-        Text(label, fontSize = TextSizes.Tiny, color = TextSecondary)
     }
 }
 

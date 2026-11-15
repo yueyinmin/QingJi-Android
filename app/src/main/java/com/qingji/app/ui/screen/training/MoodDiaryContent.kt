@@ -62,10 +62,17 @@ fun MoodDiaryContent(
     diaries: List<Diary>,
     onOpenEdit: (Long) -> Unit,
     onRequestDelete: (Diary) -> Unit,
+    /**
+     * 与训练日记共用同一个月份状态（由 DiaryScreen 持有）。
+     * 旧版两个 Tab 各 remember 一份，翻过月份再切回来日历会跳月，
+     * 这是「切换像切屏」的直观来源之一。唯一调用方就是 DiaryScreen，
+     * 所以直接设成必传，不留空回调。
+     */
+    month: YearMonth,
+    onMonthChange: (YearMonth) -> Unit,
     scrollState: ScrollState = rememberScrollState(),
     modifier: Modifier = Modifier
 ) {
-    var month by remember { mutableStateOf(YearMonth.now()) }
     var detailDate by remember { mutableStateOf<LocalDate?>(null) }
 
     // 一天可能写多篇，取当天最高的那次评分（和原来近 30 天格子同一套规则）
@@ -94,9 +101,8 @@ fun MoodDiaryContent(
         ) {
             Spacer(Modifier.height(12.dp))
 
-            Button(onClick = { onOpenEdit(0L) }, modifier = Modifier.fillMaxWidth()) {
-                Text("写一篇日记", fontSize = TextSizes.Body)
-            }
+            // 与训练日记共用同一套主按钮 / 三栏统计组件，位置尺寸字号完全一致
+            DiaryPrimaryButton("写一篇日记") { onOpenEdit(0L) }
             Spacer(Modifier.height(12.dp))
 
             // ---------- 本月总结：和训练日记同样三栏 ----------
@@ -105,14 +111,14 @@ fun MoodDiaryContent(
                     fontWeight = FontWeight.SemiBold, color = TextPrimary)
                 Spacer(Modifier.height(10.dp))
                 Row(modifier = Modifier.fillMaxWidth()) {
-                    SummaryColumn("${monthDiaries.size} 篇", "篇数", Modifier.weight(1f))
-                    SummaryColumn(
+                    DiarySummaryItem("${monthDiaries.size} 篇", "篇数", Modifier.weight(1f))
+                    DiarySummaryItem(
                         // 当月平均：只对「这个月真的写了的日记」求平均，不是按 30 天摊
                         //（例如当月写了 10 篇，就是这 10 篇评分的平均；没写日记的天数不参与计算）
                         if (monthDiaries.isEmpty()) "--" else "%.1f / 5".format(avgRating),
                         "平均评分", Modifier.weight(1f)
                     )
-                    SummaryColumn("$streak 天", "连续记录", Modifier.weight(1f))
+                    DiarySummaryItem("$streak 天", "连续记录", Modifier.weight(1f))
                 }
             }
             Spacer(Modifier.height(12.dp))
@@ -122,8 +128,8 @@ fun MoodDiaryContent(
                 month = month,
                 trainingDates = emptySet(),
                 dateColors = dateColors,
-                onPrevMonth = { month = month.minusMonths(1) },
-                onNextMonth = { month = month.plusMonths(1) },
+                onPrevMonth = { onMonthChange(month.minusMonths(1)) },
+                onNextMonth = { onMonthChange(month.plusMonths(1)) },
                 onSelectDate = { detailDate = it }
             )
             Spacer(Modifier.height(8.dp))
@@ -217,14 +223,6 @@ fun MoodDiaryContent(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun SummaryColumn(value: String, label: String, modifier: Modifier = Modifier) {
-    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-        Text(label, fontSize = TextSizes.Tiny, color = TextSecondary)
     }
 }
 
