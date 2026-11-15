@@ -49,6 +49,9 @@ androidx-room-testing = { group = "androidx.room", name = "room-testing", versio
 
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
+# V2 工单：动作插画是 512x512 透明底 SVG（Workout Guide 上游只提供 SVG 帧），
+# coil-svg 负责把本地 assets 里的 SVG 解码成 Drawable，不引入额外图片框架。
+coil-svg = { group = "io.coil-kt", name = "coil-svg", version.ref = "coil" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
