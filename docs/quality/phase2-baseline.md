@@ -11,6 +11,10 @@
 | 依据 | 《轻记 Android 第二阶段代码治理总工单 V1.0》《代码质量基线 v1.0》《全项目代码审计报告》 |
 | 本任务是否修改业务代码 | **否**。仅新增 `docs/quality/` 下两份文档 |
 
+> ⚠️ 本文件是 **TASK-00 当时的历史快照**，表内「主工作区未提交改动 / 远端 Release / 未推送」等
+> 字段记录的是 2026-11-15 建立基线那一刻的状态，**不代表当前状态**。历史数据按快照原则保留不改；
+> 当前进度一律以 `docs/quality/phase2-progress-baseline.md` 为准，逐任务状态见 `phase2-task-status.md`。
+
 ---
 
 ## 1. 前置检查与工作区保护（工单 3.1）
@@ -24,7 +28,7 @@
 | 远端 main | `git fetch origin` 成功（带证书参数），`origin/main = b138a279`，与 GitHub API 去缓存核对一致 |
 | 原有 worktree | 无 |
 | 目标分支 / 目录 | `feature/phase2-p0-data-safety` 不存在，`QingJi-Android-phase2` 目录不存在，可安全创建 |
-| 远端 Release | v1.1.4 已删除，当前 latest 为 v1.1.3；tag `v1.1.4` 保留 |
+| 远端 Release | v1.1.4 已删除，当前 latest 为 v1.1.3；tag `v1.1.4` 保留（**TASK-00 当时状态**；后续已删旧 tag 并在 `708446f` 上重建同名 tag 与 Release、APK 已上传，最新状态见 `phase2-progress-baseline.md`） |
 
 保护措施：用 `git worktree add -b feature/phase2-p0-data-safety ../QingJi-Android-phase2 origin/main` 建立独立环境。建立前后主工作区未提交文件数均为 **10**，主工作区 HEAD 未变。**未执行** `reset --hard` / `clean -fd` / `checkout .` / `restore .`，未切换主工作区分支，未丢弃任何改动。
 
