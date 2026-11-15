@@ -1,5 +1,6 @@
 package com.qingji.app.ui.screen.training
 
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -63,14 +64,22 @@ fun TrainingDiaryContent(
     /** 饮食 30 天热力图的数据（从进展页搬过来的模块，口径保持一致） */
     foodLogs: List<com.qingji.app.data.local.entity.FoodLog> = emptyList(),
     dailyKcalGoal: Double = 2000.0,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /**
+     * V2 工单：月份和滚动状态提到调用方（DiaryScreen）。
+     * AnimatedContent 在切换结束后会 dispose 旧内容，状态留在这里会被重建、丢掉；
+     * 由外层持有才能保证「训练 ↔ 心情」来回切换后月份和滚动位置都不变。
+     * 全屏训练记录页不传，走默认值，行为与以前完全一致。
+     */
+    month: YearMonth = YearMonth.now(),
+    onMonthChange: (YearMonth) -> Unit = {},
+    scrollState: ScrollState = rememberScrollState()
 ) {
     val sessions by vm.sessions.collectAsState()
     val allExercises by vm.allWorkoutExercises.collectAsState()
     val unit by vm.unit.collectAsState()
     val message by vm.message.collectAsState()
 
-    var month by remember { mutableStateOf(YearMonth.now()) }
     var detailUuid by remember { mutableStateOf<String?>(null) }
     var pendingDelete by remember { mutableStateOf<String?>(null) }
 
@@ -94,7 +103,7 @@ fun TrainingDiaryContent(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scrollState)
                 .padding(horizontal = Dimens.ScreenPadding)
         ) {
             Spacer(Modifier.height(12.dp))
@@ -132,8 +141,8 @@ fun TrainingDiaryContent(
             TrainingCalendarCard(
                 month = month,
                 trainingDates = trainingDates,
-                onPrevMonth = { month = month.minusMonths(1) },
-                onNextMonth = { month = month.plusMonths(1) }
+                onPrevMonth = { onMonthChange(month.minusMonths(1)) },
+                onNextMonth = { onMonthChange(month.plusMonths(1)) }
             )
             Spacer(Modifier.height(12.dp))
 
