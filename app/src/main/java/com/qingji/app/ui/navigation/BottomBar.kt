@@ -326,6 +326,15 @@ private fun FloatingBarSlots(
     /** 拖动高亮目标；-1 = 没在拖动。 */
     var previewIndex by remember { mutableIntStateOf(-1) }
     var dragging by remember { mutableStateOf(false) }
+    /**
+     * 状态源分工（回归工单要求，四个概念不再混在一起）：
+     * - currentTab  = activeIndex，只来自 currentRoute，代表**真实页面**；
+     * - pressedTab  = pressedIndex，手指刚按下、还没判定成长按时的轻反馈；
+     * - draggingTab = previewIndex，拖动经过的槽位，只做预选；
+     * - selectedTab = 松手确认后由 onTabSelected 写回路由，再由 currentRoute 回来。
+     * 三者都是临时态，手势一结束（含取消/系统中断）全部清零，不留残留选中效果。
+     */
+    var pressedIndex by remember { mutableIntStateOf(-1) }
     // 长按拖动结束后子项 clickable 可能补发一次点击，用它吞掉；新手势开始自动复位。
     var suppressClick by remember { mutableStateOf(false) }
 
@@ -456,6 +465,10 @@ private fun FloatingBarSlots(
                         labelVisible = currentRoute == tab.route && !dragging,
                         // 高亮跟拖动预览：只影响配色和图标缩放，不影响布局
                         highlighted = (if (previewIndex >= 0) previewIndex else activeIndex) == i,
+                        // 按压 / 预选两种临时反馈都和图标在同一个 Composable 里绘制，
+                        // 由同一帧的同一组状态驱动 —— 不会再出现「图标已选中、背景还是灰色」。
+                        pressed = pressedIndex == i && !dragging,
+                        preview = dragging && previewIndex == i && i != activeIndex,
                         pillContent = pillContent,
                         onClick = {
                             if (suppressClick) suppressClick = false else onTabSelected(tab)
@@ -475,7 +488,15 @@ private fun FloatingBarSlots(
                         suppressClick = false
                         // 不消费 down：短按仍然落到子项 clickable，普通点击行为零改动。
                         val down = awaitFirstDown(requireUnconsumed = false)
+                        // 按下先给一个「轻按压」反馈；落在 Tab 区域外就不给。
+                        val downInStrip = down.position.x >= 0f &&
+                            down.position.x < tabAreaPx &&
+                            down.position.y >= 0f &&
+                            down.position.y <= size.height.toFloat()
+                        pressedIndex = if (downInStrip) indexAt(down.position.x, selIndex.value) else -1
                         if (!awaitDockLongPress(down, DockLongPressMs)) {
+                            // 短按 / 提前划走：交还给子项 clickable，按压态立刻清掉
+                            pressedIndex = -1
                             return@awaitEachGesture
                         }
 
@@ -483,6 +504,7 @@ private fun FloatingBarSlots(
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         suppressClick = true
                         dragging = true
+                        pressedIndex = -1   // 进入拖动后改由 preview 表达，按压态不再叠加
                         // 布局进度此刻是冻结值（拖动期间不写 selIndex），
                         // 所以命中分段和屏幕上的图标位置完全一致，不会出现「按着 A 跳到 B」。
                         val frozen = selIndex.value
@@ -511,12 +533,20 @@ private fun FloatingBarSlots(
                         var hovered: Int? = startIndex
                         // lifted = 正常抬手；false 表示手势被系统/其他检测器打断，本次取消
                         var lifted = false
+                        // 记下真正松手那一刻的坐标（见 finally）
+                        var upX = Float.NaN
+                        var upY = Float.NaN
                         try {
                             while (true) {
                                 val event = awaitPointerEvent()
                                 val change = event.changes.firstOrNull { it.id == down.id }
                                 if (change == null) break
-                                if (!change.pressed) { lifted = true; break }
+                                if (!change.pressed) {
+                                    lifted = true
+                                    upX = change.position.x
+                                    upY = change.position.y
+                                    break
+                                }
                                 if (change.isConsumed) break
                                 // 直接坐标映射：不经过任何动画，手指到哪胶囊到哪。
                                 // 这里绝不能用 animateTo / spring —— 那正是旧版慢 200ms 的原因。
@@ -529,17 +559,22 @@ private fun FloatingBarSlots(
                                 change.consume()
                             }
                         } finally {
-                            // 无论正常松手还是被取消，都要复位。取消时 lifted 为 false，
-                            // 不提交任何跳转 —— 旧版这里漏判，手势被打断也会切页。
+                            // 无论正常松手、取消还是系统中断，三个临时态全部清零，
+                            // 不允许残留「图标已选中但页面没切」的效果。
                             previewIndex = -1
                             dragging = false
+                            pressedIndex = -1
                             scope.launch {
                                 pillLift.animateTo(
                                     1f,
                                     spring(dampingRatio = 0.7f, stiffness = 420f)
                                 )
                             }
-                            val target = hovered
+                            // 旧版直接用 hovered（最后一次 MOVE 的命中）作为最终目标：
+                            // 快速甩动时 UP 的坐标可能已经越过槽位，或者 UP 落在无效区，
+                            // 就会出现「拖到别的页、松手又回到原页」。
+                            // 现在以**松手那一刻的坐标**重新算一次命中，取消则一律不提交。
+                            val target = if (lifted && !upX.isNaN()) hit(upX, upY) else null
                             if (lifted && target != null && target != latestActive) {
                                 latestOnTabSelected(tabs[target])
                             }
@@ -662,6 +697,10 @@ private fun FloatingTabItem(
     expanded: Boolean,
     labelVisible: Boolean,
     highlighted: Boolean,
+    /** 手指刚按下、还没进入拖动：很轻的按压反馈。 */
+    pressed: Boolean,
+    /** 拖动中经过且不是当前页：明确的预选反馈，刻意区别于最终选中的宽胶囊。 */
+    preview: Boolean,
     pillContent: Color,
     onClick: () -> Unit
 ) {
@@ -691,6 +730,22 @@ private fun FloatingTabItem(
             .clickable(interactionSource = interaction, indication = null) { onClick() },
         contentAlignment = Alignment.Center
     ) {
+        // 按压 / 预选背景和图标在**同一个组件、同一帧**里绘制：
+        // 旧版只有图标 tint 跟着 previewIndex 变，胶囊还在做交叉淡变，
+        // 于是出现「图标已经选中、背景还是灰色」的不同步。
+        // 预选用半透明浅色小底、按压用更淡的灰底，最终选中仍是外层宽胶囊，
+        // 三种状态视觉上互不混淆。
+        if (preview || pressed) {
+            Box(
+                modifier = Modifier
+                    .size(width = if (preview) 54.dp else 46.dp, height = PillHeight)
+                    .clip(DockPillShape)
+                    .background(
+                        if (preview) pillContent.copy(alpha = 0.20f)
+                        else TextSecondary.copy(alpha = 0.10f)
+                    )
+            )
+        }
         // 内容始终垂直居中，图标中心不随展开上下移动。
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
