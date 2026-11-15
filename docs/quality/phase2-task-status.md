@@ -5,11 +5,11 @@
 | 工单版本 | 《轻记 Android 第二阶段代码治理总工单 V1.0》 |
 | 治理分支 | `feature/phase2-p0-data-safety`（已合并进 main，分支保留） |
 | 基准 | `origin/main = b138a279`（v1.1.4 / 115）；**已推进到含 P0 + P1 的 main** |
-| 最新更新 | 2026-11-15（第二批 P1 执行后） |
-| 本轮范围 | TASK-00 + P0（01~04）+ P1（05~08）全部完成 |
+| 最新更新 | 2026-11-15（第三批 P2 + TASK-14/15 执行后） |
+| 本轮范围 | TASK-00 + P0（01~04）+ P1（05~08）+ P2（09~13）+ 大文件拆分（14~15）全部完成 |
 | 推送 / PR / 合并 | ✅ **PR #4 已合并进 main**（merged_at 2026-11-15T01:39:57Z，`9a9eab7`）；本轮 P1 改动在 main 上直接提交 |
 | 当前进度基线 | `docs/quality/phase2-progress-baseline.md`（区分已完成 / 未合并 / 未验证 / 待授权） |
-| 状态口径 | TASK-00~08 共 **9 项已完成**；P0/P1 阶段验收是批次动作，不计入 19 项任务 |
+| 状态口径 | TASK-00~15 共 **16 项已完成**；P0/P1/P2 阶段验收是批次动作，不计入 19 项任务 |
 
 ---
 
@@ -27,20 +27,20 @@
 | 7 | TASK-06 备份和文件 IO 从 UI 下沉 | P1 | ✅ **通过** | `c3cb673`，拆出 BackupViewModel / ProgressPhotoStore / BackupShare |
 | 8 | TASK-07 拆分进度页管理卡片职责 | P1 | ✅ **通过** | `ece7a68`，拆出 Catalog / ManagerSheet / Renderer，进度页 1744→1564 行 |
 | 9 | TASK-08 补充数据库迁移保真测试 | P1 | ✅ **通过** | `0924a5b`，迁移列表单一来源 + 3 条保真测试，API 37 上 6/6 通过 |
-| 10 | TASK-09 清理 20 项高置信死代码 | P2 | ⬜ 未开始 | — |
-| 11 | TASK-10 处理 4 项待人工复核代码 | P2 | ⬜ 未开始 | — |
-| 12 | TASK-11 清理 12 处未使用 import | P2 | ⬜ 未开始 | — |
-| 13 | TASK-12 合并 R1–R13 真实重复组件 | P2 | ⬜ 未开始 | GroupCard 严禁删除（5 处调用） |
-| 14 | TASK-13 抽离公共日期与营养计算逻辑 | P2 | ⬜ 未开始 | — |
-| 15 | TASK-14 拆分 ViewModels.kt | P1 | ⬜ 未开始 | 排在 P2 之后 |
-| 16 | TASK-15 拆分四个超大页面 | P1 | ⬜ 未开始 | 每文件独立提交 |
+| 10 | TASK-09 清理高置信死代码 | P2 | ✅ **通过** | `e53ca0a`，实际扫出并删掉 **22 项**（工单写 20 项），净删 163 行 |
+| 11 | TASK-10 处理待人工复核代码 | P2 | ✅ **通过** | `5d4d162`，复核 **27 项**，删 9 项、保留 18 项并写明理由 |
+| 12 | TASK-11 清理未使用 import | P2 | ✅ **通过** | `8f0b65f`，实清 **91 处**（41 个文件），工单写 12 处 |
+| 13 | TASK-12 合并真实重复组件 | P2 | ✅ **通过** | `60d10db`，合并 4 组、6 组同名改名为区分；**GroupCard 保留**，改为委托 SectionCard |
+| 14 | TASK-13 抽离公共日期与营养计算逻辑 | P2 | ✅ **通过** | `81e739a`，新增 `TimeFormat`，Atwater 系数收敛到 `NutritionCalculator` |
+| 15 | TASK-14 拆分 ViewModels.kt | P1 | ✅ **通过** | `bafc36d`，1007 行 → 17 个单类文件 |
+| 16 | TASK-15 拆分四个超大页面 | P1 | ✅ **通过** | `12c7d6e` / `8d0976c` / `176962b` / `880f1ea`，四页各自独立提交 |
 | 17 | TASK-16 引入 KtLint | P3 | 🔒 待单独授权 | 不提前接入 |
 | 18 | TASK-17 引入 Detekt | P3 | 🔒 待单独授权 | 不提前接入 |
 | 19 | TASK-18 Android Lint 与 GitHub Actions | P3 | 🔒 待单独授权 | 不提前接入 |
 
-完成数：**5 / 19 项任务**（TASK-00、TASK-01、TASK-02、TASK-03、TASK-04）。
-另有 **P0 阶段验收通过**，它是批次验收动作，不计入 19 项任务数。
-剩余 14 项：P1 四项待开始、P2 七项待开始、P3 三项待单独授权。
+完成数：**16 / 19 项任务**（TASK-00 ~ TASK-15 全部通过）。
+剩余 3 项均为 P3 自动化，需单独授权后才能开始。
+另有 **P0 / P1 / P2 三次阶段验收通过**，它们是批次验收动作，不计入 19 项任务数。
 
 ---
 
@@ -66,7 +66,7 @@
 |---|---|---|
 | 第一批 | TASK-00 + TASK-01~04 + P0 PR | ✅ 全部完成，PR #4 已合并进 main（`566ccc1`） |
 | 第二批 | TASK-05~08（架构治理） | ✅ 全部完成，TASK-08 已在模拟器上验证（API 37，6/6） |
-| 第三批 | TASK-09~15（代码清理与大文件拆分） | 未开始 |
+| 第三批 | TASK-09~15（代码清理与大文件拆分） | ✅ 全部完成，四个超大页面各自独立提交 |
 | 第四批 | TASK-16~18（自动化，需单独授权） | 未开始 |
 
 ---
@@ -92,7 +92,7 @@
 | `docs/quality/phase2-progress-baseline.md` | ✅ 已交付（当前进度基线） |
 | `docs/quality/phase2-data-safety-report.md` | ⬜ 未交付（P0 代码已完成，报告待补） |
 | `docs/quality/phase2-database-migration-report.md` | ⬜ TASK-08 已完成，报告待补 |
-| `docs/quality/phase2-dead-code-review.md` | ⬜ TASK-10 后 |
+| `docs/quality/phase2-dead-code-review.md` | ⬜ 未交付（TASK-09/10 结论已写进提交信息，报告待补） |
 | `docs/quality/phase2-architecture-report.md` | ✅ 已交付（P1 收官） |
 | `docs/quality/phase2-test-report.md` | ⬜ 阶段测试汇总后 |
 | `docs/quality/phase2-final-report.md` | ⬜ 第二阶段收尾 |
