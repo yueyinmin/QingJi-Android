@@ -47,10 +47,26 @@ class TrainingRepository(context: Context) {
     fun observeAllWorkoutExercises(): Flow<List<WorkoutExercise>> =
         workoutExerciseDao.observeAll()
 
-    /** 首次进训练中心时灌最小动作库；灌过就不再动，避免覆盖用户自建/收藏状态。 */
+    /**
+     * 300 动作库工单 · 第三阶段：**增量补充内置动作**。
+     *
+     * 旧版只在「整张表为空」时灌一次，所以老用户升级后永远看不到新内置动作。
+     * 现在每次进训练中心都按固定 UUID 算一次差集，只补「确实缺的那些行」：
+     *
+     * - 不清空表、不删任何行，用户自建动作与历史训练记录完全不动；
+     * - 已存在的 UUID 一律不写回，收藏状态、更新时间不会被覆盖；
+     * - 名称已被用户自建动作占用时跳过（exercise.name 有全局唯一索引）；
+     * - 用 IGNORE 插入 + 整个差集包在一个事务里，批量导入要么全成要么全不成；
+     * - 历史只读 workout_exercise.exerciseNameSnapshot，新增动作不会改动任何历史关联。
+     *
+     * 差集计算抽成 [TrainingSeed.missingBuiltIns] 纯函数，边界情况由单元测试覆盖。
+     */
     suspend fun ensureSeed() {
-        if (exerciseDao.count() == 0) {
-            exerciseDao.insertAll(TrainingSeed.builtIns())
+        db.withTransaction {
+            val missing = TrainingSeed.missingBuiltIns(exerciseDao.findAll())
+            if (missing.isNotEmpty()) {
+                exerciseDao.insertAllIgnoringConflicts(missing)
+            }
         }
     }
 

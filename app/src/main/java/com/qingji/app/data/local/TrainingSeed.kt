@@ -27,13 +27,17 @@ object TrainingSeed {
     const val CORE = "core"
     const val STRETCH = "stretch"
 
-    /** 肌群 → 界面上的中文名（胶囊筛选与动作库分类都用它）。 */
+    /**
+     * 肌群 → 界面上的中文名（胶囊筛选与动作库分类都用它）。
+     * 300 动作库工单：显示名统一成「胸部/背部/肩部/手臂/腿部/核心/拉伸」，
+     * **只改这里显示用的文案**，前面的 key 仍是数据库里的英文分类键，一条都不动。
+     */
     val CATEGORY_LABELS = listOf(
-        CHEST to "胸",
-        BACK to "背",
-        SHOULDER to "肩",
+        CHEST to "胸部",
+        BACK to "背部",
+        SHOULDER to "肩部",
         ARM to "手臂",
-        LEG to "腿",
+        LEG to "腿部",
         CORE to "核心",
         STRETCH to "拉伸"
     )
@@ -111,4 +115,48 @@ object TrainingSeed {
                 updatedAt = now
             )
         }
+
+    /** 现有 38 个内置 UUID，给数据审核和回归测试用。 */
+    val BUILT_IN_UUIDS: Set<String> = SEEDS.map { it.uuid }.toSet()
+
+    /**
+     * 300 动作库工单 · 第三阶段：**按固定 UUID 计算「缺失的内置动作」**。
+     *
+     * 这是纯函数，不碰 Android / Room，方便单元测试覆盖所有边界：
+     * 1. UUID 已存在 → 不补（已有的收藏、更新时间、用户改过的字段一概不覆盖）；
+     * 2. 名称已被占用（多半是用户自建的同名动作）→ 跳过，避免撞
+     *    `exercise.name` 的全局唯一索引，也绝不覆盖用户自己的动作；
+     * 3. 同名检查用 `trim()` 归一，防止全角空格之类的隐形重复；
+     * 4. 不删除、不更新、不改历史 —— 返回值只包含「可以安全新增」的行。
+     *
+     * 调用方必须把 insert 包在 `db.withTransaction {}` 里，保证批量导入要么全成、
+     * 要么全不成。
+     */
+    fun missingBuiltIns(
+        existing: List<ExerciseEntity>,
+        now: Long = System.currentTimeMillis()
+    ): List<ExerciseEntity> {
+        val uuids = existing.mapTo(HashSet()) { it.uuid }
+        val names = existing.mapTo(HashSet()) { it.name.trim() }
+        return builtIns(now).filterNot { seed ->
+            seed.uuid in uuids || seed.name.trim() in names
+        }
+    }
+
+    /**
+     * 300 动作库工单 · 第一阶段：**新增动作的稳定 UUID 规则**。
+     *
+     * 候选 JSON 里的临时 ID 一律不直接当最终 UUID；只有审核通过、中文名与英文名
+     * 都固定之后，才用「英文名小写去空白 + SHA-256 前 12 位」生成。
+     * 只要名称不变，UUID 就永远不变；换分类、换排序、重跑导入都不会漂移。
+     * 前缀 `ex2-` 与现有的 `ex-` 明确区分，任何情况下都不会撞上已有 38 个 UUID。
+     *
+     * 本轮**不导入候选动作**，这里只把规则落地并测试，等审核通过后由下一轮使用。
+     */
+    fun stableUuid(englishName: String): String {
+        val normalized = englishName.trim().lowercase().replace(Regex("\\s+"), " ")
+        val bytes = java.security.MessageDigest.getInstance("SHA-256")
+            .digest(normalized.toByteArray(Charsets.UTF_8))
+        return "ex2-" + bytes.take(6).joinToString("") { "%02x".format(it.toInt() and 0xFF) }
+    }
 }
