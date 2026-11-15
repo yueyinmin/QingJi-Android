@@ -50,21 +50,34 @@ import java.time.LocalDate
 
 
 /**
- * 快速记录喝水（v3.2）：点首页那根高水杯弹出来。
- * 四档常用水量 + 自定义输入 + 记录时间 + 查看今日详情，
+ * 记录饮水（V2 工单 · 确认式）：首页水杯、四个一级页面的悬浮水滴、
+ * 「＋」面板的喝水入口共用这一个弹层。
+ *
+ * 关键行为（工单第六部分）：
+ * - 打开弹层**不写库**，只是把默认 200ml 摆出来；
+ * - 档位 / [-][+] / 自定义输入都只改「待记录」的数值，不落库；
+ * - 只有点「确认记录」才回调 onAdd（一次），随后关闭；
+ * - 点「取消」、下拉关闭、点遮罩都不写任何数据；
+ * - submitted 标志防止极快的连续点击产生两条记录。
+ *
+ * onOpenDetail 传 null 时隐藏「查看今日饮水详情」——非首页的调用方
+ * 没有对应的详情弹层，宁可不显示也不接一个空回调。
  * 容器色/遮罩/把手和 AppBottomSheet 完全一致，不写死任何蓝色。
  */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-internal fun QuickWaterSheet(
+fun QuickWaterSheet(
     waterMl: Int,
     goalMl: Int,
     onAdd: (Int) -> Unit,
-    onOpenDetail: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onOpenDetail: (() -> Unit)? = null
 ) {
+    // 默认 200ml；只在确认时把这个值交给业务层
+    var pendingMl by remember { mutableStateOf(200) }
     var customMl by remember { mutableStateOf("") }
     var error by remember { mutableStateOf("") }
+    var submitted by remember { mutableStateOf(false) }
     val timeText = "${AppClock.today().monthValue}月${AppClock.today().dayOfMonth}日 " +
         java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
 
@@ -93,7 +106,7 @@ internal fun QuickWaterSheet(
                 Text(text = "💧", fontSize = 18.sp)
                 Spacer(Modifier.size(6.dp))
                 Text(
-                    text = s("快速记录喝水"),
+                    text = s("记录饮水"),
                     fontSize = 17.sp,
                     fontWeight = FontWeight.Bold,
                     color = TextPrimary
@@ -106,16 +119,69 @@ internal fun QuickWaterSheet(
                 )
             }
 
+            Spacer(Modifier.height(16.dp))
+
+            // ---------- 当前待记录的水量（大字 + 加减） ----------
+            Text(text = s("今日饮水"), fontSize = 12.sp, color = TextSecondary)
+            Spacer(Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(QingJiGreenLight)
+                        .pressable {
+                            pendingMl = (pendingMl - 50).coerceAtLeast(50)
+                            customMl = ""
+                            error = ""
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("−", fontSize = 20.sp, color = QingJiGreenDark)
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "$pendingMl",
+                        fontSize = 32.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MultiColor.WaterText
+                    )
+                    Text("ml", fontSize = 12.sp, color = TextSecondary)
+                }
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(QingJiGreenLight)
+                        .pressable {
+                            pendingMl = (pendingMl + 50).coerceAtMost(3000)
+                            customMl = ""
+                            error = ""
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("+", fontSize = 20.sp, color = QingJiGreenDark)
+                }
+            }
+
             Spacer(Modifier.height(14.dp))
 
+            // ---------- 常用档位：只选中，不写库 ----------
+            Text(text = s("常用饮水量"), fontSize = 12.sp, color = TextSecondary)
+            Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(150, 250, 350, 500).forEach { ml ->
+                listOf(150, 200, 300).forEach { ml ->
+                    val selected = pendingMl == ml
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(10.dp))
-                            .background(QingJiGreenLight)
-                            .pressable { onAdd(ml); error = "" }
+                            .background(if (selected) QingJiGreen else QingJiGreenLight)
+                            .pressable { pendingMl = ml; customMl = ""; error = "" }
                             .padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center
                     ) {
@@ -123,7 +189,7 @@ internal fun QuickWaterSheet(
                             text = "${ml}ml",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Medium,
-                            color = QingJiGreenDark,
+                            color = if (selected) CardWhite else QingJiGreenDark,
                             maxLines = 1
                         )
                     }
@@ -132,13 +198,14 @@ internal fun QuickWaterSheet(
 
             Spacer(Modifier.height(12.dp))
 
+            // ---------- 自定义：输入后按「用这个数」替换待记录值，仍不写库 ----------
             Row(verticalAlignment = Alignment.CenterVertically) {
                 androidx.compose.material3.OutlinedTextField(
                     value = customMl,
                     onValueChange = { customMl = it; error = "" },
                     singleLine = true,
                     placeholder = {
-                        Text(text = s("输入自定义水量"), fontSize = 12.sp, color = TextSecondary)
+                        Text(text = s("自定义水量"), fontSize = 12.sp, color = TextSecondary)
                     },
                     trailingIcon = {
                         Text(
@@ -160,25 +227,24 @@ internal fun QuickWaterSheet(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(10.dp))
-                        .background(QingJiGreen)
+                        .background(QingJiGreenLight)
                         .pressable {
                             val ml = customMl.toIntOrNull()
                             if (ml != null && ml in 1..3000) {
-                                onAdd(ml)
-                                customMl = ""
+                                pendingMl = ml
                                 error = ""
                             } else {
                                 error = "1 到 3000 之间都行"
                             }
                         }
-                        .padding(horizontal = 18.dp, vertical = 16.dp),
+                        .padding(horizontal = 14.dp, vertical = 16.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = s("记录"),
-                        fontSize = 13.sp,
+                        text = s("用这个数"),
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
-                        color = Color.White
+                        color = QingJiGreenDark
                     )
                 }
             }
@@ -201,22 +267,63 @@ internal fun QuickWaterSheet(
                 Text(text = timeText, fontSize = 13.sp, color = QingJiGreenDark)
             }
 
-            Spacer(Modifier.height(12.dp))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .border(1.dp, MultiColor.WaterText, RoundedCornerShape(10.dp))
-                    .pressable { onOpenDetail() }
-                    .padding(vertical = 12.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = s("查看今日饮水详情"),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = MultiColor.WaterText
-                )
+            // ---------- 取消 / 确认：唯一的写库时机 ----------
+            Spacer(Modifier.height(16.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(QingJiGreenLight)
+                        // 取消不写库，直接关
+                        .pressable { onDismiss() }
+                        .padding(vertical = 14.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(s("取消"), fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium, color = QingJiGreenDark)
+                }
+                Box(
+                    modifier = Modifier
+                        .weight(1.6f)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(QingJiGreen)
+                        .pressable {
+                            if (submitted) return@pressable
+                            submitted = true
+                            onAdd(pendingMl)
+                            onDismiss()
+                        }
+                        .padding(vertical = 14.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(s("确认记录"), fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold, color = Color.White)
+                }
+            }
+
+            // ---------- 今日详情：只有首页有对应的详情弹层 ----------
+            if (onOpenDetail != null) {
+                Spacer(Modifier.height(12.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .border(1.dp, MultiColor.WaterText, RoundedCornerShape(10.dp))
+                        .pressable {
+                            onDismiss()
+                            onOpenDetail.invoke()
+                        }
+                        .padding(vertical = 12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = s("查看今日饮水详情"),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = MultiColor.WaterText
+                    )
+                }
             }
         }
     }
