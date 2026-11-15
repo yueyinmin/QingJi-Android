@@ -62,6 +62,8 @@ fun DiaryScreen(
     onOpenImage: () -> Unit = {},
     /** v3.2.4：悬浮栏第二颗换成食物库 */
     onOpenFoodLibrary: () -> Unit = {},
+    /** V2 工单：点水滴只打开「记录饮水」弹层，不再直接 addWater(200)。 */
+    onOpenWaterSheet: () -> Unit = {},
     /** 默认进训练日记（主人 2026-11-13 指定） */
     trainingTab: Boolean = true,
     onTrainingTabChange: (Boolean) -> Unit = {},
@@ -140,7 +142,7 @@ fun DiaryScreen(
             }
             // 右下角悬浮快捷按钮：两个 Tab 都显示，位置和其它页完全一致
             QuickActionColumn(
-                onWater = { vm.addWater(200) },
+                onWater = onOpenWaterSheet,
                 onWeight = onOpenWeight,
                 onOpenFoodLibrary = onOpenFoodLibrary,
                 onPhoto = onOpenImage,

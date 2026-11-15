@@ -69,6 +69,11 @@ fun ProgressScreen(
     /** v3.2.4：悬浮栏第二颗换成食物库 */
     onOpenFoodLibrary: () -> Unit = {},
     /**
+     * V2 工单：点水滴只打开「记录饮水」弹层，不再直接 addWater(200)。
+     * 弹层由 Root 统一提供，确认后才写库。
+     */
+    onOpenWaterSheet: () -> Unit = {},
+    /**
      * v1.0.6：「本周运动消耗」右上角「+ 记一次」改为跳运动二级页。
      * 旧的做法是在这里弹只填分钟的小面板，那样记不了步数 / 公里，
      * 两条路记出来的数据不一样，用户会以为步数白填了。
@@ -281,8 +286,9 @@ fun ProgressScreen(
         )
     }
     // 和首页一样的三个快捷按钮：在进展页也能顺手记水、记体重、拍照
+    // V2：喝水统一走确认式弹层，点击本身不写任何数据
     QuickActionColumn(
-        onWater = { vm.addWater(200) },
+        onWater = onOpenWaterSheet,
         onWeight = onOpenWeight,
         onOpenFoodLibrary = onOpenFoodLibrary,
         onPhoto = onOpenImage,

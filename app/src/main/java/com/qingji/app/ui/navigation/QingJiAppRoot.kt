@@ -135,6 +135,11 @@ fun QingJiAppRoot(
     // 是否展开「记一笔」底部弹层
     var showAddSheet by remember { mutableStateOf(false) }
 
+    // V2 工单：四个一级页面 + 「＋」面板共用的喝水入口。
+    // 这里只控制弹层显隐，绝不在这里写库 —— 写库只发生在弹层点「确认记录」之后。
+    var showWaterSheet by remember { mutableStateOf(false) }
+    val openWaterSheet: () -> Unit = { showWaterSheet = true }
+
     // 小组件点进来 → 直接跳到目标页。
     // v3.2.3：不管最后有没有真的跳，都要把目标「消费掉」并回告 MainActivity 清空。
     // 以前 target=="home" 或空值时直接 return，目标就永远留在 Activity 里；
@@ -205,6 +210,9 @@ fun QingJiAppRoot(
             // 动画 250ms，稍微多留一点再解锁，防止连点连切
             kotlinx.coroutines.delay(280)
             tabSwitching = false
+            // V2：方向用完就归零。否则下一次系统返回 / 二级页进出时，
+            // 还会拿着上一次的方向算转场，出现「方向不对」的残留问题。
+            navDirection = 0
         }
     }
 
@@ -242,6 +250,8 @@ fun QingJiAppRoot(
     val homeVm: HomeViewModel = viewModel()
     // v8：本周小结数据在 HomeViewModel，进展页要展示，Root 收好传下去
     val weeklySummary by homeVm.weeklySummary.collectAsState()
+    // V2：Root 级喝水弹层要显示「已喝 / 目标」，读的是首页同一份 state，不另查数据库
+    val homeUiState by homeVm.uiState.collectAsState()
     val progressVm: ProgressViewModel = viewModel()
     val diaryVm: DiaryViewModel = viewModel()
     val mineVm: MineViewModel = viewModel()
@@ -398,8 +408,38 @@ fun QingJiAppRoot(
                             com.qingji.app.ui.theme.Motion.pageExit
                         }
                     },
-                    popEnterTransition = { com.qingji.app.ui.theme.Motion.popEnter },
-                    popExitTransition = { com.qingji.app.ui.theme.Motion.popExit }
+                    // V2 工单 · 返回首页动画割裂的真正根因：
+                    // goToTab() 带 popUpTo(Home) + launchSingleTop，回首页时目标
+                    // destination 已经在返回栈里（索引比当前页更小），NavHost 会把
+                    // 这次变化判定为 pop —— 于是走下面这组 popEnter/popExit，
+                    // 而它们原来是 Motion.popEnter/popExit（原地淡入淡出 150ms），
+                    // 与上面一级 Tab 的 250ms / 30% 横滑完全不是一套东西。
+                    // 修法不是调时长，而是让「一级 Tab 之间的 pop」也走同一套
+                    // 转场公式；二级页面 pop 仍旧用原来的 Motion，保持不变。
+                    popEnterTransition = {
+                        val bothTabs = initialState.destination.route in tabRoutes &&
+                            targetState.destination.route in tabRoutes
+                        if (bothTabs && settings.pageTransition && navDirection != 0) {
+                            slideInHorizontally(
+                                animationSpec = tween(250, easing = FastOutSlowInEasing),
+                                initialOffsetX = { (it * 0.30f * navDirection).toInt() }
+                            ) + fadeIn(tween(250))
+                        } else {
+                            com.qingji.app.ui.theme.Motion.popEnter
+                        }
+                    },
+                    popExitTransition = {
+                        val bothTabs = initialState.destination.route in tabRoutes &&
+                            targetState.destination.route in tabRoutes
+                        if (bothTabs && settings.pageTransition && navDirection != 0) {
+                            slideOutHorizontally(
+                                animationSpec = tween(250, easing = FastOutSlowInEasing),
+                                targetOffsetX = { (-it * 0.30f * navDirection).toInt() }
+                            ) + fadeOut(tween(250))
+                        } else {
+                            com.qingji.app.ui.theme.Motion.popExit
+                        }
+                    }
                 ) {
                     composable(QingJiTab.Home.route) {
                         HomeScreen(
@@ -448,6 +488,8 @@ fun QingJiAppRoot(
                             onOpenImage = { navController.navigate(QingJiRoutes.ImageRecord) },
                             // v3.2.4：悬浮栏第二颗换成食物库，这里接上跳转
                             onOpenFoodLibrary = { navController.navigate(QingJiRoutes.FoodLibrary) },
+                            // V2：点水滴只开弹层，不再直接写 200ml
+                            onOpenWaterSheet = openWaterSheet,
                             // v1.0.6：运动卡片的「+ 记一次」走二级页，才能填步数 / 公里
                             onOpenExercise = { navController.navigate(QingJiRoutes.ExercisePicker) },
                             scrollState = tabScrollStates.getValue(QingJiTab.Progress),
@@ -461,6 +503,7 @@ fun QingJiAppRoot(
                             onOpenWeight = { navController.navigate(QingJiRoutes.Weight) },
                             onOpenImage = { navController.navigate(QingJiRoutes.ImageRecord) },
                             onOpenFoodLibrary = { navController.navigate(QingJiRoutes.FoodLibrary) },
+                            onOpenWaterSheet = openWaterSheet,
                             trainingTab = diaryTrainingTab,
                             onTrainingTabChange = { diaryTrainingTab = it },
                             onStartTraining = { navController.navigate(QingJiRoutes.TrainingActive) },
@@ -786,11 +829,11 @@ fun QingJiAppRoot(
             onImage = { navController.navigate(QingJiRoutes.ImageRecord) },
             onVoice = { navController.navigate(QingJiRoutes.VoiceRecord) },
             onBarcode = { navController.navigate(QingJiRoutes.Barcode) },
-            // 记一杯水（默认 200ml，直接落库）；体型照片进进展页
+            // V2：记一杯水改为「先开确认弹层」，点击本身绝不落库。
+            // 两个 ModalBottomSheet 不能同时存在，先收起「＋」再开喝水弹层。
             onWater = {
-                scope.launch {
-                    appRepo.addWater(200, com.qingji.app.domain.AppClock.today())
-                }
+                showAddSheet = false
+                showWaterSheet = true
             },
             // v3.3.0：记运动改走独立的「记录运动」二级页，不再只是跳进展页
             onExercise = { navController.navigate(QingJiRoutes.ExercisePicker) },
@@ -816,6 +859,23 @@ fun QingJiAppRoot(
                     if (id != null) QingJiRoutes.selfDisciplineDeviation(id) else QingJiRoutes.SelfDiscipline
                 )
             }
+        )
+    }
+
+    // V2 工单：统一的喝水记录弹层（进展 / 日记 / 我的 / 「＋」面板共用）。
+    // 弹层内部默认 200ml、可改、必须点「确认记录」才会调用 onAdd；
+    // 取消 / 下拉 / 点遮罩都不写库。写库走同一个 QingJiRepository.addWater，
+    // 不新建第二套饮水逻辑，日期用 AppClock.today() 保证跨午夜取本地当天。
+    if (showWaterSheet) {
+        com.qingji.app.ui.screen.QuickWaterSheet(
+            waterMl = homeUiState.waterMl,
+            goalMl = settings.waterGoalMl,
+            onAdd = { ml ->
+                scope.launch {
+                    appRepo.addWater(ml, com.qingji.app.domain.AppClock.today())
+                }
+            },
+            onDismiss = { showWaterSheet = false }
         )
     }
 }
