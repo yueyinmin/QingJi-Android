@@ -1,5 +1,4 @@
 package com.qingji.app.ui.screen
-
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.tween
@@ -18,12 +17,22 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.DirectionsRun
+import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.Scale
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -45,7 +54,9 @@ import androidx.compose.ui.unit.sp
 import com.qingji.app.domain.NutritionCalculator
 import com.qingji.app.domain.ProfileInputRules
 import com.qingji.app.ui.components.SectionCard
+import com.qingji.app.ui.theme.CardWhite
 import com.qingji.app.ui.theme.Dimens
+import com.qingji.app.ui.theme.DividerColor
 import com.qingji.app.ui.theme.PageBackground
 import com.qingji.app.ui.theme.QingJiGreen
 import com.qingji.app.ui.theme.QingJiGreenDark
@@ -54,6 +65,7 @@ import com.qingji.app.ui.theme.TextPrimary
 import com.qingji.app.ui.theme.TextSecondary
 import com.qingji.app.ui.theme.pressable
 import com.qingji.app.ui.viewmodel.OnboardingAnswers
+
 
 /**
  * ============================================================
@@ -200,7 +212,7 @@ fun OnboardingScreen(
             // 键盘弹出时整页上推，底部按钮不会被输入法盖住
             .imePadding()
     ) {
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(14.dp))
 
         // ---------- 进度条（固定顶部，按真实步数走） ----------
         LinearProgressIndicator(
@@ -218,7 +230,7 @@ fun OnboardingScreen(
             fontSize = 11.sp,
             color = TextSecondary
         )
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(16.dp))
 
         // ---------- 中间内容：独立滚动，占据剩余全部高度 ----------
         Box(modifier = Modifier.weight(1f)) {
@@ -329,36 +341,240 @@ fun OnboardingScreen(
 
 @Composable
 private fun WelcomePage() {
-    Text(text = "欢迎使用轻记", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-    Spacer(Modifier.height(10.dp))
-    Text(
-        text = "填几个身体数据，就能算出你每天该吃多少。只问必需的这几项，剩下的可以以后慢慢补。",
-        fontSize = 14.sp, color = TextSecondary, lineHeight = 22.sp
-    )
-    Spacer(Modifier.height(18.dp))
-    SectionCard {
-        Text(text = "接下来只要三步", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+    // 首屏结构：品牌标题 → 产品视觉预览 → 三步引导。
+    // 视觉预览全部是真 Compose 组件（不是一张整页图），点不动但和真界面同源，
+    // 所以配色、圆角、字号天然跟后面四页一致。
+    Column(modifier = Modifier.fillMaxWidth()) {
+
+        // ---------- 1. 品牌标题 ----------
+        Text(text = "欢迎使用轻记", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
         Spacer(Modifier.height(10.dp))
-        listOf(
-            "① 选目标：减脂、增肌还是保持",
-            "② 填身体数据：性别、年龄、身高、体重",
-            "③ 选活动量，就能看到每天的热量和营养目标"
-        ).forEach {
-            Text(text = it, fontSize = 13.sp, color = TextSecondary, lineHeight = 22.sp)
+        Text(
+            text = "让每一次记录，都离健康更近一步。",
+            fontSize = 15.sp,
+            // 比辅助文案稍深一档：两行都次级色会糊成一片，层级靠字号 + 明度一起拉开
+            color = TextPrimary.copy(alpha = 0.72f),
+            lineHeight = 22.sp
+        )
+        Spacer(Modifier.height(5.dp))
+        Text(
+            text = "饮食、运动、体重，轻松记录你的每一点改变。",
+            fontSize = 13.sp,
+            color = TextSecondary,
+            lineHeight = 20.sp
+        )
+
+        Spacer(Modifier.height(16.dp))
+
+        // ---------- 2. 产品视觉预览 ----------
+        PreviewShowcase()
+
+        Spacer(Modifier.height(20.dp))
+
+        // ---------- 3. 三步引导 ----------
+        Text(text = "接下来，只需要三步", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+        Spacer(Modifier.height(10.dp))
+        val steps = listOf(
+            Triple(Icons.Filled.Flag, "确定你的目标", "选择减脂、增肌或保持。"),
+            Triple(Icons.Filled.Person, "完善身体资料", "填写身高、体重、年龄等基本信息。"),
+            Triple(Icons.Filled.Bolt, "设置日常活动量", "根据生活习惯计算每日热量与营养目标。")
+        )
+        steps.forEachIndexed { i, (icon, title, desc) ->
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 11.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // 统一尺寸的圆角图标底板
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(QingJiGreenLight),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = QingJiGreenDark,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(text = "0${i + 1}", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = QingJiGreen)
+                        Spacer(Modifier.width(6.dp))
+                        Text(text = title, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                    }
+                    Spacer(Modifier.height(3.dp))
+                    Text(text = desc, fontSize = 13.sp, color = TextSecondary, lineHeight = 19.sp)
+                }
+            }
+            // 步骤之间的轻量分割线，左边让出图标底板的宽度
+            if (i < steps.lastIndex) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 50.dp)
+                        .height(1.dp)
+                        .background(DividerColor)
+                )
+            }
+        }
+        // 内容滚到底时和固定按钮留一点呼吸位，字体放大到 1.3x 也不会贴边
+        Spacer(Modifier.height(12.dp))
+    }
+}
+
+/**
+ * 首屏的产品视觉预览：浅绿底 + 白色浮层，全部用真组件拼。
+ *
+ * 数据是写死的示例值 —— 引导页还没有任何用户资料，这里只是让人一眼看懂
+ * 「装完之后每天看到的是什么」。所以不接 ViewModel，也不参与任何计算。
+ */
+@Composable
+private fun PreviewShowcase() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(22.dp))
+            .background(QingJiGreenLight)
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(9.dp)
+    ) {
+        // 每日热量管理
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(CardWhite)
+                .padding(horizontal = 14.dp, vertical = 13.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Filled.LocalFireDepartment,
+                    contentDescription = null,
+                    tint = QingJiGreen,
+                    modifier = Modifier.size(15.dp)
+                )
+                Spacer(Modifier.width(5.dp))
+                Text(text = "今日剩余", fontSize = 12.sp, color = TextSecondary)
+                Spacer(Modifier.weight(1f))
+                Text(text = "减脂", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = QingJiGreenDark)
+            }
+            Spacer(Modifier.height(5.dp))
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(text = "1813", fontSize = 27.sp, fontWeight = FontWeight.Bold, color = QingJiGreenDark)
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    text = "千卡",
+                    fontSize = 12.sp,
+                    color = TextSecondary,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+            }
+            Spacer(Modifier.height(9.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp)
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(QingJiGreenLight)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.38f)
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(QingJiGreen)
+                )
+            }
+            Spacer(Modifier.height(11.dp))
+            // 三大营养素
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("蛋白质" to "132 g", "碳水" to "228 g", "脂肪" to "50 g").forEach { (name, value) ->
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(11.dp))
+                            .background(PageBackground)
+                            .padding(vertical = 7.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(text = value, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = QingJiGreenDark)
+                        Spacer(Modifier.height(1.dp))
+                        Text(text = name, fontSize = 10.sp, color = TextSecondary)
+                    }
+                }
+            }
+        }
+
+        // 饮食 / 运动 / 体重 三个功能符号
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(
+                Icons.Filled.Restaurant to "饮食",
+                Icons.Filled.DirectionsRun to "运动",
+                Icons.Filled.Scale to "体重"
+            ).forEach { (icon, label) ->
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(13.dp))
+                        .background(CardWhite)
+                        .padding(vertical = 9.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = QingJiGreen,
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(Modifier.width(5.dp))
+                    Text(text = label, fontSize = 12.sp, color = TextPrimary)
+                }
+            }
+        }
+
+        // 一条饮食记录
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp))
+                .background(CardWhite)
+                .padding(horizontal = 12.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(RoundedCornerShape(9.dp))
+                    .background(QingJiGreenLight),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Restaurant,
+                    contentDescription = null,
+                    tint = QingJiGreenDark,
+                    modifier = Modifier.size(15.dp)
+                )
+            }
+            Spacer(Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = "早餐", fontSize = 11.sp, color = TextSecondary)
+                Spacer(Modifier.height(1.dp))
+                Text(text = "燕麦牛奶 · 水煮蛋", fontSize = 13.sp, color = TextPrimary)
+            }
+            Text(text = "320 千卡", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = QingJiGreenDark)
         }
     }
-    Spacer(Modifier.height(14.dp))
-    Text(
-        text = "昵称、饮水、过敏原这些，之后在「我的 → 设置」里随时能改。",
-        fontSize = 12.sp, color = TextSecondary, lineHeight = 19.sp
-    )
 }
 
 @Composable
 private fun GoalPage(mode: String, onPick: (String) -> Unit) {
     QuestionPage(
-        title = "这次的目标是？",
-        subtitle = "决定每天的热量预算：减脂少给一点，增肌多给一点"
+        title = "这次的目标是？"
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             listOf(
@@ -410,8 +626,7 @@ private fun BodyPage(
     onTarget: (String) -> Unit
 ) {
     QuestionPage(
-        title = "身体数据",
-        subtitle = "按真实情况填就行，之后随时能在「我的」里改"
+        title = "身体数据"
     ) {
         Text(text = "性别", fontSize = 13.sp, color = TextSecondary)
         Spacer(Modifier.height(6.dp))
@@ -478,8 +693,7 @@ private fun BodyPage(
 @Composable
 private fun ActivityPage(activity: Int, onPick: (Int) -> Unit) {
     QuestionPage(
-        title = "平时活动量大吗？",
-        subtitle = "影响每天能吃多少的热量预算，大概选一个最接近的"
+        title = "平时活动量大吗？"
     ) {
         SectionCard {
             (1..4).forEach { level ->
@@ -519,8 +733,7 @@ private fun PreviewPage(
     }
 
     QuestionPage(
-        title = "你每天的目标",
-        subtitle = "按刚才填的数据算的，之后改体重或活动量会重新算"
+        title = "你每天的目标"
     ) {
         if (preview == null) {
             // 正常走流程到不了这里（第 2 步已经拦过），万一走到也给出路
@@ -611,17 +824,9 @@ private fun MacroSummaryCell(label: String, value: String, modifier: Modifier = 
 @Composable
 private fun QuestionPage(
     title: String,
-    subtitle: String,
     content: @Composable () -> Unit
 ) {
     Text(text = title, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-    Spacer(Modifier.height(8.dp))
-    Text(
-        text = subtitle,
-        fontSize = 13.sp,
-        color = TextSecondary,
-        lineHeight = 20.sp
-    )
     Spacer(Modifier.height(24.dp))
     content()
 }
