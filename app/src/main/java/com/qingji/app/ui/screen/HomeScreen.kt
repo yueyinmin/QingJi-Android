@@ -684,21 +684,6 @@ private fun QuickWaterSheet(
     }
 }
 
-/** 标题旁边翻周用的小圆按钮。 */
-@Composable
-private fun WeekArrow(text: String, onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .size(28.dp)
-            .clip(CircleShape)
-            .background(CardWhite)
-            .clickable { onClick() },
-        contentAlignment = Alignment.Center
-    ) {
-        Text(text = text, fontSize = 18.sp, color = QingJiGreenDark)
-    }
-}
-
 /**
  * 一周日期条：参考吃有数的样式 —— 没选中的是虚线圆圈，选中那天
  * 变成主题浅色的圆角方块，下面带一颗主题色小点。

@@ -239,7 +239,6 @@ fun ExerciseDateTimeWheelSheet(
         listOf(today) +
         (1..pastDays).map { today.minusDays(it.toLong()) }
     val weekdayCn = listOf("一", "二", "三", "四", "五", "六", "日")
-    val todayIndex = days.indexOf(today)
     // 标签按「真实日期差」算，不能按列表位置差 —— pastDays 和 futureDays 双向都有时，
     // 位置差会把「明天」错标成「昨天」（2026-11-12 修）
     val dayLabels = days.mapIndexed { _, d ->

@@ -79,7 +79,6 @@ object IconTones {
     val Orange = IconTone(Color(0xFFE5A044), Color(0xFFFBF1E2))
     val Purple = IconTone(Color(0xFF9276D8), Color(0xFFF0ECFA))
     val Pink = IconTone(Color(0xFFDB83A5), Color(0xFFF9EBF1))
-    val Red = IconTone(Color(0xFFDB7777), Color(0xFFF9ECEB))
     val Teal = IconTone(Color(0xFF4BAEB0), Color(0xFFE7F4F3))
     val Gray = IconTone(Color(0xFF87949A), Color(0xFFEDF0F1))
 }
@@ -222,73 +221,6 @@ data class StatCell(
     val icon: ImageVector,
     val tone: IconTone
 )
-
-/**
- * 三列自适应统计宫格。
- * 每格：浅色底 + 小图标 + 名称 + 次数，比原来「两列白条」更紧凑。
- */
-@Composable
-fun StatisticGrid(
-    items: List<StatCell>,
-    modifier: Modifier = Modifier,
-    columns: Int = 3
-) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        items.chunked(columns).forEach { rowItems ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                rowItems.forEach { cell ->
-                    StatisticCell(cell = cell, modifier = Modifier.weight(1f))
-                }
-                // 最后一行不满时补空位，保证格子宽度一致
-                repeat(columns - rowItems.size) {
-                    Spacer(modifier = Modifier.weight(1f))
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun StatisticCell(cell: StatCell, modifier: Modifier = Modifier) {
-    Row(
-        modifier = modifier
-            .heightIn(min = 46.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(cell.tone.container)
-            .padding(horizontal = 8.dp, vertical = 7.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = cell.icon,
-            contentDescription = null,
-            tint = cell.tone.icon,
-            modifier = Modifier.size(16.dp)
-        )
-        Spacer(Modifier.size(6.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = cell.label,
-                fontSize = 10.sp,
-                color = TextSecondary,
-                maxLines = 1
-            )
-            Text(
-                text = cell.value,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = TextPrimary,
-                maxLines = 1
-            )
-        }
-    }
-}
-
 
 /**
  * 使用情况统计卡（2 列 × 4 排用）。

@@ -40,8 +40,6 @@ object QingJiThemeState {
 /** 浅色/深色两套原始色值，Theme.kt 也要用，所以是 internal 不是 private。 */
 object Light {
     val Green = Color(0xFF1F8A70)
-    val GreenDark = Color(0xFF16795F)
-    val GreenLight = Color(0xFFE8F5EF)
     val Page = Color(0xFFF3F3F6)
     val Card = Color(0xFFFFFFFF)
     val Text = Color(0xFF263B33)
@@ -51,8 +49,6 @@ object Light {
 
 object Dark {
     val Green = Color(0xFF4DBB9B)       // 深色背景上要更亮才看得清
-    val GreenDark = Color(0xFF8FE0C4)
-    val GreenLight = Color(0xFF1D3A33)  // 深绿底，不再是浅绿
     val Page = Color(0xFF121416)
     val Card = Color(0xFF1E2124)
     val Text = Color(0xFFF2F4F5)

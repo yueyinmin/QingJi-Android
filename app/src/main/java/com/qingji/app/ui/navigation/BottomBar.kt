@@ -682,17 +682,3 @@ private fun BarPlusSlot(
         }
     }
 }
-
-/** 一条很细的分割线，页面里到处要用。 */
-@Composable
-fun ThinDivider() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(1.dp)
-            .background(DividerColor)
-    )
-}
-
-/** 通用文字样式用不到时留个口子，方便以后统一改色。 */
-val QingJiTextPrimary = TextPrimary

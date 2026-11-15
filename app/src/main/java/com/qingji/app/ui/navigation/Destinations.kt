@@ -25,7 +25,6 @@ enum class QingJiTab(
 /** 不在底部 Tab 里、但需要跳转的页面（M1 新增记录页与配置页）。 */
 object QingJiRoutes {
     const val Settings = "settings"
-    const val AddRecord = "add_record"
     const val SearchFood = "search_food"
     const val TextAi = "text_ai"
     const val Weight = "weight"
