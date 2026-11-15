@@ -85,8 +85,8 @@ android {
         // v1.1.5 = 116（2026-11-15）：底栏 V2（选中胶囊缩小到 76~82dp、记一笔按钮 116x48dp、
         //   动态权重 1.5:1）+ 恢复五套主题跟底栏联动 + 第二批 P1 重构（TASK-05~08：
         //   统一设置出口、备份 IO 下沉、进度页拆卡片、迁移测试单一来源）。
-        versionCode = 116
-        versionName = "1.1.5"
+        versionCode = 117
+        versionName = "1.1.6"
     }
 
     signingConfigs {
