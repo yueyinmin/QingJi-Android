@@ -42,8 +42,6 @@ class TrainingRepository(context: Context) {
 
     fun observeExercises(): Flow<List<ExerciseEntity>> = exerciseDao.observeAll()
     fun observeSessions(): Flow<List<WorkoutSession>> = sessionDao.observeAll()
-    fun observeSessionExercises(sessionUuid: String): Flow<List<WorkoutExercise>> =
-        workoutExerciseDao.observeBySession(sessionUuid)
 
     /** 训练日记算每次的总组数 / 训练量用，跟着库变化自动刷新。 */
     fun observeAllWorkoutExercises(): Flow<List<WorkoutExercise>> =
@@ -107,7 +105,6 @@ class TrainingRepository(context: Context) {
     suspend fun sessionDetail(uuid: String): Pair<WorkoutSession?, List<WorkoutExercise>> =
         sessionDao.findByUuid(uuid) to workoutExerciseDao.findBySession(uuid)
 
-    suspend fun allTrainingDates() = sessionDao.findAllDates()
 
     // ============================================================
     // P1：训练计划 / 动作库 / 个人最佳
@@ -115,8 +112,6 @@ class TrainingRepository(context: Context) {
 
     fun observePlans(): Flow<List<TrainingPlan>> = planDao.observeAll()
     fun observeActivePlan(): Flow<TrainingPlan?> = planDao.observeActive()
-    fun observePlanDays(planUuid: String): Flow<List<TrainingPlanDay>> =
-        planDayDao.observeByPlan(planUuid)
 
     fun observePlanExercises(): Flow<List<PlanExercise>> = planExerciseDao.observeAll()
     fun observeAllPlanDays(): Flow<List<TrainingPlanDay>> = planDayDao.observeAll()

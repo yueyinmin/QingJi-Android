@@ -13,9 +13,6 @@ import kotlinx.coroutines.launch
  */
 class QingJiApp : Application() {
 
-    /** 懒加载：第一次用到时才真正打开用户数据库，启动更快。 */
-    val database: AppDatabase by lazy { AppDatabase.get(this) }
-
     override fun onCreate() {
         super.onCreate()
 

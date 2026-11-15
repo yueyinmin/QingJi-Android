@@ -107,9 +107,6 @@ class QingJiRepository(private val context: Context) {
 
     suspend fun saveBodyMeasure(item: BodyMeasure) = db.bodyMeasureDao().save(item)
 
-    /** 最近一次量围度是哪天。 */
-    suspend fun latestBodyMeasure(): BodyMeasure? = db.bodyMeasureDao().latest()
-
     fun observePhotos(): Flow<List<ProgressPhoto>> = db.progressPhotoDao().observeAll()
 
     suspend fun addPhoto(photo: ProgressPhoto) {
@@ -241,18 +238,12 @@ class QingJiRepository(private val context: Context) {
 
     // ---------- 轻断食 ----------
 
-    fun observeFasting(date: LocalDate): Flow<com.qingji.app.data.local.entity.FastingLog?> =
-        db.fastingLogDao().observe(date)
-
     fun observeFastingRange(from: LocalDate, to: LocalDate): Flow<List<com.qingji.app.data.local.entity.FastingLog>> =
         db.fastingLogDao().observeRange(from, to)
 
     suspend fun saveFasting(log: com.qingji.app.data.local.entity.FastingLog) {
         db.fastingLogDao().save(log)
     }
-
-    suspend fun fastingHistory(): List<com.qingji.app.data.local.entity.FastingLog> =
-        db.fastingLogDao().findAll()
 
     // ---------- 使用统计 ----------
     /** 「我的」页八格 + 调用统计卡共用：数据一变自动刷新。 */
@@ -713,12 +704,6 @@ class QingJiRepository(private val context: Context) {
     /** 热量提醒用：今天有没有记过饮食。没记才提醒，记了就别烦人。 */
     suspend fun hasFoodLogToday(): Boolean =
         db.foodLogDao().countOn(com.qingji.app.domain.AppClock.today()) > 0
-
-    /** 「本月 AI 调用」：从本月 1 号算到今天。 */
-    suspend fun monthAiCalls(): Int {
-        val today = com.qingji.app.domain.AppClock.today()
-        return db.usageStatDao().sumByType("ai", today.withDayOfMonth(1), today) ?: 0
-    }
 
     /**
      * 成就统计：把算徽章需要的数字一次查全。

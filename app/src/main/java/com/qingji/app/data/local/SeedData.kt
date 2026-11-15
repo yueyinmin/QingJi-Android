@@ -185,29 +185,6 @@ object SeedData {
     )
 
     /**
-     * 默认个人档案。
-     * 这些数字故意和 M0 界面上写死的假数据对上：
-     * 首页 2313 千卡 / 蛋白 115g / 碳水 289g / 脂肪 77g / 饮水 3200ml，
-     * 进展页 当前 92kg → 目标 70kg。
-     * 这样 M1 把界面改成读数据库时，数字不会突然跳变。
-     */
-    val defaultProfile: UserProfile = UserProfile(
-        id = 1,                          // 档案表固定只有这一行
-        gender = "male",
-        birthday = LocalDate.of(2000, 1, 1),
-        heightCm = 175.0,
-        startWeight = 92.0,
-        targetWeight = 70.0,
-        activityLevel = 2,               // 1 久坐 / 2 轻度 / 3 中度 / 4 高度
-        dailyKcalGoal = 2313,
-        proteinGoalG = 115,
-        carbGoalG = 289,
-        fatGoalG = 77,
-        waterGoalMl = 3200,
-        unit = "kg"                      // 数据库永远存 kg，显示「斤」时只在界面乘 2
-    )
-
-    /**
      * 造一条预置食物的小工具。
      * 故意不叫 Food（和类名重名容易让编译器挑错），
      * 用它可以少写重复的参数名，上面每行才这么短。
