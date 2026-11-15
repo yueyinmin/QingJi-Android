@@ -2,7 +2,6 @@ package com.qingji.app.ui.screen.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,22 +12,15 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,14 +29,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.qingji.app.ui.theme.CardWhite
 import com.qingji.app.ui.theme.DividerColor
-import com.qingji.app.ui.theme.PageBackground
-import com.qingji.app.ui.theme.QingJiGreen
-import com.qingji.app.ui.theme.QingJiGreenLight
 import com.qingji.app.ui.theme.QingJiThemeState
 import com.qingji.app.ui.theme.TextPrimary
 import com.qingji.app.ui.theme.TextSecondary
@@ -58,23 +46,6 @@ import com.qingji.app.ui.theme.TextSecondary
  * 内容区统一限高 + 可滚动，选项多（比如 24 个小时）也不会爆屏。
  * ============================================================
  */
-
-@Composable
-private fun MacroField(label: String, value: String, onChange: (String) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(label, fontSize = 14.sp, color = TextPrimary, modifier = Modifier.weight(1f))
-        OutlinedTextField(
-            value = value,
-            onValueChange = { input ->
-                if (input.length <= 3 && input.all { it.isDigit() }) onChange(input)
-            },
-            singleLine = true,
-            suffix = { Text("%", fontSize = 12.sp, color = TextSecondary) },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            modifier = Modifier.fillMaxWidth(0.45f)
-        )
-    }
-}
 
 /**
  * 二次确认（清数据这种不可撤销的操作必须走它）。
@@ -130,13 +101,12 @@ private fun SettingIconBadge(icon: ImageVector, color: Color) {
     }
 }
 
-/** 跳转行：右侧按需显示浅绿状态胶囊，最后统一一个箭头。 */
+/** 跳转行：左侧彩色图标 + 名称 + 右侧箭头。首页不再显示配置值胶囊。 */
 @Composable
 fun SettingIconRow(
     title: String,
     icon: ImageVector,
     iconColor: Color,
-    value: String = "",
     onClick: () -> Unit
 ) {
     Row(
@@ -157,19 +127,6 @@ fun SettingIconRow(
                 .weight(1f)
                 .padding(start = 12.dp)
         )
-        if (value.isNotBlank()) {
-            Text(
-                text = value,
-                fontSize = 12.sp,
-                color = QingJiGreen,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(999.dp))
-                    // 深浅模式自适应：浅色是浅薄荷，深色自动变深绿底
-                    .background(QingJiGreenLight)
-                    .padding(horizontal = 8.dp, vertical = 3.dp)
-            )
-            Spacer(Modifier.width(6.dp))
-        }
         Text(text = "›", fontSize = 20.sp, color = TextSecondary.copy(alpha = 0.6f))
     }
 }
@@ -252,62 +209,6 @@ fun SettingsSearchBox(query: String, onQueryChange: (String) -> Unit) {
     }
 }
 
-/** 设置页里的一行：左边标题+副标题，右边当前值 + 箭头。 */
-@Composable
-fun SettingValueRow(
-    title: String,
-    subtitle: String = "",
-    value: String,
-    iconColor: Color,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() }
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(9.dp))
-                .background(iconColor.copy(alpha = 0.14f))
-                .padding(9.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(9.dp))
-                    .background(iconColor)
-                    .padding(6.dp)
-            ) {}
-        }
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .padding(start = 12.dp)
-        ) {
-            Text(text = title, fontSize = 14.sp, color = TextPrimary)
-            if (subtitle.isNotBlank()) {
-                Text(text = subtitle, fontSize = 11.sp, color = TextSecondary)
-            }
-        }
-        if (value.isNotBlank()) {
-            Text(
-                text = value,
-                fontSize = 12.sp,
-                color = QingJiGreen,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(999.dp))
-                    // 深浅模式自适应：浅色是浅薄荷，深色自动变深绿底
-                    .background(QingJiGreenLight)
-                    .padding(horizontal = 8.dp, vertical = 3.dp)
-            )
-            Spacer(Modifier.width(4.dp))
-        }
-        Text(text = "›", fontSize = 18.sp, color = TextSecondary.copy(alpha = 0.6f))
-    }
-}
-
 /** 设置页分组标题。 */
 @Composable
 fun GroupTitle(text: String) {
@@ -372,26 +273,3 @@ fun SettingsCard(content: @Composable () -> Unit) {
     }
 }
 
-/** 提示条：说明这段设置的含义，避免用户瞎点。 */
-@Composable
-fun SettingsNote(text: String) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 8.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .background(PageBackground)
-            .padding(10.dp)
-    ) {
-        Text(text = text, fontSize = 11.sp, color = TextSecondary, lineHeight = 17.sp)
-    }
-}
-
-/** 小时选项（提醒时间用）。 */
-fun hourOptions(): List<Pair<String, String>> = (5..23).map { "$it" to "$it:00" }
-
-/** 星期选项。 */
-fun weekdayOptions(): List<Pair<String, String>> = listOf(
-    "1" to "周一", "2" to "周二", "3" to "周三", "4" to "周四",
-    "5" to "周五", "6" to "周六", "7" to "周日"
-)

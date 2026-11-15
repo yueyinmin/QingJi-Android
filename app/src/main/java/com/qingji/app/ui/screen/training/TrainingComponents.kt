@@ -78,8 +78,8 @@ fun DiaryModeSwitch(
     onChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // v7：白胶囊从「瞬切」改成滑动——底栏指示器同款平滑弹簧，
-    // 切训练/心情时高亮从一边溜到另一边，不再像跳变（主人反馈的 bug 观感）。
+    // v9：主人反馈「选中会有方形阴影」。整条白色胶囊保留（两个标签都完整可见），
+    // 去掉浅绿实心选中块，改成底部一颗跟着切换滑动的小圆点：没有填充块、没有阴影。
     val animatedIndex by androidx.compose.animation.core.animateFloatAsState(
         targetValue = if (training) 0f else 1f,
         animationSpec = com.qingji.app.ui.theme.Motion.smooth(),
@@ -88,21 +88,20 @@ fun DiaryModeSwitch(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
-            // v7：行高固定 38dp——BoxWithConstraints 是 SubcomposeLayout，不支持 IntrinsicSize 测量，
-            // 用 IntrinsicSize 会直接崩（真机复现过）；内容是固定文字，固定高度即可。
-            .height(38.dp)
+            // 高度固定 44dp：BoxWithConstraints 是 SubcomposeLayout，不支持 IntrinsicSize 测量，
+            // 用 IntrinsicSize 会直接崩（真机复现过）；内容是固定文字，写死高度即可。
+            .height(44.dp)
             .clip(RoundedCornerShape(Dimens.PillCorner))
-            .background(DividerColor)
-            .padding(3.dp)
+            .background(CardWhite)
+            .padding(horizontal = 4.dp)
     ) {
         val cellWidth = maxWidth / 2
         Box(
             modifier = Modifier
-                .offset(x = cellWidth * animatedIndex)
-                .width(cellWidth)
-                .fillMaxHeight()
-                .clip(RoundedCornerShape(Dimens.PillCorner))
-                .background(CardWhite)
+                .offset(x = cellWidth * animatedIndex + (cellWidth - 4.dp) / 2, y = 34.dp)
+                .size(4.dp)
+                .clip(CircleShape)
+                .background(QingJiGreen)
         )
         Row(modifier = Modifier.fillMaxWidth()) {
             listOf(true to s("训练日记"), false to s("心情日记")).forEach { (isTraining, label) ->
@@ -110,15 +109,17 @@ fun DiaryModeSwitch(
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .clickable { onChange(isTraining) }
-                        .padding(vertical = 8.dp),
+                        .fillMaxHeight()
+                        .clickable { onChange(isTraining) },
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = label,
                         fontSize = TextSizes.Body,
-                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                        color = if (selected) QingJiGreen else TextSecondary
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                        color = if (selected) QingJiGreen else TextPrimary,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1
                     )
                 }
             }

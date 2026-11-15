@@ -242,7 +242,7 @@ fun MineScreen(
 
         // v9：悬浮底栏会盖住页面最后一段内容（调用统计正好在页尾）。
         // 悬浮模式让滚动尾部多让出 Dock 高度（60+底悬10+手势条24+间距12）。
-        Spacer(Modifier.height(if (settings.floatingBottomBar) 106.dp else 24.dp))
+        Spacer(Modifier.height(if (settings.floatingBottomBar) 116.dp else 24.dp))
     }
 
     if (showGoalDialog) {

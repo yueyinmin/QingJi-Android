@@ -1,20 +1,16 @@
 package com.qingji.app.ui.screen
 
 import android.Manifest
-import android.appwidget.AppWidgetManager
-import android.content.ComponentName
-import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
-import kotlin.math.roundToInt
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -30,12 +26,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ShowChart
-import androidx.compose.material.icons.automirrored.outlined.DirectionsRun
 import androidx.compose.material.icons.filled.Animation
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Swipe
 import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Dock
 import androidx.compose.material.icons.filled.Favorite
@@ -56,13 +50,10 @@ import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.MonitorWeight
-import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.Restaurant
 import androidx.compose.material.icons.outlined.WaterDrop
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -102,11 +93,8 @@ import com.qingji.app.ui.screen.settings.OptionItem
 import com.qingji.app.ui.screen.settings.OptionDetailPage
 import com.qingji.app.ui.screen.settings.NumberDetailPage
 import com.qingji.app.ui.screen.settings.InfoDetailPage
-import com.qingji.app.ui.screen.settings.DetailValueRow
 import com.qingji.app.ui.screen.settings.DetailGroupTitle
 import com.qingji.app.ui.screen.settings.DangerActionButton
-import com.qingji.app.ui.screen.settings.hourOptions
-import com.qingji.app.ui.screen.settings.weekdayOptions
 import com.qingji.app.ui.theme.Dimens
 import com.qingji.app.ui.components.HintBox
 import com.qingji.app.ui.components.SectionCard
@@ -117,16 +105,12 @@ import com.qingji.app.ui.theme.QingJiGreenDark
 import com.qingji.app.ui.theme.DividerColor
 import com.qingji.app.ui.i18n.s
 import com.qingji.app.ui.theme.PageBackground
-import com.qingji.app.ui.theme.WarnOrange
 import com.qingji.app.ui.theme.QingJiGreenLight
 import com.qingji.app.ui.theme.pressable
 import com.qingji.app.ui.theme.QingJiGreen
 import com.qingji.app.ui.theme.TextPrimary
 import com.qingji.app.ui.theme.TextSecondary
 import com.qingji.app.ui.viewmodel.SettingsViewModel
-import com.qingji.app.widget.OverviewWidgetReceiver
-import com.qingji.app.widget.QuickRecordWidgetReceiver
-import com.qingji.app.widget.WeightWidgetReceiver
 
 /**
  * ============================================================
@@ -159,20 +143,17 @@ private val SettingsIconCoral = Color(0xFFF07C6E)
 private val SettingsIconPurple = Color(0xFF9B7BE0)
 private val SettingsIconPink = Color(0xFFE879A6)
 private val SettingsIconCyan = Color(0xFF3FB6C4)
-private val SettingsIconIndigo = Color(0xFF7A7FE0)
 private val SettingsIconRed = Color(0xFFE06A6A)
-private val SettingsIconTeal = Color(0xFF3FAE9A)
 private val SettingsIconGray = Color(0xFF8A93A6)
 // 深色模式自适应：原来写死 #F5F5F9，深色下整页还是浅灰，和深色卡片打架
 private val SettingsPageBg: Color get() = com.qingji.app.ui.theme.PageBackground
 
-/** 设置首页一行：分组 / 标题 / 图标 / 右侧状态或开关 / 点击动作。 */
+/** 设置首页一行：分组 / 标题 / 图标 / 开关 / 点击动作；首页不再携带状态文字。 */
 private data class SettingEntry(
     val group: String,
     val title: String,
     val icon: ImageVector,
     val iconColor: Color,
-    val value: String = "",
     /** 非 null 表示这一行是开关行（右侧放 Switch，不放箭头）。 */
     val switchState: Boolean? = null,
     val onSwitch: ((Boolean) -> Unit)? = null,
@@ -314,24 +295,21 @@ fun SettingsScreen(
                 .verticalScroll(listScroll)
                 .padding(horizontal = 12.dp)
         ) {
-            // v1.0.8：8 个分组、24 个真实功能项。文档里「设备绑定 / 导出日志」
+            // v1.0.8：7 个分组、27 个真实功能项。文档里「设备绑定 / 导出日志」
             // 这类代码里不存在的功能一律不做，避免出现点了没反应的假菜单。
             val entries: List<SettingEntry> = buildList {
                 // 1 账号与安全（App 无账号，保留「隐私与安全」原名，不叫账号安全）
                 add(SettingEntry("账号与安全", s("个人资料"), Icons.Filled.Person, SettingsIconBlue,
-                    value = settings.nickname, onClick = { onOpenProfile() }))
+                    onClick = { onOpenProfile() }))
                 add(SettingEntry("账号与安全", s("隐私与安全"), Icons.Filled.Lock, SettingsIconGreen,
                     onClick = { dialog = DialogKind.PRIVACY }))
 
                 // 2 热量与营养
                 add(SettingEntry("热量与营养", s("营养素分配方案"), Icons.Outlined.Restaurant, SettingsIconGreen,
-                    value = "${settings.proteinPct}/${settings.carbPct}/${settings.fatPct}",
                     onClick = { dialog = DialogKind.MACRO }))
                 add(SettingEntry("热量与营养", s("运动消耗补偿"), Icons.Filled.LocalFireDepartment, SettingsIconOrange,
-                    value = "${settings.exerciseCompensationPct}%",
                     onClick = { dialog = DialogKind.EXERCISE_PCT }))
                 add(SettingEntry("热量与营养", s("饮水目标"), Icons.Outlined.WaterDrop, SettingsIconBlueLight,
-                    value = "${settings.waterGoalMl}ml",
                     onClick = { dialog = DialogKind.WATER_GOAL }))
                 add(SettingEntry("热量与营养", s("食谱偏好"), Icons.Filled.Favorite, SettingsIconCoral,
                     onClick = { onOpenFoodPreference() }))
@@ -344,33 +322,27 @@ fun SettingsScreen(
 
                 // 界面语言文档没列，但功能在，保留入口
                 add(SettingEntry("通用", s("界面语言"), Icons.Filled.Language, SettingsIconBlue,
-                    value = if (settings.uiLanguage == "en") "English" else "简体中文",
                     onClick = { dialog = DialogKind.UI_LANG }))
                 add(SettingEntry("通用", s("记录时区"), Icons.Filled.Schedule, SettingsIconCyan,
-                    value = timezoneLabel(settings.timeZone),
                     onClick = { dialog = DialogKind.TIMEZONE }))
                 add(SettingEntry("通用", s("体重单位"), Icons.Outlined.MonitorWeight, SettingsIconGreen,
-                    value = if (settings.unit == "jin") s("斤") else "kg",
                     onClick = { dialog = DialogKind.UNIT }))
 
                 // 6 显示与外观：主题弹层里现成的 3 组开关拆成独立行，setter 完全复用
                 add(SettingEntry("显示与外观", s("主题设置"), Icons.Filled.Palette, SettingsIconPurple,
-                    value = com.qingji.app.ui.theme.AccentThemes.byKey(settings.themeColor).label,
                     onClick = { dialog = DialogKind.THEME }))
                 // barfx：悬浮底栏开关，紧跟在主题设置下面（主人 2026-11-14 指定）
                 add(SettingEntry("显示与外观", s("悬浮底栏"), Icons.Filled.Dock, SettingsIconPurple,
                     switchState = settings.floatingBottomBar,
                     onSwitch = { vm.setFloatingBottomBar(it) }))
                 add(SettingEntry("显示与外观", s("应用图标"), Icons.Filled.Apps, SettingsIconPurple,
-                    value = com.qingji.app.domain.AppIconManager.label(settings.iconVariant),
                     onClick = { dialog = DialogKind.ICON }))
                 add(SettingEntry("显示与外观", s("桌面小组件"), Icons.Filled.Widgets, SettingsIconOrange,
-                    value = s("3 个"), onClick = { onOpenWidget() }))
+                    onClick = { onOpenWidget() }))
                 add(SettingEntry("显示与外观", s("首页快捷入口"), Icons.Filled.Bolt, SettingsIconBlue,
                     switchState = settings.showQuickButtons,
                     onSwitch = { vm.setShowQuickButtons(it) }))
                 add(SettingEntry("显示与外观", s("底部导航"), Icons.Filled.Home, SettingsIconGreen,
-                    value = visibleTabsLabel(settings),
                     onClick = { dialog = DialogKind.BOTTOM_TABS }))
                 add(SettingEntry("显示与外观", s("首页显示设置"), Icons.Filled.Dashboard, SettingsIconPink,
                     onClick = { dialog = DialogKind.HOME_DISPLAY }))
@@ -384,7 +356,6 @@ fun SettingsScreen(
                 add(SettingEntry("设备与数据", s("数据导入与导出"), Icons.Filled.ImportExport, SettingsIconBlue,
                     onClick = { onOpenBackup() }))
                 add(SettingEntry("设备与数据", s("缓存管理"), Icons.Filled.Storage, SettingsIconRed,
-                    value = backup.sizeText(cacheSize),
                     onClick = { dialog = DialogKind.CACHE }))
 
                 // 9 页面交互（UI-NAV-006）
@@ -436,7 +407,6 @@ fun SettingsScreen(
                                     title = row.title,
                                     icon = row.icon,
                                     iconColor = row.iconColor,
-                                    value = row.value,
                                     onClick = { row.onClick?.invoke() }
                                 )
                             }
@@ -723,44 +693,9 @@ fun SettingsScreen(
 // ============================================================
 
 
-private fun requestPinWidget(context: Context, receiver: Class<*>) {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-        Toast.makeText(context, "系统版本太低，请长按桌面手动添加", Toast.LENGTH_SHORT).show()
-        return
-    }
-    val manager = context.getSystemService(AppWidgetManager::class.java)
-    if (manager == null || !manager.isRequestPinAppWidgetSupported) {
-        Toast.makeText(context, "这台手机不支持一键添加，请长按桌面手动添加", Toast.LENGTH_LONG).show()
-        return
-    }
-    val provider = ComponentName(context, receiver)
-    manager.requestPinAppWidget(provider, null, null)
-}
-
 // ============================================================
 // 文案小工具
 // ============================================================
-
-private fun weekdayLabel(day: Int): String = when (day) {
-    1 -> "周一"; 2 -> "周二"; 3 -> "周三"; 4 -> "周四"
-    5 -> "周五"; 6 -> "周六"; else -> "周日"
-}
-
-private fun themeLabel(mode: String): String = when (mode) {
-    "light" -> "浅色"
-    "dark" -> "深色"
-    else -> "跟随系统"
-}
-
-private fun timezoneLabel(zone: String): String = when (zone) {
-    "Asia/Shanghai" -> "北京时间"
-    "Asia/Tokyo" -> "东京"
-    "Asia/Singapore" -> "新加坡"
-    "Europe/London" -> "伦敦"
-    "America/New_York" -> "纽约"
-    "UTC" -> "UTC"
-    else -> zone
-}
 
 private fun timezoneOptions(): List<Pair<String, String>> = listOf(
     "Asia/Shanghai" to "北京时间（UTC+8）",
@@ -770,17 +705,6 @@ private fun timezoneOptions(): List<Pair<String, String>> = listOf(
     "America/New_York" to "纽约（UTC-5/-4）",
     "UTC" to "协调世界时 UTC"
 )
-
-private fun visibleTabsLabel(settings: QingJiSettings): String {
-    val list = buildList {
-        add("首页")
-        if (settings.showProgressTab) add("进展")
-        if (settings.showDiaryTab) add("日记")
-        if (settings.showMineTab) add("我的")
-    }
-    return list.joinToString("/")
-}
-
 
 @Composable
 private fun MacroRatioPage(
@@ -874,132 +798,6 @@ private fun MacroField(label: String, value: String, unit: String = "%", onChang
         )
         Spacer(Modifier.size(6.dp))
         Text(text = unit, fontSize = 14.sp, color = TextSecondary)
-    }
-}
-
-/** 主题色：五个色块，点一下全 App 变色。 */
-@Composable
-private fun ThemeColorPage(
-    current: String,
-    onPick: (String) -> Unit,
-    onBack: () -> Unit
-) {
-    SettingsDetailScaffold(title = "主题色", onBack = onBack) {
-        HintBox(text = "换主色后，按钮、进度条、三大营养素的配色会一起变。")
-        Spacer(Modifier.height(Dimens.Gap))
-
-        SectionCard {
-            com.qingji.app.ui.theme.AccentThemes.ALL.forEachIndexed { index, spec ->
-                val selected = spec.key == current
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onPick(spec.key) }
-                        .padding(vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(CircleShape)
-                            .background(Color(spec.lightMain))
-                    )
-                    Spacer(Modifier.width(12.dp))
-                    Text(
-                        text = spec.label,
-                        fontSize = 15.sp,
-                        color = if (selected) QingJiGreenDark else TextPrimary,
-                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                        modifier = Modifier.weight(1f)
-                    )
-                    if (selected) Text(text = "✓", fontSize = 17.sp, color = QingJiGreen)
-                }
-                if (index < com.qingji.app.ui.theme.AccentThemes.ALL.lastIndex) RowDivider()
-            }
-        }
-    }
-}
-
-/** 体重提醒：周几 + 几点。 */
-@Composable
-private fun WeighReminderPage(
-    weekdayInit: Int,
-    hourInit: Int,
-    onSave: (Int, Int) -> Unit,
-    onBack: () -> Unit
-) {
-    var weekday by remember { mutableStateOf(weekdayInit) }
-    var hour by remember { mutableStateOf(hourInit) }
-    val labels = listOf("一", "二", "三", "四", "五", "六", "日")
-
-    SettingsDetailScaffold(title = "称重提醒", onBack = onBack) {
-        HintBox(text = "到点会发一条通知，提醒你上秤记一笔。")
-        Spacer(Modifier.height(Dimens.Gap))
-
-        SectionCard {
-            Text(text = "每周哪天", fontSize = 13.sp, color = TextSecondary)
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                labels.forEachIndexed { index, label ->
-                    val value = index + 1
-                    val selected = weekday == value
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(if (selected) QingJiGreen else PageBackground)
-                            .clickable { weekday = value },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = label,
-                            fontSize = 13.sp,
-                            color = if (selected) Color.White else TextSecondary
-                        )
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(16.dp))
-            Text(text = "几点提醒", fontSize = 13.sp, color = TextSecondary)
-            Spacer(Modifier.height(8.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                (0..23).chunked(6).forEach { row ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        row.forEach { h ->
-                            val selected = hour == h
-                            Text(
-                                text = "%02d".format(h),
-                                fontSize = 12.sp,
-                                color = if (selected) Color.White else TextSecondary,
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(if (selected) QingJiGreen else PageBackground)
-                                    .clickable { hour = h }
-                                    .padding(horizontal = 10.dp, vertical = 6.dp)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        Spacer(Modifier.height(Dimens.Gap))
-
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(Dimens.ItemCorner))
-                .background(QingJiGreen)
-                .pressable {
-                    onSave(weekday, hour)
-                    onBack()
-                }
-                .padding(vertical = 13.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(text = "保存", fontSize = 15.sp, fontWeight = FontWeight.Medium, color = Color.White)
-        }
     }
 }
 
@@ -1126,54 +924,6 @@ private fun PrivacyPage(
     }
 }
 
-
-/** 一段文本偏好（食谱偏好这种）。 */
-@Composable
-private fun TextPreferencePage(
-    title: String,
-    subtitle: String,
-    label: String,
-    initial: String,
-    onSave: (String) -> Unit,
-    onBack: () -> Unit
-) {
-    var text by remember { mutableStateOf(initial) }
-
-    SettingsDetailScaffold(title = title, onBack = onBack) {
-        if (subtitle.isNotBlank()) {
-            HintBox(text = subtitle)
-            Spacer(Modifier.height(Dimens.Gap))
-        }
-
-        SectionCard {
-            Text(text = label, fontSize = 12.sp, color = TextSecondary)
-            Spacer(Modifier.height(8.dp))
-            OutlinedTextField(
-                value = text,
-                onValueChange = { text = it },
-                minLines = 3,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-
-        Spacer(Modifier.height(Dimens.Gap))
-
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(Dimens.ItemCorner))
-                .background(QingJiGreen)
-                .pressable {
-                    onSave(text)
-                    onBack()
-                }
-                .padding(vertical = 13.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(text = "保存", fontSize = 15.sp, fontWeight = FontWeight.Medium, color = Color.White)
-        }
-    }
-}
 
 // ============================================================
 // 「主题与显示」详情页：原来散在四个弹窗里的外观设置全部归到这里。
@@ -1490,23 +1240,41 @@ private fun ReminderPage(
             Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
                 Text(text = "每周几提醒上秤", fontSize = 13.sp, color = TextSecondary)
                 Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    weekdayLabels.forEachIndexed { index, label ->
-                        val value = index + 1
-                        val selected = weekday == value
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(if (selected) QingJiGreen else PageBackground)
-                                .clickable { weekday = value },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = label,
-                                fontSize = 13.sp,
-                                color = if (selected) Color.White else TextSecondary
-                            )
+                // v12：七个圆改成「Row + weight(1f) 七等分」，每格内圆居中。
+                // 之前是 7 个固定 36dp 圆直接求和（288dp），父链三层 padding 吃掉
+                // 100dp 后，360dp 屏只剩 260dp，最右「日」必然被裁。
+                // 现在格宽随可用宽度算，圆直径再按格宽自适应（上限 38dp），
+                // 任何屏宽下七格都完整可见、圆也不会互相重叠。
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                    val gap = 6.dp
+                    val cellWidth = (maxWidth - gap * 6) / 7
+                    val dotSize = minOf(38.dp, cellWidth)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(gap)
+                    ) {
+                        weekdayLabels.forEachIndexed { index, label ->
+                            val value = index + 1
+                            val selected = weekday == value
+                            Box(
+                                modifier = Modifier.weight(1f),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(dotSize)
+                                        .clip(CircleShape)
+                                        .background(if (selected) QingJiGreen else PageBackground)
+                                        .clickable { weekday = value },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = label,
+                                        fontSize = 13.sp,
+                                        color = if (selected) Color.White else TextSecondary
+                                    )
+                                }
+                            }
                         }
                     }
                 }
