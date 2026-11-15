@@ -45,6 +45,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -77,30 +79,43 @@ fun DiaryModeSwitch(
     onChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // v9：主人反馈「选中会有方形阴影」。整条白色胶囊保留（两个标签都完整可见），
-    // 去掉浅绿实心选中块，改成底部一颗跟着切换滑动的小圆点：没有填充块、没有阴影。
-    val animatedIndex by androidx.compose.animation.core.animateFloatAsState(
+    // 回归工单 P1：
+    // 旧版用「底部小圆点 + (cellWidth - 4.dp)/2、y=34.dp 固定偏移」表达选中，
+    // 既不能完整覆盖对应的那半边，也靠魔法数字修补位置，切换时还容易看着像错位。
+    // 现在改成：外层统一胶囊 + 两个等权 Tab + 一整块宽度正好等于半格的选中背景，
+    // 圆角与外层一致；位置只由 0→1 的进度驱动，画在 graphicsLayer 绘制层，
+    // 动画每帧只重绘、不重组，连续快速切换也不会闪。
+    val progress = animateFloatAsState(
         targetValue = if (training) 0f else 1f,
-        animationSpec = com.qingji.app.ui.theme.Motion.smooth(),
+        // 与内容区淡入淡出同为 200ms / FastOutSlowInEasing，节奏一致，不弹跳
+        animationSpec = androidx.compose.animation.core.tween<Float>(
+            200,
+            easing = androidx.compose.animation.core.FastOutSlowInEasing
+        ),
         label = "diaryPill"
     )
+    val pillShape = RoundedCornerShape(Dimens.PillCorner)
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
             // 高度固定 44dp：BoxWithConstraints 是 SubcomposeLayout，不支持 IntrinsicSize 测量，
             // 用 IntrinsicSize 会直接崩（真机复现过）；内容是固定文字，写死高度即可。
             .height(44.dp)
-            .clip(RoundedCornerShape(Dimens.PillCorner))
+            .clip(pillShape)
             .background(CardWhite)
-            .padding(horizontal = 4.dp)
+            .padding(3.dp)
     ) {
+        // padding 已经从 constraints 里扣掉，这里的 maxWidth 就是两个 Tab 的真实可用宽度
         val cellWidth = maxWidth / 2
+        val cellWidthPx = with(LocalDensity.current) { cellWidth.toPx() }
         Box(
             modifier = Modifier
-                .offset(x = cellWidth * animatedIndex + (cellWidth - 4.dp) / 2, y = 34.dp)
-                .size(4.dp)
-                .clip(CircleShape)
-                .background(QingJiGreen)
+                .width(cellWidth)
+                .fillMaxHeight()
+                // 只平移绘制层，不改布局测量：选中块永远精确覆盖左/右半格
+                .graphicsLayer { translationX = progress.value * cellWidthPx }
+                .clip(pillShape)
+                .background(QingJiGreenLight)
         )
         Row(modifier = Modifier.fillMaxWidth()) {
             listOf(true to s("训练日记"), false to s("心情日记")).forEach { (isTraining, label) ->
