@@ -29,7 +29,8 @@ import java.time.LocalDate
  * 数据备份 / 导出 / 导入（M9）
  * ------------------------------------------------------------
  * 三件事：
- * 1. 导出全量 JSON（含所有表），换手机能带走；
+ * 1. 导出记录类 JSON（档案 / 饮食 / 体重 / 饮水 / 日记 / 围度 / 运动 / 断食 /
+ *    照片条目 / 训练 / 自律等；不含设置项、搜索历史、照片文件本身、API Key），换手机能带走；
  * 2. 导出饮食记录 CSV（Excel 能直接开）；
  * 3. 从 JSON 覆盖恢复（导入前界面会弹二次确认）。
  *
@@ -58,7 +59,7 @@ class BackupManager(private val context: Context) {
     // 导出
     // ============================================================
 
-    /** 全量 JSON 备份。返回文件，界面拿去分享。 */
+    /** 记录类 JSON 备份（不含设置项、搜索历史、照片文件、API Key）。返回文件，界面拿去分享。 */
     suspend fun exportJson(): Result<File> = withContext(Dispatchers.IO) {
         try {
             val text = buildJson()
@@ -155,6 +156,16 @@ class BackupManager(private val context: Context) {
             sessions = db.workoutSessionDao().findAll(),
             workoutExercises = db.workoutExerciseDao().findAll()
         )
+        // v4：自律模块 7 张表整包带走，换手机不丢自律记录（settings 用已有的 getAll()）
+        val selfDiscipline = SelfDisciplineBackup(
+            goals = db.selfDisciplineGoalDao().findAll(),
+            periods = db.selfDisciplinePeriodDao().findAll(),
+            checkins = db.selfDisciplineCheckinDao().findAll(),
+            urgeLogs = db.selfDisciplineUrgeDao().findAll(),
+            settings = db.selfDisciplineSettingDao().getAll(),
+            milestones = db.selfDisciplineMilestoneDao().findAll(),
+            interventions = db.selfDisciplineInterventionDao().findAll()
+        )
 
         val sb = StringBuilder(1024)
         sb.append("{\n")
@@ -163,7 +174,7 @@ class BackupManager(private val context: Context) {
         sb.append("  \"exportedAt\": ")
             .append(BackupFormat.jsonString(AppClock.now().toString())).append(",\n")
         sb.append("  \"note\": ")
-            .append(BackupFormat.jsonString("不含 API Key；导入会覆盖本机全部数据"))
+            .append(BackupFormat.jsonString("不含 API Key；导入会覆盖本机记录类数据"))
             .append(",\n")
 
         // 档案
@@ -373,6 +384,8 @@ class BackupManager(private val context: Context) {
                         put("eatStartMinute", f.eatStartMinute)
                         put("eatEndMinute", f.eatEndMinute)
                         put("completed", f.completed)
+                        put("freeMode", f.freeMode)
+                        put("actualMinutes", f.actualMinutes)
                         put("createdAt", f.createdAt)
                     })
                 }
@@ -391,6 +404,11 @@ class BackupManager(private val context: Context) {
                 }
             }.toString()
         ).append(",\n")
+
+        // ---------- v4 新增：自律模块 7 张表 ----------
+        // 放在 training 之前：training 是最后一段、结尾不带逗号，新段必须以逗号收尾，
+        // 否则会拼出段段相接的非法 JSON。
+        sb.append("  \"selfDiscipline\": ").append(selfDiscipline.toJson().toString()).append(",\n")
 
         // ---------- v3 新增：训练中心 ----------
         sb.append("  \"training\": ").append(training.toJson().toString()).append("\n")
@@ -516,9 +534,37 @@ class BackupManager(private val context: Context) {
             if (t.sessions.isNotEmpty()) target.workoutSessionDao().insertAll(t.sessions)
             if (t.workoutExercises.isNotEmpty()) target.workoutExerciseDao().insertAll(t.workoutExercises)
         }
+
+        // ---------- v4 自律段 ----------
+        // 和 training 一样：version < 4 的老备份没有自律数据，而模块上线后本机可能已有记录，
+        // 一行都不动，避免导旧备份把新记的自律数据清掉。
+        // 段读坏了（hasSelfDiscipline=true 但 sd=null）也保留本机，宁可不覆盖。
+        // 红线：清表绝不能放进上面「无条件清记录」那批——那批对 v1/v2/v3 老备份也执行。
+        // 清灌都在调用方的 db.withTransaction 内，保持「整份解析成功才开事务」。
+        val sd = p.selfDiscipline
+        if (p.version >= 4 && sd != null) {
+            target.selfDisciplineGoalDao().clearAll()
+            target.selfDisciplinePeriodDao().clearAll()
+            target.selfDisciplineCheckinDao().clearAll()
+            target.selfDisciplineUrgeDao().clearAll()
+            target.selfDisciplineSettingDao().clearAll()
+            target.selfDisciplineMilestoneDao().clearAll()
+            target.selfDisciplineInterventionDao().clearAll()
+            // 恢复顺序：goals 先 → 6 张 goalId 关联 / 子表 → settings 最后
+            if (sd.goals.isNotEmpty()) target.selfDisciplineGoalDao().insertAll(sd.goals)
+            if (sd.periods.isNotEmpty()) target.selfDisciplinePeriodDao().insertAll(sd.periods)
+            if (sd.checkins.isNotEmpty()) target.selfDisciplineCheckinDao().insertAll(sd.checkins)
+            if (sd.urgeLogs.isNotEmpty()) target.selfDisciplineUrgeDao().insertAll(sd.urgeLogs)
+            if (sd.milestones.isNotEmpty()) target.selfDisciplineMilestoneDao().insertAll(sd.milestones)
+            if (sd.interventions.isNotEmpty()) target.selfDisciplineInterventionDao().insertAll(sd.interventions)
+            if (sd.settings.isNotEmpty()) target.selfDisciplineSettingDao().insertAll(sd.settings)
+        }
     }
 
-    /** 导入完成后给用户看的一句话摘要：导进了多少、哪些东西没跟过来。 */
+    /**
+     * 导入完成后给用户看的一句话摘要：导进了多少、哪些东西没跟过来。
+     * 只统计记录类数据（含 v4 自律摘要），与「记录类 JSON」的导出范围一致。
+     */
     private fun summaryText(p: ParsedBackup): String {
         val parts = mutableListOf<String>()
         if (p.foodLogs.isNotEmpty()) parts.add("饮食 ${p.foodLogs.size} 条")
@@ -532,6 +578,12 @@ class BackupManager(private val context: Context) {
         if (p.foods.isNotEmpty()) parts.add("自建食物 ${p.foods.size} 种")
         if (p.training != null && p.training.sessions.isNotEmpty()) {
             parts.add("训练 ${p.training.sessions.size} 次")
+        }
+        val sd = p.selfDiscipline
+        if (sd != null) {
+            val total = sd.goals.size + sd.periods.size + sd.checkins.size +
+                sd.urgeLogs.size + sd.settings.size + sd.milestones.size + sd.interventions.size
+            if (total > 0) parts.add("自律 $total 条")
         }
 
         val body = if (parts.isEmpty()) "这份备份里没有记录" else parts.joinToString("、")

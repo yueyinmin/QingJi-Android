@@ -65,14 +65,19 @@ data class ParsedBackup(
     // ---------- v3 新增：训练中心 6 张表 ----------
     /** 备份 JSON 里是否真的写了 training 段（v2 及更老的文件没有）。 */
     val hasTraining: Boolean = false,
-    val training: TrainingBackup? = null
+    val training: TrainingBackup? = null,
+    // ---------- v4 新增：自律模块 7 张表 ----------
+    /** 备份 JSON 里是否真的写了 selfDiscipline 段（v3 及更老的文件没有）。 */
+    val hasSelfDiscipline: Boolean = false,
+    val selfDiscipline: SelfDisciplineBackup? = null
 ) {
     /** 有没有真的读到业务数据。全是空的时候导入没意义，界面上该给个提示。 */
     val isEmpty: Boolean
         get() = profile == null && weights.isEmpty() && foodLogs.isEmpty() &&
             waters.isEmpty() && diaries.isEmpty() && bodyMeasures.isEmpty() &&
             photos.isEmpty() && exercises.isEmpty() && fastings.isEmpty() &&
-            (training == null || training.isEmpty())
+            (training == null || training.isEmpty()) &&
+            (selfDiscipline == null || selfDiscipline.isEmpty())
 }
 
 /**
@@ -120,7 +125,9 @@ fun parseBackup(text: String): Result<ParsedBackup> {
                 fastings = parseArray(root, "fastings") { o -> parseFasting(o) },
                 customPresets = parseArray(root, "exercisePresets") { o -> parsePreset(o) },
                 hasTraining = root.has("training"),
-                training = parseTraining(root.optJSONObject("training"))
+                training = parseTraining(root.optJSONObject("training")),
+                hasSelfDiscipline = root.has("selfDiscipline"),
+                selfDiscipline = parseSelfDiscipline(root.optJSONObject("selfDiscipline"))
             )
         )
     } catch (e: Exception) {
@@ -365,6 +372,8 @@ private fun parseFasting(o: JSONObject): FastingLog? {
         eatStartMinute = o.optInt("eatStartMinute", 7 * 60 + 40),
         eatEndMinute = o.optInt("eatEndMinute", 15 * 60 + 40),
         completed = o.optBoolean("completed", false),
+        freeMode = o.optBoolean("freeMode", false),
+        actualMinutes = o.optInt("actualMinutes", 0),
         createdAt = o.optLong("createdAt", System.currentTimeMillis())
     )
 }
