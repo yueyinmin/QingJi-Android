@@ -69,12 +69,5 @@ object TrainingMath {
     }
 
     /** 时长文案：把毫秒换成「01:23:45」或「23:45」，计时条和历史都用它。 */
-    fun formatDuration(seconds: Long): String {
-        val s = seconds.coerceAtLeast(0)
-        val h = s / 3600
-        val m = (s % 3600) / 60
-        val sec = s % 60
-        return if (h > 0) "%02d:%02d:%02d".format(h, m, sec)
-        else "%02d:%02d".format(m, sec)
-    }
+    fun formatDuration(seconds: Long): String = TimeFormat.stopwatch(seconds)
 }

@@ -44,6 +44,7 @@ import com.qingji.app.ui.theme.TextSizes
 import com.qingji.app.ui.viewmodel.SelfDisciplineViewModel
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import com.qingji.app.domain.TimeFormat
 
 /**
  * 新建 / 编辑目标（SD-003）。
@@ -210,7 +211,7 @@ fun SelfDisciplineGoalEditScreen(
                     ) {
                         Text("提醒时间", fontSize = TextSizes.Body, color = TextPrimary, modifier = Modifier.weight(1f))
                         Text(
-                            "%02d:%02d".format(reminderMinute / 60, reminderMinute % 60),
+                            TimeFormat.dayMinute(reminderMinute),
                             fontSize = TextSizes.Body,
                             color = QingJiGreen
                         )

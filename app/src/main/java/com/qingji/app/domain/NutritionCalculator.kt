@@ -36,6 +36,22 @@ object NutritionCalculator {
     const val MODE_KEEP = "keep"
     const val MODE_GAIN = "gain"
 
+    // ---------- Atwater 系数（2026-11-15 收敛） ----------
+    // 每克蛋白 / 碳水 / 脂肪提供的热量。原先这几个数字以 4.0 / 4.0 / 9.0
+    // 的裸数字散落在首页营养素比例条、设置页目标重算、AI 结果校验三处，
+    // 想改口径得同时改三个文件。统一放这里，其余地方一律引用常量。
+    const val KCAL_PER_G_PROTEIN = 4.0
+    const val KCAL_PER_G_CARB = 4.0
+    const val KCAL_PER_G_FAT = 9.0
+
+    /** 三大营养素克数 → 热量合计（千卡）。 */
+    fun kcalFromMacros(proteinG: Double, carbG: Double, fatG: Double): Double =
+        proteinG * KCAL_PER_G_PROTEIN + carbG * KCAL_PER_G_CARB + fatG * KCAL_PER_G_FAT
+
+    /** 目标热量按百分比拆成某一项的克数：千卡 × 占比 ÷ 每克热量。 */
+    fun gramsFromKcal(kcal: Double, percent: Double, kcalPerGram: Double): Int =
+        (kcal * percent / 100.0 / kcalPerGram).toInt()
+
     private fun activityFactor(level: Int): Double = when (level) {
         1 -> 1.2        // 久坐
         2 -> 1.375      // 轻度活动

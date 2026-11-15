@@ -66,6 +66,7 @@ import com.qingji.app.ui.theme.WarnOrange
 import com.qingji.app.ui.theme.TextSizes
 import com.qingji.app.ui.viewmodel.FastingViewModel
 import kotlinx.coroutines.delay
+import com.qingji.app.domain.TimeFormat
 
 /**
  * ============================================================
@@ -338,7 +339,7 @@ private fun FastingFreeCard(
                 running -> {
                     val minutes = elapsedSeconds / 60
                     Text(
-                        text = "已断食 ${clockText(elapsedSeconds)} · " +
+                        text = "已断食 ${TimeFormat.clock(elapsedSeconds)} · " +
                             FastingRules.phase(minutes / 60.0).first,
                         fontSize = 12.sp,
                         color = QingJiGreenDark
@@ -421,12 +422,6 @@ private fun PillText(
             color = if (filled) Color.White else QingJiGreenDark
         )
     }
-}
-
-/** 秒数 → 00:12:34（跨日会出现 26:10:05，不截断）。 */
-private fun clockText(totalSeconds: Int): String {
-    val s = totalSeconds.coerceAtLeast(0)
-    return "%02d:%02d:%02d".format(s / 3600, (s % 3600) / 60, s % 60)
 }
 
 /** 开始时刻 → 「今天 20:00 / 昨天 20:00 / 11月9日 20:00」。 */
