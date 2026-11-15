@@ -583,13 +583,10 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "qingji.db"
                 )
-                    .addMigrations(
-                        // ⚠️ 这里和 ALL_MIGRATIONS 是两份独立列表。
-                        // 加新迁移时两处都要加：只改测试那份，测试会过、真机升级却打不开。
-                        MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
-                        MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8,
-                        MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11
-                    )
+                    // TASK-08-A：生产和测试共用同一份迁移列表（ALL_MIGRATIONS）。
+                    // 以前这里手抄了一遍，加新迁移时漏改这一处 → 单测全过、真机升级直接打不开。
+                    // 现在只有一个来源，漏写迁移会让「1→11 全链测试」当场失败。
+                    .addMigrations(*ALL_MIGRATIONS.toTypedArray())
                     // 不用 fallbackToDestructiveMigration()。
                     // 那行兜底在「漏写 Migration」或「schema 校验不一致」时会静默清库，
                     // 用户几年的饮食、体重记录一次性没了，而且没有任何提示。
