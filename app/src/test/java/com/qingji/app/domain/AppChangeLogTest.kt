@@ -9,30 +9,30 @@ class AppChangeLogTest {
 
     @Test
     fun `当前版本有对应的更新记录`() {
-        val r = AppChangeLog.current(111)
-        assertEquals("1.1.0", r?.versionName)
+        val r = AppChangeLog.current(120)
+        assertEquals("1.2.0", r?.versionName)
         assertTrue(r?.items.orEmpty().isNotEmpty())
     }
 
     @Test
     fun `跨一个版本升级只列新版本`() {
-        val list = AppChangeLog.since(109, 111)
+        val list = AppChangeLog.since(109, 120)
         assertEquals(1, list.size)
-        assertEquals("1.1.0", list.first().versionName)
+        assertEquals("1.2.0", list.first().versionName)
     }
 
     @Test
     fun `连跳几个版本时一次把中间更新全列出且按新到旧`() {
-        val list = AppChangeLog.since(108, 111)
+        val list = AppChangeLog.since(108, 120)
         assertEquals(2, list.size)
-        assertEquals("1.1.0", list[0].versionName)
+        assertEquals("1.2.0", list[0].versionName)
         assertEquals("1.0.9", list[1].versionName)
     }
 
     @Test
     fun `同版本重复打开不弹`() {
-        assertTrue(AppChangeLog.since(111, 111).isEmpty())
-        assertTrue(AppChangeLog.since(112, 111).isEmpty())
+        assertTrue(AppChangeLog.since(120, 120).isEmpty())
+        assertTrue(AppChangeLog.since(121, 120).isEmpty())
     }
 
     @Test
