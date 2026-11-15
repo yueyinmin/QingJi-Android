@@ -3,6 +3,7 @@ package com.qingji.app.ui.screen
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -12,12 +13,14 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Icon
@@ -39,10 +42,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.qingji.app.BuildConfig
 import com.qingji.app.R
+import com.qingji.app.ui.components.AppBottomSheet
 import com.qingji.app.ui.components.PageTopBar
 import com.qingji.app.ui.components.SectionCard
 import com.qingji.app.ui.i18n.s
-import com.qingji.app.ui.screen.settings.SettingsDetailSheet
 import com.qingji.app.ui.theme.CardWhite
 import com.qingji.app.ui.theme.DividerColor
 import com.qingji.app.ui.theme.QingJiGreen
@@ -91,9 +94,13 @@ fun AboutScreen(onBack: () -> Unit, useSheet: Boolean = false) {
         if (page == AboutPage.MAIN) onBack else { { page = AboutPage.MAIN } }
 
     // 内容只写一遍：整页和底部弹层共用，避免两份代码以后改走样。
-    // SettingsDetailSheet 内部已经有 verticalScroll + 420dp 高度上限，
-    // 所以这里的 body 不再套自己的 verticalScroll（嵌套滚动会打架）。
+    // body 里不套 verticalScroll —— 滚动容器由外面统一管理（见下面 useSheet 分支）。
     val body: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit = {
+        // 整页模式有 PageTopBar 的返回箭头；弹层模式的标题栏没有返回按钮，
+        // 所以详情页自己在内容顶部补一行「返回关于我们」，保证可返回。
+        if (useSheet && page != AboutPage.MAIN) {
+            SheetBackRow { page = AboutPage.MAIN }
+        }
         when (page) {
             AboutPage.MAIN -> AboutMainContent(onOpen = { page = it })
             AboutPage.CALIBER -> CaliberContent()
@@ -104,7 +111,25 @@ fun AboutScreen(onBack: () -> Unit, useSheet: Boolean = false) {
     }
 
     if (useSheet) {
-        SettingsDetailSheet(title = title, onDismiss = goBack) { body() }
+        // 这里不用 SettingsDetailSheet：它内部的 rememberScrollState 没有 key，
+        // 从主页面点进详情时会沿用已经滚到一半的位置，导致详情页顶部的
+        // 「返回关于我们」和声明卡被滚出可视区（模拟器实测踩到）。
+        // 换成同一套 AppBottomSheet 骨架 + 自己带 key 的 ScrollState：
+        // page 一变就换一个从 0 开始的滚动状态，详情页永远从顶部开始。
+        AppBottomSheet(
+            title = title,
+            skipPartiallyExpanded = true,
+            onDismiss = goBack
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 420.dp)
+                    .verticalScroll(remember(page) { ScrollState(0) })
+            ) {
+                body()
+            }
+        }
     } else {
         Column(
             modifier = Modifier
@@ -317,6 +342,29 @@ private fun AboutMenuCard(items: List<AboutMenuItem>) {
             }
         }
     }
+}
+
+/** 弹层模式详情页顶部的返回行。整页模式用 PageTopBar，不需要它。 */
+@Composable
+private fun SheetBackRow(onBack: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .clickable { onBack() }
+            .padding(vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+            contentDescription = null,
+            tint = QingJiGreenDark,
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(Modifier.size(8.dp))
+        Text(s("返回关于我们"), fontSize = 14.sp, color = QingJiGreenDark)
+    }
+    Spacer(Modifier.height(8.dp))
 }
 
 @Composable
