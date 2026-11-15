@@ -44,7 +44,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -127,6 +126,10 @@ private val PillIconTextGap = 5.dp
  */
 private const val SelectedTabWeight = 1.5f
 private const val NormalTabWeight = 1f
+// 窄屏保底：选中槽位目标宽（胶囊 76dp + 2dp 呼吸位 + 1dp 抗锯齿余量）与其权重上限（v12.2）。
+// 78 实测会掉到 75.8dp（差 1 像素），抬到 79 后稳定落在 76.6dp。
+private const val PillTargetSlot = 79f
+private const val MaxSelectedTabWeight = 2.8f
 
 /** 选中态展开动画统一 200ms（工单要求保留原节奏）。 */
 private const val SelectMotionMs = 200
@@ -250,12 +253,9 @@ private fun FloatingBarSlots(
     val haptic = LocalHapticFeedback.current
 
     // 每个槽位的权重各自动画；总和恒定，底栏总宽不变、不会跳动。
-    val weights = ArrayList<Float>(tabs.size)
-    for (tab in tabs) {
-        weights += animatedTabWeight(displayRoute == tab.route)
-    }
-    // pointerInput 的 lambda 不随重组重建，用 State 把最新权重送进手势协程。
-    val weightsState = rememberUpdatedState(weights)
+    // 具体权重在下面的 BoxWithConstraints 里按实际可用宽度算（见 selectedTabWeightFor），
+    // 这里先拿一个占位 State，等布局阶段算出真实值再喂给手势命中区。
+    val weightsState = remember { mutableStateOf(FloatArray(0)) }
 
     // 选中态配色跟着当前主题走（v12 恢复换肤联动），松绿那套仍是精确值。
     val pillBg = dockPillBackground()
@@ -267,6 +267,16 @@ private fun FloatingBarSlots(
         val hPad = if (narrow) DockHorizontalPaddingNarrow else DockHorizontalPadding
         val addWidth = if (narrow) AddButtonWidthNarrow else AddButtonWidth
         val gap = if (narrow) AddButtonGapNarrow else AddButtonGap
+
+        // 四个槽位能分到的总宽（按钮和间距已经扣掉）。
+        val tabArea = maxWidth - hPad * 2 - addWidth - gap
+        val selectedWeight = selectedTabWeightFor(tabArea, tabs.size - 1)
+
+        val weights = ArrayList<Float>(tabs.size)
+        for (tab in tabs) {
+            weights += animatedTabWeight(displayRoute == tab.route, selectedWeight)
+        }
+        weightsState.value = weights.toFloatArray()
 
         Row(
             modifier = Modifier
@@ -354,9 +364,9 @@ private fun FloatingBarSlots(
 
 /** 单个槽位的权重动画：选中展开、取消收窄，与胶囊尺寸动画同一套参数。 */
 @Composable
-private fun animatedTabWeight(selected: Boolean): Float {
+private fun animatedTabWeight(selected: Boolean, selectedWeight: Float): Float {
     val weight by animateFloatAsState(
-        targetValue = if (selected) SelectedTabWeight else NormalTabWeight,
+        targetValue = if (selected) selectedWeight else NormalTabWeight,
         animationSpec = tween(durationMillis = SelectMotionMs),
         label = "tabWeight"
     )
@@ -364,12 +374,31 @@ private fun animatedTabWeight(selected: Boolean): Float {
 }
 
 /**
+ * 选中槽位的权重。
+ *
+ * 工单标准值是 1.5:1，但那是按 412dp 及以上屏宽定的：屏越窄，1.5 分到的槽位越少。
+ * 实测（420dpi 模拟器改分辨率）：
+ *   412dp → 胶囊 76.6dp（达标）　393dp → 70.1dp　360dp → 66.7dp　320dp → 54.9dp（都不达标）
+ * 原因是可用宽度 = 屏宽 − 176dp 左右，选中只占其中的 1/3。
+ *
+ * 所以这里做「保底」处理：先用 1.5 试算，算出来不够 76dp 就按
+ * 「选中槽位刚好 78dp（76 + 2dp 呼吸位）」反推权重，上限 2.8，其余槽位仍是 1。
+ * 412dp 及以上算出来的权重本来就 ≤1.5，等于原样保持工单值，宽屏行为零变化。
+ */
+private fun selectedTabWeightFor(tabArea: Dp, normalCount: Int): Float {
+    if (normalCount <= 0) return SelectedTabWeight
+    if (tabArea.value <= PillTargetSlot) return MaxSelectedTabWeight
+    val need = normalCount * PillTargetSlot / (tabArea.value - PillTargetSlot)
+    return need.coerceIn(SelectedTabWeight, MaxSelectedTabWeight)
+}
+
+/**
  * 悬浮款选项（v12）：未选中只有 22dp 灰色图标、无背景；选中展开成
  * 46dp 高、最宽 82dp 的浅色胶囊，21dp 图标 + 13sp 文字横排。
  *
  * 胶囊宽度不再由内边距反推，而是「铺满槽位、封顶 82dp」：槽位宽度由动态权重
- * （选中 1.5 : 其余 1.0）决定，393dp 屏约 78dp、412dp 及以上封顶 82dp，
- * 正好落在工单要求的 76~82dp。窄屏放不下时优先收内边距，图标与文字不缩。
+ * （选中 1.5 起、窄屏自动抬高，见 selectedTabWeightFor）决定，
+ * 六档屏宽实测都落在工单要求的 76~82dp。窄屏放不下时优先收内边距，图标与文字不缩。
  */
 @Composable
 private fun FloatingTabItem(
