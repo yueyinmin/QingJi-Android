@@ -159,7 +159,7 @@ fun SearchFoodScreen(
 
             SectionCard(contentPadding = 0.dp) {
                 results.forEachIndexed { index, food ->
-                    FoodRow(food = food, onClick = {
+                    SearchResultRow(food = food, onClick = {
                         vm.rememberSearch()
                         picked = food
                         gramsText = food.defaultGrams.toInt().toString()
@@ -266,7 +266,7 @@ fun SearchFoodScreen(
 
 /** 一条搜索结果：左边名称与拼音，右边每 100 克热量。 */
 @Composable
-private fun FoodRow(food: Food, onClick: () -> Unit) {
+private fun SearchResultRow(food: Food, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()

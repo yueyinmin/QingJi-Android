@@ -45,6 +45,7 @@ import com.qingji.app.ui.theme.TextSecondary
 import com.qingji.app.ui.theme.TextSizes
 import com.qingji.app.ui.viewmodel.SelfDisciplineViewModel
 import java.time.LocalDate
+import androidx.compose.ui.unit.Dp
 
 /**
  * 自律管理首页 Dashboard（SD-002）。
@@ -238,14 +239,16 @@ fun SelfDisciplineDashboardScreen(
                     }
                     Spacer(Modifier.height(10.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ActionPill(
+                        QuickTile(
                             label = if (todayCheckin == null) "去打卡" else "改打卡",
                             modifier = Modifier.weight(1f),
+                            verticalPadding = 10.dp,
                             onClick = { onOpenCheckin(goal.id) }
                         )
-                        ActionPill(
+                        QuickTile(
                             label = "记冲动",
                             modifier = Modifier.weight(1f),
+                            verticalPadding = 10.dp,
                             onClick = { onOpenUrge(goal.id) }
                         )
                     }
@@ -345,26 +348,20 @@ private fun RecentSevenDays(
     }
 }
 
+/** 浅绿底的整块按钮。快捷功能用 14dp 内边距，行内并列的操作按钮用 10dp 更扁。 */
 @Composable
-private fun QuickTile(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun QuickTile(
+    label: String,
+    modifier: Modifier = Modifier,
+    verticalPadding: Dp = 14.dp,
+    onClick: () -> Unit
+) {
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(Dimens.ItemCorner))
             .background(QingJiGreenLight)
             .clickable { onClick() }
-            .padding(vertical = 14.dp),
-        contentAlignment = Alignment.Center
-    ) { Text(label, fontSize = TextSizes.Body, color = QingJiGreen) }
-}
-
-@Composable
-private fun ActionPill(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(Dimens.ItemCorner))
-            .background(QingJiGreenLight)
-            .clickable { onClick() }
-            .padding(vertical = 10.dp),
+            .padding(vertical = verticalPadding),
         contentAlignment = Alignment.Center
     ) { Text(label, fontSize = TextSizes.Body, color = QingJiGreen) }
 }

@@ -75,6 +75,7 @@ import com.qingji.app.domain.AppClock
 import com.qingji.app.domain.NutritionCalculator
 import com.qingji.app.domain.WeightUnit
 import com.qingji.app.ui.components.GroupCard
+import com.qingji.app.ui.components.ChoiceRow
 import com.qingji.app.ui.components.GroupDivider
 import com.qingji.app.ui.components.GroupHeader
 import com.qingji.app.ui.components.IconTones
@@ -582,14 +583,19 @@ private fun GoalDialog(
                 Spacer(Modifier.height(14.dp))
                 Text("目标模式", fontSize = 12.sp, color = TextSecondary)
                 Spacer(Modifier.height(6.dp))
-                OptionRow(
+                ChoiceRow(
+                    // 语义统一成「显示文字 to 取值」，与「资料」页同一套
                     options = listOf(
-                        NutritionCalculator.MODE_LOSE to "减脂",
-                        NutritionCalculator.MODE_KEEP to "保持",
-                        NutritionCalculator.MODE_GAIN to "增肌"
+                        "减脂" to NutritionCalculator.MODE_LOSE,
+                        "保持" to NutritionCalculator.MODE_KEEP,
+                        "增肌" to NutritionCalculator.MODE_GAIN
                     ),
                     selected = mode,
-                    onSelect = { mode = it }
+                    onSelect = { mode = it },
+                    // 原 OptionRow 的视觉参数：间距 6 / 圆角 8 / 内边距 9
+                    spacing = 6.dp,
+                    corner = 8.dp,
+                    verticalPadding = 9.dp
                 )
 
                 Spacer(Modifier.height(14.dp))
@@ -632,36 +638,6 @@ private fun GoalDialog(
     }
 }
 
-@Composable
-private fun OptionRow(
-    options: List<Pair<String, String>>,
-    selected: String,
-    onSelect: (String) -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        options.forEach { (value, label) ->
-            val isSelected = value == selected
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(if (isSelected) QingJiGreen else PageBackground)
-                    .clickable { onSelect(value) }
-                    .padding(vertical = 9.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = label,
-                    fontSize = 13.sp,
-                    color = if (isSelected) Color.White else TextSecondary
-                )
-            }
-        }
-    }
-}
 
 // ============================================================
 // 成就弹窗

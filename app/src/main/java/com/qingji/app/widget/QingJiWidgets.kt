@@ -187,7 +187,7 @@ class QuickRecordWidget : GlanceAppWidget() {
                     )
                     Spacer(GlanceModifier.height(6.dp))
                     Row(modifier = GlanceModifier.fillMaxWidth()) {
-                        QuickTile(
+                        WidgetQuickTile(
                             label = "早餐",
                             color = W_GREEN_LIGHT,
                             textColorValue = W_GREEN,
@@ -196,7 +196,7 @@ class QuickRecordWidget : GlanceAppWidget() {
                             modifier = GlanceModifier.defaultWeight().height(40.dp)
                         )
                         Spacer(GlanceModifier.width(6.dp))
-                        QuickTile(
+                        WidgetQuickTile(
                             label = "体重",
                             color = W_GREEN_LIGHT,
                             textColorValue = W_GREEN,
@@ -227,7 +227,7 @@ class QuickRecordWidget : GlanceAppWidget() {
                             )
                         }
                         Spacer(GlanceModifier.width(6.dp))
-                        QuickTile(
+                        WidgetQuickTile(
                             label = "拍照",
                             color = W_GREEN_LIGHT,
                             textColorValue = W_GREEN,
@@ -243,7 +243,7 @@ class QuickRecordWidget : GlanceAppWidget() {
 }
 
 @Composable
-private fun QuickTile(
+private fun WidgetQuickTile(
     label: String,
     color: Color,
     textColorValue: Color,

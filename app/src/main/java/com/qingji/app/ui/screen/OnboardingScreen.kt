@@ -563,9 +563,9 @@ private fun PreviewPage(
                 }
                 Spacer(Modifier.height(16.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    MacroCell("蛋白质", "${preview.proteinG}", Modifier.weight(1f))
-                    MacroCell("碳水", "${preview.carbG}", Modifier.weight(1f))
-                    MacroCell("脂肪", "${preview.fatG}", Modifier.weight(1f))
+                    MacroSummaryCell("蛋白质", "${preview.proteinG}", Modifier.weight(1f))
+                    MacroSummaryCell("碳水", "${preview.carbG}", Modifier.weight(1f))
+                    MacroSummaryCell("脂肪", "${preview.fatG}", Modifier.weight(1f))
                 }
             }
 
@@ -590,7 +590,7 @@ private fun PreviewPage(
 
 /** 预览页里的一个营养素小格。 */
 @Composable
-private fun MacroCell(label: String, value: String, modifier: Modifier = Modifier) {
+private fun MacroSummaryCell(label: String, value: String, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))

@@ -1361,7 +1361,7 @@ private fun TimeAdjustRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(text = label, fontSize = 13.sp, color = TextPrimary, modifier = Modifier.weight(1f))
-        StepButton("−", onMinus)
+        TimeStepButton("−", onMinus)
         Text(
             text = FastingRules.minuteLabel(minute),
             fontSize = 15.sp,
@@ -1370,12 +1370,12 @@ private fun TimeAdjustRow(
             modifier = Modifier.width(64.dp),
             textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
-        StepButton("+", onPlus)
+        TimeStepButton("+", onPlus)
     }
 }
 
 @Composable
-private fun StepButton(text: String, onClick: () -> Unit) {
+private fun TimeStepButton(text: String, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .size(28.dp)
