@@ -499,8 +499,10 @@ private fun FloatingBarSlots(
                         // 小胶囊的中心跑到第一/最后一枚图标中心之外就没有意义了。
                         val lo = centerOf(0, frozen)
                         val hi = centerOf(tabs.lastIndex, frozen)
-                        // 激活瞬间就把胶囊挪到手指处（不跳跃过大半条栏，因为长按点就在附近）
-                        pillCenter.floatValue = down.position.x.coerceIn(lo, hi)
+                        // 激活瞬间先把胶囊对准「抓起的那枚图标」，而不是手指落点：
+                        // 用户可能按在文字上（偏中心十几个 dp），对准图标才像「把这一项拿起来」。
+                        // 之后每一次 MOVE 才严格 1:1 跟手。
+                        pillCenter.floatValue = centerOf(startIndex, frozen).coerceIn(lo, hi)
                         val stripHeight = size.height.toFloat()
                         fun hit(x: Float, y: Float): Int? =
                             if (x < 0f || x >= tabAreaPx || y < 0f || y > stripHeight) null
