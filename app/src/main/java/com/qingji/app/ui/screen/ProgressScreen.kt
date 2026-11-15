@@ -163,10 +163,8 @@ fun ProgressScreen(
     }
 
     // M7：体重单位（kg / 斤）只影响显示，库里永远是公斤
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val settings by androidx.compose.runtime.remember {
-        com.qingji.app.data.prefs.SettingsStore.observe(context)
-    }.collectAsState(initial = com.qingji.app.data.prefs.QingJiSettings())
+    // TASK-05：统一从 LocalAppSettings 取，不再单独订阅 SettingsStore。
+    val settings = com.qingji.app.ui.LocalAppSettings.current
     val unit = settings.unit
 
     // 按时间范围过滤，再按日期升序（画线要按时间先后）。

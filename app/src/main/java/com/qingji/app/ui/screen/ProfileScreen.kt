@@ -39,7 +39,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.qingji.app.data.local.entity.UserProfile
-import com.qingji.app.data.prefs.QingJiSettings
 import com.qingji.app.data.prefs.SettingsKeys
 import com.qingji.app.data.prefs.SettingsStore
 import com.qingji.app.domain.NutritionCalculator
@@ -79,8 +78,8 @@ fun ProfileScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val saved by vm.profile.collectAsState()
-    val settings by remember { SettingsStore.observe(context) }
-        .collectAsState(initial = QingJiSettings())
+    // TASK-05：统一从 LocalAppSettings 取，不再单独订阅 SettingsStore。
+    val settings = com.qingji.app.ui.LocalAppSettings.current
 
     // 头像选择：系统相册选一张，拷进 App 私有目录，只存路径
     //（copyAvatarToPrivate 与「我的」页共用，放在 MineScreen.kt，同包可直接调）

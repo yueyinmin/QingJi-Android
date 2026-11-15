@@ -21,7 +21,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -176,9 +175,8 @@ fun MoodDiaryContent(
                 }
             }
             // v9：悬浮底栏会盖住页尾内容，滚动尾部让出 Dock 高度
-            val settings = com.qingji.app.data.prefs.SettingsStore.observe(
-                androidx.compose.ui.platform.LocalContext.current
-            ).collectAsState(initial = com.qingji.app.data.prefs.QingJiSettings()).value
+            // TASK-05：统一从 LocalAppSettings 取，不再单独订阅 SettingsStore。
+            val settings = com.qingji.app.ui.LocalAppSettings.current
             Spacer(Modifier.height(if (settings.floatingBottomBar) 116.dp else Dimens.FabSpace))
         }
     }

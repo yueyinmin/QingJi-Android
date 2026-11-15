@@ -69,7 +69,6 @@ import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.outlined.History
 import com.qingji.app.data.local.entity.FoodLog
-import com.qingji.app.data.prefs.QingJiSettings
 import com.qingji.app.data.prefs.SettingsStore
 import com.qingji.app.domain.AppClock
 import com.qingji.app.domain.FoodIcon
@@ -173,9 +172,9 @@ fun HomeScreen(
     val today = AppClock.today()
 
     // 首页要读几项显示设置：饮水卡显隐、AI 分析按钮显隐、悬浮按钮开关
+    // TASK-05：从统一出口取值，不再自己订阅 SettingsStore。
     val context = LocalContext.current
-    val settings by remember { SettingsStore.observe(context) }
-        .collectAsState(initial = QingJiSettings())
+    val settings = com.qingji.app.ui.LocalAppSettings.current
 
     // 日期下拉面板
     var showDatePicker by remember { mutableStateOf(false) }

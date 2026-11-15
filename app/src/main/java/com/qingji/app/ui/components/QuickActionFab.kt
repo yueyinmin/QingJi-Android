@@ -20,10 +20,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -86,10 +84,8 @@ fun QuickActionColumn(
     var expanded by remember { mutableStateOf(false) }
     // 悬浮底栏会盖住列的底部：整列让出 Dock 高度（60 + 底悬 10 + 手势条 24 + 间距 12）
     // 才能让「⋯」露在 Dock 上方；经典款底栏由页面 innerPadding 让位，不加。
-    val context = LocalContext.current
-    val settings by remember {
-        com.qingji.app.data.prefs.SettingsStore.observe(context)
-    }.collectAsState(initial = com.qingji.app.data.prefs.QingJiSettings())
+    // TASK-05：统一从 LocalAppSettings 取，不再单独订阅 SettingsStore。
+    val settings = com.qingji.app.ui.LocalAppSettings.current
     // v10：主人反馈「有点太高」——与 Dock 的间距从 12dp 收到 4dp
     val bottomGap = if (settings.floatingBottomBar) 98.dp else 0.dp
     Column(

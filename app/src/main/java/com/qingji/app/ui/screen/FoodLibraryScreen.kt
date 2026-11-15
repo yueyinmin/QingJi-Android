@@ -88,13 +88,8 @@ fun FoodLibraryScreen(
     val eatenFoods by vm.eatenFoods.collectAsState()
 
     // 读过敏原用来打警告
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val settingsFlow = remember(context) {
-        com.qingji.app.data.prefs.SettingsStore.observe(context)
-    }
-    val settings by settingsFlow.collectAsState(
-        initial = com.qingji.app.data.prefs.QingJiSettings()
-    )
+    // TASK-05：统一从 LocalAppSettings 取，不再单独订阅 SettingsStore。
+    val settings = com.qingji.app.ui.LocalAppSettings.current
     val allergens = settings.allergens.split(",").map { it.trim() }.filter { it.isNotBlank() }
 
     var tab by remember { mutableStateOf(0) }

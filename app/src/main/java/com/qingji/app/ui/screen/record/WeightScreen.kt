@@ -24,7 +24,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.qingji.app.data.prefs.QingJiSettings
 import com.qingji.app.data.prefs.SettingsStore
 import com.qingji.app.domain.AppClock
 import com.qingji.app.domain.WeightUnit
@@ -60,8 +59,8 @@ fun WeightScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
-    val settings by remember { SettingsStore.observe(context) }
-        .collectAsState(initial = QingJiSettings())
+    // TASK-05：统一从 LocalAppSettings 取，不再单独订阅 SettingsStore。
+    val settings = com.qingji.app.ui.LocalAppSettings.current
     val unit = settings.unit
     val unitName = WeightUnit.symbol(unit)
 
