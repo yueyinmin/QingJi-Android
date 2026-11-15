@@ -17,6 +17,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.qingji.app.domain.TimeFormat
+import com.qingji.app.domain.NutritionCalculator
 
 /**
  * ============================================================
@@ -95,9 +97,15 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
                 val kcal = if (current.dailyKcalGoal > 0) current.dailyKcalGoal else 2000
                 repo.saveProfile(
                     current.copy(
-                        proteinGoalG = (kcal * p / 100.0 / 4.0).toInt(),
-                        carbGoalG = (kcal * c / 100.0 / 4.0).toInt(),
-                        fatGoalG = (kcal * f / 100.0 / 9.0).toInt()
+                        proteinGoalG = NutritionCalculator.gramsFromKcal(
+                            kcal.toDouble(), p.toDouble(), NutritionCalculator.KCAL_PER_G_PROTEIN
+                        ),
+                        carbGoalG = NutritionCalculator.gramsFromKcal(
+                            kcal.toDouble(), c.toDouble(), NutritionCalculator.KCAL_PER_G_CARB
+                        ),
+                        fatGoalG = NutritionCalculator.gramsFromKcal(
+                            kcal.toDouble(), f.toDouble(), NutritionCalculator.KCAL_PER_G_FAT
+                        )
                     )
                 )
             }
@@ -240,8 +248,7 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     // ---------- 提醒 ----------
 
     /** 把小时 + 分钟拼成 08:30 这样的提示文字。 */
-    private fun hhmm(hour: Int, minute: Int) =
-        "%02d:%02d".format(hour.coerceIn(0, 23), minute.coerceIn(0, 59))
+    private fun hhmm(hour: Int, minute: Int) = TimeFormat.hourMinute(hour, minute)
 
     fun setWeighReminder(
         enabled: Boolean,

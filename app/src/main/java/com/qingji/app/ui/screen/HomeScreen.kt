@@ -93,6 +93,8 @@ import com.qingji.app.ui.theme.TextSizes
 import com.qingji.app.ui.viewmodel.HomeUiState
 import com.qingji.app.ui.viewmodel.HomeViewModel
 import java.time.LocalDate
+import com.qingji.app.domain.TimeFormat
+import com.qingji.app.domain.NutritionCalculator
 
 /**
  * ============================================================
@@ -1031,10 +1033,7 @@ private fun TodaySummaryCard(
         val fastingDaySet = fastingDays.split(',').mapNotNull { it.trim().toIntOrNull() }.toSet()
         val isFastingDay = java.time.LocalDate.now().dayOfWeek.value in fastingDaySet
 
-        val freeClock = run {
-            val s = ((statusNow - freeStart) / 1000L).coerceAtLeast(0)
-            "%02d:%02d:%02d".format(s / 3600, (s % 3600) / 60, s % 60)
-        }
+        val freeClock = TimeFormat.clock((statusNow - freeStart) / 1000L)
         val streakState = when {
             freeRunning -> Triple(
                 MultiColor.FastingBackground,
@@ -1290,9 +1289,9 @@ private fun MealCard(
 
         // 营养素比例条：一眼看出这一餐是碳水多、还是蛋白多
         if (showMacro && items.isNotEmpty()) {
-            val proteinKcal = items.sumOf { it.proteinG } * 4.0
-            val carbKcal = items.sumOf { it.carbG } * 4.0
-            val fatKcal = items.sumOf { it.fatG } * 9.0
+            val proteinKcal = items.sumOf { it.proteinG } * NutritionCalculator.KCAL_PER_G_PROTEIN
+            val carbKcal = items.sumOf { it.carbG } * NutritionCalculator.KCAL_PER_G_CARB
+            val fatKcal = items.sumOf { it.fatG } * NutritionCalculator.KCAL_PER_G_FAT
             val total = proteinKcal + carbKcal + fatKcal
             if (total > 0) {
                 Spacer(Modifier.height(10.dp))

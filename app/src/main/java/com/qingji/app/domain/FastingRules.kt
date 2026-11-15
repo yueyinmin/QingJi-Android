@@ -130,16 +130,10 @@ object FastingRules {
     }
 
     /** 把「当天第几分钟」格式化成 07:40。 */
-    fun minuteLabel(minute: Int): String {
-        val m = ((minute % 1440) + 1440) % 1440
-        return "%02d:%02d".format(m / 60, m % 60)
-    }
+    fun minuteLabel(minute: Int): String = TimeFormat.dayMinute(minute)
 
     /** 分钟数格式化成 09:32。 */
-    fun durationLabel(minutes: Int): String {
-        val m = minutes.coerceAtLeast(0)
-        return "%02d:%02d".format(m / 60, m % 60)
-    }
+    fun durationLabel(minutes: Int): String = TimeFormat.durationMinute(minutes)
 
     /** 完成度 0～1，用来画圆环。 */
     fun progress(status: FastingStatus): Float {
