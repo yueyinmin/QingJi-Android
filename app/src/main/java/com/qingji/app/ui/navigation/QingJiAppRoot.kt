@@ -53,7 +53,6 @@ import com.qingji.app.ui.viewmodel.HomeViewModel
 import com.qingji.app.ui.viewmodel.ProgressViewModel
 import com.qingji.app.ui.viewmodel.DiaryViewModel
 import com.qingji.app.ui.viewmodel.MineViewModel
-import com.qingji.app.data.prefs.SettingsStore
 import com.qingji.app.ui.screen.BackupScreen
 import com.qingji.app.ui.screen.AiAnalysisScreen
 import com.qingji.app.ui.screen.AiConfigScreen

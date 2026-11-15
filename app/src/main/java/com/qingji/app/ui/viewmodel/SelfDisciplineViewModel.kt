@@ -9,11 +9,9 @@ import com.qingji.app.data.local.entity.SelfDisciplineUrgeEntity
 import com.qingji.app.data.repository.SelfDisciplineRepository
 import com.qingji.app.data.repository.SelfDisciplineStats
 import com.qingji.app.domain.SelfDisciplineContracts
-import com.qingji.app.domain.SelfDisciplineEngine
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
