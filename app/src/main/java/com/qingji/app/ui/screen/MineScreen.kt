@@ -142,8 +142,8 @@ fun MineScreen(
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val settings by remember { SettingsStore.observe(context) }
-        .collectAsState(initial = QingJiSettings())
+    // TASK-05：统一从 LocalAppSettings 取，不再单独订阅 SettingsStore。
+    val settings = com.qingji.app.ui.LocalAppSettings.current
 
     var showGoalDialog by remember { mutableStateOf(false) }
     var showAchievementDialog by remember { mutableStateOf(false) }

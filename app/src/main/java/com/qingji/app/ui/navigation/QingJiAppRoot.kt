@@ -48,7 +48,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
-import com.qingji.app.data.prefs.QingJiSettings
 import com.qingji.app.ui.viewmodel.OnboardingViewModel
 import com.qingji.app.ui.viewmodel.HomeViewModel
 import com.qingji.app.ui.viewmodel.ProgressViewModel
@@ -168,10 +167,10 @@ fun QingJiAppRoot(
     val currentRoute = backStackEntry?.destination?.route ?: QingJiTab.Home.route
     val showBottomBar = currentRoute !in QingJiRoutes.fullScreenRoutes
 
-    // 底部导航要不要显示某个 Tab、首页要不要显示某些卡片，都从这里读
+    // 底部导航要不要显示某个 Tab、首页要不要显示某些卡片，都从这里读。
+    // TASK-05：不再自己订阅 SettingsStore，改用 MainActivity 发下来的同一份设置。
     val context = LocalContext.current
-    val settings by remember { SettingsStore.observe(context) }
-        .collectAsState(initial = QingJiSettings())
+    val settings = com.qingji.app.ui.LocalAppSettings.current
     val scope = rememberCoroutineScope()
     val appRepo = remember { com.qingji.app.data.repository.QingJiRepository(context) }
 
