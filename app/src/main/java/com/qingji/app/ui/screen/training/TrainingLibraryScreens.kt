@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -27,18 +28,27 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import coil.decode.SvgDecoder
+import coil.request.ImageRequest
 import com.qingji.app.data.local.TrainingSeed
 import com.qingji.app.data.local.entity.ExerciseEntity
+import com.qingji.app.data.training.media.ExerciseMediaMapping
 import com.qingji.app.ui.components.PageTopBar
 import com.qingji.app.ui.components.SectionCard
 import com.qingji.app.ui.theme.CardWhite
 import com.qingji.app.ui.theme.Dimens
 import com.qingji.app.ui.theme.PageBackground
 import com.qingji.app.ui.theme.QingJiGreen
+import com.qingji.app.ui.theme.QingJiGreenDark
 import com.qingji.app.ui.theme.QingJiGreenLight
 import com.qingji.app.ui.theme.TextPrimary
 import com.qingji.app.ui.theme.TextSecondary
@@ -121,6 +131,29 @@ fun ExerciseLibraryScreen(
                         contentPadding = Dimens.CardPaddingCompact
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
+                            // V2：左侧 54dp 统一圆角浅底板 + 本地 SVG 首帧。
+                            // 自建动作 / 图片加载失败时用动作名首字占位，卡片高度不变。
+                            val media = ExerciseMediaMapping.forUuid(e.uuid)
+                            Box(
+                                modifier = Modifier
+                                    .size(54.dp)
+                                    .clip(RoundedCornerShape(Dimens.ItemCorner))
+                                    .background(QingJiGreenLight),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                ExerciseMediaImage(
+                                    media = media,
+                                    modifier = Modifier.size(54.dp)
+                                ) {
+                                    Text(
+                                        e.name.take(1),
+                                        fontSize = 20.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = QingJiGreenDark
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.size(10.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(e.name, fontSize = TextSizes.CardTitle,
                                     fontWeight = FontWeight.SemiBold, color = TextPrimary)
@@ -178,23 +211,35 @@ fun ExerciseDetailScreen(
                 .padding(horizontal = Dimens.ScreenPadding)
         ) {
             Spacer(Modifier.height(12.dp))
-            // 图示占位：授权素材到位前不塞来路不明的图
+            // V2：原 130dp 文字占位换成 190dp 动作插画（本地 SVG 首帧）。
+            // 透明底、完整显示、不裁切不拉伸；自建动作 / 加载失败回退原来的文字占位。
+            val media = ExerciseMediaMapping.forUuid(e.uuid)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(130.dp)
+                    .height(190.dp)
                     .clip(RoundedCornerShape(Dimens.CardCorner))
                     .background(QingJiGreenLight),
                 contentAlignment = Alignment.Center
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        TrainingSeed.CATEGORY_LABELS.firstOrNull { it.first == e.category }?.second ?: "动作",
-                        fontSize = 28.sp, fontWeight = FontWeight.Bold, color = QingJiGreen
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text("动作图示待补充（需授权素材）", fontSize = TextSizes.Tiny, color = TextSecondary)
+                ExerciseMediaImage(
+                    media = media,
+                    modifier = Modifier.fillMaxWidth().height(190.dp)
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            TrainingSeed.CATEGORY_LABELS.firstOrNull { it.first == e.category }?.second ?: "动作",
+                            fontSize = 28.sp, fontWeight = FontWeight.Bold, color = QingJiGreen
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text("暂无动作图示", fontSize = TextSizes.Tiny, color = TextSecondary)
+                    }
                 }
+            }
+            // 6 个近似匹配的动作：不冒充完全一致的演示，明确提示待人工核对
+            if (media?.requiresReview == true) {
+                Spacer(Modifier.height(6.dp))
+                Text("动作示意，姿势待核对", fontSize = TextSizes.Tiny, color = TextSecondary)
             }
             Spacer(Modifier.height(12.dp))
 
@@ -258,4 +303,44 @@ private fun InfoLine(label: String, value: String) {
         Text(value, fontSize = TextSizes.Body, color = TextPrimary,
             modifier = Modifier.weight(2f))
     }
+}
+
+/**
+ * V2：动作插画的唯一加载入口（动作库列表 + 详情页共用）。
+ *
+ * 两个关键点：
+ * 1) 上游素材是**纯白剪影**（fill="#fff"）+ 透明背景。直接贴在浅绿底板上
+ *    等于隐形，所以这里用 ColorFilter.tint 在绘制层把它染成主题深色，
+ *    **原始 SVG 一个字节都不改**，版权/署名信息保持完整。
+ *    QingJiGreenDark 会随主题走：浅色模式是深绿、深色模式是浅绿，
+ *    而底板 QingJiGreenLight 正好相反，两种模式下都保证看得见。
+ * 2) onError 把失败状态记住，回退到调用方给的占位，页面不会崩、不会空白。
+ *    资产全在 assets/ 里，走 file:///android_asset，完全离线、不依赖网络。
+ */
+@Composable
+private fun ExerciseMediaImage(
+    media: ExerciseMediaMapping.ExerciseMedia?,
+    modifier: Modifier = Modifier,
+    fallback: @Composable () -> Unit
+) {
+    if (media == null) {
+        fallback()
+        return
+    }
+    var failed by remember(media.slug) { mutableStateOf(false) }
+    if (failed) {
+        fallback()
+        return
+    }
+    AsyncImage(
+        model = ImageRequest.Builder(LocalContext.current)
+            .data(ExerciseMediaMapping.assetPath(media.slug))
+            .decoderFactory(SvgDecoder.Factory())
+            .build(),
+        contentDescription = null,
+        contentScale = ContentScale.Fit,
+        colorFilter = ColorFilter.tint(QingJiGreenDark, BlendMode.SrcIn),
+        onError = { failed = true },
+        modifier = modifier
+    )
 }

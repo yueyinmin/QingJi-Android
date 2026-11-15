@@ -189,6 +189,7 @@ dependencies {
 
     // 图片加载（M2 再说，先放着）
     implementation(libs.coil.compose)
+    implementation(libs.coil.svg)
 
     // 网络：文字/图片 AI 识别走 OpenAI 兼容协议，用 OkHttp 发请求
     // 不引 Retrofit / kotlinx.serialization，用安卓自带的 org.json 解析，依赖更少更稳
