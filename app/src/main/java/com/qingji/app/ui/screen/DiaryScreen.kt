@@ -1,5 +1,14 @@
 package com.qingji.app.ui.screen
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -24,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -43,6 +53,7 @@ import com.qingji.app.ui.viewmodel.DiaryViewModel
 import com.qingji.app.ui.viewmodel.ProgressViewModel
 import com.qingji.app.ui.viewmodel.TrainingViewModel
 import kotlinx.coroutines.launch
+import java.time.YearMonth
 
 /**
  * ============================================================
@@ -55,6 +66,7 @@ import kotlinx.coroutines.launch
  * 两个 Tab 从同一高度开始，只切换下面的内容。
  * ============================================================
  */
+@OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun DiaryScreen(
     onOpenEdit: (Long) -> Unit,
@@ -81,6 +93,13 @@ fun DiaryScreen(
     val scope = rememberCoroutineScope()
     var pendingDelete by remember { mutableStateOf<Diary?>(null) }
     var showClearAll by remember { mutableStateOf(false) }
+
+    // V2 工单：训练日记的月份 / 滚动状态提到 AnimatedContent 外面，
+    // 切到心情日记再切回来时不会被 dispose 掉。心情日记本来就吃外部 scrollState。
+    var trainingMonth by remember { mutableStateOf(YearMonth.now()) }
+    val trainingScrollState = rememberScrollState()
+    // 20dp 横移：在 Composable 上下文里换算成 px，transitionSpec 不是 Composable
+    val slidePx = with(LocalDensity.current) { 20.dp.roundToPx() }
 
     val foodMonth by progressVm.foodMonth.collectAsState()
     val profile by progressVm.profile.collectAsState()
@@ -124,21 +143,47 @@ fun DiaryScreen(
 
         // ---------- 内容区：两个 Tab 从同一位置开始 ----------
         Box(modifier = Modifier.weight(1f)) {
-            if (trainingTab) {
-                TrainingDiaryContent(
-                    vm = trainingVm,
-                    onStartTraining = onStartTraining,
-                    onEditSession = onEditTraining,
-                    foodLogs = foodMonth,
-                    dailyKcalGoal = profile?.dailyKcalGoal?.takeIf { it > 0 }?.toDouble() ?: 2000.0
-                )
-            } else {
-                MoodDiaryContent(
-                    diaries = diaries,
-                    onOpenEdit = onOpenEdit,
-                    onRequestDelete = { pendingDelete = it },
-                    scrollState = scrollState
-                )
+            // V2 工单：只给内容层做 240ms 淡入淡出 + 20dp 横移。
+            // · 顶部标题 / 月份切换条 / 悬浮快捷栏都在 AnimatedContent 外面，不会跟着闪；
+            // · fillMaxSize + using(null) 固定容器尺寸，不做尺寸动画，避免高度跳动；
+            // · 两个 ViewModel 由 Root 传入、ScrollState 由外层持有，切换不重建、不重查；
+            // · 快速连点由 AnimatedContent 自己收敛到最新目标，不会叠加动画。
+            AnimatedContent(
+                targetState = trainingTab,
+                modifier = Modifier.fillMaxSize(),
+                label = "diary-training-mood",
+                transitionSpec = {
+                    // 训练在左、心情在右：切到训练从左侧进，切到心情从右侧进
+                    val enterFrom = if (targetState) -slidePx else slidePx
+                    (slideInHorizontally(
+                        animationSpec = tween(240, easing = FastOutSlowInEasing),
+                        initialOffsetX = { enterFrom }
+                    ) + fadeIn(tween(240))) togetherWith
+                        (slideOutHorizontally(
+                            animationSpec = tween(240, easing = FastOutSlowInEasing),
+                            targetOffsetX = { -enterFrom }
+                        ) + fadeOut(tween(240)))
+                }
+            ) { showTraining ->
+                if (showTraining) {
+                    TrainingDiaryContent(
+                        vm = trainingVm,
+                        onStartTraining = onStartTraining,
+                        onEditSession = onEditTraining,
+                        foodLogs = foodMonth,
+                        dailyKcalGoal = profile?.dailyKcalGoal?.takeIf { it > 0 }?.toDouble() ?: 2000.0,
+                        month = trainingMonth,
+                        onMonthChange = { trainingMonth = it },
+                        scrollState = trainingScrollState
+                    )
+                } else {
+                    MoodDiaryContent(
+                        diaries = diaries,
+                        onOpenEdit = onOpenEdit,
+                        onRequestDelete = { pendingDelete = it },
+                        scrollState = scrollState
+                    )
+                }
             }
             // 右下角悬浮快捷按钮：两个 Tab 都显示，位置和其它页完全一致
             QuickActionColumn(
