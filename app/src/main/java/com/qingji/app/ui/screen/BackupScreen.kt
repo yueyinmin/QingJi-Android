@@ -20,10 +20,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -32,7 +33,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.qingji.app.data.backup.BackupManager
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.qingji.app.domain.AppClock
 import com.qingji.app.domain.ExportFilter
 import com.qingji.app.domain.MealRules
@@ -40,6 +41,7 @@ import com.qingji.app.ui.components.AppBottomSheet
 import com.qingji.app.ui.components.PageTopBar
 import com.qingji.app.ui.components.PrimaryButton
 import com.qingji.app.ui.components.SectionCard
+import com.qingji.app.ui.platform.BackupShare
 import com.qingji.app.ui.screen.settings.ConfirmDialog
 import com.qingji.app.ui.theme.PageBackground
 import com.qingji.app.ui.theme.QingJiGreen
@@ -47,8 +49,7 @@ import com.qingji.app.ui.theme.QingJiGreenDark
 import com.qingji.app.ui.theme.QingJiGreenLight
 import com.qingji.app.ui.theme.TextPrimary
 import com.qingji.app.ui.theme.TextSecondary
-import kotlinx.coroutines.launch
-import java.io.File
+import com.qingji.app.ui.viewmodel.BackupViewModel
 import java.time.YearMonth
 
 /**
@@ -68,13 +69,27 @@ import java.time.YearMonth
 @Composable
 fun BackupScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val backup = remember { BackupManager(context) }
+    // TASK-06：任务状态与结果都交给 BackupViewModel，UI 只负责显示与转发操作。
+    val vm: BackupViewModel = viewModel()
+    val busy by vm.busy.collectAsState()
+    val lastFile by vm.lastFile.collectAsState()
+    val importResult by vm.importResult.collectAsState()
+    val message by vm.message.collectAsState()
 
-    var busy by remember { mutableStateOf(false) }
-    var lastFile by remember { mutableStateOf<File?>(null) }
+    // 一次性提示：弹完立刻消费掉，转屏不会重复弹
+    LaunchedEffect(message) {
+        message?.let {
+            Toast.makeText(
+                context,
+                it.text,
+                if (it.long) Toast.LENGTH_LONG else Toast.LENGTH_SHORT
+            ).show()
+            vm.consumeMessage()
+        }
+    }
+
+    // 选完文件先挂在这里，等用户点「确认导入」再真的动数据
     var pendingUri by remember { mutableStateOf<Uri?>(null) }
-    var importResult by remember { mutableStateOf<String?>(null) }
 
     // v3.4.0：CSV 导出范围。null / 空集合都表示「不限」，老用户默认行为不变。
     var exportMonth by remember { mutableStateOf<YearMonth?>(null) }
@@ -120,20 +135,7 @@ fun BackupScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 PrimaryButton(
                     text = if (busy) "正在导出…" else "导出记录类 JSON（换手机用这个）",
                     enabled = !busy,
-                    onClick = {
-                        busy = true
-                        scope.launch {
-                            backup.exportJson()
-                                .onSuccess { file ->
-                                    lastFile = file
-                                    Toast.makeText(context, "已导出：${file.name}", Toast.LENGTH_SHORT).show()
-                                }
-                                .onFailure {
-                                    Toast.makeText(context, "导出失败：${it.message}", Toast.LENGTH_LONG).show()
-                                }
-                            busy = false
-                        }
-                    }
+                    onClick = { vm.exportJson() }
                 )
 
                 Spacer(Modifier.height(16.dp))
@@ -197,20 +199,7 @@ fun BackupScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 PrimaryButton(
                     text = if (busy) "正在导出…" else "导出饮食记录 CSV（Excel 能开）",
                     enabled = !busy,
-                    onClick = {
-                        busy = true
-                        scope.launch {
-                            backup.exportCsv(exportMonth, exportMeals)
-                                .onSuccess { file ->
-                                    lastFile = file
-                                    Toast.makeText(context, "已导出：${file.name}", Toast.LENGTH_SHORT).show()
-                                }
-                                .onFailure {
-                                    Toast.makeText(context, "导出失败：${it.message}", Toast.LENGTH_LONG).show()
-                                }
-                            busy = false
-                        }
-                    }
+                    onClick = { vm.exportCsv(exportMonth, exportMeals) }
                 )
 
                 lastFile?.let { file ->
@@ -227,7 +216,7 @@ fun BackupScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(file.name, fontSize = 12.sp, color = QingJiGreenDark)
                             Text(
-                                text = backup.sizeText(file.length()),
+                                text = vm.sizeText(file.length()),
                                 fontSize = 11.sp,
                                 color = TextSecondary
                             )
@@ -244,7 +233,7 @@ fun BackupScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                             modifier = Modifier
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(androidx.compose.ui.graphics.Color.White)
-                                .clickable { backup.share(file) }
+                                .clickable { BackupShare.send(context, file) }
                                 .padding(horizontal = 12.dp, vertical = 6.dp)
                         )
                     }
@@ -252,7 +241,7 @@ fun BackupScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
 
                 Spacer(Modifier.height(10.dp))
                 Text(
-                    text = "目录：${backup.backupDirPath()}",
+                    text = "目录：${vm.backupDirPath()}",
                     fontSize = 10.sp,
                     color = TextSecondary
                 )
@@ -419,18 +408,7 @@ fun BackupScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             confirmText = "确认导入",
             onConfirm = {
                 pendingUri = null
-                busy = true
-                scope.launch {
-                    backup.importJson(uri)
-                        .onSuccess { summary ->
-                            importResult = summary
-                            Toast.makeText(context, "导入完成", Toast.LENGTH_SHORT).show()
-                        }
-                        .onFailure {
-                            importResult = "导入失败：${it.message ?: "文件格式不对"}"
-                        }
-                    busy = false
-                }
+                vm.importJson(uri)
             },
             onDismiss = { pendingUri = null }
         )

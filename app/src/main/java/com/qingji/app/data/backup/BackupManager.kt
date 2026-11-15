@@ -1,9 +1,7 @@
 package com.qingji.app.data.backup
 
 import android.content.Context
-import android.content.Intent
 import android.net.Uri
-import androidx.core.content.FileProvider
 import androidx.room.withTransaction
 import com.qingji.app.data.local.AppDatabase
 import com.qingji.app.data.local.entity.AiConfig
@@ -593,27 +591,11 @@ class BackupManager(private val context: Context) {
 
 
     // ============================================================
-    // 分享 / 缓存
+    // 缓存统计
+    // ------------------------------------------------------------
+    // 分享那块（FileProvider + ACTION_SEND）已于 TASK-06 搬到
+    // ui/platform/BackupShare.kt —— 数据层不再碰 Intent。
     // ============================================================
-
-    /** 用系统分享面板把文件发出去（微信、QQ、网盘、邮箱都能选）。 */
-    fun share(file: File) {
-        val uri = FileProvider.getUriForFile(
-            context,
-            "${context.packageName}.fileprovider",
-            file
-        )
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            type = if (file.extension == "csv") "text/csv" else "application/json"
-            putExtra(Intent.EXTRA_STREAM, uri)
-            putExtra(Intent.EXTRA_SUBJECT, file.name)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        val chooser = Intent.createChooser(intent, "发送备份文件").apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        context.startActivity(chooser)
-    }
 
     /** 临时拍照缓存有多大。 */
     fun cacheSize(): Long {

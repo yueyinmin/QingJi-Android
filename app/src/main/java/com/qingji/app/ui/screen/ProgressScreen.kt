@@ -1,6 +1,6 @@
 package com.qingji.app.ui.screen
 
-import com.qingji.app.data.local.PhotoDirs
+import com.qingji.app.data.photo.ProgressPhotoStore
 import com.qingji.app.domain.AppClock
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
@@ -145,12 +145,14 @@ fun ProgressScreen(
     var showPhotoGallery by remember { mutableStateOf(false) }
 
     // 选进度照片：选完立刻拷进 App 私有目录，原图删了也不影响
+    // TASK-06-B：照片存取统一走 ProgressPhotoStore，UI 不再直接做文件 IO。
     val photoContext = androidx.compose.ui.platform.LocalContext.current
+    val photoStore = remember(photoContext) { ProgressPhotoStore(photoContext) }
     val pickPhoto = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.GetContent()
     ) { uri ->
         if (uri != null) {
-            val path = savePhotoToPrivate(photoContext, uri)
+            val path = photoStore.saveFromUri(uri)
             if (path != null) {
                 vm.addPhoto(
                     com.qingji.app.data.local.entity.ProgressPhoto(
@@ -1731,14 +1733,3 @@ private fun MeasureField(label: String, value: String, onChange: (String) -> Uni
     }
 }
 
-/** 把相册选的图拷进 App 私有目录，返回本地路径。 */
-private fun savePhotoToPrivate(context: android.content.Context, uri: android.net.Uri): String? = try {
-    val dir = java.io.File(context.filesDir, PhotoDirs.PROGRESS_DIR).apply { mkdirs() }
-    val target = java.io.File(dir, "photo_${System.currentTimeMillis()}.jpg")
-    context.contentResolver.openInputStream(uri)?.use { input ->
-        target.outputStream().use { output -> input.copyTo(output) }
-    }
-    target.absolutePath
-} catch (e: Exception) {
-    null
-}
