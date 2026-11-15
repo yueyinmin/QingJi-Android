@@ -9,7 +9,6 @@ import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,14 +28,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.DragHandle
 import androidx.compose.material.icons.outlined.Tune
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -45,7 +40,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,7 +50,6 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -69,6 +62,10 @@ import com.qingji.app.domain.ChartMath
 import com.qingji.app.domain.DiaryRules
 import com.qingji.app.domain.NutritionCalculator
 import com.qingji.app.ui.components.SectionCard
+import com.qingji.app.ui.screen.progress.ProgressCardActions
+import com.qingji.app.ui.screen.progress.ProgressCardData
+import com.qingji.app.ui.screen.progress.ProgressCardManagerSheet
+import com.qingji.app.ui.screen.progress.ProgressCardRenderer
 import com.qingji.app.ui.components.AppearItem
 import com.qingji.app.ui.components.QuickActionColumn
 import com.qingji.app.ui.components.LabeledTextField
@@ -205,12 +202,11 @@ fun ProgressScreen(
     val remain = (currentWeight - targetWeight).coerceAtLeast(0.0)
 
     // v11：卡片管理——右上角按钮弹层里调顺序/显隐（参考吃有数）。
-    // 顺序与显隐存 DataStore；空串 = 默认顺序 / 全显示。「身体数据」卡固定最上，不进管理列表。
-    val defaultCardIds =
-        listOf("exercise", "forecast", "chart", "water", "nutrition", "measure", "photos")
-    val cardOrder = settings.progressCardOrder.split(",").filter { it in defaultCardIds }
-        .let { parsed -> parsed + defaultCardIds.filter { it !in parsed } }
-    val cardHidden = settings.progressCardHidden.split(",").filter { it.isNotBlank() }.toSet()
+    // TASK-07-A：顺序 / 显隐的解析逻辑搬到 domain/ProgressCardCatalog，这里只拿结果。
+    // 语义不变：空串 = 默认顺序 / 全显示；未知 ID 丢弃；新卡自动补到末尾。
+    // 「身体数据」卡固定最上，不在目录里，也不进管理列表。
+    val cardOrder = com.qingji.app.domain.progress.ProgressCardCatalog.parseOrder(settings.progressCardOrder)
+    val cardHidden = com.qingji.app.domain.progress.ProgressCardCatalog.parseHidden(settings.progressCardHidden)
     var showCardManager by remember { mutableStateOf(false) }
 
     Box(
@@ -270,48 +266,33 @@ fun ProgressScreen(
         cardOrder.filter { it !in cardHidden }.forEach { cardId ->
             if (appearIndex > 0) Spacer(Modifier.height(Dimens.Gap))
             AppearItem(index = appearIndex) {
-                when (cardId) {
-                    "exercise" -> ExerciseWeekCard(
-                        list = exerciseWeek,
-                        onAdd = onOpenExercise,
-                        onDelete = { id -> vm.deleteExercise(id) }
+                // TASK-07-B：分派搬到 ui/screen/progress/ProgressCardRenderer.kt
+                ProgressCardRenderer(
+                    cardId = cardId,
+                    data = ProgressCardData(
+                        exerciseWeek = exerciseWeek,
+                        weightLogs = logs,
+                        startWeight = startWeight,
+                        targetWeight = targetWeight,
+                        currentWeight = currentWeight,
+                        rangeDays = rangeDays,
+                        unit = unit,
+                        waterWeek = waterWeek,
+                        waterGoalMl = settings.waterGoalMl,
+                        foodWeek = foodWeek,
+                        latestMeasure = bodyMeasures.firstOrNull(),
+                        photos = photos
+                    ),
+                    actions = ProgressCardActions(
+                        onAddExercise = onOpenExercise,
+                        onDeleteExercise = { id -> vm.deleteExercise(id) },
+                        onSelectRange = { days -> vm.setRange(days) },
+                        onAddMeasure = { showBodyMeasure = true },
+                        onAddPhoto = { pickPhoto.launch("image/*") },
+                        onDeletePhoto = { id -> vm.deletePhoto(id) },
+                        onViewAllPhotos = { showPhotoGallery = true }
                     )
-                    "forecast" -> {
-                        // v3.4.0 R3：目标达成预估（近 14 天趋势；数据不足时只给说明，不硬凑日期）
-                        val forecast = com.qingji.app.domain.WeightForecastCalculator.forecast(
-                            points = logs.map {
-                                com.qingji.app.domain.WeightForecastCalculator.Point(it.date, it.weightKg)
-                            },
-                            currentWeight = currentWeight,
-                            targetWeight = targetWeight,
-                            today = AppClock.today()
-                        )
-                        com.qingji.app.ui.components.WeightForecastCard(forecast = forecast)
-                    }
-                    "chart" -> Column {
-                        TimeRangeChips(selectedDays = rangeDays, onSelect = vm::setRange)
-                        Spacer(Modifier.height(14.dp))
-                        WeightChart(
-                            logs = logs,
-                            startWeight = startWeight,
-                            targetWeight = targetWeight,
-                            fallbackWeight = startWeight,
-                            unit = unit
-                        )
-                    }
-                    "water" -> WaterWeekCard(week = waterWeek, goalMl = settings.waterGoalMl)
-                    "nutrition" -> NutritionWeekCard(foodWeek = foodWeek)
-                    "measure" -> BodyMeasureCard(
-                        latest = bodyMeasures.firstOrNull(),
-                        onAdd = { showBodyMeasure = true }
-                    )
-                    "photos" -> ProgressPhotoCard(
-                        photos = photos,
-                        onAdd = { pickPhoto.launch("image/*") },
-                        onDelete = vm::deletePhoto,
-                        onViewAll = { showPhotoGallery = true }
-                    )
-                }
+                )
             }
             appearIndex++
         }
@@ -330,10 +311,10 @@ fun ProgressScreen(
 
     // v11：管理卡片弹层
     if (showCardManager) {
-        CardManagerSheet(
+        ProgressCardManagerSheet(
             order = cardOrder,
             hidden = cardHidden,
-            defaultOrder = defaultCardIds,
+            defaultOrder = com.qingji.app.domain.progress.ProgressCardCatalog.DEFAULT_ORDER,
             onCommit = { order, hidden ->
                 settingsVm.setProgressCardOrder(order.joinToString(","))
                 settingsVm.setProgressCardHidden(hidden.joinToString(","))
@@ -621,7 +602,7 @@ private fun MiniBmiGauge(bmi: Double, categoryColor: Color) {
 
 /** 时间范围切换：点了真的会过滤曲线数据。 */
 @Composable
-private fun TimeRangeChips(
+internal fun TimeRangeChips(
     selectedDays: Int?,
     onSelect: (Int?) -> Unit
 ) {
@@ -665,7 +646,7 @@ private fun TimeRangeChips(
  * 这种容易崩的边界，界面这里不自己算数。
  */
 @Composable
-private fun WeightChart(
+internal fun WeightChart(
     logs: List<WeightLog>,
     startWeight: Double,
     targetWeight: Double,
@@ -1049,7 +1030,7 @@ fun DietHeatmapCard(
 }
 
 @Composable
-private fun WaterWeekCard(week: List<Pair<LocalDate, Int>>, goalMl: Int) {
+internal fun WaterWeekCard(week: List<Pair<LocalDate, Int>>, goalMl: Int) {
     val total = week.sumOf { it.second }
     val peak = maxOf(goalMl, week.maxOfOrNull { it.second } ?: 0, 1)
     val barColor = QingJiGreen.copy(alpha = 0.65f)
@@ -1122,7 +1103,7 @@ private fun WaterWeekCard(week: List<Pair<LocalDate, Int>>, goalMl: Int) {
 
 /** 近一周营养：每天热量 + 平均三大营养素。 */
 @Composable
-private fun NutritionWeekCard(foodWeek: List<com.qingji.app.data.local.entity.FoodLog>) {
+internal fun NutritionWeekCard(foodWeek: List<com.qingji.app.data.local.entity.FoodLog>) {
     val byDate = foodWeek.groupBy { it.date }
     val days = (0..6).map { offset -> AppClock.today().minusDays((6 - offset).toLong()) }
     val kcalByDay = days.map { d -> d to (byDate[d]?.sumOf { it.kcal } ?: 0.0) }
@@ -1217,158 +1198,6 @@ private fun MacroCell(label: String, grams: Double, color: Color) {
         )
         Spacer(Modifier.height(2.dp))
         Text(text = label, fontSize = TextSizes.Tiny, color = TextSecondary)
-    }
-}
-
-/**
- * v11：进展页「管理卡片」弹层（参考吃有数）。
- * 每张卡一行：名称 + 显示开关 + 拖动手柄（长按拖动调顺序）；右上角「重置」恢复默认。
- * 行高固定 52dp（间距 8）——拖拽交换按行距 60dp 计算。
- * 所有改动实时 onCommit 落 DataStore，弹层后面的页面即时跟着变。
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun CardManagerSheet(
-    order: List<String>,
-    hidden: Set<String>,
-    defaultOrder: List<String>,
-    onCommit: (List<String>, Set<String>) -> Unit,
-    onDismiss: () -> Unit
-) {
-    val names = mapOf(
-        "exercise" to s("本周运动消耗"),
-        "forecast" to s("目标达成预估"),
-        "chart" to s("体重走势"),
-        "water" to s("近一周饮水"),
-        "nutrition" to s("近一周营养摄入"),
-        "measure" to s("身体维度"),
-        "photos" to s("进度照片")
-    )
-    var localOrder by remember { mutableStateOf(order) }
-    var localHidden by remember { mutableStateOf(hidden) }
-    var dragFrom by remember { mutableStateOf(-1) }
-    var dragY by remember { mutableStateOf(0f) }
-    val density = androidx.compose.ui.platform.LocalDensity.current
-    val rowPitch = with(density) { 60.dp.toPx() }
-
-    fun commit() = onCommit(localOrder, localHidden)
-
-    ModalBottomSheet(
-        onDismissRequest = { commit(); onDismiss() },
-        containerColor = CardWhite
-    ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = s("管理卡片"),
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary,
-                    modifier = Modifier.weight(1f)
-                )
-                Text(
-                    text = s("重置"),
-                    fontSize = 13.sp,
-                    color = QingJiGreen,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(999.dp))
-                        .clickable {
-                            localOrder = defaultOrder
-                            localHidden = emptySet()
-                            commit()
-                        }
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
-                )
-            }
-            Spacer(Modifier.height(2.dp))
-            Text(
-                text = s("拖动手柄调整顺序，关闭开关可隐藏"),
-                fontSize = 11.sp,
-                color = TextSecondary
-            )
-            Spacer(Modifier.height(12.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                localOrder.forEachIndexed { index, id ->
-                    val currentIndex by rememberUpdatedState(index)
-                    val isDragging = dragFrom == index
-                    Row(
-                        modifier = Modifier
-                            .height(52.dp)
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(PageBackground)
-                            .graphicsLayer { translationY = if (isDragging) dragY else 0f }
-                            .padding(horizontal = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = names[id] ?: id,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = if (id in localHidden) TextSecondary else TextPrimary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Switch(
-                            checked = id !in localHidden,
-                            onCheckedChange = { checked ->
-                                localHidden = if (checked) localHidden - id else localHidden + id
-                                commit()
-                            }
-                        )
-                        Icon(
-                            imageVector = Icons.Outlined.DragHandle,
-                            contentDescription = null,
-                            tint = TextSecondary,
-                            modifier = Modifier
-                                .padding(start = 8.dp)
-                                .pointerInput(Unit) {
-                                    detectDragGesturesAfterLongPress(
-                                        onDragStart = {
-                                            dragFrom = currentIndex
-                                            dragY = 0f
-                                        },
-                                        onDrag = { change, amount ->
-                                            if (dragFrom == currentIndex) {
-                                                dragY += amount.y
-                                                change.consume()
-                                                // 跨过半行就与相邻项交换，松手即落位
-                                                while (dragY > rowPitch / 2 && dragFrom < localOrder.lastIndex) {
-                                                    localOrder = localOrder.toMutableList().apply {
-                                                        add(dragFrom + 1, removeAt(dragFrom))
-                                                    }
-                                                    dragFrom += 1
-                                                    dragY -= rowPitch
-                                                    commit()
-                                                }
-                                                while (dragY < -rowPitch / 2 && dragFrom > 0) {
-                                                    localOrder = localOrder.toMutableList().apply {
-                                                        add(dragFrom - 1, removeAt(dragFrom))
-                                                    }
-                                                    dragFrom -= 1
-                                                    dragY += rowPitch
-                                                    commit()
-                                                }
-                                            }
-                                        },
-                                        onDragEnd = {
-                                            if (dragFrom >= 0) commit()
-                                            dragFrom = -1
-                                            dragY = 0f
-                                        },
-                                        onDragCancel = {
-                                            dragFrom = -1
-                                            dragY = 0f
-                                        }
-                                    )
-                                }
-                        )
-                    }
-                }
-            }
-            Spacer(Modifier.height(16.dp))
-        }
     }
 }
 
@@ -1493,7 +1322,7 @@ private fun kmText(km: Double): String {
 
 /** 身体维度：最新一次量的五个围度。 */
 @Composable
-private fun BodyMeasureCard(
+internal fun BodyMeasureCard(
     latest: com.qingji.app.data.local.entity.BodyMeasure?,
     onAdd: () -> Unit
 ) {
@@ -1568,7 +1397,7 @@ private fun MeasureCell(label: String, value: Double?) {
 
 /** 进度照片：横向缩略图。 */
 @Composable
-private fun ProgressPhotoCard(
+internal fun ProgressPhotoCard(
     photos: List<com.qingji.app.data.local.entity.ProgressPhoto>,
     onAdd: () -> Unit,
     onDelete: (Long) -> Unit,

@@ -1,0 +1,72 @@
+package com.qingji.app.domain.progress
+
+/**
+ * ============================================================
+ * 进展页卡片目录与顺序解析（TASK-07-A）
+ * ------------------------------------------------------------
+ * 以前这些全塞在 ProgressScreen.kt 的 Composable 里：
+ *
+ *     val defaultCardIds = listOf("exercise", "forecast", ...)
+ *     val cardOrder = settings.progressCardOrder.split(",").filter { it in defaultCardIds }
+ *         .let { parsed -> parsed + defaultCardIds.filter { it !in parsed } }
+ *     val cardHidden = settings.progressCardHidden.split(",")...
+ *
+ * 三个问题：
+ *   1. 纯字符串计算却写在 UI 里，Context 一掺进来就测不了；
+ *   2. 卡片 ID 字符串散落在「默认顺序」「渲染分派」「名称表」三处，改一个漏两个；
+ *   3. 「身体数据」卡固定最上、不进管理列表这条规则只存在于注释里。
+ *
+ * 现在把它们收进 domain：不依赖 Android、不依赖 Compose，纯函数，
+ * 有单元测试兜着（ProgressCardCatalogTest）。
+ *
+ * 语义与改造前完全一致：
+ *   - 空串 / 未设置 → 默认顺序、全部显示；
+ *   - 存过的顺序里有未知 ID → 直接丢掉，不报错；
+ *   - 存过的顺序里缺了新卡（后来加的）→ 按默认顺序补到末尾，用户不会看不见新卡；
+ *   - 重复 ID 不去重（保持原样，避免改变既有数据的行为）。
+ * ============================================================
+ */
+object ProgressCardCatalog {
+
+    const val EXERCISE = "exercise"
+    const val FORECAST = "forecast"
+    const val CHART = "chart"
+    const val WATER = "water"
+    const val NUTRITION = "nutrition"
+    const val MEASURE = "measure"
+    const val PHOTOS = "photos"
+
+    /**
+     * 默认可管理顺序（也是「重置」恢复的顺序）。
+     * 「身体数据」卡不在这里 —— 它固定在页面最上，不进管理列表。
+     */
+    val DEFAULT_ORDER: List<String> = listOf(
+        EXERCISE, FORECAST, CHART, WATER, NUTRITION, MEASURE, PHOTOS
+    )
+
+    /** 卡片 ID 是否属于可管理卡片。 */
+    fun isKnown(id: String): Boolean = id in DEFAULT_ORDER
+
+    /**
+     * 把 DataStore 里存的逗号串解析成真实渲染顺序。
+     *
+     * 过滤掉未知 ID → 再把「默认顺序里有、但存的值里没有」的卡补到末尾。
+     * 这样新版本新增的卡片对老用户也会显示，不会因为旧设置而被永久藏起来。
+     */
+    fun parseOrder(raw: String?): List<String> {
+        val parsed = raw.orEmpty()
+            .split(",")
+            .filter { it in DEFAULT_ORDER }
+        return parsed + DEFAULT_ORDER.filter { it !in parsed }
+    }
+
+    /** 把 DataStore 里存的隐藏列表解析成集合；空白项忽略。 */
+    fun parseHidden(raw: String?): Set<String> =
+        raw.orEmpty().split(",").filter { it.isNotBlank() }.toSet()
+
+    /** 真正要渲染的卡片：排好序 + 去掉被隐藏的。 */
+    fun visibleCards(rawOrder: String?, rawHidden: String?): List<String> {
+        val hidden = parseHidden(rawHidden)
+        return parseOrder(rawOrder).filter { it !in hidden }
+    }
+}
