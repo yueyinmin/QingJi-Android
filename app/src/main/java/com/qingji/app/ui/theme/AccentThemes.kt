@@ -37,7 +37,14 @@ object AccentThemes {
         /** 三大营养素：蛋白 / 碳水 / 脂肪 */
         val macroProtein: Long,
         val macroCarb: Long,
-        val macroFat: Long
+        val macroFat: Long,
+        /**
+         * 悬浮底栏选中胶囊的专用配色（可空 = 跟随本主题的浅底 / 主色）。
+         * 松绿这套是主人反复指定的精确值，只有它单独给值；
+         * 其余四套留空，自动用各自的 lightSoft / lightMain，换肤时底栏一起变。
+         */
+        val dockSoft: Long? = null,
+        val dockContent: Long? = null
     )
 
     val ALL = listOf(
@@ -45,7 +52,8 @@ object AccentThemes {
             key = "green", label = "松绿",
             lightMain = 0xFF299D76, lightDark = 0xFF1F7E62, lightSoft = 0xFFEAF7F1,
             darkMain = 0xFF4DBB9B, darkDark = 0xFF8FE0C4, darkSoft = 0xFF1D3A33,
-            macroProtein = 0xFF5B8DEF, macroCarb = 0xFF299D76, macroFat = 0xFFF5A623
+            macroProtein = 0xFF5B8DEF, macroCarb = 0xFF299D76, macroFat = 0xFFF5A623,
+            dockSoft = 0xFFE5F3EF, dockContent = 0xFF23866B
         ),
         Spec(
             key = "blue", label = "海蓝",
@@ -90,5 +98,35 @@ object AccentThemes {
     fun softOf(key: String?, dark: Boolean): Color {
         val spec = byKey(key)
         return Color(if (dark) spec.darkSoft else spec.lightSoft)
+    }
+
+    /**
+     * 悬浮底栏选中胶囊的底色。
+     *
+     * 深色模式一律用本主题的深色浅底（深绿 / 深蓝…），否则浅色胶囊在暗底上会刺眼；
+     * 浅色模式优先用 Spec.dockSoft（目前只有松绿给值 #E5F3EF），没给值就回落 lightSoft。
+     */
+    fun dockSoftOf(key: String?, dark: Boolean): Color {
+        val spec = byKey(key)
+        return when {
+            dark -> Color(spec.darkSoft)
+            spec.dockSoft != null -> Color(spec.dockSoft)
+            else -> Color(spec.lightSoft)
+        }
+    }
+
+    /**
+     * 悬浮底栏选中胶囊里的图标与文字颜色。
+     *
+     * 同理：深色模式用本主题深色主色（在深底上够亮），
+     * 浅色模式优先 dockContent（松绿 #23866B），没给值回落 lightMain。
+     */
+    fun dockContentOf(key: String?, dark: Boolean): Color {
+        val spec = byKey(key)
+        return when {
+            dark -> Color(spec.darkMain)
+            spec.dockContent != null -> Color(spec.dockContent)
+            else -> Color(spec.lightMain)
+        }
     }
 }
