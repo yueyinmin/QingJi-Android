@@ -90,18 +90,23 @@ class MainActivity : ComponentActivity() {
                     // ---------- 版本更新提示（升级后第一次打开只弹一次） ----------
                     // 放在开屏动画之后、主界面之上：全新安装不弹，覆盖安装升级才弹。
                     // 只有点「我知道了」才写已读，中途被杀掉下次进来还会再弹。
-                    val updateStore = remember { UpdateNoticeStore(context) }
-                    var pendingUpdates by remember {
-                        mutableStateOf(updateStore.pendingReleases(BuildConfig.VERSION_CODE))
-                    }
-                    if (pendingUpdates.isNotEmpty()) {
-                        UpdateNoticeDialog(
-                            releases = pendingUpdates,
-                            onDismiss = {
-                                updateStore.markSeen(BuildConfig.VERSION_CODE)
-                                pendingUpdates = emptyList()
-                            }
-                        )
+                    //
+                    // 引导流程没走完就不弹：全新安装的用户第一眼该是引导页，
+                    // 不是一屏更新日志 —— 两件事叠在一起，弹窗还盖住引导页的「下一步」。
+                    if (settings.onboardingDone) {
+                        val updateStore = remember { UpdateNoticeStore(context) }
+                        var pendingUpdates by remember {
+                            mutableStateOf(updateStore.pendingReleases(BuildConfig.VERSION_CODE))
+                        }
+                        if (pendingUpdates.isNotEmpty()) {
+                            UpdateNoticeDialog(
+                                releases = pendingUpdates,
+                                onDismiss = {
+                                    updateStore.markSeen(BuildConfig.VERSION_CODE)
+                                    pendingUpdates = emptyList()
+                                }
+                            )
+                        }
                     }
                 }
             }
