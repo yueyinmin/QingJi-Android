@@ -3,7 +3,8 @@ package com.qingji.app.ui.navigation
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -13,8 +14,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
-import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -40,6 +39,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,16 +52,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.AwaitPointerEventScope
+import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.math.roundToInt
 import com.qingji.app.data.prefs.QingJiSettings
 import com.qingji.app.ui.theme.AccentThemes
 import com.qingji.app.ui.theme.CardWhite
@@ -131,6 +142,47 @@ private const val MaxSelectedTabWeight = 2.8f
 
 /** 选中态展开动画统一 200ms（工单要求保留原节奏）。 */
 private const val SelectMotionMs = 200
+
+// ============================================================
+// v13 dockref：手势与吸附参数
+// ============================================================
+
+/**
+ * 长按激活阈值。工单要求 180~220ms，取中值 200ms。
+ * 系统默认（ViewConfiguration.longPressTimeoutMillis）是 400ms，钝一倍，
+ * 所以才自己实现计时（见 awaitDockLongPress）。
+ */
+private const val DockLongPressMs = 200L
+
+/** 拖动激活瞬间胶囊「被拿起」的轻微缩放，松手复位。参数刻意很小，不要弹跳感。 */
+private const val DragLiftScale = 1.06f
+
+/**
+ * 拖动期间胶囊收窄到的宽度。
+ *
+ * 为什么必须收窄：常态胶囊是 82dp（图标+两个汉字），而拖动经过的槽位只有 50dp 左右。
+ * 82dp 的胶囊滑过去会同时压住旁边两枚图标，看起来像一块绿布在飘；收窄到 54dp
+ * 正好卡在两枚 22dp 图标之间，是「一个指示器在图标下方滑过」的观感。
+ */
+private val DragPillWidth = 54.dp
+
+/** 宽胶囊 ⇄ 小胶囊的交叉淡变时长。只在开始拖 / 松手两个瞬间发生，拖动过程中宽度恒定。 */
+private const val DragCondenseMs = 130
+
+/** 拖动时文字淡出的时长。位置不动、只淡内容，避免图标被文字消失拽着横跳。 */
+private const val DragLabelFadeMs = 120
+
+/** 高亮项图标的轻微放大，同样是绘制阶段缩放，不参与布局。 */
+private const val HighlightedIconScale = 1.06f
+
+/** 胶囊容纳「图标+间距+两个汉字+内边距」所需的最小宽度，窄屏兜底用。 */
+private val PillContentWidth = NormalIconSize + PillIconTextGap + 26.dp + PillHorizontalPadding
+
+/**
+ * 松手吸附 / 点击归位的弹簧：阻尼 0.9 几乎不过冲，只留一点点收尾的柔。
+ * 工单明确要求「低振荡 Spring」——不能用 0.5 那种会来回晃的。
+ */
+private fun dockSnapSpec() = spring<Float>(dampingRatio = 0.9f, stiffness = 380f)
 
 /**
  * 底部导航栏（两条皮肤共用一套内部结构）
@@ -229,12 +281,23 @@ fun QingJiFloatingBar(
 }
 
 /**
- * 悬浮款内部布局 + UI-NAV-03 长按拖动导航。
+ * 悬浮款内部布局 + 长按拖动导航（v13 dockref：交互与动画重构）。
  *
- * 状态分两层：currentRoute 由 NavController 管理（真实页面），拖动期间绝不改；
- * previewRoute 只是底栏选中态的预览，松手才提交一次。
- * 预览态和普通选中态走同一个 displayRoute → selected 分支，所以长按拖动时
- * 胶囊的尺寸变化与点击完全一致，不存在两套视觉效果。
+ * 旧实现（v12）的根本问题：把「选中背景」做成了**每个 Tab 自己的背景**，
+ * 拖动时改的是路由 → 四条权重同时跑 200ms tween → 整条 Row 每帧全量重排，
+ * 胶囊永远慢手指 200ms 才到位。所谓「不跟手」，就是这么来的。
+ *
+ * 新版把三件事彻底拆到三条互不相干的通道上：
+ *   1. **布局**（槽位宽窄）——唯一驱动是 selIndex，读在**测量阶段**（见下方 Layout 的
+ *      measure 块）。换选中项时只重跑 measure/place，一次重组都不发生；
+ *      拖动期间根本不碰它 → 槽位完全冻结，图标不会在手指底下乱跑。
+ *   2. **胶囊位置**——独立 pillX。拖动时 snapTo（直接坐标映射，零动画），
+ *      松手才 animateTo（低振荡 spring 吸附）。读在 graphicsLayer 的绘制块里，
+ *      只重绘，不重组、不重排。
+ *   3. **高亮**（图标配色与缩放）——previewIndex，只进配色和 graphicsLayer 缩放，
+ *      永远不进布局。
+ *
+ * 三条通道没有任何共享状态，所以「图标 / 文字 / 选中背景动画不同步」从结构上不可能发生。
  */
 @Composable
 private fun FloatingBarSlots(
@@ -243,21 +306,28 @@ private fun FloatingBarSlots(
     onTabSelected: (QingJiTab) -> Unit,
     onAddClick: () -> Unit
 ) {
-    var previewRoute by remember { mutableStateOf<String?>(null) }
-    // 长按拖动结束后，子项 clickable 可能补发一次点击；用这个开关吞掉，
-    // 下一次新手势开始时自动复位，不会误伤后续普通点击。
-    var suppressClick by remember { mutableStateOf(false) }
-    val displayRoute = previewRoute ?: currentRoute
-    val haptic = LocalHapticFeedback.current
-
-    // 每个槽位的权重各自动画；总和恒定，底栏总宽不变、不会跳动。
-    // 具体权重在下面的 BoxWithConstraints 里按实际可用宽度算（见 selectedTabWeightFor），
-    // 这里先拿一个占位 State，等布局阶段算出真实值再喂给手势命中区。
-    val weightsState = remember { mutableStateOf(FloatArray(0)) }
-
-    // 选中态配色跟着当前主题走（v12 恢复换肤联动），松绿那套仍是精确值。
     val pillBg = dockPillBackground()
     val pillContent = dockPillContent()
+    val haptic = LocalHapticFeedback.current
+    val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
+
+    val activeIndex = tabs.indexOfFirst { it.route == currentRoute }.coerceAtLeast(0)
+    // 手势协程不会因为换页而重建（key 里没有路由），所以它拿到的 activeIndex 是旧值。
+    // 用 rememberUpdatedState 让它每次都读到最新的。
+    val latestActive by rememberUpdatedState(activeIndex)
+    // 同样的坑还有回调本身：onTabSelected 是 QingJiAppRoot 每次组合新建的 lambda，
+    // 里面闭包着**当时的** currentRoute。而手势协程的 key 里没有路由、不会重建，
+    // 所以它会一直握着首次组合那个 lambda —— 那个 lambda 认为「当前页永远是首页」，
+    // 于是「拖回首页」会被判成「已经在首页」直接忽略。
+    // 实测现象：右拖正常、左拖回首页永远无效。用 rememberUpdatedState 取最新实例。
+    val latestOnTabSelected by rememberUpdatedState(onTabSelected)
+
+    /** 拖动高亮目标；-1 = 没在拖动。 */
+    var previewIndex by remember { mutableIntStateOf(-1) }
+    var dragging by remember { mutableStateOf(false) }
+    // 长按拖动结束后子项 clickable 可能补发一次点击，用它吞掉；新手势开始自动复位。
+    var suppressClick by remember { mutableStateOf(false) }
 
     BoxWithConstraints(modifier = Modifier.fillMaxWidth().height(DockHeight)) {
         // 窄屏（<360dp）先收留白与间距，再压按钮宽度；图标和文字一律不缩。
@@ -268,88 +338,237 @@ private fun FloatingBarSlots(
 
         // 四个槽位能分到的总宽（按钮和间距已经扣掉）。
         val tabArea = maxWidth - hPad * 2 - addWidth - gap
-        val selectedWeight = selectedTabWeightFor(tabArea, tabs.size - 1)
+        val selWeight = selectedTabWeightFor(tabArea, tabs.size - 1)
+        // 每个槽位「被选中时」的宽度都是同一个值，所以胶囊宽度是常量 —— 不需要宽度动画。
+        // 宽度一变就要重新测量，那正是旧版每帧卡顿的来源之一。
+        val slotW = tabArea * selWeight / (selWeight + (tabs.size - 1))
+        val pillW = minOf(PillMaxWidth, slotW - 2.dp)
+            .coerceAtLeast(minOf(PillContentWidth, slotW))
 
-        val weights = ArrayList<Float>(tabs.size)
-        for (tab in tabs) {
-            weights += animatedTabWeight(displayRoute == tab.route, selectedWeight)
+        val tabAreaPx = with(density) { tabArea.toPx() }
+        val pillWPx = with(density) { pillW.toPx() }
+
+        // ---------- 几何：全部是「进度 + 权重」的纯函数，不依赖实际测量 ----------
+        // 所以组合阶段就能知道每个槽位中心，胶囊首帧直接落在正确位置，不会从 0 飞过来。
+        fun widthOf(i: Int, progress: Float): Float {
+            var sum = 0f
+            for (k in tabs.indices) sum += weightAt(progress, k, selWeight)
+            if (sum <= 0f) return 0f
+            return tabAreaPx * weightAt(progress, i, selWeight) / sum
         }
-        weightsState.value = weights.toFloatArray()
 
-        Row(
+        fun centerOf(i: Int, progress: Float): Float {
+            var x = 0f
+            for (k in 0 until i) x += widthOf(k, progress)
+            return x + widthOf(i, progress) / 2f
+        }
+
+        fun indexAt(x: Float, progress: Float): Int {
+            var acc = 0f
+            for (k in tabs.indices) {
+                acc += widthOf(k, progress)
+                if (x < acc) return k
+            }
+            return tabs.lastIndex
+        }
+
+        // 归位目标按「最终权重」算，和松手后布局的终点严格一致，落位不会差半格。
+        // 这里存的是「胶囊中心」而不是左边缘：拖动时胶囊会收窄成小胶囊，
+        // 若按左边缘定位，收窄那一瞬中心会平移半个差值，看起来像被人拽了一下。
+        val restCenter = centerOf(activeIndex, activeIndex.toFloat())
+        val dragWPx = with(density) { DragPillWidth.toPx() }
+
+        val selIndex = remember { Animatable(activeIndex.toFloat()) }
+        // 胶囊中心用普通 Float 状态，不用 Animatable：
+        // awaitEachGesture 的 lambda 是 restricted suspension，
+        // 里面只能调 AwaitPointerEventScope 的成员，调不了 Animatable.snapTo。
+        // 直接写状态既绕开了这个限制，也让「拖动跟手」变成一次纯赋值 —— 最快的写法。
+        val pillCenter = remember { mutableFloatStateOf(restCenter) }
+        val pillLift = remember { Animatable(1f) }
+        // 0 = 常态宽胶囊，1 = 拖动小胶囊。两种胶囊的宽度都是布局常量，
+        // 「变窄」用交叉淡变表达 —— 于是整个拖动过程零测量、零重组。
+        val compact = remember { Animatable(0f) }
+
+        // 换选中项：布局进度动画（只驱动 measure，不驱动重组）
+        LaunchedEffect(activeIndex) {
+            selIndex.animateTo(activeIndex.toFloat(), tween(SelectMotionMs))
+        }
+        LaunchedEffect(dragging) {
+            compact.animateTo(if (dragging) 1f else 0f, tween(DragCondenseMs))
+        }
+        // 唯一的归位入口：首次组合、换页、松手、取消、以及「开始新一次拖动」都汇到这里。
+        // dragging 进 key：一开始拖就取消正在跑的吸附，松手再从当前值接着吸附过去。
+        LaunchedEffect(restCenter, dragging) {
+            if (dragging) return@LaunchedEffect
+            if (pillCenter.floatValue == restCenter) return@LaunchedEffect
+            animate(pillCenter.floatValue, restCenter, animationSpec = dockSnapSpec()) { value, _ ->
+                pillCenter.floatValue = value
+            }
+        }
+
+        // ---------- 1. 胶囊层：宽胶囊 + 拖动小胶囊，同一中心交叉淡变 ----------
+        Box(modifier = Modifier.fillMaxSize().padding(horizontal = hPad)) {
+            // 常态胶囊（选中项 + 文字）。拖动开始时淡出，位置照样跟着走，不留在原地。
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .width(pillW)
+                    .height(PillHeight)
+                    .graphicsLayer {
+                        // 只在这里读 pillCenter / compact：属于绘制阶段，
+                        // 拖动时每帧只重绘这一层，不触发重组、不触发重新测量。
+                        translationX = pillCenter.floatValue - pillWPx / 2f
+                        alpha = 1f - compact.value
+                    }
+                    .clip(DockPillShape)
+                    .background(pillBg)
+            )
+            // 拖动小胶囊：宽度是常量，跟着手指 1:1 移动，滑过图标下方不压住邻居。
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .width(DragPillWidth)
+                    .height(PillHeight)
+                    .graphicsLayer {
+                        translationX = pillCenter.floatValue - dragWPx / 2f
+                        val lift = pillLift.value
+                        scaleX = lift
+                        scaleY = lift
+                        alpha = compact.value
+                    }
+                    .clip(DockPillShape)
+                    .background(pillBg)
+            )
+        }
+
+        // ---------- 2. Tab 层：宽度由权重决定，权重读在测量阶段 ----------
+        Layout(
+            content = {
+                for (i in tabs.indices) {
+                    val tab = tabs[i]
+                    FloatingTabItem(
+                        tab = tab,
+                        // 文字是否参与布局只认真实页面：拖动期间它不变，
+                        // 所以槽位宽度、图标位置在拖动全程一动不动。
+                        expanded = currentRoute == tab.route,
+                        // 拖动时只把文字「淡掉」，不撤掉它的占位 —— 否则图标会被
+                        // 文字消失拽着往槽位中心横跳十几个 dp，长按那一瞬非常明显。
+                        labelVisible = currentRoute == tab.route && !dragging,
+                        // 高亮跟拖动预览：只影响配色和图标缩放，不影响布局
+                        highlighted = (if (previewIndex >= 0) previewIndex else activeIndex) == i,
+                        pillContent = pillContent,
+                        onClick = {
+                            if (suppressClick) suppressClick = false else onTabSelected(tab)
+                        }
+                    )
+                }
+            },
             modifier = Modifier
                 .fillMaxSize()
-                .padding(start = hPad, end = hPad)
-                // UI-NAV-03：手势只挂内容区，不覆盖页面滚动区，也不吞普通点击。
-                // 按钮宽度和间距进 key：换屏宽导致它们变化时手势协程按新值重建，
-                // 保证「视觉已切换、拖动却命中上一个 Tab」不会发生。
-                .pointerInput(tabs, currentRoute, addWidth, gap) {
-                    // 命中区按「和视觉完全相同的权重」分段，而不是简单四等分。
-                    // 否则图标随权重平滑移动后，手指按图标位置拖动会判错 Tab。
-                    fun hitRoute(pos: Offset): String? {
-                        val tabAreaPx = size.width - addWidth.toPx() - gap.toPx()
-                        if (tabAreaPx <= 0f) return null
-                        if (pos.y < 0f || pos.y > size.height) return null
-                        if (pos.x < 0f || pos.x >= tabAreaPx) return null
-                        val w = weightsState.value
-                        val total = w.sum()
-                        if (total <= 0f) return null
-                        var right = 0f
-                        for (i in tabs.indices) {
-                            right += tabAreaPx * w[i] / total
-                            if (pos.x < right) return tabs[i].route
-                        }
-                        return tabs.last().route
-                    }
+                .padding(horizontal = hPad)
+                // 手势只挂 Tab 内容区，不覆盖页面滚动区，也不吞普通点击。
+                // key 里**没有** currentRoute —— 旧版把它放进来，换页瞬间手势协程被取消重建，
+                // 正好发生在松手那一帧，是「快速拖动后行为诡异」的隐藏原因之一。
+                .pointerInput(tabs, hPad, addWidth, gap) {
                     awaitEachGesture {
-                        // 新手势开始先复位，保证上一次拖动不会吞掉这次普通点击。
+                        // 新手势开始复位，保证上一次拖动不会吞掉这次普通点击。
                         suppressClick = false
-                        // 不消费 down：短按仍落到子项 clickable，普通点击行为零改动。
+                        // 不消费 down：短按仍然落到子项 clickable，普通点击行为零改动。
                         val down = awaitFirstDown(requireUnconsumed = false)
-                        val startRoute = hitRoute(down.position)
-                        val longPress = awaitLongPressOrCancellation(down.id)
-                        if (longPress == null) return@awaitEachGesture
+                        if (!awaitDockLongPress(down, DockLongPressMs)) {
+                            return@awaitEachGesture
+                        }
 
-                        // 长按约 400ms 成功：进入拖动预览 + 轻微触觉反馈。
+                        // ===== 激活：触觉 + 「拿起」缩放 + 胶囊立刻贴到手指 =====
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         suppressClick = true
-                        previewRoute = startRoute ?: currentRoute
-                        var finalRoute: String? = previewRoute
+                        dragging = true
+                        // 布局进度此刻是冻结值（拖动期间不写 selIndex），
+                        // 所以命中分段和屏幕上的图标位置完全一致，不会出现「按着 A 跳到 B」。
+                        val frozen = selIndex.value
+                        val startIndex = indexAt(down.position.x, frozen)
+                        previewIndex = startIndex
+                        scope.launch {
+                            pillLift.animateTo(
+                                DragLiftScale,
+                                spring(dampingRatio = 0.6f, stiffness = 520f)
+                            )
+                        }
+
+                        // 边界按「图标中心」算，不是按胶囊边缘算：
+                        // 小胶囊的中心跑到第一/最后一枚图标中心之外就没有意义了。
+                        val lo = centerOf(0, frozen)
+                        val hi = centerOf(tabs.lastIndex, frozen)
+                        // 激活瞬间就把胶囊挪到手指处（不跳跃过大半条栏，因为长按点就在附近）
+                        pillCenter.floatValue = down.position.x.coerceIn(lo, hi)
+                        val stripHeight = size.height.toFloat()
+                        fun hit(x: Float, y: Float): Int? =
+                            if (x < 0f || x >= tabAreaPx || y < 0f || y > stripHeight) null
+                            else indexAt(x, frozen)
+
+                        var hovered: Int? = startIndex
+                        // lifted = 正常抬手；false 表示手势被系统/其他检测器打断，本次取消
+                        var lifted = false
                         try {
-                            drag(down.id) { change ->
-                                val target = hitRoute(change.position)
-                                previewRoute = target   // null = 按钮区 / 栏外，预览回到当前页
-                                finalRoute = target
-                            }
-                            // 松手提交：只切一次，目标必须是有效导航项之一。
-                            // 拖到「记一笔」或栏外时 finalRoute 为 null，本次选择取消。
-                            if (finalRoute != null && finalRoute != currentRoute) {
-                                tabs.firstOrNull { it.route == finalRoute }?.let(onTabSelected)
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val change = event.changes.firstOrNull { it.id == down.id }
+                                if (change == null) break
+                                if (!change.pressed) { lifted = true; break }
+                                if (change.isConsumed) break
+                                // 直接坐标映射：不经过任何动画，手指到哪胶囊到哪。
+                                // 这里绝不能用 animateTo / spring —— 那正是旧版慢 200ms 的原因。
+                                pillCenter.floatValue = change.position.x.coerceIn(lo, hi)
+                                val idx = hit(change.position.x, change.position.y)
+                                if (idx != hovered) {
+                                    hovered = idx
+                                    previewIndex = idx ?: -1
+                                }
+                                change.consume()
                             }
                         } finally {
-                            // 正常松手或手势被系统中断，都恢复真实页面的选中态；
-                            // 子项补发的点击由 suppressClick 拦截，不会重复跳转。
-                            previewRoute = null
+                            // 无论正常松手还是被取消，都要复位。取消时 lifted 为 false，
+                            // 不提交任何跳转 —— 旧版这里漏判，手势被打断也会切页。
+                            previewIndex = -1
+                            dragging = false
+                            scope.launch {
+                                pillLift.animateTo(
+                                    1f,
+                                    spring(dampingRatio = 0.7f, stiffness = 420f)
+                                )
+                            }
+                            val target = hovered
+                            if (lifted && target != null && target != latestActive) {
+                                latestOnTabSelected(tabs[target])
+                            }
                         }
                     }
-                },
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            for (i in tabs.indices) {
-                val tab = tabs[i]
-                FloatingTabItem(
-                    tab = tab,
-                    selected = displayRoute == tab.route,
-                    pillBackground = pillBg,
-                    pillContent = pillContent,
-                    onClick = {
-                        if (suppressClick) suppressClick = false else onTabSelected(tab)
-                    },
-                    modifier = Modifier.weight(weights[i])
-                )
+                }
+        ) { measurables, constraints ->
+            // 权重在这里读 —— 属于测量阶段。selIndex 变化只会让测量/放置重跑，
+            // 不会让 RestartableGroup 重组，这是本版最关键的一处性能改动。
+            val h = constraints.maxHeight
+            val progress = selIndex.value
+            val widths = FloatArray(measurables.size) { widthOf(it, progress) }
+            val placeables = measurables.mapIndexed { i, measurable ->
+                val w = widths[i].roundToInt().coerceAtLeast(1)
+                measurable.measure(Constraints.fixed(w, h))
             }
-            Spacer(Modifier.width(gap))
-            // 手指落在「记一笔」上松手属于取消选择，绝不能弹出记录面板。
+            layout(constraints.maxWidth, h) {
+                var x = 0
+                for (p in placeables) {
+                    p.placeRelative(x, 0)
+                    x += p.width
+                }
+            }
+        }
+
+        // ---------- 3. 「记一笔」：独立成员，不参与胶囊的位置计算 ----------
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .padding(end = hPad)
+        ) {
             AddPillButton(
                 width = addWidth,
                 onClick = {
@@ -360,15 +579,47 @@ private fun FloatingBarSlots(
     }
 }
 
-/** 单个槽位的权重动画：选中展开、取消收窄，与胶囊尺寸动画同一套参数。 */
-@Composable
-private fun animatedTabWeight(selected: Boolean, selectedWeight: Float): Float {
-    val weight by animateFloatAsState(
-        targetValue = if (selected) selectedWeight else NormalTabWeight,
-        animationSpec = tween(durationMillis = SelectMotionMs),
-        label = "tabWeight"
-    )
-    return weight
+/**
+ * 槽位权重：以 [progress] 为中心的线性凸起。
+ *
+ * progress 正好落在某个槽位上时，该槽位拿满 [selectedWeight]，其余为 1；
+ * 落在两项之间时，两个邻项各分一半。因为凸起是线性的，
+ * **权重总和对任何 progress 都不变** —— 槽位只是重新分配宽度，底栏总宽恒定，
+ * 所以布局动画期间不会出现整条底栏忽宽忽窄的呼吸感。
+ */
+private fun weightAt(progress: Float, i: Int, selectedWeight: Float): Float {
+    val d = kotlin.math.abs(progress - i).coerceAtMost(1f)
+    return 1f + (selectedWeight - 1f) * (1f - d)
+}
+
+/**
+ * 自定义长按激活。
+ *
+ * 系统的 awaitLongPressOrCancellation 走 ViewConfiguration.longPressTimeoutMillis，
+ * Android 默认 400ms —— 工单要求 180~220ms，钝了将近一倍，这就是「长按半天没反应」。
+ * 这里自己计时：按满 [timeoutMs] 且位移没超过 touchSlop 才算激活。
+ *
+ * 返回 true = 进入拖动；false = 提前抬手或已经划走，交还给子项 clickable 处理。
+ */
+private suspend fun AwaitPointerEventScope.awaitDockLongPress(
+    down: PointerInputChange,
+    timeoutMs: Long
+): Boolean {
+    val slop = viewConfiguration.touchSlop
+    // withTimeoutOrNull 超时返回 null → 一直按住没动 = 激活；
+    // 提前退出（抬手 / 超 slop）会返回 true → 不激活。
+    val aborted = withTimeoutOrNull<Boolean>(timeoutMs) {
+        while (true) {
+            val event = awaitPointerEvent()
+            val change = event.changes.firstOrNull { it.id == down.id }
+            if (change == null || !change.pressed) return@withTimeoutOrNull true
+            if ((change.position - down.position).getDistance() > slop) {
+                return@withTimeoutOrNull true
+            }
+        }
+        @Suppress("UNREACHABLE_CODE") true
+    }
+    return aborted == null
 }
 
 /**
@@ -391,87 +642,68 @@ private fun selectedTabWeightFor(tabArea: Dp, normalCount: Int): Float {
 }
 
 /**
- * 悬浮款选项（v12）：未选中只有 22dp 灰色图标、无背景；选中展开成
- * 46dp 高、最宽 82dp 的浅色胶囊，21dp 图标 + 13sp 文字横排。
+ * 悬浮款选项（v13）。
  *
- * 胶囊宽度不再由内边距反推，而是「铺满槽位、封顶 82dp」：槽位宽度由动态权重
- * （选中 1.5 起、窄屏自动抬高，见 selectedTabWeightFor）决定，
- * 六档屏宽实测都落在工单要求的 76~82dp。窄屏放不下时优先收内边距，图标与文字不缩。
+ * 旧版这个组件里同时跑了 7 个动画：宽、高、背景透明度、图标尺寸、图标色、文字色，
+ * 外加 AnimatedVisibility 的横向展开 —— 全部 tween 200ms，起步时刻还不一样，
+ * 合起来就是「图标、文字、选中背景各走各的」。
+ *
+ * 现在胶囊搬到外面统一管理，这里只剩两件事：
+ *   1. 配色（[highlighted] → tint）：150ms 颜色渐变；
+ *   2. 图标轻微放大（[highlighted] → emphasis）：读在 graphicsLayer 里，
+ *      属于绘制阶段，不参与布局，也不触发重组。
+ * 尺寸相关的东西一个都不剩 —— 槽位宽度由父级按权重测量，这里只负责填满。
  */
 @Composable
 private fun FloatingTabItem(
     tab: QingJiTab,
-    selected: Boolean,
-    pillBackground: Color,
+    expanded: Boolean,
+    labelVisible: Boolean,
+    highlighted: Boolean,
     pillContent: Color,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    onClick: () -> Unit
 ) {
     val interaction = remember { MutableInteractionSource() }
-    BoxWithConstraints(
-        modifier = modifier
-            .height(DockHeight)
+    val tint by animateColorAsState(
+        targetValue = if (highlighted) pillContent else TextSecondary,
+        animationSpec = tween(durationMillis = SelectMotionMs),
+        label = "tabTint"
+    )
+    val emphasis by animateFloatAsState(
+        targetValue = if (highlighted) HighlightedIconScale else 1f,
+        animationSpec = spring(dampingRatio = 0.7f, stiffness = 420f),
+        label = "tabEmphasis"
+    )
+    // 只淡不撤：文字始终占着它那份宽度（expanded 才占），拖动时把 alpha 降到 0。
+    // 这里刻意用 State 不做 by 解构 —— .value 读在 graphicsLayer 的绘制块里，
+    // 淡出过程只重绘那一段文字，不触发重组，也不会牵动图标位置。
+    val labelAlpha = animateFloatAsState(
+        targetValue = if (labelVisible) 1f else 0f,
+        animationSpec = tween(DragLabelFadeMs),
+        label = "labelAlpha"
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
             .clickable(interactionSource = interaction, indication = null) { onClick() },
         contentAlignment = Alignment.Center
     ) {
-        // 内容自然宽：21dp 图标 + 5dp 间距 + 两个汉字(13sp≈26dp) = 52dp。
-        val contentWidth = PillIconSize + PillIconTextGap + 26.dp
-        // 上限：铺满槽位（左右各留 1dp 呼吸位），但不超过 82dp。
-        val fitWidth = minOf(PillMaxWidth, maxWidth - 2.dp)
-        // 下限：内容 + 8dp 内边距；槽位实在太小就以槽位为准，宁可收内边距也不裁字。
-        val minWidth = minOf(contentWidth + PillHorizontalPadding, maxWidth)
-        val targetPillWidth = if (selected) maxOf(fitWidth, minWidth) else 22.dp
-
-        val pillWidth by animateDpAsState(
-            targetValue = targetPillWidth,
-            animationSpec = tween(durationMillis = SelectMotionMs),
-            label = "pillWidth"
-        )
-        val pillHeight by animateDpAsState(
-            targetValue = if (selected) PillHeight else 22.dp,
-            animationSpec = tween(durationMillis = SelectMotionMs),
-            label = "pillHeight"
-        )
-        val bgAlpha by animateFloatAsState(
-            targetValue = if (selected) 1f else 0f,
-            animationSpec = tween(durationMillis = SelectMotionMs),
-            label = "pillBgAlpha"
-        )
-        val iconSize by animateDpAsState(
-            targetValue = if (selected) PillIconSize else NormalIconSize,
-            animationSpec = tween(durationMillis = SelectMotionMs),
-            label = "tabIconSize"
-        )
-        val tint by animateColorAsState(
-            targetValue = if (selected) pillContent else TextSecondary,
-            animationSpec = tween(durationMillis = SelectMotionMs),
-            label = "tabTint"
-        )
-        val textColor by animateColorAsState(
-            targetValue = pillContent,
-            animationSpec = tween(durationMillis = SelectMotionMs),
-            label = "tabText"
-        )
-
-        // 底层胶囊：形状恒定 50% 圆角，宽度/高度/背景透明度同时动画，
-        // 任何中间帧都是完整胶囊，不会变矩形或出现圆角突变。
-        Box(
-            modifier = Modifier
-                .width(pillWidth)
-                .height(pillHeight)
-                .clip(DockPillShape)
-                .background(pillBackground.copy(alpha = bgAlpha))
-        )
-        // 上层内容始终垂直居中，图标中心不随展开上下移动。
+        // 内容始终垂直居中，图标中心不随展开上下移动。
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 imageVector = tab.icon,
                 contentDescription = com.qingji.app.ui.i18n.s(tab.label),
                 tint = tint,
-                modifier = Modifier.size(iconSize)
+                modifier = Modifier
+                    .size(NormalIconSize)
+                    .graphicsLayer {
+                        scaleX = emphasis
+                        scaleY = emphasis
+                    }
             )
             AnimatedVisibility(
-                visible = selected,
+                visible = expanded,
                 enter = fadeIn(tween(SelectMotionMs)) +
                     expandHorizontally(animationSpec = tween(SelectMotionMs)),
                 exit = fadeOut(tween(180)) + shrinkHorizontally(animationSpec = tween(180))
@@ -483,8 +715,9 @@ private fun FloatingTabItem(
                         fontSize = 13.sp,
                         lineHeight = 17.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = textColor,
-                        maxLines = 1
+                        color = tint,
+                        maxLines = 1,
+                        modifier = Modifier.graphicsLayer { alpha = labelAlpha.value }
                     )
                 }
             }
