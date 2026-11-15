@@ -2,7 +2,6 @@ package com.qingji.app.ui.screen.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -37,7 +36,6 @@ import com.qingji.app.ui.components.AppBottomSheet
 import com.qingji.app.ui.components.HintBox
 import com.qingji.app.ui.components.PageTopBar
 import com.qingji.app.ui.components.SectionCard
-import com.qingji.app.ui.theme.CardWhite
 import com.qingji.app.ui.theme.Dimens
 import com.qingji.app.ui.theme.PageBackground
 import com.qingji.app.ui.theme.pressable
@@ -366,21 +364,6 @@ fun NumberDetailPage(
         ) {
             Text(text = "保存", fontSize = 15.sp, fontWeight = FontWeight.Medium, color = Color.White)
         }
-    }
-}
-
-/** 一行「文字 + 右侧值」的展示，二级页里当只读信息用。 */
-@Composable
-fun DetailValueRow(label: String, value: String) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(text = label, fontSize = 14.sp, color = TextPrimary)
-        Text(text = value, fontSize = 13.sp, color = TextSecondary)
     }
 }
 
