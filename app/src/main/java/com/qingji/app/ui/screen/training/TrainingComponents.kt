@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -78,23 +77,19 @@ import java.time.YearMonth
 fun DiaryModeSwitch(
     training: Boolean,
     onChange: (Boolean) -> Unit,
+    /** 专项工单 2026-11-16：由 DiaryScreen 传入的**共享进度**（0=训练日记，1=心情日记）。
+     *  胶囊不再自己跑一个动画实例 —— 旧版胶囊 200ms、内容 250ms 各跑各的，
+     *  两边节奏对不齐，就是工单里「选中胶囊与页面内容不同步」的来源之一。
+     *  现在胶囊和内容读同一个值：胶囊走到哪一帧，页面就走到哪一帧。 */
+    progress: Float,
     modifier: Modifier = Modifier
 ) {
     // 回归工单 P1：
     // 旧版用「底部小圆点 + (cellWidth - 4.dp)/2、y=34.dp 固定偏移」表达选中，
     // 既不能完整覆盖对应的那半边，也靠魔法数字修补位置，切换时还容易看着像错位。
     // 现在改成：外层统一胶囊 + 两个等权 Tab + 一整块宽度正好等于半格的选中背景，
-    // 圆角与外层一致；位置只由 0→1 的进度驱动，画在 graphicsLayer 绘制层，
+    // 圆角与外层一致；位置只由传入的共享进度驱动，画在 graphicsLayer 绘制层，
     // 动画每帧只重绘、不重组，连续快速切换也不会闪。
-    val progress = animateFloatAsState(
-        targetValue = if (training) 0f else 1f,
-        // 与内容区淡入淡出同为 200ms / FastOutSlowInEasing，节奏一致，不弹跳
-        animationSpec = androidx.compose.animation.core.tween<Float>(
-            200,
-            easing = androidx.compose.animation.core.FastOutSlowInEasing
-        ),
-        label = "diaryPill"
-    )
     val pillShape = RoundedCornerShape(Dimens.PillCorner)
     BoxWithConstraints(
         modifier = modifier
@@ -114,7 +109,7 @@ fun DiaryModeSwitch(
                 .width(cellWidth)
                 .fillMaxHeight()
                 // 只平移绘制层，不改布局测量：选中块永远精确覆盖左/右半格
-                .graphicsLayer { translationX = progress.value * cellWidthPx }
+                .graphicsLayer { translationX = progress * cellWidthPx }
                 .clip(pillShape)
                 .background(QingJiGreenLight)
         )
