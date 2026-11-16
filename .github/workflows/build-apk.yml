@@ -1,0 +1,87 @@
+name: Build APK
+
+# 为什么用云端编译（本机为什么编不了）：
+# 这台 Windows 装了奇安信天擎，它的内核过滤驱动 QesEngEx 在每次「新建文件」时
+# 同步扫描，实测建一个空文件要等 4 秒（写已有文件、写 100MB 大块数据反而正常）。
+# Gradle 一次编译要创建几万个文件，因此本机必然卡死——不是代码问题。
+# 云端 runner 没有这个驱动，建文件是毫秒级。
+# 详细取证过程见 docs/exercise-library/BUILD_ENV_NOTES.md。
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/experience-polish-v2
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v4
+
+      - name: 安装 JDK 17（AGP 8.7.3 要求）
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: 安装 Android SDK 命令行工具
+        uses: android-actions/setup-android@v3
+
+      - name: 安装 SDK 平台与构建工具
+        run: |
+          yes | sdkmanager --licenses > /dev/null 2>&1 || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+
+      # 仓库里的 wrapper 指向腾讯云国内镜像，海外 runner 拉不动，这里临时换官方源。
+      # 只改 CI 里这份副本，仓库文件不动，本机配置不受影响。
+      - name: 切换 Gradle 下载源为官方
+        run: |
+          sed -i 's|mirrors.cloud.tencent.com/gradle/|services.gradle.org/distributions/|' gradle/wrapper/gradle-wrapper.properties
+          grep distributionUrl gradle/wrapper/gradle-wrapper.properties
+
+      # 351 帧 SVG 以单个 zip 提交（3.5MB），云端解压成 351 个文件（云端快、本机慢）。
+      - name: 解压动作库素材到 assets
+        run: |
+          mkdir -p app/src/main/assets/exercises
+          unzip -q docs/exercise-library/exercises_assets.zip -d app/src/main/assets/exercises
+          echo "解压后帧数: $(find app/src/main/assets/exercises -name '*.svg' | wc -l)"
+          echo "动作目录数: $(find app/src/main/assets/exercises -mindepth 1 -maxdepth 1 -type d | wc -l)"
+
+      - name: 缓存 Gradle 依赖
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', 'gradle/libs.versions.toml') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      - name: 单元测试
+        run: |
+          chmod +x gradlew
+          ./gradlew testDebugUnitTest --no-daemon --stacktrace
+
+      - name: 编译 release 包
+        run: |
+          ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: 上传单元测试报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-report
+          path: app/build/reports/tests/
+          if-no-files-found: warn
+
+      - name: 上传 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: qingji-release-apk
+          path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
