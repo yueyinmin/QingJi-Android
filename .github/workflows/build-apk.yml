@@ -64,6 +64,27 @@ jobs:
           sed -i 's|mirrors.cloud.tencent.com/gradle/|services.gradle.org/distributions/|' gradle/wrapper/gradle-wrapper.properties
           grep distributionUrl gradle/wrapper/gradle-wrapper.properties
 
+      # settings.gradle.kts 里排在最前面的是阿里云 / 华为云镜像（本机用的）。
+      # 海外 runner 连这些国内源会超时，Gradle 只会笼统报「插件找不到」，
+      # 看不出是网络问题。所以 CI 里把这几行删掉，只留 google()/mavenCentral()。
+      - name: CI 专用：去掉国内镜像源
+        run: |
+          sed -i '/aliyun\.com/d; /huaweicloud\.com/d' settings.gradle.kts
+          echo "--- 改后的仓库列表 ---"
+          grep -nE "maven|google\(\)|mavenCentral|gradlePluginPortal" settings.gradle.kts
+
+      # 网络自检：直接 curl 关键地址，打印状态码和耗时。
+      # 这样万一又失败，日志里能一眼看出是「网络不通」还是「版本不存在」。
+      - name: 网络连通性自检
+        continue-on-error: true
+        run: |
+          P="com/google/devtools/ksp/com.google.devtools.ksp.gradle.plugin/2.0.21-1.0.28/com.google.devtools.ksp.gradle.plugin-2.0.21-1.0.28.pom"
+          for H in "https://repo.maven.apache.org/maven2" "https://dl.google.com/dl/android/maven2" "https://plugins.gradle.org/m2" "https://maven.aliyun.com/repository/public"; do
+            R=$(curl -s -o /dev/null -w "%{http_code} %{time_total}s" --max-time 20 "$H/$P" || echo "timeout")
+            echo "$R  $H"
+          done
+
+
       # 351 帧 SVG 以单个 zip 提交（3.5MB），云端解压成 351 个文件（云端快、本机慢）。
       - name: 解压动作库素材到 assets
         run: |
