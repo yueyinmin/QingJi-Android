@@ -28,6 +28,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.zIndex
@@ -95,14 +96,14 @@ fun DiaryScreen(
     var diaryMonth by remember { mutableStateOf(YearMonth.now()) }
     val trainingScrollState = rememberScrollState()
 
-    // 与 QingJiAppRoot 一级 Tab 完全同一套转场规格：
-    // 250ms / FastOutSlowInEasing / 30% 容器宽度横移 / 同步进出。
-    // 只用一个 progress 驱动两层，不再有 4 个各自跑的动画状态互相打架。
-    // 沿用「内容常驻组合树」的优点：不 dispose、不重建、不重查数据库，
-    // 读在 graphicsLayer 绘制块里，每帧只重绘，不触发重组。
+    // ========== 日记 Tab 切换 · 唯一动画源（专项工单 2026-11-16）==========
+    // · 全页只有一个 progress：胶囊位移、内容层位移全部从这一个值推导，
+    //   以前「胶囊 200ms + 内容 250ms 各跑各的」导致胶囊和页面永远对不齐，
+    //   现在物理上同源，不可能不同步。
+    // · 200ms / FastOutSlowInEasing：落在工单要求的 180~220ms 区间。
     val progress = animateFloatAsState(
         targetValue = if (trainingTab) 0f else 1f,
-        animationSpec = tween(250, easing = FastOutSlowInEasing),
+        animationSpec = tween(200, easing = FastOutSlowInEasing),
         label = "diaryTabProgress"
     )
     // 非激活那一层虽然在屏幕外，但仍可能命中点击，把事件吞掉
@@ -152,25 +153,43 @@ fun DiaryScreen(
                 }
             }
             Spacer(Modifier.height(12.dp))
-            DiaryModeSwitch(training = trainingTab, onChange = { onTrainingTabChange(it) })
+            // 专项工单：胶囊和内容共用同一个 progress（上面那一个动画源），
+            // 胶囊走到哪一帧、内容就走到哪一帧，节奏完全一致
+            DiaryModeSwitch(
+                training = trainingTab,
+                progress = progress.value,
+                onChange = { onTrainingTabChange(it) }
+            )
             Spacer(Modifier.height(12.dp))
         }
 
-        // ---------- 内容区：两个 Tab 常驻，用一级 Tab 同款横滑转场 ----------
-        // · 上一版把「进入中的那层」alpha 设成 0.6→1 渐入，mid-slide 只有 0.8 左右
-        //   不透明，底下正在滑出的那层（内容结构几乎一样：按钮 / 三栏 / 日历）透过来，
-        //   两份文字互相叠加 —— 这就是「还是会闪」的真正来源。
-        // · 现在两层 alpha 恒为 1（完全不透明）：换 Tab 那一瞬间目标层 zIndex 置顶，
-        //   用 30% 容器宽度的位移整块盖过旧页；旧页在底下滑向另一侧，被盖住的部分
-        //   看不见，只露出边缘。全程零透明度变化 = 不可能重影，和一级 Tab 观感一致。
-        Box(modifier = Modifier.weight(1f)) {
+        // ---------- 内容区：两个 Tab 常驻，覆盖式轻微横移过渡（专项工单）----------
+        // · 旧方案是 30% 容器宽度的大横移：切换中段屏幕一半是旧页一半是新页，
+        //   被感知为「右侧残留内容」「横向错位」；且动画中途反方向点击时 zIndex
+        //   瞬间翻转，顶层带着大偏移突然出现 → 「闪烁、短暂回退」。
+        // · 新方案（覆盖式）：
+        //   1) 选中层 zIndex 恒为顶层，且**完全不透明**——从第一帧就盖住旧页，
+        //      不存在任何透明度叠加，重影在数学上不可能发生；
+        //   2) 只滑入容器宽度的 4%（约 16dp）的轻微位移，滑到中段旧页最多露出
+        //      2% 宽的窄条，肉眼几乎不可见；
+        //   3) clipToBounds() 把滑动层裁在内容区边界内，任何东西都不会越界绘制；
+        //   4) 快速连点 = 同一个 progress 反向走，顶层永远不透明、永远盖得住，
+        //      无跳变、无回退、无白空白。
+        // · 两个 Tab 的日历、主按钮、三栏统计用同一套组件 + 同一个 month，
+        //   位置尺寸字号完全一致，切换时上半部分静止不动。
+        // · 顶部标题、切换胶囊、悬浮快捷栏在这层之外，完全不参与动画。
+        Box(modifier = Modifier
+            .weight(1f)
+            .clipToBounds()
+        ) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .zIndex(if (trainingTab) 1f else 0f)
                     .graphicsLayer {
                         val w = size.width
-                        translationX = -progress.value * w * 0.30f
+                        // 训练层：未选中时停在左侧 4% 处等待，选中时滑回原位
+                        translationX = -progress.value * w * 0.04f
                     }
                     .then(if (trainingTab) Modifier else blockGestures)
             ) {
@@ -191,7 +210,8 @@ fun DiaryScreen(
                     .zIndex(if (trainingTab) 0f else 1f)
                     .graphicsLayer {
                         val w = size.width
-                        translationX = (1f - progress.value) * w * 0.30f
+                        // 心情层：未选中时停在右侧 4% 处等待，选中时滑回原位
+                        translationX = (1f - progress.value) * w * 0.04f
                     }
                     .then(if (trainingTab) blockGestures else Modifier)
             ) {
