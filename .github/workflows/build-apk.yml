@@ -18,6 +18,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    permissions:
+      contents: write   # 挂 Release 需要写权限
 
     steps:
       - name: 拉取代码
@@ -126,3 +128,24 @@ jobs:
           name: qingji-release-apk
           path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error
+
+      # 为什么还要发一次 Release：
+      # Actions 的 artifact 下载必须带账号凭据，本机下载会被安全策略拦；
+      # Release 资产是公开直链，curl 直接拉，不需要任何 token。
+      - name: 挂到 Release（公开直链，免登录下载）
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          APK=$(ls app/build/outputs/apk/release/*.apk | head -1)
+          echo "准备上传：$APK ($(du -h "$APK" | cut -f1))"
+          if gh release view ci-latest > /dev/null 2>&1; then
+            echo "release ci-latest 已存在，覆盖其中资产"
+          else
+            gh release create ci-latest \
+              --prerelease \
+              --title "云端编译测试包（ci-latest）" \
+              --notes "由 GitHub Actions 自动构建，未用正式密钥签名，安装前需本地重签。"
+          fi
+          gh release upload ci-latest "$APK" --clobber
+          gh release view ci-latest --json assets --jq '.assets[].name'
