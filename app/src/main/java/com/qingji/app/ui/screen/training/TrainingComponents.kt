@@ -2,6 +2,7 @@ package com.qingji.app.ui.screen.training
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -120,11 +121,18 @@ fun DiaryModeSwitch(
         Row(modifier = Modifier.fillMaxWidth()) {
             listOf(true to s("训练日记"), false to s("心情日记")).forEach { (isTraining, label) ->
                 val selected = training == isTraining
+                // 灰色选中条的来源：clickable 默认带 Material 涟漪，按下那一瞬
+                // 整个半格会先铺一层灰色按压底（还带一个灰圈），绿指示条滑过来时
+                // 叠在上面就成了「灰色选中条 + 第二个绿色标签」。
+                // 现在关掉涟漪，按压反馈只交给绿指示条本身的位置变化。
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
-                        .clickable { onChange(isTraining) },
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) { onChange(isTraining) },
                     contentAlignment = Alignment.Center
                 ) {
                     Text(

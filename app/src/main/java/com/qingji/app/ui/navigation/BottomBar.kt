@@ -525,9 +525,13 @@ private fun FloatingBarSlots(
                         // 用户可能按在文字上（偏中心十几个 dp），对准图标才像「把这一项拿起来」。
                         // 之后每一次 MOVE 才严格 1:1 跟手。
                         pillCenter.floatValue = centerOf(startIndex, frozen).coerceIn(lo, hi)
-                        val stripHeight = size.height.toFloat()
+                        // 回归工单（主人 2026-11-16）：手指上滑 / 下滑离开底栏后，
+                        // 之前 y 越界直接判 miss → 预选消失、松手也选不中图标。
+                        // 现在命中只看横向坐标：纵向上滑到页面里、下滑到手势条上，
+                        // 只要 X 还落在某个图标下方，预选跟随、松手照样选中；
+                        // 横向滑出 tab 区域（碰到「记一笔」或滑出屏）仍然不选。
                         fun hit(x: Float, y: Float): Int? =
-                            if (x < 0f || x >= tabAreaPx || y < 0f || y > stripHeight) null
+                            if (x < 0f || x >= tabAreaPx) null
                             else indexAt(x, frozen)
 
                         var hovered: Int? = startIndex

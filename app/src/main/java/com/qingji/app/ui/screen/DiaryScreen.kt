@@ -157,14 +157,12 @@ fun DiaryScreen(
         }
 
         // ---------- 内容区：两个 Tab 常驻，用一级 Tab 同款横滑转场 ----------
-        // · 上一版只有 16dp 位移、两层还同时半透明淡入淡出，两份结构不同的
-        //   内容几乎完全重叠 → 文字/日历叠在一起，就是主人说的「还是会闪」。
-        // · 现在改成 QingJiAppRoot 那套：30% 容器宽度横移 + 250ms 同步进出；
-        //   目标层 zIndex 立刻置顶且 **alpha 恒为 1（不透明）**，滑入时整块
-        //   盖住旧页，旧页只在露出的边缘轻微淡出，不会有两份半透明内容重影。
-        // · 两个 Tab 的日历、主按钮、三栏统计用同一套组件 + 同一个 month，
-        //   位置尺寸字号完全一致，切换时上半部分静止不动。
-        // · 顶部标题、切换胶囊、悬浮快捷栏在这层之外，完全不参与动画。
+        // · 上一版把「进入中的那层」alpha 设成 0.6→1 渐入，mid-slide 只有 0.8 左右
+        //   不透明，底下正在滑出的那层（内容结构几乎一样：按钮 / 三栏 / 日历）透过来，
+        //   两份文字互相叠加 —— 这就是「还是会闪」的真正来源。
+        // · 现在两层 alpha 恒为 1（完全不透明）：换 Tab 那一瞬间目标层 zIndex 置顶，
+        //   用 30% 容器宽度的位移整块盖过旧页；旧页在底下滑向另一侧，被盖住的部分
+        //   看不见，只露出边缘。全程零透明度变化 = 不可能重影，和一级 Tab 观感一致。
         Box(modifier = Modifier.weight(1f)) {
             Box(
                 modifier = Modifier
@@ -173,7 +171,6 @@ fun DiaryScreen(
                     .graphicsLayer {
                         val w = size.width
                         translationX = -progress.value * w * 0.30f
-                        alpha = if (trainingTab) 1f else 1f - 0.4f * progress.value
                     }
                     .then(if (trainingTab) Modifier else blockGestures)
             ) {
@@ -195,7 +192,6 @@ fun DiaryScreen(
                     .graphicsLayer {
                         val w = size.width
                         translationX = (1f - progress.value) * w * 0.30f
-                        alpha = if (trainingTab) 0.6f + 0.4f * progress.value else 1f
                     }
                     .then(if (trainingTab) blockGestures else Modifier)
             ) {
