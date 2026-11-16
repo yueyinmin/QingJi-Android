@@ -36,6 +36,14 @@ interface ExerciseDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(items: List<ExerciseEntity>)
 
+    /**
+     * 增量补齐内置动作：冲突（uuid 主键 / name 唯一索引）一律 IGNORE 跳过，
+     * 绝不 REPLACE——否则会把用户改过的要点、收藏状态、自建同名动作覆盖掉。
+     * 老用户升级时用它把新增的 candidate-* 动作灌进来。
+     */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertMissing(items: List<ExerciseEntity>)
+
     @Update
     suspend fun update(item: ExerciseEntity)
 

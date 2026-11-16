@@ -25,6 +25,16 @@ object AppChangeLog {
     /** 按版本号倒序：最新的放最上面。 */
     val releases: List<Release> = listOf(
         Release(
+            versionName = "1.2.1",
+            versionCode = 121,
+            date = "2026-11-16",
+            items = listOf(
+                "动作库从 38 条扩充到 200 条：新增 162 条覆盖胸背肩手臂腿核心拉伸七类；老动作 UUID 原样保留，升级后自动补齐新动作，收藏与训练历史不受影响",
+                "有候选图的动作详情页改为三帧连续演示（1→2→3→2 循环）；无图的 83 条显示统一占位，不拿别的动作图片顶替",
+                "所有动作演示图均标注「姿势待人工核对」，候选素材不等于审核通过",
+            )
+        ),
+        Release(
             versionName = "1.2.0",
             versionCode = 120,
             date = "2026-11-15",
