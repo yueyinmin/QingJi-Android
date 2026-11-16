@@ -10,35 +10,59 @@ package com.qingji.app.data.training.media
  * 资产位置：app/src/main/assets/exercises/<slug>/frame-{1,2,3}.svg（三帧连续播放）
  *
  * 状态与边界（绝不虚报审核）：
- *   · 117 条有候选图，全部 review_status = candidate_pending_visual_review（待人工核图）；
- *     其中 111 条中文名直接匹配、6 条为别名候选（requiresReview=true，UI 标注待核对）；
+ *   · 127 条有图：123 条走三帧候选素材（其中老动作 34 条、200 条库新动作 89 条），
+ *     这 123 条的 review_status = candidate_pending_visual_review（待人工核图），
+ *     其中 9 条为近似/别名候选（requiresReview=true，UI 额外标注「近似匹配」）；
+ *   · 另外 4 条老动作没有三帧素材，沿用它自己原来的单帧 svg（workout-guide 目录），
+ *     review_status = legacy_single_frame_asset，是原图、不是候选图，UI 不标待核对；
  *   · 83 条无可靠图片（needs_new_asset_search）：不在映射里，UI 显示统一占位，
  *     绝不拿别的动作图片顶替；
+ *   · 38 个老动作一条不落，升级后不会出现「以前有图、现在没图」；
  *   · 键一律用稳定 UUID，禁止运行时按中文名模糊查找；
  *   · 图片路径不写进 Room，训练历史/计划/备份结构完全不动。
  *
- * 新版 38 个老动作也走三帧体系（旧的单帧 workout-guide 同名 svg 保留仅作兼容，UI 不再读）。
- * 注意：上面这句原来写成「workout-guide/星号.svg」带通配符，
- * 而 Kotlin 注释可以嵌套，星号紧跟斜杠会被当成新注释开头，整个文件就报 Unclosed comment。
+ * 备注：老动作和 200 条库里的同名动作会指向同一份素材（同一个 slug 被两条引用），
+ * 这是同一张图，不是顶替。
+ * Kotlin 的块注释可以嵌套，所以注释里不要写「斜杠加星号」那种通配写法，
+ * 否则整份文件会被判成注释没闭合（Unclosed comment）。
  * ============================================================
  */
 object ExerciseMediaMapping {
+
+    /** 候选匹配、待人工核图。 */
+    const val REVIEW_CANDIDATE = "candidate_pending_visual_review"
+
+    /** 老动作沿用旧版单帧素材，本来就是原图，不算待核图。 */
+    const val REVIEW_LEGACY = "legacy_single_frame_asset"
 
     data class ExerciseMedia(
         val slug: String,
         /** true = 近似/别名候选，UI 需标注「动作示意，姿势待核对」。 */
         val requiresReview: Boolean = false,
-        /** 审核状态：全部为候选匹配待核图，人工通过后在项目清单里改，不改这里的代码语义。 */
-        val reviewStatus: String = "candidate_pending_visual_review"
-    )
+        /** 审核状态：候选图统一为待核图；老动作沿用原有单帧素材，状态单独标记。 */
+        val reviewStatus: String = REVIEW_CANDIDATE,
+        /**
+         * true = 这个老动作没有三帧素材，只能沿用旧版单帧 svg。
+         * 这不是「拿相似动作顶替」，而是它自己原来的图，所以界面不标「待核对」。
+         */
+        val legacySingleFrame: Boolean = false
+    ) {
+        /**
+         * 第 index 帧的本地 asset URI（离线、不联网）。
+         * 单帧素材忽略 index，永远返回同一张。
+         */
+        fun frameUri(index: Int): String =
+            if (legacySingleFrame) "file:///android_asset/workout-guide/" + slug + ".svg"
+            else "file:///android_asset/exercises/" + slug + "/frame-" + index + ".svg"
+    }
 
     /** 三帧连续播放序列 1→2→3→2，每帧 420ms，循环。 */
     val PLAY_SEQUENCE = intArrayOf(1, 2, 3, 2)
     const val FRAME_DURATION_MS = 420L
     const val LOOP = true
 
-    /** 117 条 UUID → 候选素材。83 条无图的动作不在表里。 */
-    val mappings: Map<String, ExerciseMedia> = mapOf(
+    /** 123 条三帧候选 UUID → 素材（老动作 34 + 新动作 89）。83 条无图的动作不在表里。 */
+    private val threeFrameMappings: Map<String, ExerciseMedia> = mapOf(
         "ex-chest-01" to ExerciseMedia("dumbbell-bench-press", requiresReview = false),
         "ex-chest-02" to ExerciseMedia("bench-press", requiresReview = false),
         "ex-chest-03" to ExerciseMedia("push-up", requiresReview = false),
@@ -80,7 +104,7 @@ object ExerciseMediaMapping {
         "ex-shoulder-01" to ExerciseMedia("seated-dumbbell-press", requiresReview = false),
         "ex-shoulder-02" to ExerciseMedia("lateral-raise", requiresReview = false),
         "ex-shoulder-04" to ExerciseMedia("arnold-press", requiresReview = false),
-        "ex-shoulder-05" to ExerciseMedia("rear-delt-fly", requiresReview = true),
+        // ex-shoulder-05（俯身后束飞鸟）自己有旧单帧原图，见下面 legacy 表，这里不挂近似素材
         "candidate-shoulder-006" to ExerciseMedia("overhead-press", requiresReview = false),
         "candidate-shoulder-010" to ExerciseMedia("machine-shoulder-press", requiresReview = false),
         "candidate-shoulder-011" to ExerciseMedia("landmine-press", requiresReview = false),
@@ -106,7 +130,7 @@ object ExerciseMediaMapping {
         "candidate-arm-024" to ExerciseMedia("dip", requiresReview = false),
         "candidate-arm-025" to ExerciseMedia("wrist-curl", requiresReview = false),
         "ex-leg-01" to ExerciseMedia("squat", requiresReview = false),
-        "ex-leg-03" to ExerciseMedia("romanian-deadlift", requiresReview = false),
+        // ex-leg-03（哑铃罗马尼亚硬拉）自己有旧单帧原图，见下面 legacy 表，这里不挂近似素材
         "ex-leg-04" to ExerciseMedia("leg-press", requiresReview = false),
         "candidate-leg-009" to ExerciseMedia("front-squat", requiresReview = false),
         "candidate-leg-011" to ExerciseMedia("goblet-squat", requiresReview = false),
@@ -155,7 +179,36 @@ object ExerciseMediaMapping {
         "candidate-stretch-014" to ExerciseMedia("seated-forward-fold-stretch", requiresReview = false),
         "candidate-stretch-017" to ExerciseMedia("standing-quad-stretch", requiresReview = false),
         "candidate-stretch-019" to ExerciseMedia("kneeling-hip-flexor-stretch", requiresReview = false),
-        "candidate-stretch-020" to ExerciseMedia("wall-calf-stretch", requiresReview = false),    )
+        "candidate-stretch-020" to ExerciseMedia("wall-calf-stretch", requiresReview = false),
+
+        // ---- 老动作补齐（8 条）----
+        // 这 8 个老动作的三帧素材本来就在 117 目录里，但之前只挂在同名候选 UUID 上，
+        // 老动作自己的 UUID 查不到图，会出现「以前有图、升级后反而没图」的倒退。
+        // 这里把它们指回同一份素材：同一张图，不是拿别的动作顶替。
+        "ex-shoulder-03" to ExerciseMedia("face-pull"),
+        "ex-arm-01" to ExerciseMedia("ez-bar-curl", requiresReview = true),
+        "ex-arm-04" to ExerciseMedia("diamond-push-up", requiresReview = true),
+        "ex-leg-02" to ExerciseMedia("goblet-squat", requiresReview = true),
+        "ex-stretch-01" to ExerciseMedia("doorway-chest-stretch"),
+        "ex-stretch-02" to ExerciseMedia("childs-pose", requiresReview = true),
+        "ex-stretch-03" to ExerciseMedia("standing-quad-stretch"),
+        "ex-stretch-05" to ExerciseMedia("kneeling-hip-flexor-stretch")
+    )
+
+    /**
+     * 4 个老动作没有三帧素材，只能用它们自己原来的单帧 svg（assets/workout-guide/）。
+     * 这是原有素材，不是候选图，所以界面不标「待核对」。
+     */
+    private val legacySingleFrameMappings: Map<String, ExerciseMedia> = mapOf(
+        "ex-shoulder-05" to ExerciseMedia("bent-over-rear-delt-raise", legacySingleFrame = true, reviewStatus = REVIEW_LEGACY),
+        "ex-leg-03" to ExerciseMedia("dumbbell-romanian-deadlift", legacySingleFrame = true, reviewStatus = REVIEW_LEGACY),
+        "ex-leg-05" to ExerciseMedia("forward-lunge", legacySingleFrame = true, reviewStatus = REVIEW_LEGACY),
+        "ex-leg-06" to ExerciseMedia("calf-raise", legacySingleFrame = true, reviewStatus = REVIEW_LEGACY)
+    )
+
+    /** 全部有图的动作：三帧候选 123 条 + 老单帧 4 条 = 127 条。 */
+    val mappings: Map<String, ExerciseMedia> =
+        threeFrameMappings + legacySingleFrameMappings
 
     /** 有候选图的动作 → 图片；无图 / 自建动作返回 null，界面走统一占位。 */
     fun forUuid(uuid: String): ExerciseMedia? = mappings[uuid]
@@ -167,6 +220,6 @@ object ExerciseMediaMapping {
     /** 兼容旧调用：单帧 asset URI（UI 已切三帧，保留供其它模块/测试使用）。 */
     fun assetPath(slug: String): String = "file:///android_asset/workout-guide/$slug.svg"
 
-    /** 近似匹配、需人工核对姿势的 UUID 清单（6 条别名候选）。 */
+    /** 近似匹配、需人工核对姿势的 UUID 清单（9 条：老动作 8 条 + 新动作 1 条）。 */
     val requiresReviewUuids: Set<String> = mappings.filterValues { it.requiresReview }.keys
 }

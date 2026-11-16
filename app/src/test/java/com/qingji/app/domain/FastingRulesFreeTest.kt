@@ -17,6 +17,22 @@ class FastingRulesFreeTest {
     private val hour = 60 * 60 * 1000L
     private val minute = 60 * 1000L
 
+    /**
+     * 按「本地时间」造一个时间戳。
+     *
+     * 为什么要这样：规则是按本地日历日比较的（startDay.isBefore(today)）。
+     * 以前这里写死 1_700_000_000_000L，它在东八区是 11-15 06:13，在 UTC 却是
+     * 11-14 22:13——同一个时间戳，一个是「今天凌晨」，一个是「昨天晚上」，
+     * 于是「now 往前 12 小时算不算过去」在两种时区下结论相反，本机过、云端挂。
+     * 改成用本地日期 + 时刻构造，任何时区都稳定。
+     */
+    private fun localTime(year: Int = 2023, month: Int = 11, day: Int = 15, hourOfDay: Int = 6): Long =
+        java.time.LocalDate.of(year, month, day)
+            .atTime(hourOfDay, 0)
+            .atZone(java.time.ZoneId.systemDefault())
+            .toInstant()
+            .toEpochMilli()
+
     @Test
     fun `同日计时按分钟算`() {
         val start = 1_700_000_000_000L
@@ -52,7 +68,7 @@ class FastingRulesFreeTest {
 
     @Test
     fun `开始时间非法时给出可读原因`() {
-        val now = 1_700_000_000_000L
+        val now = localTime()
         assertNotNull(FastingRules.freeStartIssue(0L, now))
         // 未来允许（预约），只有约到 7 天外才拒绝
         assertNull(FastingRules.freeStartIssue(now + hour, now))
@@ -80,7 +96,7 @@ class FastingRulesFreeTest {
     @Test
     fun `过去时间现在一律拒绝`() {
         // 2026-11-12 起：自由断食开始时间不允许选今天以前，72 小时规则随之退役
-        val now = 1_700_000_000_000L
+        val now = localTime()
         assertNotNull(FastingRules.freeStartIssue(now - 72 * hour, now))
         assertNotNull(FastingRules.freeStartIssue(now - 12 * hour, now))
     }

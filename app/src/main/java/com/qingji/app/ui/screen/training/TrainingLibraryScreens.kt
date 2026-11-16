@@ -238,9 +238,10 @@ fun ExerciseDetailScreen(
                     }
                 }
             }
-            // 全部候选图（117 条）都是「候选匹配待人工核图」，不冒充已审核演示。
-            // 别名候选（requiresReview=true）额外标注「近似」，其余统一标「示意待核对」。
-            if (media != null) {
+            // 候选图（123 条）都是「候选匹配待人工核图」，不冒充已审核演示。
+            // 别名候选（requiresReview=true）额外标注「近似」。
+            // 老动作沿用自己的旧单帧原图（legacy），本来就准确，不加待核对提示。
+            if (media != null && !media.legacySingleFrame) {
                 Spacer(Modifier.height(6.dp))
                 Text(
                     if (media.requiresReview) "动作示意（近似匹配），姿势待人工核对"
@@ -341,8 +342,8 @@ private fun ExerciseMediaImage(
     }
     AsyncImage(
         model = ImageRequest.Builder(LocalContext.current)
-            // 走三帧体系的首帧；新 slug 很多不在旧单帧目录里，必须指向 exercises/
-            .data(ExerciseMediaMapping.framePath(media.slug, 1))
+            // 走三帧体系的首帧；老单帧动作（legacy）自动回退旧目录，见 frameUri
+            .data(media.frameUri(1))
             .decoderFactory(SvgDecoder.Factory())
             .build(),
         contentDescription = null,
@@ -370,23 +371,31 @@ private fun ExerciseAnimatedMedia(
         return
     }
     val slug = media.slug
+    val legacy = media.legacySingleFrame
     var failed by remember(slug) { mutableStateOf(false) }
     if (failed) {
         fallback()
         return
     }
-    val frame by produceState(initialValue = ExerciseMediaMapping.PLAY_SEQUENCE[0], key1 = slug) {
-        val seq = ExerciseMediaMapping.PLAY_SEQUENCE
-        var i = 0
-        while (true) {
-            delay(ExerciseMediaMapping.FRAME_DURATION_MS)
-            i = (i + 1) % seq.size
-            value = seq[i]
+    val frame by produceState(
+        initialValue = ExerciseMediaMapping.PLAY_SEQUENCE[0],
+        key1 = slug,
+        key2 = legacy
+    ) {
+        // 老单帧素材只有一张图，不做三帧轮播，省电也避免无意义重绘
+        if (!legacy) {
+            val seq = ExerciseMediaMapping.PLAY_SEQUENCE
+            var i = 0
+            while (true) {
+                delay(ExerciseMediaMapping.FRAME_DURATION_MS)
+                i = (i + 1) % seq.size
+                value = seq[i]
+            }
         }
     }
     AsyncImage(
         model = ImageRequest.Builder(LocalContext.current)
-            .data(ExerciseMediaMapping.framePath(slug, frame))
+            .data(media.frameUri(frame))
             .decoderFactory(SvgDecoder.Factory())
             .build(),
         contentDescription = null,
