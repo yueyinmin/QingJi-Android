@@ -17,7 +17,9 @@ package com.qingji.app.data.training.media
  *   · 键一律用稳定 UUID，禁止运行时按中文名模糊查找；
  *   · 图片路径不写进 Room，训练历史/计划/备份结构完全不动。
  *
- * 新版 38 个老动作也走三帧体系（旧的单帧 workout-guide/*.svg 保留仅作兼容，UI 不再读）。
+ * 新版 38 个老动作也走三帧体系（旧的单帧 workout-guide 同名 svg 保留仅作兼容，UI 不再读）。
+ * 注意：上面这句原来写成「workout-guide/星号.svg」带通配符，
+ * 而 Kotlin 注释可以嵌套，星号紧跟斜杠会被当成新注释开头，整个文件就报 Unclosed comment。
  * ============================================================
  */
 object ExerciseMediaMapping {
