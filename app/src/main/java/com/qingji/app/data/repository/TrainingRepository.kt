@@ -47,11 +47,18 @@ class TrainingRepository(context: Context) {
     fun observeAllWorkoutExercises(): Flow<List<WorkoutExercise>> =
         workoutExerciseDao.observeAll()
 
-    /** 首次进训练中心时灌最小动作库；灌过就不再动，避免覆盖用户自建/收藏状态。 */
+    /**
+     * 按 UUID 增量补齐内置动作（200 条）。
+     * 老逻辑是「空库才灌」，导致老用户升级后永远拿不到新增动作；改为差集补齐：
+     *   · 只插入数据库里还不存在的 uuid，用 IGNORE 兜住 name 唯一索引冲突；
+     *   · 不删任何行、不 REPLACE，用户的收藏/编辑/自建动作/训练历史一律不碰；
+     *   · 每次进训练页都会跑，但都已存在时差集为空，不产生任何写入。
+     */
     suspend fun ensureSeed() {
-        if (exerciseDao.count() == 0) {
-            exerciseDao.insertAll(TrainingSeed.builtIns())
-        }
+        val all = TrainingSeed.builtIns()
+        val existing = exerciseDao.findAll().map { it.uuid }.toSet()
+        val missing = all.filterNot { it.uuid in existing }
+        if (missing.isNotEmpty()) exerciseDao.insertMissing(missing)
     }
 
     suspend fun addCustomExercise(name: String, category: String): ExerciseEntity? {

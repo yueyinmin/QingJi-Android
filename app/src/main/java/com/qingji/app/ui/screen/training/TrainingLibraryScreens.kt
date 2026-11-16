@@ -23,8 +23,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -222,7 +224,7 @@ fun ExerciseDetailScreen(
                     .background(QingJiGreenLight),
                 contentAlignment = Alignment.Center
             ) {
-                ExerciseMediaImage(
+                ExerciseAnimatedMedia(
                     media = media,
                     modifier = Modifier.fillMaxWidth().height(190.dp)
                 ) {
@@ -236,10 +238,15 @@ fun ExerciseDetailScreen(
                     }
                 }
             }
-            // 6 个近似匹配的动作：不冒充完全一致的演示，明确提示待人工核对
-            if (media?.requiresReview == true) {
+            // 全部候选图（117 条）都是「候选匹配待人工核图」，不冒充已审核演示。
+            // 别名候选（requiresReview=true）额外标注「近似」，其余统一标「示意待核对」。
+            if (media != null) {
                 Spacer(Modifier.height(6.dp))
-                Text("动作示意，姿势待核对", fontSize = TextSizes.Tiny, color = TextSecondary)
+                Text(
+                    if (media.requiresReview) "动作示意（近似匹配），姿势待人工核对"
+                    else "动作示意图，姿势待人工核对",
+                    fontSize = TextSizes.Tiny, color = TextSecondary
+                )
             }
             Spacer(Modifier.height(12.dp))
 
@@ -334,7 +341,52 @@ private fun ExerciseMediaImage(
     }
     AsyncImage(
         model = ImageRequest.Builder(LocalContext.current)
-            .data(ExerciseMediaMapping.assetPath(media.slug))
+            // 走三帧体系的首帧；新 slug 很多不在旧单帧目录里，必须指向 exercises/
+            .data(ExerciseMediaMapping.framePath(media.slug, 1))
+            .decoderFactory(SvgDecoder.Factory())
+            .build(),
+        contentDescription = null,
+        contentScale = ContentScale.Fit,
+        colorFilter = ColorFilter.tint(QingJiGreenDark, BlendMode.SrcIn),
+        onError = { failed = true },
+        modifier = modifier
+    )
+}
+
+/**
+ * 详情页三帧连续播放：1→2→3→2，每帧 420ms 循环。
+ * 用 produceState 驱动帧序号，离开详情页时 Compose 自动取消协程，
+ * 不会在后台继续刷新；列表卡片仍走静态首帧（ExerciseMediaImage），
+ * 避免滚动时几十张卡片同时播放。素材是候选匹配，UI 的「姿势待核对」提示在调用处。
+ */
+@Composable
+private fun ExerciseAnimatedMedia(
+    media: ExerciseMediaMapping.ExerciseMedia?,
+    modifier: Modifier = Modifier,
+    fallback: @Composable () -> Unit
+) {
+    if (media == null) {
+        fallback()
+        return
+    }
+    val slug = media.slug
+    var failed by remember(slug) { mutableStateOf(false) }
+    if (failed) {
+        fallback()
+        return
+    }
+    val frame by produceState(initialValue = ExerciseMediaMapping.PLAY_SEQUENCE[0], key1 = slug) {
+        val seq = ExerciseMediaMapping.PLAY_SEQUENCE
+        var i = 0
+        while (true) {
+            delay(ExerciseMediaMapping.FRAME_DURATION_MS)
+            i = (i + 1) % seq.size
+            value = seq[i]
+        }
+    }
+    AsyncImage(
+        model = ImageRequest.Builder(LocalContext.current)
+            .data(ExerciseMediaMapping.framePath(slug, frame))
             .decoderFactory(SvgDecoder.Factory())
             .build(),
         contentDescription = null,

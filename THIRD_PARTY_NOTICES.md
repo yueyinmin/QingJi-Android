@@ -47,8 +47,8 @@ App 内「设置 → 关于 → 开源许可」页也展示了同样的说明。
 | 作者 | Bryl Lim — https://bryllim.com |
 | 上游素材 | Everkinetic — https://github.com/everkinetic/data |
 | 许可证 | CC BY-SA 4.0 — https://creativecommons.org/licenses/by-sa/4.0/ |
-| 引入内容 | 38 张 `frame-1.svg`，512 × 512，透明背景，本地 `assets/workout-guide/` |
-| 加载方式 | 离线，`file:///android_asset`，不联网 |
+| 引入内容 | 117 个动作 × 3 帧 = 351 张 SVG，512 × 512，透明背景，本地 `assets/exercises/<slug>/frame-{1,2,3}.svg`；旧版 38 张首帧仍留在 `assets/workout-guide/` |
+| 加载方式 | 离线，`file:///android_asset`，按 1→2→3→2 每帧 420ms 循环播放，不联网 |
 
 ### 上游原始 attribution（照录，未改写）
 
@@ -76,7 +76,7 @@ App 内「设置 → 关于 → 开源许可」页也展示了同样的说明。
 
 轻记侧做的只有两件事：
 
-1. 原样下载 `frame-1.svg` 放进 `assets/`，**SVG 源文件一个字节都没有改**；
+1. 原样下载 `frame-{1,2,3}.svg` 放进 `assets/exercises/`，**SVG 源文件一个字节都没有改**；
 2. 因为素材是纯白剪影（`fill="#fff"`），直接贴浅色底板会看不见，
    所以在 Compose 绘制层用 `ColorFilter.tint(...)` 临时着色以适配浅色 / 深色主题。
    这是运行时显示效果，不改变随包文件，也不改变素材本身的授权与署名要求。
@@ -92,6 +92,21 @@ app/src/main/assets/workout-guide/ATTRIBUTION.json
 
 该文件随 APK 打包，App 内「开源许可 → Workout Guide」展开项也会说明它的位置。
 上游 manifest 里个别条目没有提供 `source.url`，存档里按原样保留空值，**没有编造链接**。
+
+### 动作库扩充后的新增说明（200 条动作库接入）
+
+- 动作库从 38 条扩到 200 条后，有候选图的动作从 38 个增加到 **117 个**（111 个中文名直接匹配 +
+  6 个别名候选），每个动作 3 帧、共 **351 张** SVG，全部来自同一个 Workout Guide 素材库，
+  同样按 1→2→3→2 播放，同样只在绘制层着色、不改源文件。
+- **Everkinetic 署名不能泛化**：上游 302 个动作里只有 76 个动作的第一帧注明源自 Everkinetic，
+  其余帧的归属按上游 `packages/workout-guide/manifest.json` 逐条记录。
+  逐动作、逐帧的作者 / 来源 URL / 许可 / 修改记录见：
+  `docs/exercise-library/metadata/asset_licenses.csv`（351 行，覆盖率 100%）。
+- 83 个没有可靠图片的动作只显示统一占位，**没有拿别的动作图片顶替**；
+  117 条候选图在界面上统一标注「姿势待人工核对」，**没有虚报审核通过**。
+- 逐帧来源与修改记录（上游）：
+  https://github.com/bryllim/workout-guide/blob/main/packages/workout-guide/manifest.json
+
 
 本次引入的 38 个 slug：
 

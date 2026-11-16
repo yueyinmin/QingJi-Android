@@ -481,12 +481,13 @@ private val MEDIA_LICENSE = LicenseItem(
     name = "Workout Guide 动作插画",
     author = "Bryl Lim（上游素材 Everkinetic）",
     license = "CC BY-SA 4.0",
-    note = "38 张 512×512 透明底 SVG 首帧，来自 github.com/bryllim/workout-guide。" +
-        "上游 manifest 逐帧注明：Everkinetic 原图经「栅格化到 512×512 透明画布、" +
-        "改为单色、矢量描摹」处理后由 Bryl Lim 收录，均为 CC BY-SA 4.0。" +
-        "轻记只在运行时用 ColorFilter 着色以适配深浅主题，随包 SVG 源文件未改动，" +
-        "没有重新创作或重新绘制。38 条原始 attribution 完整保存在 " +
-        "assets/workout-guide/ATTRIBUTION.json（随 APK 打包）。",
+    note = "117 个动作各 3 帧、共 351 张 512×512 透明底 SVG，来自 github.com/bryllim/workout-guide，" +
+        "按 1→2→3→2 连续播放。上游 manifest 逐帧注明来源：其中 76 个动作的第一帧改编自 " +
+        "Everkinetic（经栅格化、单色化、矢量描摹后由 Bryl Lim 收录），其余帧各有自己的归属，" +
+        "不能把 Everkinetic 署名套用到所有帧；均为 CC BY-SA 4.0。" +
+        "轻记只在运行时用 ColorFilter 着色以适配深浅主题，随包 SVG 源文件一个字节未改。" +
+        "逐动作、逐帧的作者/来源/许可/修改记录见仓库 docs/exercise-library/metadata/asset_licenses.csv，" +
+        "旧版 38 条 attribution 仍保留在 assets/workout-guide/ATTRIBUTION.json（随 APK 打包）。",
     url = "https://github.com/bryllim/workout-guide"
 )
 
