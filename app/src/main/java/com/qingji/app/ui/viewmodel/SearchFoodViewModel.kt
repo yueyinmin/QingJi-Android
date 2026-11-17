@@ -9,6 +9,7 @@ import com.qingji.app.data.local.entity.Food
 import com.qingji.app.data.local.entity.FoodLog
 import com.qingji.app.data.repository.QingJiRepository
 import com.qingji.app.domain.FoodRanking
+import com.qingji.app.domain.OmniFoodDetail
 import java.time.LocalDate
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -60,6 +61,28 @@ class SearchFoodViewModel(app: Application) : AndroidViewModel(app) {
      * 按钮保留只是给「库没读出来」的情况一个手动重试的机会，返回当前能读到的条数。
      */
     suspend fun restorePresetFoods(): Int = repo.ensurePresetFoods()
+
+    // 点中的那一条食物；非空就弹出「填份量」对话框（状态在 SearchFoodScreen 里）
+    // OmniFood8K 细账：点中的食物来自 OmniFood8K 时，弹窗里多一块「组成明细」。
+    // 用 mutableStateOf 而不是 StateFlow，因为它的生命周期跟着「弹窗开关」走，
+    // 不需要跨页面订阅，关弹窗就清空。
+    private val _omniDetail = MutableStateFlow<OmniFoodDetail?>(null)
+    val omniDetail: StateFlow<OmniFoodDetail?> = _omniDetail.asStateFlow()
+
+    /**
+     * 弹窗打开时拉一次细账。查不到（旧库 / 非 OmniFood8K）就保持 null，
+     * 界面对 null 的处理是「不显示这一块」，不会闪出空白卡片。
+     */
+    fun loadOmniDetail(food: Food) {
+        viewModelScope.launch {
+            _omniDetail.value = runCatching { repo.omniFoodDetail(food) }.getOrNull()
+        }
+    }
+
+    /** 关弹窗时清掉，下次换一条食物重新拉，避免串数据。 */
+    fun clearOmniDetail() {
+        _omniDetail.value = null
+    }
 
     /** 点中一条结果时，把这次搜的词记进历史；下次打开搜索页一点就能用。 */
     fun rememberSearch() {

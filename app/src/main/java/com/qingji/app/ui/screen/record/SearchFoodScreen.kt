@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -43,12 +44,14 @@ import com.qingji.app.ui.components.PageTopBar
 import com.qingji.app.ui.components.PrimaryButton
 import com.qingji.app.ui.components.SectionCard
 import com.qingji.app.ui.theme.DividerColor
+import com.qingji.app.ui.theme.NormalGreen
 import com.qingji.app.ui.theme.PageBackground
 import com.qingji.app.ui.theme.QingJiGreen
 import com.qingji.app.ui.theme.QingJiGreenDark
 import com.qingji.app.ui.theme.QingJiGreenLight
 import com.qingji.app.ui.theme.TextPrimary
 import com.qingji.app.ui.theme.TextSecondary
+import com.qingji.app.ui.theme.WarnOrange
 import com.qingji.app.ui.viewmodel.SearchFoodViewModel
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -74,6 +77,9 @@ fun SearchFoodScreen(
     val results by vm.results.collectAsState()
     val foodCount by vm.foodCount.collectAsState()
     val history by vm.searchHistory.collectAsState()
+    // OmniFood8K 细账（组成明细 / 样本来源 / 异常提示）。点中的食物不是
+    // OmniFood8K 来源时它一直是 null，弹窗和旧版长得一模一样。
+    val omniDetail by vm.omniDetail.collectAsState()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
@@ -165,6 +171,8 @@ fun SearchFoodScreen(
                         gramsText = food.defaultGrams.toInt().toString()
                         mealType = MealRules.guess()
                         errorText = ""
+                        // 拉这条食物的 OmniFood8K 细账；不是 OmniFood8K 来源时查完就是 null
+                        vm.loadOmniDetail(food)
                     })
                     if (index != results.lastIndex) {
                         Box(
@@ -212,7 +220,10 @@ fun SearchFoodScreen(
                     }
                 }
             },
-            onDismiss = { picked = null }
+            onDismiss = {
+                picked = null
+                vm.clearOmniDetail()
+            }
         ) {
             Column {
                     Spacer(Modifier.height(4.dp))
@@ -259,10 +270,106 @@ fun SearchFoodScreen(
                         Spacer(Modifier.height(10.dp))
                         HintBox(text = errorText, isError = true)
                     }
+
+                    // OmniFood8K 细账：组成明细 + 样本来源 + 异常提示。
+                    // 放在表单最后，主流程（填克数选餐次）不被挤走。
+                    omniDetail?.let { detail ->
+                        Spacer(Modifier.height(14.dp))
+                        OmniFoodDetailSection(detail = detail)
+                    }
                 }
             }
     }
     }
+
+/**
+ * OmniFood8K 细账区：组成明细 + 样本来源 + 异常提示。
+ * 只在点中的食物来自 OmniFood8K（166 条命名食物）时出现，其他食物不显示。
+ * 界面不显示「人工已审核」之类的审核标记——审核状态只存在数据里，不给用户看。
+ */
+@Composable
+private fun OmniFoodDetailSection(detail: com.qingji.app.domain.OmniFoodDetail) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(PageBackground)
+            .padding(12.dp)
+    ) {
+        // —— 组成明细：这份样本由哪些配料组成 ——
+        Text(text = "组成明细", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+        detail.sample?.let { sample ->
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = "样本共 ${formatWeight(sample.totalWeightG)}g，营养值按样本实测换算成每 100g",
+                fontSize = 11.sp,
+                color = TextSecondary
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+        if (detail.composition.isEmpty()) {
+            Text(text = "这道食物没有单独的配料明细（如水果类），只有整份营养值。", fontSize = 12.sp, color = TextSecondary)
+        } else {
+            // 弹窗内容本身不能滚，明细行数不定，这里自己限高滚动，最多显示约 5 行
+            Column(
+                modifier = Modifier
+                    .heightIn(max = 170.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                val total = detail.sample?.totalWeightG?.takeIf { it > 0 }
+                detail.composition.forEach { c ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = c.ingredientName,
+                            fontSize = 12.sp,
+                            color = TextPrimary,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        Text(
+                            text = buildString {
+                                append(formatWeight(c.ingredientWeightG))
+                                append("g")
+                                total?.let {
+                                    append(" · ${(c.ingredientWeightG / it * 100).toInt()}%")
+                                }
+                            },
+                            fontSize = 11.sp,
+                            color = TextSecondary
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(10.dp))
+        Text(
+            text = "数据来源：OmniFood8K 公开数据集（CC BY-NC 4.0，非商业用途）",
+            fontSize = 11.sp,
+            color = TextSecondary
+        )
+
+        // —— 异常提示：机器校验标记过的问题，如实告诉用户「这是估算」 ——
+        if (detail.issueFlags.isNotEmpty()) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "⚠ 这份样本有 ${detail.issueFlags.size} 处数据异常（配料重量对不上等），热量仅供参考。",
+                fontSize = 11.sp,
+                color = WarnOrange
+            )
+        } else {
+            Spacer(Modifier.height(8.dp))
+            Text(text = "✓ 样本校验：未发现异常", fontSize = 11.sp, color = NormalGreen)
+        }
+    }
+}
+
+/** 重量展示：整数就别带小数点，301.0 → 301，301.6 → 301.6。 */
+private fun formatWeight(value: Double): String =
+    if (value == value.toLong().toDouble()) value.toLong().toString() else value.toString()
 
 /** 一条搜索结果：左边名称与拼音，右边每 100 克热量。 */
 @Composable
