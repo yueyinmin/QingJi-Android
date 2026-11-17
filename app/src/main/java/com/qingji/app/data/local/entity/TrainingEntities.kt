@@ -36,7 +36,24 @@ data class ExerciseEntity(
     @ColumnInfo(defaultValue = "0") val isBuiltIn: Boolean = false,
     @ColumnInfo(defaultValue = "0") val isFavorite: Boolean = false,
     @ColumnInfo(defaultValue = "0") val createdAt: Long = 0L,
-    @ColumnInfo(defaultValue = "0") val updatedAt: Long = 0L
+    @ColumnInfo(defaultValue = "0") val updatedAt: Long = 0L,
+    // ---- Room 12：Workout Guide 302 条动作库新增元数据 ----
+    @ColumnInfo(defaultValue = "") val englishName: String = "",
+    @ColumnInfo(defaultValue = "") val slug: String = "",
+    @ColumnInfo(defaultValue = "") val exerciseType: String = "",
+    @ColumnInfo(defaultValue = "0") val isStretch: Boolean = false,
+    @ColumnInfo(defaultValue = "") val assetPath: String = "",
+    @ColumnInfo(defaultValue = "") val attribution: String = ""
+)
+
+/**
+ * 动作库版本标记。只存一行：key = workout_guide_library_version。
+ * 目的：避免每次启动都扫描 302 条做无意义写入；版本一致且库完整时直接跳过。
+ */
+@Entity(tableName = "library_meta")
+data class LibraryMeta(
+    @PrimaryKey val key: String,
+    @ColumnInfo(defaultValue = "") val value: String = ""
 )
 
 /** 表 17：训练计划。P0 只建表不启用，P1 才接模板与自定义计划。 */

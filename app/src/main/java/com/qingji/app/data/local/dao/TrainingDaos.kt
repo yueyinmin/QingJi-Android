@@ -6,6 +6,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 import com.qingji.app.data.local.entity.ExerciseEntity
+import com.qingji.app.data.local.entity.LibraryMeta
 import com.qingji.app.data.local.entity.PlanExercise
 import com.qingji.app.data.local.entity.TrainingPlan
 import com.qingji.app.data.local.entity.TrainingPlanDay
@@ -56,6 +57,16 @@ interface ExerciseDao {
 
     @Query("DELETE FROM exercise")
     suspend fun clearAll()
+}
+
+/** Room 12：动作库版本标记，只存一行，用于跳过重复导入。 */
+@Dao
+interface LibraryMetaDao {
+    @Query("SELECT value FROM library_meta WHERE key = :key LIMIT 1")
+    suspend fun get(key: String): String?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun put(meta: LibraryMeta)
 }
 
 @Dao

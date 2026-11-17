@@ -4,8 +4,10 @@ import android.content.Context
 import androidx.room.withTransaction
 import com.qingji.app.data.local.AppDatabase
 import com.qingji.app.data.local.TrainingSeed
+import com.qingji.app.data.local.TrainingSeedImportPlanner
 import com.qingji.app.data.local.TrainingTemplateData
 import com.qingji.app.data.local.entity.ExerciseEntity
+import com.qingji.app.data.local.entity.LibraryMeta
 import com.qingji.app.data.local.entity.PlanExercise
 import com.qingji.app.data.local.entity.TrainingPlan
 import com.qingji.app.data.local.entity.TrainingPlanDay
@@ -31,6 +33,7 @@ class TrainingRepository(context: Context) {
 
     private val db = AppDatabase.get(context)
     private val exerciseDao = db.exerciseDao()
+    private val libraryMetaDao = db.libraryMetaDao()
     private val planDao = db.trainingPlanDao()
     private val planDayDao = db.trainingPlanDayDao()
     private val planExerciseDao = db.planExerciseDao()
@@ -48,17 +51,25 @@ class TrainingRepository(context: Context) {
         workoutExerciseDao.observeAll()
 
     /**
-     * 按 UUID 增量补齐内置动作（200 条）。
-     * 老逻辑是「空库才灌」，导致老用户升级后永远拿不到新增动作；改为差集补齐：
-     *   · 只插入数据库里还不存在的 uuid，用 IGNORE 兜住 name 唯一索引冲突；
-     *   · 不删任何行、不 REPLACE，用户的收藏/编辑/自建动作/训练历史一律不碰；
-     *   · 每次进训练页都会跑，但都已存在时差集为空，不产生任何写入。
+     * 按 UUID 增量补齐 Workout Guide 302 条内置动作。
+     *
+     * 保护规则见 TrainingSeedImportPlanner：不清表、不 REPLACE，用户收藏/自建/历史/计划不碰。
+     * library_meta 记录已导入版本，版本一致且库完整时直接跳过，重复启动零写入。
      */
     suspend fun ensureSeed() {
-        val all = TrainingSeed.builtIns()
-        val existing = exerciseDao.findAll().map { it.uuid }.toSet()
-        val missing = all.filterNot { it.uuid in existing }
-        if (missing.isNotEmpty()) exerciseDao.insertMissing(missing)
+        val seeds = TrainingSeed.builtIns()
+        val existing = exerciseDao.findAll()
+        val installed = libraryMetaDao.get(TrainingSeed.LIBRARY_VERSION_KEY)
+        if (!TrainingSeedImportPlanner.importNeeded(installed, existing.size, seeds.size)) return
+
+        val plan = TrainingSeedImportPlanner.plan(existing, seeds)
+        db.withTransaction {
+            if (plan.toInsert.isNotEmpty()) exerciseDao.insertMissing(plan.toInsert)
+            plan.toUpdate.forEach { exerciseDao.update(it) }
+            libraryMetaDao.put(
+                LibraryMeta(TrainingSeed.LIBRARY_VERSION_KEY, TrainingSeed.LIBRARY_VERSION)
+            )
+        }
     }
 
     suspend fun addCustomExercise(name: String, category: String): ExerciseEntity? {

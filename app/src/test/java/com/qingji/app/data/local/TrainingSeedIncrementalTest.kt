@@ -3,10 +3,12 @@ package com.qingji.app.data.local
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.qingji.app.data.local.entity.ExerciseEntity
+import com.qingji.app.data.local.entity.LibraryMeta
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -14,11 +16,13 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 /**
- * 动作库 200 条接入的两条底线（增量灌入工单）：
- *  1. 种子本身完整正确：200 条、UUID/名称唯一、38 个老 UUID 原样、分类计数吻合；
- *  2. 老用户升级补齐时，只增不覆盖：新动作进得来，收藏/自建/训练历史一行不丢。
+ * Workout Guide 302 条动作库导入底线：
+ *  1. 种子完整：302 条，UUID / 名称唯一，38 个老 UUID 保留，七分类计数吻合；
+ *  2. 升级只增不覆盖：收藏、自建、训练历史、计划不碰；名字撞车时内置动作改用变式名。
  *
- * 用 Robolectric 内存库直接跑 DAO，差集逻辑与 TrainingRepository.ensureSeed() 一致。
+ * 数据来源优先级（明确规则）：
+ *   · 用户字段：uuid / isBuiltIn / isFavorite / createdAt / updatedAt / steps / commonMistakes
+ *   · 动作库字段：name / englishName / slug / category / 肌群 / 器械 / 类型 / 素材 / 授权
  */
 @RunWith(RobolectricTestRunner::class)
 class TrainingSeedIncrementalTest {
@@ -38,106 +42,105 @@ class TrainingSeedIncrementalTest {
 
     private fun ensureSeedLikeRepo() = runBlocking {
         val dao = db.exerciseDao()
-        val all = TrainingSeed.builtIns()
-        val existing = dao.findAll().map { it.uuid }.toSet()
-        val missing = all.filterNot { it.uuid in existing }
-        if (missing.isNotEmpty()) dao.insertMissing(missing)
+        val seeds = TrainingSeed.builtIns()
+        val existing = dao.findAll()
+        val installed = db.libraryMetaDao().get(TrainingSeed.LIBRARY_VERSION_KEY)
+        if (!TrainingSeedImportPlanner.importNeeded(installed, existing.size, seeds.size)) return@runBlocking
+        val plan = TrainingSeedImportPlanner.plan(existing, seeds)
+        if (plan.toInsert.isNotEmpty()) dao.insertMissing(plan.toInsert)
+        plan.toUpdate.forEach { dao.update(it) }
+        db.libraryMetaDao().put(LibraryMeta(TrainingSeed.LIBRARY_VERSION_KEY, TrainingSeed.LIBRARY_VERSION))
     }
 
     @Test
-    fun `种子 200 条 UUID 与名称都唯一`() {
+    fun `种子 302 条 UUID 与中文名都唯一`() {
         val all = TrainingSeed.builtIns(1000L)
-        assertEquals(200, all.size)
-        assertEquals(200, all.map { it.uuid }.toSet().size)
-        assertEquals(200, all.map { it.name }.toSet().size)
+        assertEquals(302, all.size)
+        assertEquals(302, all.map { it.uuid }.toSet().size)
+        assertEquals(302, all.map { it.name }.toSet().size)
+        assertTrue(all.all { it.englishName.isNotBlank() })
+        assertTrue(all.all { it.slug.isNotBlank() })
+        assertTrue(all.all { it.assetPath.startsWith("exercises/") })
+        assertTrue(all.all { it.attribution.contains("CC BY-SA 4.0") })
+        assertTrue("上游无步骤数据，必须留空", all.all { it.steps.isEmpty() })
     }
 
     @Test
-    fun `38 个老动作 UUID 全部保留且分类计数吻合`() {
+    fun `38 个老 UUID 保留 264 个新 UUID 稳定 七分类齐全`() {
         val all = TrainingSeed.builtIns(1000L)
-        val old = all.filter { it.uuid.startsWith("ex-") }
-        assertEquals(38, old.size)
-        val new = all.filter { it.uuid.startsWith("candidate-") }
-        assertEquals(162, new.size)
-
+        assertEquals(38, all.count { it.uuid.startsWith("ex-") })
+        assertEquals(264, all.count { it.uuid.startsWith("wg:") })
         val counts = all.groupingBy { it.category }.eachCount()
-        assertEquals(30, counts["chest"])
-        assertEquals(35, counts["back"])
-        assertEquals(25, counts["shoulder"])
-        assertEquals(25, counts["arm"])
-        assertEquals(40, counts["leg"])
-        assertEquals(25, counts["core"])
-        assertEquals(20, counts["stretch"])
+        assertEquals(26, counts["chest"])
+        assertEquals(43, counts["back"])
+        assertEquals(26, counts["shoulders"])
+        assertEquals(35, counts["arms"])
+        assertEquals(114, counts["legs"])
+        assertEquals(54, counts["core"])
+        assertEquals(4, counts["mobility"])
     }
 
     @Test
-    fun `空库首次灌入 200 条`() = runBlocking {
+    fun `空库首次灌入 302 条`() = runBlocking {
         assertEquals(0, db.exerciseDao().count())
         ensureSeedLikeRepo()
-        assertEquals(200, db.exerciseDao().count())
+        assertEquals(302, db.exerciseDao().count())
     }
 
     @Test
     fun `老用户升级只补缺失项且收藏自建内容原样不动`() = runBlocking {
         val dao = db.exerciseDao()
-        // 模拟老用户库：只有旧 38 条里的 3 条，其中一条被收藏、一条被改过要点
         val now = 500L
-        dao.insertAll(
-            listOf(
-                ExerciseEntity("ex-chest-01", "哑铃卧推", TrainingSeed.CHEST,
-                    isBuiltIn = true, isFavorite = true, createdAt = now, updatedAt = now),
-                ExerciseEntity("ex-chest-02", "杠铃卧推", TrainingSeed.CHEST,
-                    primaryMuscles = "我改过的肌群", isBuiltIn = true, createdAt = now, updatedAt = now),
-                ExerciseEntity("ex-back-01", "引体向上", TrainingSeed.BACK,
-                    isBuiltIn = true, createdAt = now, updatedAt = now)
-            )
-        )
-        // 一个自建动作，绝不能被灌库影响
-        dao.insertAll(
-            listOf(
-                ExerciseEntity("user-abc", "我的独门动作", TrainingSeed.CORE,
-                    isBuiltIn = false, isFavorite = true, createdAt = now, updatedAt = now)
-            )
-        )
+        dao.insertAll(listOf(
+            ExerciseEntity("ex-chest-01", "哑铃卧推", TrainingSeed.CHEST,
+                isBuiltIn = true, isFavorite = true, steps = "我写过的要点",
+                createdAt = now, updatedAt = now),
+            ExerciseEntity("ex-chest-02", "杠铃卧推", TrainingSeed.CHEST,
+                isBuiltIn = true, createdAt = now, updatedAt = now),
+            ExerciseEntity("ex-back-01", "引体向上", TrainingSeed.BACK,
+                isBuiltIn = true, createdAt = now, updatedAt = now)
+        ))
+        dao.insertAll(listOf(
+            ExerciseEntity("user-abc", "我的独门动作", TrainingSeed.CORE,
+                isBuiltIn = false, isFavorite = true, createdAt = now, updatedAt = now)
+        ))
 
         ensureSeedLikeRepo()
 
         val fav = dao.findByUuid("ex-chest-01")!!
         assertTrue("原收藏状态必须保留", fav.isFavorite)
-        val edited = dao.findByUuid("ex-chest-02")!!
-        assertEquals("用户改过的肌群不能被种子覆盖", "我改过的肌群", edited.primaryMuscles)
+        assertEquals("用户写过的要点不能被覆盖", "我写过的要点", fav.steps)
         val custom = dao.findByUuid("user-abc")!!
-        assertTrue("自建动作必须还在", custom.isBuiltIn.not())
+        assertFalse("自建动作必须还在", custom.isBuiltIn)
         assertTrue("自建动作的收藏必须保留", custom.isFavorite)
-        // 补齐到 200 + 1 个自建 = 201
-        assertEquals(201, dao.count())
-        // 新增候选确实进来了
-        assertTrue(dao.findByUuid("candidate-chest-007") != null)
+        assertEquals(303, dao.count())
+        assertNotNull(dao.findByUuid("wg:incline-bench-press"))
     }
 
     @Test
-    fun `重复调用幂等 不会产生重复行也不报错`() = runBlocking {
+    fun `重复调用幂等 版本一致时零写入`() = runBlocking {
         ensureSeedLikeRepo()
+        val before = db.exerciseDao().findAll()
         ensureSeedLikeRepo()
-        assertEquals(200, db.exerciseDao().count())
+        assertEquals(302, db.exerciseDao().count())
+        assertEquals(before.map { it.uuid }.toSet(), db.exerciseDao().findAll().map { it.uuid }.toSet())
     }
 
     @Test
-    fun `自建动作与新种子同名时 IGNORE 不覆盖自建 不崩`() = runBlocking {
+    fun `自建动作与内置同名 内置改用变式名 自建保持原样`() = runBlocking {
         val dao = db.exerciseDao()
-        // 用户自建了一个和新增候选同名的动作（name 有唯一索引）
-        dao.insertAll(
-            listOf(
-                ExerciseEntity("user-dup", "上斜杠铃卧推", TrainingSeed.CHEST,
-                    primaryMuscles = "我的定义", isBuiltIn = false, createdAt = 1L, updatedAt = 1L)
-            )
-        )
-        ensureSeedLikeRepo() // 不应抛 SQLiteConstraintException
+        dao.insertAll(listOf(
+            ExerciseEntity("user-dup", "上斜杠铃卧推", TrainingSeed.CHEST,
+                primaryMuscles = "我的定义", isBuiltIn = false, createdAt = 1L, updatedAt = 1L)
+        ))
+        ensureSeedLikeRepo()
         val custom = dao.findByUuid("user-dup")!!
         assertEquals("我的定义", custom.primaryMuscles)
-        assertTrue("自建动作还在", custom.isBuiltIn.not())
-        // 同名的那条候选因 name 冲突被 IGNORE 跳过，其余照常补齐
-        assertTrue(dao.count() >= 200)
+        assertFalse(custom.isBuiltIn)
+        assertEquals(303, dao.count())
+        val builtIn = db.exerciseDao().findAll().first { it.slug == "incline-bench-press" }
+        assertTrue("内置动作应换成变式名", builtIn.name != "上斜杠铃卧推")
+        assertTrue(builtIn.isBuiltIn)
     }
 
     @Test
