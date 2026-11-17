@@ -55,8 +55,13 @@ abstract class FoodCatalogDatabase : RoomDatabase() {
          * 0.3 → 0.4（v1.3.1）：OmniFood8K 第一批数据。旧 food_catalog 表 654 条保留，
          *   新增 166 条命名食物；8,037 条样本、27,466 条组成关系独立入表，
          *   异常记录隔离，不混入普通食物搜索。换库只删标准库文件，不碰 qingji.db。
+         * 0.4 → 0.5（v1.3.2）：用户拍板的审核状态落地——166 条命名食物全部改成
+         *   「人工已审核」（food_entity/food_nutrition = approved，food_catalog = 1），
+         *   8 条 provisional 保留；4 条严重异常样本连同组成明细、异常标记一起删除
+         *   （样本 8037→8033）。只改数据不改表结构，Room schema 不动。
+         *   老手机装新版后靠这个版本号把旧库删掉、重新拷 assets 里的新库。
          */
-        const val CATALOG_VERSION = "0.4-omnifood8k"
+        const val CATALOG_VERSION = "0.5-omnifood8k-reviewed"
         private const val DB_NAME = "food_catalog.db"
         private const val ASSET_PATH = "database/food_catalog.db"
         private const val PREFS_NAME = "qingji_catalog_meta"
