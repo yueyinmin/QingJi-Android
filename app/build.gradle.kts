@@ -89,8 +89,8 @@ android {
         //   + 117 条候选图三帧连续播放 + 83 条无图占位 + 逐帧授权台账。
         // v1.3.0 = 122（2026-11-17）：Workout Guide 302 条动作整体替换 + 906 帧本地三帧 SVG
         //   + Room 11→12（只加列加表）+ UUID 差集安全导入 + 备份合并 + 英文名搜索。
-        versionCode = 122
-        versionName = "1.3.0"
+        versionCode = 123
+        versionName = "1.3.1"
     }
 
     signingConfigs {
