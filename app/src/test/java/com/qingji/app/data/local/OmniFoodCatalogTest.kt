@@ -35,7 +35,8 @@ class OmniFoodCatalogTest {
 
     @Test
     fun `预置库保留老数据并接入 166 条命名食物`() = runBlocking {
-        assertEquals(820, db.catalogDao().count())
+        // v0.6 老乡鸡接入：820 + 301（280 堂食菜 + 21 饮品）= 1121
+        assertEquals(1121, db.catalogDao().count())
         assertEquals(166, db.omniFoodDao().foodCount())
         // v1.3.2：4 条严重异常样本（346/347/348/2740）按用户指示删除，
         // 样本 8037→8033、组成明细 27466→27457，旧 654 条与 166 条命名食物不变
