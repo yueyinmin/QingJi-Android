@@ -95,6 +95,29 @@ def create_tables(c):
     CREATE INDEX IF NOT EXISTS `idx_quality_sample` ON `quality_issue` (`sample_id`);
     """)
 
+def apply_room_schema(c, schema_path):
+    """用 Room 编译出来的 schema JSON 原样建表。
+
+    手写 SQL 看着一样，Room 却会逐字比对 NOT NULL、defaultValue 和索引名。
+    第一版手写的 `food_id TEXT PRIMARY KEY` / `DEFAULT ''` / `idx_*` 全部对不上，
+    createFromAsset 直接判「预置库结构无效」。这里改成直接执行 Room 自己的
+    createSql / index createSql，从根上避免再对不上。
+    """
+    d = json.load(io.open(schema_path, encoding="utf-8"))
+    entities = d["database"]["entities"]
+    for e in entities:
+        c.execute("DROP TABLE IF EXISTS `%s`" % e["tableName"])
+    for e in entities:
+        c.execute(e["createSql"].replace("${TABLE_NAME}", e["tableName"]))
+        for idx in e.get("indices", []):
+            c.execute(idx["createSql"].replace("${TABLE_NAME}", e["tableName"]))
+    for q in d["database"].get("setupQueries", []):
+        if "DELETE FROM room_master_table" in q:
+            continue
+        c.execute(q)
+    return len(entities)
+
+
 def copy_existing(dst, existing):
     if not existing or not os.path.exists(existing):
         return 0
@@ -112,6 +135,12 @@ def main():
     ap.add_argument("--dish-json", required=True)
     ap.add_argument("--existing-db", required=True)
     ap.add_argument("--out", required=True)
+    # Room 打开预置库时靠 user_version + room_master_table 判断是不是自己建的库。
+    # 之前生成的库 user_version=0，Room 3 会当成「旧库要升级」，找不到 Migration
+    # 就走 fallbackToDestructiveMigration，把 820 条食物全清空，单测直接挂。
+    ap.add_argument("--room-version", type=int, default=3)
+    ap.add_argument("--room-hash", default="854eb4b74bd6d6a55b31ca09961ab7b2")
+    ap.add_argument("--room-schema", default="")
     a = ap.parse_args()
 
     z = zipfile.ZipFile(a.zip)
@@ -133,6 +162,8 @@ def main():
         os.remove(a.out)
     out = sqlite3.connect(a.out)
     create_tables(out)
+    if a.room_schema:
+        apply_room_schema(out, a.room_schema)
     kept = copy_existing(out, a.existing_db)
     now = datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
     out.execute("INSERT OR REPLACE INTO food_data_source VALUES (?,?,?,?,?,?,?)",
@@ -211,6 +242,15 @@ def main():
              num(r["fat_g_per_100g"]), num(r["carbohydrates_g_per_100g"]),
              num(r["component_weight_sum_g"]), num(r["component_weight_diff_g"]),
              num(r["energy_relative_error_4_9_4"]), SRC))
+
+    # Room 身份信息：缺了这两样，Room 会把预置库当成需要迁移的老库并清空重建。
+    out.executescript("""
+    CREATE TABLE IF NOT EXISTS `room_master_table` (
+      `id` INTEGER PRIMARY KEY CHECK (id = 42), `identity_hash` TEXT NOT NULL);
+    """)
+    out.execute("INSERT OR REPLACE INTO room_master_table (id, identity_hash) VALUES (42, ?)",
+                (a.room_hash,))
+    out.execute("PRAGMA user_version = %d" % a.room_version)
 
     out.commit()
     counts = {t: out.execute("SELECT COUNT(*) FROM " + t).fetchone()[0] for t in

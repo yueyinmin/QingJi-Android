@@ -25,6 +25,15 @@ object AppChangeLog {
     /** 按版本号倒序：最新的放最上面。 */
     val releases: List<Release> = listOf(
         Release(
+            versionName = "1.3.1",
+            versionCode = 123,
+            date = "2026-11-17",
+            items = listOf(
+                "标准食物库新增 OmniFood8K 第一批：166 条命名食物、8037 条样本与 27466 条组成关系独立存表，异常样本隔离；原 654 条食物与用户数据不变",
+                "修正预置库结构：按 Room 生成的 schema 建表并写入身份信息，避免升级时把标准库误判成旧库后清空",
+            )
+        ),
+        Release(
             versionName = "1.3.0",
             versionCode = 122,
             date = "2026-11-17",
