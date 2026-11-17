@@ -14,9 +14,11 @@ import com.qingji.app.data.local.entity.TrainingPlanDay
 import com.qingji.app.data.local.entity.WorkoutExercise
 import com.qingji.app.data.local.entity.WorkoutSession
 import com.qingji.app.data.prefs.WorkoutDraftStore
+import com.qingji.app.domain.SessionCalorieCalculator
 import com.qingji.app.domain.TrainingMath
 import com.qingji.app.domain.WorkoutSet
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 /**
  * ============================================================
@@ -25,8 +27,9 @@ import kotlinx.coroutines.flow.Flow
  * 三条铁律：
  * 1. 会话和它下面的动作/组必须一次事务写完，不许出现「有会话没明细」；
  * 2. 历史只读 workout_exercise.exerciseNameSnapshot，绝不 JOIN 动作库现名；
- * 3. 力量训练 P0 不写 exercise_log、不产生热量消耗，
- *    现有「运动补偿 50%」通道完全不碰（有氧记录仍走原来的记运动流程）。
+ * 3. v1.4 起铁律 3 改写：训练保存时在【同一事务】里结算整场消耗并写入
+ *    统一运动消耗账本（HealthRepository），删除时联动清账本；
+ *    独立运动模块（exercise_log）的补偿通道行为不变，只是多了账本镜像。
  * ============================================================
  */
 class TrainingRepository(context: Context) {
@@ -40,8 +43,17 @@ class TrainingRepository(context: Context) {
     private val sessionDao = db.workoutSessionDao()
     private val workoutExerciseDao = db.workoutExerciseDao()
 
+    /** 健康体系 V1.0：统一运动消耗账本（结算/删除联动都在这里做）。 */
+    private val healthRepository = HealthRepository(context)
+
     /** 进行中草稿与 kg/lb 偏好（SharedPreferences，不进数据库）。 */
     val draftStore = WorkoutDraftStore(context)
+
+    /** 结算用体重（沿用现有运动模块口径：档案起始体重，兜底 70kg）。 */
+    fun observeSettleWeight() = db.userProfileDao().observe()
+        .map { it?.startWeight?.takeIf { w -> w > 0 } ?: 70.0 }
+
+    internal fun health(): HealthRepository = healthRepository
 
     fun observeExercises(): Flow<List<ExerciseEntity>> = exerciseDao.observeAll()
     fun observeSessions(): Flow<List<WorkoutSession>> = sessionDao.observeAll()
@@ -102,21 +114,46 @@ class TrainingRepository(context: Context) {
     suspend fun lastSets(exerciseUuid: String, nameSnapshot: String): List<WorkoutSet> =
         TrainingMath.decodeSets(workoutExerciseDao.findLatestSets(exerciseUuid, nameSnapshot))
 
-    /** 保存一次训练（新建与「当天编辑」共用），整包写、整包替换明细。 */
-    suspend fun saveSession(session: WorkoutSession, items: List<WorkoutExercise>) {
+    /**
+     * 保存一次训练（新建与「当天编辑」共用），整包写、整包替换明细。
+     * v1.4 健康体系：结算整场消耗并在【同一个事务】里写入统一运动消耗账本——
+     * 要么会话+明细+账本一起成功，要么都不写，不会出现「记了训练没记消耗」。
+     * settleWeight 传 0.0 以下表示跳过结算（不该发生，防御用）。
+     * @return 账本行的消耗值（估算，UI 用于「已保存，预计消耗 N 千卡」反馈）
+     */
+    suspend fun saveSession(
+        session: WorkoutSession,
+        items: List<WorkoutExercise>,
+        settleWeightKg: Double
+    ): Double {
+        var settledKcal = 0.0
         db.withTransaction {
             sessionDao.insert(session)
             workoutExerciseDao.deleteBySession(session.uuid)
             // id 一律重新生成，避免编辑时把老明细的 id 带进来撞主键
-            workoutExerciseDao.insertAll(items.map { it.copy(id = 0L) })
+            val inserted = items.map { it.copy(id = 0L) }
+            workoutExerciseDao.insertAll(inserted)
+            if (settleWeightKg > 0.0) {
+                val row = healthRepository.settleStrengthSession(
+                    session = session,
+                    items = inserted,
+                    weightKg = settleWeightKg,
+                    method = SessionCalorieCalculator.METHOD_SEGMENTED
+                )
+                settledKcal = row.caloriesGross
+            }
         }
+        return settledKcal
     }
 
-    /** 删除会话要连明细一起删，不留孤儿行。 */
+    /** 删除会话要连明细、连消耗账本一起删，不留孤儿行（消耗不会残留）。 */
     suspend fun deleteSession(uuid: String) {
         db.withTransaction {
             workoutExerciseDao.deleteBySession(uuid)
             sessionDao.deleteByUuid(uuid)
+            healthRepository.ledgerDao().deleteBySource(
+                HealthRepository.SOURCE_STRENGTH_TRAINING, uuid
+            )
         }
     }
 
