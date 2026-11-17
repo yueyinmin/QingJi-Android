@@ -1,0 +1,303 @@
+﻿uuid,slug,englishName,chineseName,category,categoryLabel,primaryMuscles,nameSource
+ex-chest-02,bench-press,Bench Press,杠铃卧推,chest,胸部,Chest,旧 UUID 保留并修订
+wg:incline-bench-press,incline-bench-press,Incline Bench Press,上斜杠铃卧推,chest,胸部,Chest,人工审核翻译
+ex-chest-04,incline-dumbbell-press,Incline Dumbbell Press,上斜哑铃卧推,chest,胸部,Chest,旧 UUID 保留并修订
+ex-chest-01,dumbbell-bench-press,Dumbbell Bench Press,哑铃卧推,chest,胸部,Chest,旧 UUID 保留并修订
+wg:decline-bench-press,decline-bench-press,Decline Bench Press,下斜杠铃卧推,chest,胸部,Chest,人工审核翻译
+ex-chest-05,machine-chest-press,Machine Chest Press,器械推胸,chest,胸部,Chest,旧 UUID 保留并修订
+wg:pec-deck,pec-deck,Pec Deck,蝴蝶机夹胸,chest,胸部,Chest,人工审核翻译
+wg:cable-fly,cable-fly,Cable Fly,绳索夹胸,chest,胸部,Chest,人工审核翻译
+ex-chest-03,push-up,Push-up,俯卧撑,chest,胸部,Chest,旧 UUID 保留并修订
+wg:weighted-push-up,weighted-push-up,Weighted Push-up,负重俯卧撑,chest,胸部,Chest,人工审核翻译
+wg:overhead-press,overhead-press,Overhead Press,站姿杠铃推举,shoulders,肩部,Shoulders,人工审核翻译
+ex-shoulder-01,seated-dumbbell-press,Dumbbell Seated Shoulder Press,坐姿哑铃肩推,shoulders,肩部,Shoulders,旧 UUID 保留并修订
+ex-shoulder-04,arnold-press,Arnold Press,阿诺德推举,shoulders,肩部,Shoulders,旧 UUID 保留并修订
+ex-shoulder-02,lateral-raise,Lateral Raise,哑铃侧平举,shoulders,肩部,Shoulders,旧 UUID 保留并修订
+wg:cable-lateral-raise,cable-lateral-raise,Cable Lateral Raise,绳索侧平举,shoulders,肩部,Shoulders,人工审核翻译
+wg:front-raise,front-raise,Front Raise,哑铃前平举,shoulders,肩部,Shoulders,人工审核翻译
+wg:rear-delt-fly,rear-delt-fly,Rear Delt Fly,后束飞鸟,shoulders,肩部,Rear Delts,人工审核翻译
+wg:reverse-pec-deck,reverse-pec-deck,Reverse Pec Deck,反向蝴蝶机,shoulders,肩部,Rear Delts,人工审核翻译
+ex-shoulder-03,face-pull,Face Pull,面拉,back,背部,Upper Back,旧 UUID 保留并修订
+wg:upright-row,upright-row,Upright Row,直立划船,shoulders,肩部,Shoulders,人工审核翻译
+ex-back-06,deadlift,Deadlift,硬拉,core,核心,Posterior Chain,旧 UUID 保留并修订
+wg:romanian-deadlift,romanian-deadlift,Romanian Deadlift,罗马尼亚硬拉,legs,腿部,Hamstrings,人工审核翻译
+ex-back-05,barbell-row,Barbell Row,杠铃划船,back,背部,Back,旧 UUID 保留并修订
+wg:t-bar-row,t-bar-row,T-Bar Row,T 杠划船,back,背部,Back,人工审核翻译
+wg:dumbbell-bent-over-row,dumbbell-bent-over-row,Dumbbell Bent Over Row,俯身哑铃划船,back,背部,Back,人工审核翻译
+ex-back-04,one-arm-dumbbell-row,One-Arm Dumbbell Row,单臂哑铃划船,back,背部,Back,旧 UUID 保留并修订
+wg:chest-supported-row,chest-supported-row,Chest Supported Row,胸托划船,back,背部,Back,人工审核翻译
+ex-back-03,seated-row,Seated Cable Row,坐姿绳索划船,back,背部,Back,旧 UUID 保留并修订
+wg:machine-row,machine-row,Machine Row,器械划船,back,背部,Back,人工审核翻译
+ex-back-02,lat-pulldown,Lat Pulldown,高位下拉,back,背部,Lats,旧 UUID 保留并修订
+wg:close-grip-lat-pulldown,close-grip-lat-pulldown,Close-Grip Lat Pulldown,窄握高位下拉,back,背部,Lats,人工审核翻译
+wg:straight-arm-pulldown,straight-arm-pulldown,Straight-Arm Pulldown,直臂下压,back,背部,Lats,人工审核翻译
+ex-back-01,pull-up,Pull-up,引体向上,back,背部,Lats,旧 UUID 保留并修订
+wg:assisted-pull-up,assisted-pull-up,Assisted Pull-up,辅助引体向上,back,背部,Lats,人工审核翻译
+wg:weighted-pull-up,weighted-pull-up,Weighted Pull-up,负重引体向上,back,背部,Lats,人工审核翻译
+wg:chin-up,chin-up,Chin-up,反握引体向上,arms,手臂,Biceps,人工审核翻译
+wg:shrug,shrug,Barbell Shrug,杠铃耸肩,back,背部,Upper Back,人工审核翻译
+ex-leg-01,squat,Squat,杠铃深蹲,legs,腿部,Quads,旧 UUID 保留并修订
+wg:front-squat,front-squat,Front Squat,前蹲,legs,腿部,Quads,人工审核翻译
+wg:hack-squat,hack-squat,Hack Squat,哈克深蹲,legs,腿部,Quads,人工审核翻译
+ex-leg-04,leg-press,Leg Press,腿举,legs,腿部,Quads,旧 UUID 保留并修订
+wg:bulgarian-split-squat,bulgarian-split-squat,Bulgarian Split Squat,保加利亚分腿蹲,legs,腿部,Quads,人工审核翻译
+wg:walking-lunge,walking-lunge,Walking Lunge,行走箭步蹲,legs,腿部,Quads,人工审核翻译
+wg:step-up,step-up,Step-Up,登阶,legs,腿部,Quads,人工审核翻译
+wg:leg-extension,leg-extension,Leg Extension,腿屈伸,legs,腿部,Quads,人工审核翻译
+wg:leg-curl,leg-curl,Leg Curl,腿弯举,legs,腿部,Hamstrings,人工审核翻译
+wg:seated-leg-curl,seated-leg-curl,Seated Leg Curl,坐姿腿弯举,legs,腿部,Hamstrings,人工审核翻译
+wg:hip-thrust,hip-thrust,Hip Thrust,杠铃臀推,legs,腿部,Glutes,人工审核翻译
+wg:glute-bridge,glute-bridge,Glute Bridge,臀桥,legs,腿部,Glutes,人工审核翻译
+wg:good-morning,good-morning,Good Morning,早安式,legs,腿部,Hamstrings,人工审核翻译
+wg:standing-calf-raise,standing-calf-raise,Standing Calf Raise,站姿提踵,legs,腿部,Calves,人工审核翻译
+wg:seated-calf-raise,seated-calf-raise,Seated Calf Raise,坐姿提踵,legs,腿部,Calves,人工审核翻译
+ex-arm-02,bicep-curl,Bicep Curl,哑铃弯举,arms,手臂,Biceps,旧 UUID 保留并修订
+ex-arm-05,hammer-curl,Hammer Curl,锤式弯举,arms,手臂,Biceps,旧 UUID 保留并修订
+wg:preacher-curl,preacher-curl,Preacher Curl,牧师凳弯举,arms,手臂,Biceps,人工审核翻译
+wg:cable-curl,cable-curl,Cable Curl,绳索弯举,arms,手臂,Biceps,人工审核翻译
+wg:reverse-curl,reverse-curl,Reverse Curl,反握弯举,arms,手臂,Forearms,人工审核翻译
+wg:wrist-curl,wrist-curl,Wrist Curl,腕弯举,arms,手臂,Forearms,人工审核翻译
+ex-arm-03,tricep-pushdown,Tricep Pushdown,绳索下压,arms,手臂,Triceps,旧 UUID 保留并修订
+wg:overhead-tricep-extension,overhead-tricep-extension,Overhead Tricep Extension,过顶臂屈伸,arms,手臂,Triceps,人工审核翻译
+wg:skull-crusher,skull-crusher,Skull Crusher,碎颅者,arms,手臂,Triceps,人工审核翻译
+wg:close-grip-bench-press,close-grip-bench-press,Close-Grip Bench Press,窄握卧推,arms,手臂,Triceps,人工审核翻译
+wg:dip,dip,Dip,双杠臂屈伸,arms,手臂,Triceps,人工审核翻译
+wg:assisted-dip,assisted-dip,Assisted Dip,辅助双杠臂屈伸,arms,手臂,Triceps,人工审核翻译
+ex-core-01,plank,Plank,平板支撑,core,核心,Core,旧 UUID 保留并修订
+wg:side-plank,side-plank,Side Plank,侧平板支撑,core,核心,Core,人工审核翻译
+ex-core-05,hanging-leg-raise,Hanging Leg Raise,悬垂举腿,core,核心,Core,旧 UUID 保留并修订
+wg:cable-crunch,cable-crunch,Cable Crunch,绳索卷腹,core,核心,Core,人工审核翻译
+wg:ab-wheel,ab-wheel,Ab Wheel Rollout,健腹轮,core,核心,Core,人工审核翻译
+wg:running,running,Running,跑步,legs,腿部,Legs,人工审核翻译
+wg:walking,walking,Walking,步行,legs,腿部,Legs,人工审核翻译
+wg:cycling,cycling,Cycling,骑行,legs,腿部,Legs,人工审核翻译
+wg:rowing,rowing,Rowing,划船机,back,背部,Back,人工审核翻译
+wg:stair-climber,stair-climber,Stair Climber,爬楼机,legs,腿部,Legs,人工审核翻译
+ex-chest-06,dumbbell-fly,Dumbbell Fly,哑铃飞鸟,chest,胸部,Chest,旧 UUID 保留并修订
+wg:incline-cable-fly,incline-cable-fly,Incline Cable Fly,上斜绳索夹胸,chest,胸部,Chest,人工审核翻译
+wg:decline-dumbbell-press,decline-dumbbell-press,Decline Dumbbell Press,下斜哑铃卧推,chest,胸部,Chest,人工审核翻译
+wg:smith-machine-bench-press,smith-machine-bench-press,Smith Machine Bench Press,史密斯卧推,chest,胸部,Chest,人工审核翻译
+wg:landmine-press,landmine-press,Landmine Press,地雷架推举,shoulders,肩部,Shoulders,人工审核翻译
+wg:chest-dip,chest-dip,Chest Dip,胸部双杠臂屈伸,chest,胸部,Chest,人工审核翻译
+wg:weighted-dip,weighted-dip,Weighted Dip,负重双杠臂屈伸,arms,手臂,Triceps,人工审核翻译
+wg:machine-shoulder-press,machine-shoulder-press,Machine Shoulder Press,器械肩推,shoulders,肩部,Shoulders,人工审核翻译
+wg:standing-dumbbell-press,standing-dumbbell-press,Standing Dumbbell Press,站姿哑铃推举,shoulders,肩部,Shoulders,人工审核翻译
+wg:push-press,push-press,Push Press,借力推举,shoulders,肩部,Shoulders,人工审核翻译
+wg:machine-lateral-raise,machine-lateral-raise,Machine Lateral Raise,器械侧平举,shoulders,肩部,Shoulders,人工审核翻译
+wg:cable-front-raise,cable-front-raise,Cable Front Raise,绳索前平举,shoulders,肩部,Shoulders,人工审核翻译
+wg:plate-front-raise,plate-front-raise,Plate Front Raise,杠铃片前平举,shoulders,肩部,Shoulders,人工审核翻译
+ex-shoulder-05,bent-over-rear-delt-raise,Bent-Over Rear Delt Raise,俯身反向飞鸟,shoulders,肩部,Rear Delts,旧 UUID 保留并修订
+wg:cable-rear-delt-fly,cable-rear-delt-fly,Cable Rear Delt Fly,绳索后束飞鸟,shoulders,肩部,Rear Delts,人工审核翻译
+wg:pendlay-row,pendlay-row,Pendlay Row,彭德利划船,back,背部,Back,人工审核翻译
+wg:inverted-row,inverted-row,Inverted Row,反向划船,back,背部,Back,人工审核翻译
+wg:meadows-row,meadows-row,Meadows Row,梅多斯划船,back,背部,Back,人工审核翻译
+wg:single-arm-cable-row,single-arm-cable-row,Single-Arm Cable Row,单臂绳索划船,back,背部,Back,人工审核翻译
+wg:wide-grip-lat-pulldown,wide-grip-lat-pulldown,Wide-Grip Lat Pulldown,宽握高位下拉,back,背部,Lats,人工审核翻译
+wg:neutral-grip-pull-up,neutral-grip-pull-up,Neutral-Grip Pull-up,中立握引体向上,back,背部,Lats,人工审核翻译
+wg:assisted-chin-up,assisted-chin-up,Assisted Chin-up,辅助反握引体向上,arms,手臂,Biceps,人工审核翻译
+wg:weighted-chin-up,weighted-chin-up,Weighted Chin-up,负重反握引体向上,arms,手臂,Biceps,人工审核翻译
+wg:rack-pull,rack-pull,Rack Pull,架上硬拉,back,背部,Back,人工审核翻译
+wg:back-extension,back-extension,Back Extension,背部伸展,core,核心,Lower Back,人工审核翻译
+wg:dumbbell-shrug,dumbbell-shrug,Dumbbell Shrug,哑铃耸肩,back,背部,Upper Back,人工审核翻译
+ex-leg-02,goblet-squat,Goblet Squat,高脚杯深蹲,legs,腿部,Quads,旧 UUID 保留并修订
+wg:smith-machine-squat,smith-machine-squat,Smith Machine Squat,史密斯深蹲,legs,腿部,Quads,人工审核翻译
+wg:belt-squat,belt-squat,Belt Squat,腰带深蹲,legs,腿部,Quads,人工审核翻译
+wg:sumo-deadlift,sumo-deadlift,Sumo Deadlift,相扑硬拉,core,核心,Posterior Chain,人工审核翻译
+wg:trap-bar-deadlift,trap-bar-deadlift,Trap Bar Deadlift,六角杠硬拉,core,核心,Posterior Chain,人工审核翻译
+wg:lying-leg-curl,lying-leg-curl,Lying Leg Curl,俯卧腿弯举,legs,腿部,Hamstrings,人工审核翻译
+wg:nordic-hamstring-curl,nordic-hamstring-curl,Nordic Hamstring Curl,北欧腿弯举,legs,腿部,Hamstrings,人工审核翻译
+wg:single-leg-romanian-deadlift,single-leg-romanian-deadlift,Single-Leg Romanian Deadlift,单腿罗马尼亚硬拉,legs,腿部,Hamstrings,人工审核翻译
+wg:reverse-lunge,reverse-lunge,Reverse Lunge,后撤箭步蹲,legs,腿部,Quads,人工审核翻译
+wg:split-squat,split-squat,Split Squat,分腿蹲,legs,腿部,Quads,人工审核翻译
+wg:cable-kickback,cable-kickback,Cable Kickback,绳索后踢腿,legs,腿部,Glutes,人工审核翻译
+wg:hip-abduction-machine,hip-abduction-machine,Hip Abduction Machine,髋外展机,legs,腿部,Glutes,人工审核翻译
+wg:single-leg-glute-bridge,single-leg-glute-bridge,Single-Leg Glute Bridge,单腿臀桥,legs,腿部,Glutes,人工审核翻译
+wg:barbell-glute-bridge,barbell-glute-bridge,Barbell Glute Bridge,杠铃臀桥,legs,腿部,Glutes,人工审核翻译
+wg:dumbbell-glute-bridge,dumbbell-glute-bridge,Dumbbell Glute Bridge,哑铃臀桥,legs,腿部,Glutes,人工审核翻译
+wg:dumbbell-hip-thrust,dumbbell-hip-thrust,Dumbbell Hip Thrust,哑铃臀推,legs,腿部,Glutes,人工审核翻译
+wg:smith-machine-hip-thrust,smith-machine-hip-thrust,Smith Machine Hip Thrust,史密斯臀推,legs,腿部,Glutes,人工审核翻译
+wg:smith-machine-romanian-deadlift,smith-machine-romanian-deadlift,Smith Machine Romanian Deadlift,史密斯罗马尼亚硬拉,legs,腿部,Hamstrings,人工审核翻译
+ex-leg-03,dumbbell-romanian-deadlift,Dumbbell Romanian Deadlift,哑铃罗马尼亚硬拉,legs,腿部,Hamstrings,旧 UUID 保留并修订
+wg:kettlebell-romanian-deadlift,kettlebell-romanian-deadlift,Kettlebell Romanian Deadlift,壶铃罗马尼亚硬拉,legs,腿部,Hamstrings,人工审核翻译
+wg:cable-pull-through,cable-pull-through,Cable Pull-Through,绳索屈髋拉伸,legs,腿部,Glutes,人工审核翻译
+wg:machine-glute-kickback,machine-glute-kickback,Machine Glute Kickback,器械后踢腿,legs,腿部,Glutes,人工审核翻译
+wg:cable-standing-hip-abduction,cable-standing-hip-abduction,Cable Standing Hip Abduction,站姿绳索髋外展,legs,腿部,Glutes,人工审核翻译
+wg:cable-standing-hip-adduction,cable-standing-hip-adduction,Cable Standing Hip Adduction,站姿绳索髋内收,legs,腿部,Adductors,人工审核翻译
+wg:hip-adduction-machine,hip-adduction-machine,Hip Adduction Machine,髋内收机,legs,腿部,Adductors,人工审核翻译
+wg:smith-machine-bulgarian-split-squat,smith-machine-bulgarian-split-squat,Smith Machine Bulgarian Split Squat,史密斯保加利亚分腿蹲,legs,腿部,Quads,人工审核翻译
+wg:smith-machine-reverse-lunge,smith-machine-reverse-lunge,Smith Machine Reverse Lunge,史密斯后撤箭步蹲,legs,腿部,Quads,人工审核翻译
+wg:smith-machine-split-squat,smith-machine-split-squat,Smith Machine Split Squat,史密斯分腿蹲,legs,腿部,Quads,人工审核翻译
+wg:heel-elevated-goblet-squat,heel-elevated-goblet-squat,Heel-Elevated Goblet Squat,垫脚高脚杯深蹲,legs,腿部,Quads,人工审核翻译
+wg:dumbbell-sumo-squat,dumbbell-sumo-squat,Dumbbell Sumo Squat,哑铃相扑深蹲,legs,腿部,Glutes,人工审核翻译
+wg:dumbbell-sumo-deadlift,dumbbell-sumo-deadlift,Dumbbell Sumo Deadlift,哑铃相扑硬拉,core,核心,Posterior Chain,人工审核翻译
+wg:front-foot-elevated-split-squat,front-foot-elevated-split-squat,Front-Foot Elevated Split Squat,前脚垫高分腿蹲,legs,腿部,Quads,人工审核翻译
+wg:deficit-reverse-lunge,deficit-reverse-lunge,Deficit Reverse Lunge,低位后撤箭步蹲,legs,腿部,Glutes,人工审核翻译
+wg:dumbbell-lateral-lunge,dumbbell-lateral-lunge,Dumbbell Lateral Lunge,哑铃侧向箭步蹲,legs,腿部,Quads,人工审核翻译
+wg:dumbbell-curtsy-lunge,dumbbell-curtsy-lunge,Dumbbell Curtsy Lunge,哑铃屈膝箭步蹲,legs,腿部,Glutes,人工审核翻译
+wg:landmine-squat,landmine-squat,Landmine Squat,地雷架深蹲,legs,腿部,Quads,人工审核翻译
+wg:landmine-romanian-deadlift,landmine-romanian-deadlift,Landmine Romanian Deadlift,地雷架罗马尼亚硬拉,legs,腿部,Hamstrings,人工审核翻译
+wg:kettlebell-swing,kettlebell-swing,Kettlebell Swing,壶铃摆荡,legs,腿部,Glutes,人工审核翻译
+wg:glute-focused-back-extension,glute-focused-back-extension,Glute-Focused Back Extension,臀向背部伸展,legs,腿部,Glutes,人工审核翻译
+wg:reverse-hyperextension,reverse-hyperextension,Reverse Hyperextension,反向挺身,legs,腿部,Glutes,人工审核翻译
+wg:donkey-calf-raise,donkey-calf-raise,Donkey Calf Raise,驴式提踵,legs,腿部,Calves,人工审核翻译
+wg:leg-press-calf-raise,leg-press-calf-raise,Leg Press Calf Raise,腿举提踵,legs,腿部,Calves,人工审核翻译
+wg:wall-sit,wall-sit,Wall Sit,靠墙静蹲,legs,腿部,Quads,人工审核翻译
+wg:jump-squat,jump-squat,Jump Squat,跳跃深蹲,legs,腿部,Quads,人工审核翻译
+wg:incline-dumbbell-curl,incline-dumbbell-curl,Incline Dumbbell Curl,上斜哑铃弯举,arms,手臂,Biceps,人工审核翻译
+wg:concentration-curl,concentration-curl,Concentration Curl,集中弯举,arms,手臂,Biceps,人工审核翻译
+ex-arm-01,ez-bar-curl,EZ-Bar Curl,EZ 杠弯举,arms,手臂,Biceps,旧 UUID 保留并修订
+wg:spider-curl,spider-curl,Spider Curl,蜘蛛弯举,arms,手臂,Biceps,人工审核翻译
+wg:rope-hammer-curl,rope-hammer-curl,Rope Hammer Curl,绳索锤式弯举,arms,手臂,Biceps,人工审核翻译
+wg:drag-curl,drag-curl,Drag Curl,拖曳弯举,arms,手臂,Biceps,人工审核翻译
+wg:rope-tricep-pushdown,rope-tricep-pushdown,Rope Tricep Pushdown,绳索绳柄下压,arms,手臂,Triceps,人工审核翻译
+wg:dumbbell-skull-crusher,dumbbell-skull-crusher,Two Dumbbell Skullcrusher,双哑铃碎颅者,arms,手臂,Triceps,人工审核翻译
+wg:single-dumbbell-skullcrusher,single-dumbbell-skullcrusher,Single Dumbbell Skullcrusher,单哑铃碎颅者,arms,手臂,Triceps,人工审核翻译
+wg:dumbbell-overhead-tricep-extension,dumbbell-overhead-tricep-extension,Dumbbell Overhead Tricep Extension,哑铃过顶臂屈伸,arms,手臂,Triceps,人工审核翻译
+wg:single-arm-dumbbell-tricep-extension,single-arm-dumbbell-tricep-extension,Single Arm Dumbbell Tricep Extension,单臂哑铃臂屈伸,arms,手臂,Triceps,人工审核翻译
+wg:bench-dip,bench-dip,Bench Dip,凳上臂屈伸,arms,手臂,Triceps,人工审核翻译
+wg:tricep-kickback,tricep-kickback,Tricep Kickback,俯身臂屈伸,arms,手臂,Triceps,人工审核翻译
+wg:wrist-extension,wrist-extension,Wrist Extension,腕伸展,arms,手臂,Forearms,人工审核翻译
+wg:farmer-carry,farmer-carry,Farmer Carry,农夫行走,arms,手臂,Forearms,人工审核翻译
+ex-core-02,crunch,Crunch,卷腹,core,核心,Core,旧 UUID 保留并修订
+wg:reverse-crunch,reverse-crunch,Reverse Crunch,反向卷腹,core,核心,Core,人工审核翻译
+ex-core-04,russian-twist,Russian Twist,俄罗斯转体,core,核心,Core,旧 UUID 保留并修订
+wg:bicycle-crunch,bicycle-crunch,Bicycle Crunch,自行车卷腹,core,核心,Core,人工审核翻译
+wg:mountain-climber,mountain-climber,Mountain Climber,登山跑,core,核心,Core,人工审核翻译
+ex-core-03,dead-bug,Dead Bug,死虫式,core,核心,Core,旧 UUID 保留并修订
+wg:bird-dog,bird-dog,Bird Dog,鸟狗式,core,核心,Core,人工审核翻译
+wg:pallof-press,pallof-press,Pallof Press,抗旋转推举,core,核心,Core,人工审核翻译
+wg:cable-woodchop,cable-woodchop,Cable Woodchop,绳索伐木,core,核心,Core,人工审核翻译
+wg:half-kneeling-pallof-press,half-kneeling-pallof-press,Half-Kneeling Pallof Press,半跪抗旋转推举,core,核心,Core,人工审核翻译
+wg:cable-pallof-hold,cable-pallof-hold,Cable Pallof Hold,绳索抗旋转保持,core,核心,Core,人工审核翻译
+wg:hanging-knee-raise,hanging-knee-raise,Hanging Knee Raise,悬垂屈膝举腿,core,核心,Core,人工审核翻译
+wg:captains-chair-knee-raise,captains-chair-knee-raise,Captain's Chair Knee Raise,罗马椅屈膝举腿,core,核心,Core,人工审核翻译
+wg:decline-sit-up,decline-sit-up,Decline Sit-Up,下斜仰卧起坐,core,核心,Core,人工审核翻译
+wg:weighted-crunch,weighted-crunch,Weighted Crunch,负重卷腹,core,核心,Core,人工审核翻译
+wg:weighted-russian-twist,weighted-russian-twist,Weighted Russian Twist,负重俄罗斯转体,core,核心,Core,人工审核翻译
+wg:dumbbell-side-bend,dumbbell-side-bend,Dumbbell Side Bend,哑铃体侧屈,core,核心,Core,人工审核翻译
+wg:elliptical,elliptical,Elliptical,椭圆机,legs,腿部,Legs,人工审核翻译
+wg:swimming,swimming,Swimming,游泳,back,背部,Back,人工审核翻译
+wg:jump-rope,jump-rope,Jump Rope,跳绳,legs,腿部,Calves,人工审核翻译
+wg:assault-bike,assault-bike,Assault Bike,风阻单车,legs,腿部,Legs,人工审核翻译
+wg:skierg,skierg,SkiErg,滑雪机,back,背部,Back,人工审核翻译
+wg:hiking,hiking,Hiking,徒步,legs,腿部,Legs,人工审核翻译
+wg:treadmill-incline-walk,treadmill-incline-walk,Treadmill Incline Walk,跑步机上坡走,legs,腿部,Legs,人工审核翻译
+wg:battle-ropes,battle-ropes,Battle Ropes,战绳,shoulders,肩部,Shoulders,人工审核翻译
+wg:incline-push-up,incline-push-up,Incline Push-up,上斜俯卧撑,chest,胸部,Chest,人工审核翻译
+wg:knee-push-up,knee-push-up,Knee Push-up,跪姿俯卧撑,chest,胸部,Chest,人工审核翻译
+wg:wide-push-up,wide-push-up,Wide Push-up,宽距俯卧撑,chest,胸部,Chest,人工审核翻译
+ex-arm-04,diamond-push-up,Diamond Push-up,钻石俯卧撑,arms,手臂,Triceps,旧 UUID 保留并修订
+wg:decline-push-up,decline-push-up,Decline Push-up,下斜俯卧撑,chest,胸部,Chest,人工审核翻译
+wg:pike-push-up,pike-push-up,Pike Push-up,尖角俯卧撑,shoulders,肩部,Shoulders,人工审核翻译
+wg:feet-elevated-pike-push-up,feet-elevated-pike-push-up,Feet-Elevated Pike Push-up,垫脚尖角俯卧撑,shoulders,肩部,Shoulders,人工审核翻译
+wg:archer-push-up,archer-push-up,Archer Push-up,弓箭手俯卧撑,chest,胸部,Chest,人工审核翻译
+wg:typewriter-push-up,typewriter-push-up,Typewriter Push-up,打字机俯卧撑,chest,胸部,Chest,人工审核翻译
+wg:explosive-push-up,explosive-push-up,Explosive Push-up,爆发俯卧撑,chest,胸部,Chest,人工审核翻译
+wg:hindu-push-up,hindu-push-up,Hindu Push-up,印度俯卧撑,chest,胸部,Chest,人工审核翻译
+wg:scapular-push-up,scapular-push-up,Scapular Push-up,肩胛俯卧撑,back,背部,Upper Back,人工审核翻译
+wg:push-up-shoulder-tap,push-up-shoulder-tap,Push-up Shoulder Tap,俯卧撑拍肩,core,核心,Core,人工审核翻译
+wg:wall-push-up,wall-push-up,Wall Push-up,靠墙俯卧撑,chest,胸部,Chest,人工审核翻译
+wg:wall-walk,wall-walk,Wall Walk,靠墙爬行,shoulders,肩部,Shoulders,人工审核翻译
+wg:wall-handstand-push-up,wall-handstand-push-up,Wall Handstand Push-up,靠墙倒立撑,shoulders,肩部,Shoulders,人工审核翻译
+wg:handstand-push-up,handstand-push-up,Handstand Push-up,倒立撑,shoulders,肩部,Shoulders,人工审核翻译
+wg:chair-dip,chair-dip,Chair Dip,椅子臂屈伸,arms,手臂,Triceps,人工审核翻译
+wg:doorway-row,doorway-row,Doorway Row,门框划船,back,背部,Back,人工审核翻译
+wg:towel-row,towel-row,Towel Row,毛巾划船,back,背部,Back,人工审核翻译
+wg:prone-y-raise,prone-y-raise,Prone Y Raise,俯卧 Y 字抬起,back,背部,Upper Back,人工审核翻译
+wg:prone-t-raise,prone-t-raise,Prone T Raise,俯卧 T 字抬起,back,背部,Upper Back,人工审核翻译
+wg:superman,superman,Superman,超人式,core,核心,Lower Back,人工审核翻译
+wg:superman-hold,superman-hold,Superman Hold,超人式保持,core,核心,Lower Back,人工审核翻译
+wg:reverse-snow-angel,reverse-snow-angel,Reverse Snow Angel,反向雪天使,back,背部,Upper Back,人工审核翻译
+wg:dead-hang,dead-hang,Dead Hang,悬垂,arms,手臂,Forearms,人工审核翻译
+wg:active-hang,active-hang,Active Hang,主动悬垂,back,背部,Lats,人工审核翻译
+wg:scapular-pull-up,scapular-pull-up,Scapular Pull-up,肩胛引体向上,back,背部,Lats,人工审核翻译
+wg:negative-pull-up,negative-pull-up,Negative Pull-up,离心引体向上,back,背部,Lats,人工审核翻译
+wg:commando-pull-up,commando-pull-up,Commando Pull-up,对握引体向上,back,背部,Lats,人工审核翻译
+wg:l-sit-pull-up,l-sit-pull-up,L-Sit Pull-up,L 坐引体向上,back,背部,Lats,人工审核翻译
+wg:towel-pull-up,towel-pull-up,Towel Pull-up,毛巾引体向上,back,背部,Lats,人工审核翻译
+wg:bodyweight-squat,bodyweight-squat,Bodyweight Squat,自重深蹲,legs,腿部,Quads,人工审核翻译
+wg:pistol-squat,pistol-squat,Pistol Squat,手枪深蹲,legs,腿部,Quads,人工审核翻译
+wg:assisted-pistol-squat,assisted-pistol-squat,Assisted Pistol Squat,辅助手枪深蹲,legs,腿部,Quads,人工审核翻译
+wg:shrimp-squat,shrimp-squat,Shrimp Squat,虾式深蹲,legs,腿部,Quads,人工审核翻译
+wg:cossack-squat,cossack-squat,Cossack Squat,哥萨克深蹲,legs,腿部,Quads,人工审核翻译
+wg:sissy-squat,sissy-squat,Sissy Squat,西西深蹲,legs,腿部,Quads,人工审核翻译
+ex-leg-05,forward-lunge,Forward Lunge,箭步蹲,legs,腿部,Quads,旧 UUID 保留并修订
+wg:lateral-lunge,lateral-lunge,Lateral Lunge,侧向箭步蹲,legs,腿部,Quads,人工审核翻译
+wg:curtsy-lunge,curtsy-lunge,Curtsy Lunge,屈膝箭步蹲,legs,腿部,Glutes,人工审核翻译
+wg:skater-squat,skater-squat,Skater Squat,滑冰者深蹲,legs,腿部,Quads,人工审核翻译
+wg:single-leg-box-squat,single-leg-box-squat,Single-Leg Box Squat,单腿箱式深蹲,legs,腿部,Quads,人工审核翻译
+wg:step-down,step-down,Step-Down,下台阶,legs,腿部,Quads,人工审核翻译
+ex-leg-06,calf-raise,Calf Raise,提踵,legs,腿部,Calves,旧 UUID 保留并修订
+wg:single-leg-calf-raise,single-leg-calf-raise,Single-Leg Calf Raise,单腿提踵,legs,腿部,Calves,人工审核翻译
+wg:glute-bridge-march,glute-bridge-march,Glute Bridge March,臀桥抬腿,legs,腿部,Glutes,人工审核翻译
+wg:frog-pump,frog-pump,Frog Pump,蛙式臀桥,legs,腿部,Glutes,人工审核翻译
+wg:donkey-kick,donkey-kick,Donkey Kick,驴踢腿,legs,腿部,Glutes,人工审核翻译
+wg:fire-hydrant,fire-hydrant,Fire Hydrant,消防栓式,legs,腿部,Glutes,人工审核翻译
+wg:clamshell,clamshell,Clamshell,蚌式开合,legs,腿部,Glutes,人工审核翻译
+wg:hip-airplane,hip-airplane,Hip Airplane,髋部飞机式,legs,腿部,Glutes,人工审核翻译
+wg:side-lying-hip-abduction,side-lying-hip-abduction,Side-Lying Hip Abduction,侧卧髋外展,legs,腿部,Glutes,人工审核翻译
+wg:side-lying-leg-raise,side-lying-leg-raise,Side-Lying Leg Raise,侧卧抬腿,legs,腿部,Glutes,人工审核翻译
+wg:lying-hamstring-walkout,lying-hamstring-walkout,Lying Hamstring Walkout,仰卧腘绳肌行走,legs,腿部,Hamstrings,人工审核翻译
+wg:towel-hamstring-curl,towel-hamstring-curl,Towel Hamstring Curl,毛巾腿弯举,legs,腿部,Hamstrings,人工审核翻译
+wg:stability-ball-hamstring-curl,stability-ball-hamstring-curl,Stability Ball Hamstring Curl,健身球腿弯举,legs,腿部,Hamstrings,人工审核翻译
+wg:banded-glute-bridge,banded-glute-bridge,Banded Glute Bridge,弹力带臀桥,legs,腿部,Glutes,人工审核翻译
+wg:banded-hip-thrust,banded-hip-thrust,Banded Hip Thrust,弹力带臀推,legs,腿部,Glutes,人工审核翻译
+wg:banded-frog-pump,banded-frog-pump,Banded Frog Pump,弹力带蛙式臀桥,legs,腿部,Glutes,人工审核翻译
+wg:banded-clamshell,banded-clamshell,Banded Clamshell,弹力带蚌式开合,legs,腿部,Glutes,人工审核翻译
+wg:banded-lateral-walk,banded-lateral-walk,Banded Lateral Walk,弹力带侧向行走,legs,腿部,Glutes,人工审核翻译
+wg:banded-monster-walk,banded-monster-walk,Banded Monster Walk,弹力带怪物行走,legs,腿部,Glutes,人工审核翻译
+wg:banded-squat,banded-squat,Banded Squat,弹力带深蹲,legs,腿部,Quads,人工审核翻译
+wg:banded-donkey-kick,banded-donkey-kick,Banded Donkey Kick,弹力带驴踢腿,legs,腿部,Glutes,人工审核翻译
+wg:banded-fire-hydrant,banded-fire-hydrant,Banded Fire Hydrant,弹力带消防栓式,legs,腿部,Glutes,人工审核翻译
+wg:banded-kickback,banded-kickback,Banded Kickback,弹力带后踢腿,legs,腿部,Glutes,人工审核翻译
+wg:banded-standing-hip-abduction,banded-standing-hip-abduction,Banded Standing Hip Abduction,站姿弹力带髋外展,legs,腿部,Glutes,人工审核翻译
+wg:banded-seated-hip-abduction,banded-seated-hip-abduction,Banded Seated Hip Abduction,坐姿弹力带髋外展,legs,腿部,Glutes,人工审核翻译
+wg:band-pull-apart,band-pull-apart,Band Pull-Apart,弹力带拉开,back,背部,Upper Back,人工审核翻译
+wg:banded-face-pull,banded-face-pull,Banded Face Pull,弹力带面拉,back,背部,Upper Back,人工审核翻译
+wg:banded-row,banded-row,Banded Row,弹力带划船,back,背部,Back,人工审核翻译
+wg:banded-lat-pulldown,banded-lat-pulldown,Banded Lat Pulldown,弹力带高位下拉,back,背部,Lats,人工审核翻译
+wg:banded-pallof-press,banded-pallof-press,Banded Pallof Press,弹力带抗旋转推举,core,核心,Core,人工审核翻译
+wg:banded-woodchop,banded-woodchop,Banded Woodchop,弹力带伐木,core,核心,Core,人工审核翻译
+wg:banded-dead-bug,banded-dead-bug,Banded Dead Bug,弹力带死虫式,core,核心,Core,人工审核翻译
+wg:hollow-body-hold,hollow-body-hold,Hollow Body Hold,空心保持,core,核心,Core,人工审核翻译
+wg:hollow-rock,hollow-rock,Hollow Rock,空心摇摆,core,核心,Core,人工审核翻译
+wg:v-up,v-up,V-Up,V 字起坐,core,核心,Core,人工审核翻译
+wg:flutter-kick,flutter-kick,Flutter Kick,交替摆腿,core,核心,Core,人工审核翻译
+wg:lying-leg-raise,lying-leg-raise,Lying Leg Raise,仰卧举腿,core,核心,Core,人工审核翻译
+wg:toe-touch,toe-touch,Toe Touch,触碰脚趾,core,核心,Core,人工审核翻译
+wg:heel-tap,heel-tap,Heel Tap,脚跟轻点,core,核心,Core,人工审核翻译
+wg:plank-shoulder-tap,plank-shoulder-tap,Plank Shoulder Tap,平板拍肩,core,核心,Core,人工审核翻译
+wg:plank-jack,plank-jack,Plank Jack,平板开合跳,core,核心,Core,人工审核翻译
+wg:bear-plank,bear-plank,Bear Plank,熊式平板,core,核心,Core,人工审核翻译
+wg:bear-crawl,bear-crawl,Bear Crawl,熊爬,core,核心,Core,人工审核翻译
+wg:crab-walk,crab-walk,Crab Walk,蟹行,arms,手臂,Triceps,人工审核翻译
+wg:inchworm,inchworm,Inchworm,毛毛虫式,core,核心,Core,人工审核翻译
+wg:l-sit-hold,l-sit-hold,L-Sit Hold,L 坐保持,core,核心,Core,人工审核翻译
+wg:seated-knee-tuck,seated-knee-tuck,Seated Knee Tuck,坐姿屈膝收腹,core,核心,Core,人工审核翻译
+wg:side-plank-hip-dip,side-plank-hip-dip,Side Plank Hip Dip,侧平板髋下沉,core,核心,Core,人工审核翻译
+wg:copenhagen-plank,copenhagen-plank,Copenhagen Plank,哥本哈根平板,core,核心,Core,人工审核翻译
+wg:dragon-flag,dragon-flag,Dragon Flag,龙旗,core,核心,Core,人工审核翻译
+wg:burpee,burpee,Burpee,波比跳,legs,腿部,Legs,人工审核翻译
+wg:half-burpee,half-burpee,Half Burpee,半程波比跳,core,核心,Core,人工审核翻译
+wg:squat-thrust,squat-thrust,Squat Thrust,深蹲俯卧撑跳,core,核心,Core,人工审核翻译
+wg:high-knees,high-knees,High Knees,高抬腿,legs,腿部,Legs,人工审核翻译
+wg:jumping-jack,jumping-jack,Jumping Jack,开合跳,legs,腿部,Legs,人工审核翻译
+wg:skater-hop,skater-hop,Skater Hop,滑冰者跳,legs,腿部,Legs,人工审核翻译
+wg:lateral-shuffle,lateral-shuffle,Lateral Shuffle,侧向滑步,legs,腿部,Legs,人工审核翻译
+wg:fast-feet,fast-feet,Fast Feet,快速脚步,legs,腿部,Calves,人工审核翻译
+wg:sprawl,sprawl,Sprawl,俯身跳,legs,腿部,Legs,人工审核翻译
+wg:seal-jack,seal-jack,Seal Jack,海豹跳,chest,胸部,Chest,人工审核翻译
+wg:cat-cow-stretch,cat-cow-stretch,Cat-Cow Stretch,猫牛式,mobility,拉伸,Mobility,人工审核翻译
+wg:arm-circles,arm-circles,Arm Circles,绕臂,shoulders,肩部,Shoulders,人工审核翻译
+wg:worlds-greatest-stretch,worlds-greatest-stretch,World's Greatest Stretch,世界最佳拉伸,mobility,拉伸,Mobility,人工审核翻译
+wg:leg-swings-stretch,leg-swings-stretch,Leg Swings,腿部摆动,mobility,拉伸,Mobility,人工审核翻译
+wg:torso-twist-stretch,torso-twist-stretch,Torso Twists,躯干扭转,mobility,拉伸,Mobility,人工审核翻译
+ex-stretch-01,doorway-chest-stretch,Doorway Chest Stretch,门框胸部拉伸,chest,胸部,Chest,旧 UUID 保留并修订
+ex-stretch-02,childs-pose,Child's Pose,婴儿式,back,背部,Back,旧 UUID 保留并修订
+ex-stretch-05,kneeling-hip-flexor-stretch,Kneeling Hip Flexor Stretch,跪姿髋屈肌拉伸,core,核心,Hips,旧 UUID 保留并修订
+ex-stretch-04,hamstring-stretch,Hamstring Stretch,腘绳肌拉伸,legs,腿部,Hamstrings,旧 UUID 保留并修订
+ex-stretch-03,standing-quad-stretch,Standing Quad Stretch,站姿股四头肌拉伸,legs,腿部,Quads,旧 UUID 保留并修订
+wg:seated-forward-fold-stretch,seated-forward-fold-stretch,Seated Forward Fold,坐姿前屈,legs,腿部,Hamstrings,人工审核翻译
+wg:cross-body-shoulder-stretch,cross-body-shoulder-stretch,Cross-Body Shoulder Stretch,交叉肩部拉伸,shoulders,肩部,Shoulders,人工审核翻译
+wg:wall-calf-stretch,wall-calf-stretch,Wall Calf Stretch,靠墙小腿拉伸,legs,腿部,Calves,人工审核翻译
+wg:butterfly-stretch,butterfly-stretch,Butterfly Stretch,蝴蝶式拉伸,core,核心,Hips,人工审核翻译
