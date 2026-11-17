@@ -42,6 +42,15 @@ interface OmniFoodCatalogDao {
     @Query("SELECT * FROM food_entity WHERE food_id = :foodId LIMIT 1")
     suspend fun findById(foodId: String): OmniFoodEntity?
 
+    /**
+     * 按中文名精确找 OmniFood 条目。
+     * 166 条内部没有重名（ETL 后校验过），所以名字能唯一定位；
+     * 和老 654 条撞名的 34 条（米饭、橙子…）不影响——这里只查 food_entity 这张新表。
+     * 界面拿到的 Food 来自 food_catalog 主表，靠 name == name_cn 接到这条细账上。
+     */
+    @Query("SELECT * FROM food_entity WHERE name_cn = :nameCn LIMIT 1")
+    suspend fun findByNameCn(nameCn: String): OmniFoodEntity?
+
     @Query("SELECT * FROM food_nutrition WHERE food_id = :foodId LIMIT 1")
     suspend fun nutritionFor(foodId: String): OmniFoodNutrition?
 

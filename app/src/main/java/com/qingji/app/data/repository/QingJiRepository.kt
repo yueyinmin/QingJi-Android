@@ -32,6 +32,7 @@ import com.qingji.app.data.remote.AiRecognitionResult
 import com.qingji.app.data.remote.OpenFoodFactsClient
 import com.qingji.app.domain.AiResultRules
 import com.qingji.app.domain.NutritionMatch
+import com.qingji.app.domain.OmniFoodDetail
 import com.qingji.app.domain.Per100g
 import androidx.room.withTransaction
 import kotlinx.coroutines.flow.Flow
@@ -58,6 +59,7 @@ class QingJiRepository(private val context: Context) {
     private val foodApi = OpenFoodFactsClient()
 
     private val catalogDao = catalog.catalogDao()
+    private val omniDao = catalog.omniFoodDao()
     private val userFoodDao = db.userFoodDao()
     private val favoriteDao = db.foodFavoriteDao()
 
@@ -291,6 +293,33 @@ class QingJiRepository(private val context: Context) {
     }
 
     suspend fun foodCount(): Int = catalogDao.count() + userFoodDao.count()
+
+    /**
+     * OmniFood8K 一条食物的「细账」：组成明细 + 样本来源 + 异常提示。
+     * v1.3.2 界面接入——主表早就搜得到这 166 条，这里把只读新表里的细账
+     * 按中文名接出来，给搜索页的份量弹窗展示。
+     *
+     * 只有 OmniFood8K 来源的食物才有细账：别的来源直接返回 null，
+     * 界面不显示这一块，行为和旧版完全一样。
+     */
+    suspend fun omniFoodDetail(food: Food): OmniFoodDetail? {
+        if (food.sourceId != "OmniFood8K") return null
+        val entity = omniDao.findByNameCn(food.name) ?: return null
+        val nutrition = omniDao.nutritionFor(entity.foodId)
+        val sampleId = nutrition?.sourceSampleId?.takeIf { it.isNotBlank() }
+        val sample = sampleId?.let { omniDao.sampleById(it) }
+        val composition = sample?.let { omniDao.compositionForSample(it.sampleId) } ?: emptyList()
+        val issues = sample?.let { omniDao.issuesForSample(it.sampleId) } ?: emptyList()
+        // 营养和明细都查不到时，弹一块空卡片没意义，直接当没有
+        if (nutrition == null && composition.isEmpty()) return null
+        return OmniFoodDetail(
+            entity = entity,
+            nutrition = nutrition,
+            sample = sample,
+            composition = composition,
+            issueFlags = issues.map { it.issueFlags }
+        )
+    }
 
     /** 可订阅的总条数（标准库 + 用户自建），搜索页靠它区分「载入中 / 空 / 没搜到」。 */
     fun observeFoodCount(): Flow<Int> =
