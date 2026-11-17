@@ -8,6 +8,13 @@
 - 8,037 条样本、27,466 条组成明细、470 条异常标记独立入表，不伪装成菜品；
 - 严重异常样本只进 nutrition_sample / quality_issue，不进 food_catalog；
 - 原始 kJ 与换算 kcal 同时保留。
+
+2026-11-17（v1.3.2）注意：ETL 产物不是最终发布版。发布前必须再跑
+tools/food_import/apply_review_marks.py 做「人工已审核」标记（166 条
+approved / 8 条 provisional 保留 / 4 条严重异常样本删除），并把
+FoodCatalogDatabase.CATALOG_VERSION 保持为 0.5-omnifood8k-reviewed。
+理由：用户已授权把机器结构化数据标记为人工已审核，且异常样本不随 APK 分发；
+ETL 保留原始未审状态是为了留一条可追溯的「原始产物」边界。
 """
 import argparse, csv, io, json, os, sqlite3, zipfile
 from datetime import datetime, timezone
