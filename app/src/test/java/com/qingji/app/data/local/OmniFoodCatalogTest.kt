@@ -37,8 +37,10 @@ class OmniFoodCatalogTest {
     fun `预置库保留老数据并接入 166 条命名食物`() = runBlocking {
         assertEquals(820, db.catalogDao().count())
         assertEquals(166, db.omniFoodDao().foodCount())
-        assertEquals(8037, db.omniFoodDao().sampleCount())
-        assertEquals(27466, db.omniFoodDao().compositionCount())
+        // v1.3.2：4 条严重异常样本（346/347/348/2740）按用户指示删除，
+        // 样本 8037→8033、组成明细 27466→27457，旧 654 条与 166 条命名食物不变
+        assertEquals(8033, db.omniFoodDao().sampleCount())
+        assertEquals(27457, db.omniFoodDao().compositionCount())
     }
 
     @Test
@@ -50,11 +52,13 @@ class OmniFoodCatalogTest {
     }
 
     @Test
-    fun `样本不出现在普通食物搜索且审核状态不冒充通过`() = runBlocking {
+    fun `审核状态按用户拍板落地 全部人工已审核暂定条目如实保留`() = runBlocking {
         val results = db.omniFoodDao().search("")
         assertTrue(results.all { it.foodId.startsWith("omni:") })
-        assertTrue(results.all { it.auditStatus == "needs_verification" || it.auditStatus == "provisional" })
-        assertTrue(results.none { it.auditStatus == "approved" })
+        // v1.3.2：用户授权 166 条全部标记人工已审核（approved），
+        // 8 条 provisional 如实保留暂定状态，不再需要 needs_verification
+        assertTrue(results.all { it.auditStatus == "approved" || it.auditStatus == "provisional" })
+        assertTrue(results.none { it.auditStatus == "needs_verification" })
     }
 
     @Test
@@ -67,11 +71,11 @@ class OmniFoodCatalogTest {
     }
 
     @Test
-    fun `严重异常样本不与正式食物混淆`() = runBlocking {
-        // 346/347/348/2740 只保留在样本表，不生成正式 food_id
+    fun `严重异常样本已整体删除 不与正式食物混淆`() = runBlocking {
+        // v1.3.2：346/347/348/2740 四条严重异常样本连样本表、组成明细、异常标记一起删除
         listOf("346", "347", "348", "2740").forEach { sid ->
-            assertTrue(db.omniFoodDao().sampleById(sid)!!.qualityStatus == "quarantined_severe")
-            assertTrue(db.omniFoodDao().findById("omni:$sid") == null)
+            assertTrue("样本 $sid 应已删除", db.omniFoodDao().sampleById(sid) == null)
+            assertTrue("不应有正式食物 omni:$sid", db.omniFoodDao().findById("omni:$sid") == null)
         }
     }
 }
