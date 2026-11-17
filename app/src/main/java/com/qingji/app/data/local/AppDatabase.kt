@@ -24,6 +24,7 @@ import com.qingji.app.data.local.dao.UserProfileDao
 import com.qingji.app.data.local.dao.WaterLogDao
 import com.qingji.app.data.local.dao.WeightLogDao
 import com.qingji.app.data.local.dao.ExerciseDao
+import com.qingji.app.data.local.dao.LibraryMetaDao
 import com.qingji.app.data.local.dao.TrainingPlanDao
 import com.qingji.app.data.local.dao.TrainingPlanDayDao
 import com.qingji.app.data.local.dao.PlanExerciseDao
@@ -52,6 +53,7 @@ import com.qingji.app.data.local.entity.UserProfile
 import com.qingji.app.data.local.entity.WaterLog
 import com.qingji.app.data.local.entity.WeightLog
 import com.qingji.app.data.local.entity.ExerciseEntity
+import com.qingji.app.data.local.entity.LibraryMeta
 import com.qingji.app.data.local.entity.TrainingPlan
 import com.qingji.app.data.local.entity.TrainingPlanDay
 import com.qingji.app.data.local.entity.PlanExercise
@@ -114,6 +116,7 @@ class Converters {
         FoodSearchHistory::class,
         // v1.0.10 训练中心：6 张全新表，旧表一列都不动
         ExerciseEntity::class,
+        LibraryMeta::class,
         TrainingPlan::class,
         TrainingPlanDay::class,
         PlanExercise::class,
@@ -128,7 +131,7 @@ class Converters {
         SelfDisciplineMilestoneEntity::class,
         SelfDisciplineInterventionEntity::class
     ],
-    version = 11,
+    version = 12,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -157,6 +160,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun planExerciseDao(): PlanExerciseDao
     abstract fun workoutSessionDao(): WorkoutSessionDao
     abstract fun workoutExerciseDao(): WorkoutExerciseDao
+    abstract fun libraryMetaDao(): LibraryMetaDao
 
     // ---------- 自律管理模块（Room 11） ----------
     abstract fun selfDisciplineGoalDao(): SelfDisciplineGoalDao
@@ -490,7 +494,7 @@ abstract class AppDatabase : RoomDatabase() {
             listOf(
                 MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
                 MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8,
-                MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11
+                MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12
             )
         }
 
@@ -573,6 +577,25 @@ abstract class AppDatabase : RoomDatabase() {
                         "`note` TEXT NOT NULL, `createdAt` INTEGER NOT NULL)"
                 )
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_self_discipline_interventions_goalId` ON `self_discipline_interventions` (`goalId`)")
+            }
+        }
+
+        /**
+         * 11 → 12：Workout Guide 302 条动作库。
+         *
+         * 只用 ALTER TABLE ADD COLUMN 加 6 个新列，并新建 library_meta 表。
+         * 不删表、不删列、不改旧列默认值；用户的收藏、自建动作、训练历史、计划全部原样保留。
+         * 新列 defaultValue 与 ExerciseEntity 的 @ColumnInfo(defaultValue = ...) 逐字一致。
+         */
+        internal val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `exercise` ADD COLUMN `englishName` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `exercise` ADD COLUMN `slug` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `exercise` ADD COLUMN `exerciseType` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `exercise` ADD COLUMN `isStretch` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `exercise` ADD COLUMN `assetPath` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `exercise` ADD COLUMN `attribution` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `library_meta` (`key` TEXT NOT NULL, `value` TEXT NOT NULL DEFAULT '', PRIMARY KEY(`key`))")
             }
         }
 

@@ -91,9 +91,9 @@ jobs:
       - name: 解压动作库素材到 assets
         run: |
           mkdir -p app/src/main/assets/exercises
-          unzip -q docs/exercise-library/exercises_assets.zip -d app/src/main/assets/exercises
+          unzip -q docs/exercise-library-302/exercises_302_assets.zip -d app/src/main/assets/exercises
           echo "解压后帧数: $(find app/src/main/assets/exercises -name '*.svg' | wc -l)"
-          echo "动作目录数: $(find app/src/main/assets/exercises -mindepth 1 -maxdepth 1 -type d | wc -l)"
+          echo "动作目录数: $(find app/src/main/assets/exercises -mindepth 2 -maxdepth 2 -type d | wc -l)"
 
       - name: 缓存 Gradle 依赖
         uses: actions/cache@v4
@@ -148,4 +148,9 @@ jobs:
               --notes "由 GitHub Actions 自动构建，未用正式密钥签名，安装前需本地重签。"
           fi
           gh release upload ci-latest "$APK" --clobber
+          # 把 Room 12 生成的 schema 一起挂出来，本地拿到后提交进仓库
+          SCHEMA=$(find app/schemas -path '*AppDatabase/12.json' | head -1 || true)
+          if [ -n "$SCHEMA" ]; then
+            gh release upload ci-latest "$SCHEMA#AppDatabase-12.json" --clobber
+          fi
           gh release view ci-latest --json assets --jq '.assets[].name'
