@@ -125,11 +125,22 @@ class QingJiRepository(private val context: Context) {
         db.exerciseLogDao().observeRange(from, to)
 
     suspend fun addExercise(log: ExerciseLog) {
-        db.exerciseLogDao().insert(log)
+        val newId = db.exerciseLogDao().insert(log)
+        // v1.4 健康体系：同步镜像进统一运动消耗账本（幂等，唯一索引去重）
+        runCatching { healthRepository().mirrorExerciseLog(log.copy(id = newId)) }
         db.usageStatDao().increment(log.date, "body")
     }
 
-    suspend fun deleteExercise(id: Long) = db.exerciseLogDao().deleteById(id)
+    suspend fun deleteExercise(id: Long) {
+        db.exerciseLogDao().deleteById(id)
+        // 账本镜像联动删除：删运动记录，消耗也跟着消失，不会残留旧数字
+        runCatching { healthRepository().deleteExerciseLogMirror(id) }
+    }
+
+    /** 统一运动消耗账本（健康体系 V1.0）。懒加载避免和 AppDatabase 初始化抢顺序。 */
+    private fun healthRepository(): HealthRepository =
+        _healthRepository ?: HealthRepository(context).also { _healthRepository = it }
+    private var _healthRepository: HealthRepository? = null
 
     /** 近一周饮水：取原始记录，界面里按天汇总。 */
     fun observeWaterRange(from: LocalDate, to: LocalDate): Flow<List<WaterLog>> =
