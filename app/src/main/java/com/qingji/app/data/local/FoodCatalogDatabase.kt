@@ -6,6 +6,10 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.qingji.app.data.local.dao.FoodCatalogDao
 import com.qingji.app.data.local.dao.OmniFoodCatalogDao
+import com.qingji.app.data.local.entity.BrandDishIngredientEntity
+import com.qingji.app.data.local.entity.BrandDishProcessingEntity
+import com.qingji.app.data.local.entity.BrandDishTraceEntity
+import com.qingji.app.data.local.entity.BrandEntity
 import com.qingji.app.data.local.entity.CatalogFood
 import com.qingji.app.data.local.entity.FoodComposition
 import com.qingji.app.data.local.entity.FoodDataSource
@@ -35,15 +39,21 @@ import com.qingji.app.data.local.entity.OmniFoodNutrition
         NutritionSample::class,
         FoodComposition::class,
         FoodDataSource::class,
-        FoodQualityIssue::class
+        FoodQualityIssue::class,
+        // v1.4 老乡鸡接入（Room v4）：品牌 + 溯源三表，品牌由数据库驱动不写死 UI
+        BrandEntity::class,
+        BrandDishTraceEntity::class,
+        BrandDishIngredientEntity::class,
+        BrandDishProcessingEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = true
 )
 abstract class FoodCatalogDatabase : RoomDatabase() {
 
     abstract fun catalogDao(): FoodCatalogDao
     abstract fun omniFoodDao(): OmniFoodCatalogDao
+    abstract fun brandCatalogDao(): com.qingji.app.data.local.dao.BrandCatalogDao
 
     companion object {
         /**
@@ -60,8 +70,13 @@ abstract class FoodCatalogDatabase : RoomDatabase() {
          *   8 条 provisional 保留；4 条严重异常样本连同组成明细、异常标记一起删除
          *   （样本 8037→8033）。只改数据不改表结构，Room schema 不动。
          *   老手机装新版后靠这个版本号把旧库删掉、重新拷 assets 里的新库。
+         * 0.5 → 0.6（老乡鸡接入 · Room v3→v4）：新增品牌表 + 溯源三表
+         *   （brand / brand_dish_trace / brand_dish_ingredient / brand_dish_processing），
+         *   堂食菜品 280 条进 food_catalog 主表（source_id='laoxiangji'，audit_status=0），
+         *   溯源数据来自《老乡鸡菜品溯源报告 2.0》（每条带报告页码）。
+         *   预置库由 laoxiangji_import.py 按 Room schema 4.json 重建，绝不手写建表 SQL。
          */
-        const val CATALOG_VERSION = "0.5-omnifood8k-reviewed"
+        const val CATALOG_VERSION = "0.6-laoxiangji"
         private const val DB_NAME = "food_catalog.db"
         private const val ASSET_PATH = "database/food_catalog.db"
         private const val PREFS_NAME = "qingji_catalog_meta"
