@@ -15,6 +15,22 @@ import java.time.LocalDate
  */
 object PersonalBestCalculator {
 
+    /**
+     * 302 动作库把 8 条中文名按上游英文名修订了。
+     * 历史记录里的名称快照不能改，但 PB 归组时把旧名归一到新名，
+     * 否则同一个动作会拆成「旧名 / 新名」两份个人最佳。
+     */
+    private val NAME_ALIASES = mapOf(
+        "坐姿划船" to "坐姿绳索划船",
+        "哑铃肩推" to "坐姿哑铃肩推",
+        "杠铃弯举" to "EZ 杠弯举",
+        "哑铃交替弯举" to "哑铃弯举",
+        "窄距俯卧撑" to "钻石俯卧撑",
+        "哑铃深蹲" to "高脚杯深蹲",
+        "罗马尼亚硬拉" to "哑铃罗马尼亚硬拉",
+        "背阔肌拉伸" to "婴儿式"
+    )
+
     data class Best(
         val name: String,
         /** 单次举起过的最大重量（kg） */
@@ -36,9 +52,11 @@ object PersonalBestCalculator {
         allExercises: List<WorkoutExercise>
     ): List<Best> {
         val dateBySession = sessions.associate { it.uuid to it.date }
-        // 按动作名快照分组；一个动作可能在一天里出现在多个会话
-        val grouped = allExercises.groupBy { it.exerciseNameSnapshot.trim() }
-            .filterKeys { it.isNotEmpty() }
+        // 按动作名快照分组；旧名先归一到新名，历史快照本身一行不动
+        val grouped = allExercises.groupBy { row ->
+            val name = row.exerciseNameSnapshot.trim()
+            NAME_ALIASES[name] ?: name
+        }.filterKeys { it.isNotEmpty() }
 
         return grouped.map { (name, rows) ->
             val sets = rows.flatMap { row -> TrainingMath.decodeSets(row.setsJson) }

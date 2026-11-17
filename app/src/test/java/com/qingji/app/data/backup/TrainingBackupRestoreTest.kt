@@ -4,10 +4,13 @@ import androidx.room.Room
 import androidx.room.withTransaction
 import androidx.test.core.app.ApplicationProvider
 import com.qingji.app.data.local.AppDatabase
+import com.qingji.app.data.local.entity.ExerciseEntity
 import com.qingji.app.data.local.entity.WorkoutSession
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -16,7 +19,7 @@ import java.time.LocalDate
 
 /**
  * 训练数据进备份后的两条底线：
- * 1. 自家 v3 备份 → 训练 6 表整包覆盖（不残留旧数据）；
+ * 1. 自家 v3 备份 → 训练记录整包覆盖，但动作库只合并自建与收藏，不清 302 条内置；
  * 2. v2 老备份（那时还没有训练模块）→ 本机训练数据一行都不能被清掉。
  */
 @RunWith(RobolectricTestRunner::class)
@@ -87,4 +90,35 @@ class TrainingBackupRestoreTest {
         assertEquals(1, db.workoutSessionDao().findAll().size)
         assertEquals("keep-me", db.workoutSessionDao().findAll().first().uuid)
     }
+    @Test
+    fun `恢复旧备份不清空新动作库 只合并自建与收藏`() = runBlocking {
+        db.exerciseDao().insertAll(listOf(
+            ExerciseEntity("ex-chest-01", "哑铃卧推", "chest", isBuiltIn = true),
+            ExerciseEntity("ex-chest-02", "杠铃卧推", "chest", isBuiltIn = true),
+            ExerciseEntity("wg:plank", "平板支撑", "core", isBuiltIn = true)
+        ))
+        val json = """
+            {
+              "app":"qingji","version":3,
+              "training":{
+                "exercises":[
+                  {"uuid":"ex-chest-01","name":"哑铃卧推","category":"chest","isBuiltIn":true,"isFavorite":true},
+                  {"uuid":"user-old","name":"我的老动作","category":"core","isBuiltIn":false,"isFavorite":true,"primaryMuscles":"我自己"}
+                ],
+                "sessions":[],"plans":[],"planDays":[],"planExercises":[],"workoutExercises":[]
+              }
+            }
+        """.trimIndent()
+        val parsed = parseBackup(json).getOrThrow()
+        db.withTransaction { manager().restoreInto(db, parsed) }
+
+        val all = db.exerciseDao().findAll()
+        assertEquals(4, all.size)
+        assertTrue("新动作不能被旧备份清掉", all.any { it.uuid == "wg:plank" })
+        assertTrue("旧备份里的收藏要带回来", db.exerciseDao().findByUuid("ex-chest-01")!!.isFavorite)
+        val custom = db.exerciseDao().findByUuid("user-old")!!
+        assertFalse(custom.isBuiltIn)
+        assertEquals("我自己", custom.primaryMuscles)
+    }
+
 }

@@ -55,6 +55,10 @@ interface ExerciseDao {
     @Query("SELECT * FROM exercise WHERE isFavorite = 1 ORDER BY name ASC")
     fun observeFavorites(): Flow<List<ExerciseEntity>>
 
+    /** 备份恢复：只改收藏状态，不覆盖用户或动作库的其他字段。 */
+    @Query("UPDATE exercise SET isFavorite = :favorite, updatedAt = :updatedAt WHERE uuid = :uuid AND isBuiltIn = 1")
+    suspend fun setBuiltInFavorite(uuid: String, favorite: Boolean, updatedAt: Long)
+
     @Query("DELETE FROM exercise")
     suspend fun clearAll()
 }

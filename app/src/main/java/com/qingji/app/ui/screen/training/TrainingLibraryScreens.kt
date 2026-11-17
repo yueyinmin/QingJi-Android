@@ -59,7 +59,7 @@ import com.qingji.app.ui.viewmodel.TrainingPlanViewModel
 
 /**
  * P1 动作库 / 我的收藏。同一个页面，favoritesOnly=true 时只列收藏。
- * 搜索按名称或主肌群，分类胶囊复用 TrainingComponents 里的 7 类。
+ * 搜索支持中文名、英文名、slug、肌群、器械；分类胶囊复用 7 类。
  */
 @Composable
 fun ExerciseLibraryScreen(
@@ -76,10 +76,15 @@ fun ExerciseLibraryScreen(
     var category by remember { mutableStateOf<String?>(null) }
 
     val source = if (favoritesOnly) favorites else all
+    val q = query.trim()
     val shown = source.filter { e ->
         (category == null || e.category == category) &&
-            (query.isBlank() || e.name.contains(query.trim(), ignoreCase = true) ||
-                e.primaryMuscles.contains(query.trim(), ignoreCase = true))
+            (q.isBlank() || e.name.contains(q, ignoreCase = true) ||
+                e.englishName.contains(q, ignoreCase = true) ||
+                e.slug.contains(q, ignoreCase = true) ||
+                e.primaryMuscles.contains(q, ignoreCase = true) ||
+                e.secondaryMuscles.contains(q, ignoreCase = true) ||
+                e.equipment.contains(q, ignoreCase = true))
     }
 
     Column(modifier = modifier.fillMaxSize().background(PageBackground)) {
@@ -110,7 +115,7 @@ fun ExerciseLibraryScreen(
                     .background(CardWhite)
                     .padding(12.dp),
                 decorationBox = { inner ->
-                    if (query.isEmpty()) Text("搜动作名或肌群", fontSize = TextSizes.Body, color = TextSecondary)
+                    if (query.isEmpty()) Text("搜中文名 / 英文名 / 肌群 / 器械", fontSize = TextSizes.Body, color = TextSecondary)
                     inner()
                 }
             )
@@ -213,6 +218,10 @@ fun ExerciseDetailScreen(
                 .padding(horizontal = Dimens.ScreenPadding)
         ) {
             Spacer(Modifier.height(12.dp))
+            if (e.englishName.isNotBlank()) {
+                Text(e.englishName, fontSize = TextSizes.Body, color = TextSecondary)
+                Spacer(Modifier.height(6.dp))
+            }
             // V2：原 130dp 文字占位换成 190dp 动作插画（本地 SVG 首帧）。
             // 透明底、完整显示、不裁切不拉伸；自建动作 / 加载失败回退原来的文字占位。
             val media = ExerciseMediaMapping.forUuid(e.uuid)
@@ -238,33 +247,52 @@ fun ExerciseDetailScreen(
                     }
                 }
             }
-            // 候选图（123 条）都是「候选匹配待人工核图」，不冒充已审核演示。
-            // 别名候选（requiresReview=true）额外标注「近似」。
-            // 老动作沿用自己的旧单帧原图（legacy），本来就准确，不加待核对提示。
-            if (media != null && !media.legacySingleFrame) {
+            // 302 条素材来自 Workout Guide 上游 manifest 的显式 slug，本地离线加载。
+            // 结构已逐帧校验，但不冒充「真人姿势已审核」：仍标注素材来源与授权。
+            if (media != null) {
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    if (media.requiresReview) "动作示意（近似匹配），姿势待人工核对"
-                    else "动作示意图，姿势待人工核对",
+                    "素材来源：Workout Guide · CC BY-SA 4.0；动作示意仅供参考",
                     fontSize = TextSizes.Tiny, color = TextSecondary
                 )
             }
             Spacer(Modifier.height(12.dp))
 
             SectionCard {
+                InfoLine("英文名", e.englishName.ifBlank { "—" })
                 InfoLine("主肌群", e.primaryMuscles.ifBlank { "未填" })
                 InfoLine("辅助肌群", e.secondaryMuscles.ifBlank { "未填" })
                 InfoLine("器械", e.equipment.ifBlank { "徒手 / 不限" })
                 InfoLine("分类", TrainingSeed.CATEGORY_LABELS.firstOrNull { it.first == e.category }?.second ?: "其它")
+                InfoLine("训练类型", e.exerciseType.ifBlank { "未标注" })
+                InfoLine("动作属性", if (e.isStretch) "拉伸类动作" else "训练类动作")
+                InfoLine("收藏状态", if (e.isFavorite) "已收藏" else "未收藏")
+            }
+            if (media != null) {
+                Spacer(Modifier.height(10.dp))
+                SectionCard {
+                    InfoLine(
+                        "素材署名",
+                        if (media.attribution.contains("Everkinetic"))
+                            "Bryl Lim / Everkinetic · CC BY-SA 4.0"
+                        else "Bryl Lim · CC BY-SA 4.0"
+                    )
+                }
             }
             Spacer(Modifier.height(10.dp))
             SectionCard {
                 Text("动作要点", fontSize = TextSizes.CardTitle,
                     fontWeight = FontWeight.SemiBold, color = TextPrimary)
                 Spacer(Modifier.height(6.dp))
-                e.steps.split("\n").filter { it.isNotBlank() }.forEach { step ->
-                    Text("· $step", fontSize = TextSizes.Body, color = TextPrimary,
-                        lineHeight = 21.sp, modifier = Modifier.padding(vertical = 2.dp))
+                val steps = e.steps.split("\n").filter { it.isNotBlank() }
+                if (steps.isEmpty()) {
+                    Text("上游未提供训练要点，保持空白，不生成训练指导。",
+                        fontSize = TextSizes.Body, color = TextSecondary)
+                } else {
+                    steps.forEach { step ->
+                        Text("· $step", fontSize = TextSizes.Body, color = TextPrimary,
+                            lineHeight = 21.sp, modifier = Modifier.padding(vertical = 2.dp))
+                    }
                 }
                 Spacer(Modifier.height(10.dp))
                 Text("常见错误", fontSize = TextSizes.CardTitle,
@@ -357,8 +385,9 @@ private fun ExerciseMediaImage(
 /**
  * 详情页三帧连续播放：1→2→3→2，每帧 420ms 循环。
  * 用 produceState 驱动帧序号，离开详情页时 Compose 自动取消协程，
- * 不会在后台继续刷新；列表卡片仍走静态首帧（ExerciseMediaImage），
- * 避免滚动时几十张卡片同时播放。素材是候选匹配，UI 的「姿势待核对」提示在调用处。
+ * 离开详情页时 Compose 自动取消协程，不会在后台继续刷新；
+ * 列表卡片仍走静态首帧，避免滚动时几十张卡片同时播放。
+ * 加载失败先退回首帧，首帧也失败才走默认图标，不让一张坏图拖垮整个列表。
  */
 @Composable
 private fun ExerciseAnimatedMedia(
@@ -371,37 +400,33 @@ private fun ExerciseAnimatedMedia(
         return
     }
     val slug = media.slug
-    val legacy = media.legacySingleFrame
     var failed by remember(slug) { mutableStateOf(false) }
+    var useFirstFrame by remember(slug) { mutableStateOf(false) }
     if (failed) {
         fallback()
         return
     }
-    val frame by produceState(
-        initialValue = ExerciseMediaMapping.PLAY_SEQUENCE[0],
-        key1 = slug,
-        key2 = legacy
-    ) {
-        // 老单帧素材只有一张图，不做三帧轮播，省电也避免无意义重绘
-        if (!legacy) {
-            val seq = ExerciseMediaMapping.PLAY_SEQUENCE
-            var i = 0
-            while (true) {
-                delay(ExerciseMediaMapping.FRAME_DURATION_MS)
-                i = (i + 1) % seq.size
-                value = seq[i]
-            }
+    val frame by produceState(initialValue = ExerciseMediaMapping.PLAY_SEQUENCE[0], key1 = slug) {
+        val seq = ExerciseMediaMapping.PLAY_SEQUENCE
+        var i = 0
+        while (true) {
+            delay(ExerciseMediaMapping.FRAME_DURATION_MS)
+            i = (i + 1) % seq.size
+            value = seq[i]
         }
     }
     AsyncImage(
         model = ImageRequest.Builder(LocalContext.current)
-            .data(media.frameUri(frame))
+            // 某帧加载失败先退回首帧；首帧仍失败才走 fallback，不让列表崩溃
+            .data(media.frameUri(if (useFirstFrame) 1 else frame))
             .decoderFactory(SvgDecoder.Factory())
             .build(),
         contentDescription = null,
         contentScale = ContentScale.Fit,
         colorFilter = ColorFilter.tint(QingJiGreenDark, BlendMode.SrcIn),
-        onError = { failed = true },
+        onError = {
+            if (useFirstFrame) failed = true else useFirstFrame = true
+        },
         modifier = modifier
     )
 }

@@ -25,6 +25,16 @@ object AppChangeLog {
     /** 按版本号倒序：最新的放最上面。 */
     val releases: List<Release> = listOf(
         Release(
+            versionName = "1.3.0",
+            versionCode = 122,
+            date = "2026-11-17",
+            items = listOf(
+                "动作库整体替换为 Workout Guide 302 条：38 个老动作 UUID 原样保留，264 条新动作使用稳定 ID，升级自动补齐，不覆盖收藏、自建动作、训练历史和计划",
+                "906 帧本地 SVG 三帧循环演示，离线可用；列表与详情支持中文名、英文名、肌群和器械搜索，详情展示完整元数据与授权",
+                "Room 升级到 12，只加列加表不删数据；恢复旧备份时不再清空新动作库，只合并自建动作和收藏状态",
+            )
+        ),
+        Release(
             versionName = "1.2.1",
             versionCode = 121,
             date = "2026-11-16",

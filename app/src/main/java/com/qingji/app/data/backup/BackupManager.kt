@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.room.withTransaction
 import com.qingji.app.data.local.AppDatabase
+import com.qingji.app.data.local.entity.ExerciseEntity
 import com.qingji.app.domain.AppClock
 import com.qingji.app.domain.BackupFormat
 import kotlinx.coroutines.Dispatchers
@@ -25,7 +26,7 @@ import java.io.File
  *
  * 两条铁律：
  * - **API Key 绝不进备份**：Key 在加密存储里，这里根本读不到，也就不可能漏。
- * - 导入是「先清空再灌」，所以界面上必须先让用户确认，代码里不做静默覆盖。
+ * - 导入是「先清空再灌」，但动作库例外：302 条内置动作不清，只合并自建动作与收藏标记。
  *
  * 备份放在 App 自己的外部目录（Android/data/…/files/backup），
  * 用系统分享面板发到微信 / 网盘 / 电脑，不需要存储权限。
@@ -510,13 +511,34 @@ class BackupManager(private val context: Context) {
         // 段本身读坏了（hasTraining=true 但 training=null）也选择保留本机数据，宁可不覆盖。
         val t = p.training
         if (p.version >= 3 && t != null) {
-            target.exerciseDao().clearAll()
+            // 动作库不再 clearAll：旧备份里的 38/200 条内置动作不能把新 302 条覆盖掉。
+            // 只恢复两类用户数据：自建动作（整条，用户优先）与内置动作的收藏状态。
+            val exerciseDao = target.exerciseDao()
+            val localNames = exerciseDao.findAll().associate { it.name to it.uuid }.toMutableMap()
+            val customToRestore = mutableListOf<ExerciseEntity>()
+            t.exercises.filter { !it.isBuiltIn }.forEach { backup ->
+                var name = backup.name
+                if (localNames[name] != null && localNames[name] != backup.uuid) {
+                    var n = 2
+                    while (localNames.containsKey(name)) {
+                        name = backup.name + "（自建" + n + "）"
+                        n++
+                    }
+                }
+                localNames[name] = backup.uuid
+                customToRestore.add(backup.copy(name = name))
+            }
+            if (customToRestore.isNotEmpty()) exerciseDao.insertAll(customToRestore)
+            val now = System.currentTimeMillis()
+            t.exercises.filter { it.isBuiltIn && it.isFavorite }.forEach {
+                exerciseDao.setBuiltInFavorite(it.uuid, true, now)
+            }
+
             target.trainingPlanDao().clearAll()
             target.trainingPlanDayDao().clearAll()
             target.planExerciseDao().clearAll()
             target.workoutSessionDao().clearAll()
             target.workoutExerciseDao().clearAll()
-            if (t.exercises.isNotEmpty()) target.exerciseDao().insertAll(t.exercises)
             if (t.plans.isNotEmpty()) target.trainingPlanDao().insertAll(t.plans)
             if (t.planDays.isNotEmpty()) target.trainingPlanDayDao().insertAll(t.planDays)
             if (t.planExercises.isNotEmpty()) target.planExerciseDao().insertAll(t.planExercises)

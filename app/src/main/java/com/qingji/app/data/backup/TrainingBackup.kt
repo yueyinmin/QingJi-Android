@@ -42,6 +42,9 @@ data class TrainingBackup(
                 put("primaryMuscles", e.primaryMuscles); put("secondaryMuscles", e.secondaryMuscles)
                 put("equipment", e.equipment); put("steps", e.steps)
                 put("commonMistakes", e.commonMistakes)
+                put("englishName", e.englishName); put("slug", e.slug)
+                put("exerciseType", e.exerciseType); put("isStretch", e.isStretch)
+                put("assetPath", e.assetPath); put("attribution", e.attribution)
                 put("isBuiltIn", e.isBuiltIn); put("isFavorite", e.isFavorite)
                 put("createdAt", e.createdAt); put("updatedAt", e.updatedAt)
             }) }
@@ -101,6 +104,12 @@ fun parseTraining(o: JSONObject?): TrainingBackup? {
                     equipment = e.optString("equipment", ""),
                     steps = e.optString("steps", ""),
                     commonMistakes = e.optString("commonMistakes", ""),
+                    englishName = e.optString("englishName", ""),
+                    slug = e.optString("slug", ""),
+                    exerciseType = e.optString("exerciseType", ""),
+                    isStretch = e.optBoolean("isStretch", false),
+                    assetPath = e.optString("assetPath", ""),
+                    attribution = e.optString("attribution", ""),
                     isBuiltIn = e.optBoolean("isBuiltIn", false),
                     isFavorite = e.optBoolean("isFavorite", false),
                     createdAt = e.optLong("createdAt", 0L),
