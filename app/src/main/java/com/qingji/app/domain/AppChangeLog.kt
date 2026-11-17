@@ -25,6 +25,15 @@ object AppChangeLog {
     /** 按版本号倒序：最新的放最上面。 */
     val releases: List<Release> = listOf(
         Release(
+            versionName = "1.3.2",
+            versionCode = 124,
+            date = "2026-11-17",
+            items = listOf(
+                "OmniFood8K 新食物界面接入：搜索里点开 166 条新菜品/水果时，可直接查看配料组成明细、样本来源与数据校验提示，记录流程不变",
+                "标准食物库数据更新：166 条新数据全部完成人工复核，删除 4 条严重异常样本（原 8037 条样本 → 8033 条）；原 654 条食物与用户数据不变",
+            )
+        ),
+        Release(
             versionName = "1.3.1",
             versionCode = 123,
             date = "2026-11-17",
