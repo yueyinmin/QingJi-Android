@@ -8,6 +8,20 @@
 
 ## 一、附件与校验
 
+原始资料完整路径：`C://Users//22109//OneDrive//Desktop//mulin//workbuddy//体重管理App//0-OminiFood8k`
+
+| 原始文件 | 大小 | SHA-256 |
+|---|---:|---|
+| `8k-result.xlsx` | 2,506,126 | `81ccd88cd355e4662ce11cbf5f84823f4ba63204c1a6fdf6f802b2ba22d20dac` |
+| `ReadMe.txt` | 1,507 | `e20379d5e5705a8611310483bd7e1d8b42cc08d2339ff40a23fe0df658bdbb37` |
+| `ingred-nutrition.xlsx` | 28,363 | `bd813c63beb1de78c09bf9de1de7528b486430ea7985d5279dcdd61df0029458` |
+| `train_new333.txt` | 401,861 | `63c55b92c6ad1e3a55bd19eac4490bd5e50c87187c325a05def49806c90320ef` |
+| `test_new333.txt` | 175,226 | `7f8b71061bdc0c85694ce9e42929c5f263cb496f8d3a22bdf12ef22eede5ac83` |
+
+原始目录另有：`8036/` 8,041 个条目、`Ingredient-140/` 141 个条目、`Recipe/Recipe-CN.txt`、`Recipe/Recipe-EN.txt`。本次清洗包已覆盖核心计数，原始文件保留可追溯。
+
+ReadMe 明确确认：「样本由多个菜品组成时，食材组成字段是菜品 ID；最后部分的单菜品样本，字段是具体食材成分」。这与工单规则一致。
+
 | 文件 | 大小 | SHA-256 |
 |---|---:|---|
 | `omnifood8k_dish_catalog.json` | 115,951 | `ae48cc0a9b56850733a0a187f02eb1a1399ada714ce83f619f1f6ce80ba07bb2` |
@@ -40,7 +54,8 @@ XLSX 工作表：审计摘要 15 行、标准化样本 8,038 行、食物字典 
 
 - 8,037 条样本全部满足 `energy_kcal = energy_kj_raw / 4.184`（误差 < 0.01）。原始 kJ 与换算 kcal 可同时保留。
 - 8,037 条样本的 `energy/protein/fat/carbs per_100g` 全部满足 `总量 / weight_g * 100`（误差 < 0.01）。
-- 结论：**不能把原始 Total Energy 当 kcal**；应用展示与计算统一用 kcal，原始 kJ 留档。
+- 注意：`ReadMe.txt` **没有明确写 Total Energy 的单位**。kJ 判断来自 4/9/4 公式高度吻合，是推断而非原文确认。因此必须同时保留原始数值与换算值，不能声称「已由数据源确认单位为 kJ」。
+- 结论：**不能把原始 Total Energy 当 kcal**；应用展示与计算统一用 kcal，原始数值留档。
 
 ---
 

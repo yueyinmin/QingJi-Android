@@ -1,0 +1,5755 @@
+[
+  {
+    "path": "README.md",
+    "category": "(root)",
+    "title": "像老乡鸡那样做饭",
+    "is_index": true,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": true
+  },
+  {
+    "path": "docker_support/README.md",
+    "category": "docker_support",
+    "title": "Docker 打包运行说明",
+    "is_index": true,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "docs/development.md",
+    "category": "docs",
+    "title": "本地开发",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "index.md",
+    "category": "(root)",
+    "title": null,
+    "is_index": true,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": true
+  },
+  {
+    "path": "主食/Q 弹虾滑馄饨.md",
+    "category": "主食",
+    "title": "Q 弹虾滑馄饨",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "59Kcal",
+      "蛋白质": "3.0g",
+      "脂肪": "2.7g",
+      "碳水化合物": "5.7g",
+      "钠": "497mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "主食/README.md",
+    "category": "主食",
+    "title": "主食",
+    "is_index": true,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "主食/五彩鸡丝拌面.md",
+    "category": "主食",
+    "title": "五彩鸡丝拌面",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "138Kcal",
+      "蛋白质": "6.2g",
+      "脂肪": "4.9g",
+      "碳水化合物": "17.1g",
+      "钠": "398mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "每份",
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "主食/大大大块牛腩面.md",
+    "category": "主食",
+    "title": "大大大块牛腩面",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "主食/大排面.md",
+    "category": "主食",
+    "title": "大排面",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "主食/大盘肥肠鸡手工面.md",
+    "category": "主食",
+    "title": "大盘肥肠鸡手工面",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "主食/姬松茸菌子鸡汤面.md",
+    "category": "主食",
+    "title": "姬松茸菌子鸡汤面",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "67Kcal",
+      "蛋白质": "2.8g",
+      "脂肪": "0.7g",
+      "碳水化合物": "12.2g",
+      "钠": "310mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "主食/杂粮饭.md",
+    "category": "主食",
+    "title": "杂粮饭",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "主食/泡椒鸡杂面.md",
+    "category": "主食",
+    "title": "泡椒鸡杂面",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "121Kcal",
+      "蛋白质": "4.3g",
+      "脂肪": "5.0g",
+      "碳水化合物": "14.5g",
+      "钠": "393mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "主食/浓香整块鸡汤面.md",
+    "category": "主食",
+    "title": "浓香整块鸡汤面",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "主食/炸鸡腿时蔬面.md",
+    "category": "主食",
+    "title": "炸鸡腿时蔬面",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "主食/特色鸡汤馄饨.md",
+    "category": "主食",
+    "title": "特色鸡汤馄饨",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "主食/番茄鸡蛋面.md",
+    "category": "主食",
+    "title": "番茄鸡蛋面",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "主食/砂锅荠菜鲜肉馄饨.md",
+    "category": "主食",
+    "title": "砂锅荠菜鲜肉馄饨",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "主食/笋子鸡丁盖饭（包菜版）.md",
+    "category": "主食",
+    "title": "笋子鸡丁盖饭（包菜版）",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "171Kcal",
+      "蛋白质": "5.6g",
+      "脂肪": "6.8g",
+      "碳水化合物": "21.7g",
+      "钠": "353mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [
+      "剁椒酱",
+      "豉油汁"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "主食/笋子鸡丁盖饭（菜苔版）.md",
+    "category": "主食",
+    "title": "笋子鸡丁盖饭（菜苔版）",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "172Kcal",
+      "蛋白质": "4.5g",
+      "脂肪": "6.5g",
+      "碳水化合物": "23.8g",
+      "钠": "364mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [
+      "剁椒酱",
+      "豉油汁"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "主食/米饭.md",
+    "category": "主食",
+    "title": "米饭",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "总重"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "主食/素面.md",
+    "category": "主食",
+    "title": "素面",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "主食/紫薯杂粮饭.md",
+    "category": "主食",
+    "title": "紫薯杂粮饭",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "168Kcal",
+      "蛋白质": "3.1g",
+      "脂肪": "1.4g",
+      "碳水化合物": "35.1g",
+      "钠": "0mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "主食/红米糙米红薯饭.md",
+    "category": "主食",
+    "title": "红米糙米红薯饭",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "179Kcal",
+      "蛋白质": "3.6g",
+      "脂肪": "0.9g",
+      "碳水化合物": "38.4g",
+      "钠": "0mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "主食/老母鸡汤面.md",
+    "category": "主食",
+    "title": "老母鸡汤面",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "87Kcal",
+      "蛋白质": "4.3g",
+      "脂肪": "3.6g",
+      "碳水化合物": "9.2g",
+      "钠": "310mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "主食/老鸡扬米面.md",
+    "category": "主食",
+    "title": "老鸡扬米面",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "主食/肥西老母鸡汤面.md",
+    "category": "主食",
+    "title": "肥西老母鸡汤面",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "主食/西红柿炒鸡蛋盖饭.md",
+    "category": "主食",
+    "title": "西红柿炒鸡蛋盖饭",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "149Kcal",
+      "蛋白质": "5.0g",
+      "脂肪": "4.8g",
+      "碳水化合物": "21.3g",
+      "钠": "334mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [
+      "卤油"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "主食/阳春面.md",
+    "category": "主食",
+    "title": "阳春面",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "61Kcal",
+      "蛋白质": "2.3g",
+      "脂肪": "0.8g",
+      "碳水化合物": "10.8g",
+      "钠": "501mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "主食/雪菜肉丝面.md",
+    "category": "主食",
+    "title": "雪菜肉丝面",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [
+      "炒菜基料"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "主食/香菇鸡汤面.md",
+    "category": "主食",
+    "title": "香菇鸡汤面",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "主食/香辣牛肉面.md",
+    "category": "主食",
+    "title": "香辣牛肉面",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "主食/香辣牛腩面.md",
+    "category": "主食",
+    "title": "香辣牛腩面",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "171Kcal",
+      "蛋白质": "4.8g",
+      "脂肪": "11.7g",
+      "碳水化合物": "11.7g",
+      "钠": "358mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "主食/香辣鸡丁拌面.md",
+    "category": "主食",
+    "title": "香辣鸡丁拌面",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [
+      "炒菜基料"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "主食/鱼香肉丝盖饭（包菜版）.md",
+    "category": "主食",
+    "title": "鱼香肉丝盖饭（包菜版）",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "148Kcal",
+      "蛋白质": "4.3g",
+      "脂肪": "4.1g",
+      "碳水化合物": "23.2g",
+      "钠": "232mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [
+      "鱼香风味酱",
+      "豉油汁"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "主食/鱼香肉丝盖饭（菜苔版）.md",
+    "category": "主食",
+    "title": "鱼香肉丝盖饭（菜苔版）",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "153Kcal",
+      "蛋白质": "4.2g",
+      "脂肪": "5.1g",
+      "碳水化合物": "22.3g",
+      "钠": "256mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [
+      "鱼香风味酱",
+      "豉油汁"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "主食/鸡杂手擀面.md",
+    "category": "主食",
+    "title": "鸡杂手擀面",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "95Kcal",
+      "蛋白质": "4.0g",
+      "脂肪": "2.4g",
+      "碳水化合物": "14.0g",
+      "钠": "418mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [
+      "鸡杂料",
+      "调味料（鸡汤专用）"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "凉拌/README.md",
+    "category": "凉拌",
+    "title": "凉拌",
+    "is_index": true,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "凉拌/凉拌莴笋丝.md",
+    "category": "凉拌",
+    "title": "凉拌莴笋丝",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "凉拌/口水鸡.md",
+    "category": "凉拌",
+    "title": "口水鸡",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "凉拌/柠檬凤爪.md",
+    "category": "凉拌",
+    "title": "柠檬凤爪",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "凉拌/西芹花生米.md",
+    "category": "凉拌",
+    "title": "西芹花生米",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "卤菜/README.md",
+    "category": "卤菜",
+    "title": "卤菜",
+    "is_index": true,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "卤菜/卤大排.md",
+    "category": "卤菜",
+    "title": "卤大排",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "卤菜/卤方干.md",
+    "category": "卤菜",
+    "title": "卤方干",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "卤菜/卤翅根.md",
+    "category": "卤菜",
+    "title": "卤翅根",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "卤菜/卤肉肠.md",
+    "category": "卤菜",
+    "title": "卤肉肠",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "303Kcal",
+      "蛋白质": "11.4g",
+      "脂肪": "23.6g",
+      "碳水化合物": "11.7g",
+      "钠": "782mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [
+      "卤油"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "卤菜/卤鸡爪.md",
+    "category": "卤菜",
+    "title": "卤鸡爪",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "卤菜/卤鸡腿.md",
+    "category": "卤菜",
+    "title": "卤鸡腿",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "卤菜/咸蛋黄狮子头（卤制版）.md",
+    "category": "卤菜",
+    "title": "咸蛋黄狮子头（卤制版）",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "274Kcal",
+      "蛋白质": "11.2g",
+      "脂肪": "24.9g",
+      "碳水化合物": "2.0g",
+      "钠": "578mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [
+      "卤油"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "卤菜/嗨嗨桶（红油串串）.md",
+    "category": "卤菜",
+    "title": "嗨嗨桶（红油串串）",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "卤菜/把子肉.md",
+    "category": "卤菜",
+    "title": "把子肉",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "529Kcal",
+      "蛋白质": "14.7g",
+      "脂肪": "53.1g",
+      "碳水化合物": "0.0g",
+      "钠": "518mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "卤菜/海带结.md",
+    "category": "卤菜",
+    "title": "海带结",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "44Kcal",
+      "蛋白质": "1.5g",
+      "脂肪": "2.0g",
+      "碳水化合物": "5.0g",
+      "钠": "677mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [
+      "卤油"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "卤菜/薄皮青椒.md",
+    "category": "卤菜",
+    "title": "薄皮青椒",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "70Kcal",
+      "蛋白质": "1.2g",
+      "脂肪": "5.7g",
+      "碳水化合物": "3.5g",
+      "钠": "98mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [
+      "卤油"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "早餐/README.md",
+    "category": "早餐",
+    "title": "早餐",
+    "is_index": true,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "早餐/包子.md",
+    "category": "早餐",
+    "title": "包子",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "早餐/奶黄鸡包.md",
+    "category": "早餐",
+    "title": "奶黄鸡包",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "早餐/小米南瓜粥.md",
+    "category": "早餐",
+    "title": "小米南瓜粥",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "早餐/手工春卷.md",
+    "category": "早餐",
+    "title": "手工春卷",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "早餐/手工烧麦.md",
+    "category": "早餐",
+    "title": "手工烧麦",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "早餐/水煮蛋.md",
+    "category": "早餐",
+    "title": "水煮蛋",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "早餐/牛肉盒.md",
+    "category": "早餐",
+    "title": "牛肉盒",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "早餐/现炸大油条.md",
+    "category": "早餐",
+    "title": "现炸大油条",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "早餐/现熬豆粥.md",
+    "category": "早餐",
+    "title": "现熬豆粥",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "早餐/白米粥.md",
+    "category": "早餐",
+    "title": "白米粥",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "早餐/皮蛋瘦肉粥.md",
+    "category": "早餐",
+    "title": "皮蛋瘦肉粥",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "49Kcal",
+      "蛋白质": "1.4g",
+      "脂肪": "0.8g",
+      "碳水化合物": "8.8g",
+      "钠": "213mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "早餐/粢饭糕.md",
+    "category": "早餐",
+    "title": "粢饭糕",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "早餐/糍糕.md",
+    "category": "早餐",
+    "title": "糍糕",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "271Kcal",
+      "蛋白质": "5.3g",
+      "脂肪": "6.9g",
+      "碳水化合物": "46.3g",
+      "钠": "391mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "早餐/糯米杂谷饭团（奥尔良鸡肉馅）.md",
+    "category": "早餐",
+    "title": "糯米杂谷饭团（奥尔良鸡肉馅）",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "177Kcal",
+      "蛋白质": "5.6g",
+      "脂肪": "2.0g",
+      "碳水化合物": "33.7g",
+      "钠": "410mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "早餐/老面小笼包.md",
+    "category": "早餐",
+    "title": "老面小笼包",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "216Kcal",
+      "蛋白质": "7.8g",
+      "脂肪": "8.4g",
+      "碳水化合物": "27.0g",
+      "钠": "302mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "早餐/老面馒头.md",
+    "category": "早餐",
+    "title": "老面馒头",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "240Kcal",
+      "蛋白质": "6.2g",
+      "脂肪": "2.2g",
+      "碳水化合物": "48.1g",
+      "钠": "101mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "早餐/花卷.md",
+    "category": "早餐",
+    "title": "花卷",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "早餐/茶叶蛋.md",
+    "category": "早餐",
+    "title": "茶叶蛋",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "早餐/荠菜鲜肉蒸饺.md",
+    "category": "早餐",
+    "title": "荠菜鲜肉蒸饺",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "早餐/葱香酱肉包.md",
+    "category": "早餐",
+    "title": "葱香酱肉包",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "282Kcal",
+      "蛋白质": "8.4g",
+      "脂肪": "14.0g",
+      "碳水化合物": "30.7g",
+      "钠": "254mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "早餐/蔬菜鸡蛋卷饼.md",
+    "category": "早餐",
+    "title": "蔬菜鸡蛋卷饼",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "231Kcal",
+      "蛋白质": "6.0g",
+      "脂肪": "12.1g",
+      "碳水化合物": "24.5g",
+      "钠": "473mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "早餐/蛋饼.md",
+    "category": "早餐",
+    "title": "蛋饼",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "早餐/赤豆糊元宵.md",
+    "category": "早餐",
+    "title": "赤豆糊元宵",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "早餐/酥皮萝卜丝馅饼.md",
+    "category": "早餐",
+    "title": "酥皮萝卜丝馅饼",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "早餐/饭团.md",
+    "category": "早餐",
+    "title": "饭团",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "早餐/馒头.md",
+    "category": "早餐",
+    "title": "馒头",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "早餐/香脆土豆丝饼.md",
+    "category": "早餐",
+    "title": "香脆土豆丝饼",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "304Kcal",
+      "蛋白质": "2.3g",
+      "脂肪": "20.0g",
+      "碳水化合物": "29.0g",
+      "钠": "385mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "早餐/香脆春卷.md",
+    "category": "早餐",
+    "title": "香脆春卷",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "309Kcal",
+      "蛋白质": "3.2g",
+      "脂肪": "17.4g",
+      "碳水化合物": "35.0g",
+      "钠": "450mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "早餐/香菇猪肉烧麦.md",
+    "category": "早餐",
+    "title": "香菇猪肉烧麦",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "239Kcal",
+      "蛋白质": "5.8g",
+      "脂肪": "6.2g",
+      "碳水化合物": "39.7g",
+      "钠": "500mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "早餐/香菇青菜包（菠菜面皮）.md",
+    "category": "早餐",
+    "title": "香菇青菜包（菠菜面皮）",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "243Kcal",
+      "蛋白质": "5.1g",
+      "脂肪": "12.2g",
+      "碳水化合物": "28.3g",
+      "钠": "397mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "早餐/香酥牛肉饼.md",
+    "category": "早餐",
+    "title": "香酥牛肉饼",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "早餐/鸡丝沙汤.md",
+    "category": "早餐",
+    "title": "鸡丝沙汤",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "38Kcal",
+      "蛋白质": "2.4g",
+      "脂肪": "1.3g",
+      "碳水化合物": "4.1g",
+      "钠": "362mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "早餐/鸡汁汤包.md",
+    "category": "早餐",
+    "title": "鸡汁汤包",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "早餐/鸡汁辣糊汤.md",
+    "category": "早餐",
+    "title": "鸡汁辣糊汤",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "54Kcal",
+      "蛋白质": "2.7g",
+      "脂肪": "3.2g",
+      "碳水化合物": "3.8g",
+      "钠": "358mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "早餐/黑全麦鸡丁包.md",
+    "category": "早餐",
+    "title": "黑全麦鸡丁包",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "201Kcal",
+      "蛋白质": "9.2g",
+      "脂肪": "5.0g",
+      "碳水化合物": "29.3g",
+      "钠": "329mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "汤/README.md",
+    "category": "汤",
+    "title": "汤",
+    "is_index": true,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "汤/山药莲子鸡汤.md",
+    "category": "汤",
+    "title": "山药莲子鸡汤",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "25Kcal",
+      "蛋白质": "1.8g",
+      "脂肪": "0g",
+      "碳水化合物": "4.3g",
+      "钠": "289mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "汤/竹荪鹿茸菇鸡汤.md",
+    "category": "汤",
+    "title": "竹荪鹿茸菇鸡汤",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "汤/老鸡汤.md",
+    "category": "汤",
+    "title": "老鸡汤",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "汤/肥西老母鸡汤（单品）.md",
+    "category": "汤",
+    "title": "肥西老母鸡汤",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [
+      "鸡油料"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "汤/菌菇鸡汤.md",
+    "category": "汤",
+    "title": "菌菇鸡汤",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "20Kcal",
+      "蛋白质": "2.4g",
+      "脂肪": "0.7g",
+      "碳水化合物": "1.0g",
+      "钠": "237mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "汤/金牌老母鸡汤.md",
+    "category": "汤",
+    "title": "金牌老母鸡汤",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "38Kcal",
+      "蛋白质": "3.8g",
+      "脂肪": "1.8g",
+      "碳水化合物": "1.4g",
+      "钠": "248mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [
+      "调味料（鸡汤专用）"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/README.md",
+    "category": "炒菜",
+    "title": "炒菜",
+    "is_index": true,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/什锦蛋炒饭.md",
+    "category": "炒菜",
+    "title": "什锦蛋炒饭",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/农家小炒肉（玉耳版本）.md",
+    "category": "炒菜",
+    "title": "农家小炒肉（玉耳版本）",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [
+      "小炒肉调料"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/农家小炒肉（玉耳）.md",
+    "category": "炒菜",
+    "title": "农家小炒肉（玉耳版本）",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [
+      "小炒肉调味汁"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/农家小炒肉（鸡蛋干版本）.md",
+    "category": "炒菜",
+    "title": "农家小炒肉（鸡蛋干版本）",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "191Kcal",
+      "蛋白质": "11.5g",
+      "脂肪": "14.5g",
+      "碳水化合物": "4.0g",
+      "钠": "754mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [
+      "小炒肉调料"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/农家小炒肉（鸡蛋干）.md",
+    "category": "炒菜",
+    "title": "农家小炒肉（鸡蛋干版本）",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [
+      "小炒肉调料"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/剁椒木耳炒鸡蛋.md",
+    "category": "炒菜",
+    "title": "剁椒木耳炒鸡蛋",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/包菜炒鸡蛋.md",
+    "category": "炒菜",
+    "title": "包菜炒鸡蛋",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/外婆菜炒鸡蛋.md",
+    "category": "炒菜",
+    "title": "外婆菜炒鸡蛋",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/宫保鸡丁.md",
+    "category": "炒菜",
+    "title": "宫保鸡丁",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/家常土豆片.md",
+    "category": "炒菜",
+    "title": "家常土豆片",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [
+      "炒菜基料"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/家常小炒.md",
+    "category": "炒菜",
+    "title": "家常小炒",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [
+      "家常小炒料"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/小炒河虾.md",
+    "category": "炒菜",
+    "title": "小炒河虾",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/小炒脆笋.md",
+    "category": "炒菜",
+    "title": "小炒脆笋",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "144Kcal",
+      "蛋白质": "8.2g",
+      "脂肪": "11.4g",
+      "碳水化合物": "2.5g",
+      "钠": "470mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/小炒花菜.md",
+    "category": "炒菜",
+    "title": "小炒花菜",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [
+      "炒菜基料"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/小炒面筋.md",
+    "category": "炒菜",
+    "title": "小炒面筋",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [
+      "炒菜基料"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/小炒香干.md",
+    "category": "炒菜",
+    "title": "小炒香干",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [
+      "炒菜基料"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/小炒鸡丁.md",
+    "category": "炒菜",
+    "title": "小炒鸡丁",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [
+      "调味料（小炒鸡丁）"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/小炒黄牛肉.md",
+    "category": "炒菜",
+    "title": "小炒黄牛肉",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/山药炒木耳.md",
+    "category": "炒菜",
+    "title": "山药炒木耳",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "86Kcal",
+      "蛋白质": "1.5g",
+      "脂肪": "3.9g",
+      "碳水化合物": "11.3g",
+      "钠": "376mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/毛豆烧土鸡.md",
+    "category": "炒菜",
+    "title": "毛豆烧土鸡",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/油渣大白菜.md",
+    "category": "炒菜",
+    "title": "油渣大白菜",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [
+      "炒菜基料"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/清炒春菜.md",
+    "category": "炒菜",
+    "title": "清炒春菜",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/清炒毛白菜.md",
+    "category": "炒菜",
+    "title": "清炒毛白菜",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/清炒油麦菜.md",
+    "category": "炒菜",
+    "title": "清炒油麦菜",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/清炒莴笋片.md",
+    "category": "炒菜",
+    "title": "清炒莴笋片",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/清炒菜心.md",
+    "category": "炒菜",
+    "title": "清炒菜心",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/清炒西兰花.md",
+    "category": "炒菜",
+    "title": "清炒西兰花",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/清炒青菜.md",
+    "category": "炒菜",
+    "title": "清炒青菜",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/爆炒牛肉.md",
+    "category": "炒菜",
+    "title": "爆炒牛肉",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "126Kcal",
+      "蛋白质": "6.8g",
+      "脂肪": "8.1g",
+      "碳水化合物": "6.5g",
+      "钠": "844mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/生炒上海青.md",
+    "category": "炒菜",
+    "title": "生炒上海青",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/笋子烧肉.md",
+    "category": "炒菜",
+    "title": "笋子烧肉",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/笋子鸡丁盖饭.md",
+    "category": "炒菜",
+    "title": "笋子鸡丁盖饭",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [
+      "剁椒酱"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/糖醋排骨.md",
+    "category": "炒菜",
+    "title": "糖醋排骨",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/红烧茄子.md",
+    "category": "炒菜",
+    "title": "红烧茄子",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [
+      "油焖茄子料"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/经典毛豆烧鸡.md",
+    "category": "炒菜",
+    "title": "经典毛豆烧鸡",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "172Kcal",
+      "蛋白质": "15.6g",
+      "脂肪": "9.2g",
+      "碳水化合物": "6.7g",
+      "钠": "663mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [
+      "毛豆烧鸡料"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/肥肠鸡.md",
+    "category": "炒菜",
+    "title": "肥肠鸡",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [
+      "肥肠鸡酱料"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/胡萝卜炒木耳.md",
+    "category": "炒菜",
+    "title": "胡萝卜炒木耳",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/胡萝卜炒肉丝.md",
+    "category": "炒菜",
+    "title": "胡萝卜炒肉丝",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/胡萝卜炒肉片.md",
+    "category": "炒菜",
+    "title": "胡萝卜炒肉片",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/胡萝卜炒鸡蛋.md",
+    "category": "炒菜",
+    "title": "胡萝卜炒鸡蛋",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/芋儿鸡.md",
+    "category": "炒菜",
+    "title": "芋儿鸡",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [
+      "肥肠鸡酱料"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/芹菜炒香干.md",
+    "category": "炒菜",
+    "title": "芹菜炒香干",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/芹菜香干炒肉丝.md",
+    "category": "炒菜",
+    "title": "芹菜香干炒肉丝",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/莴笋丝炒鸡蛋.md",
+    "category": "炒菜",
+    "title": "莴笋丝炒鸡蛋",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/菠萝咕咾肉.md",
+    "category": "炒菜",
+    "title": "菠萝咕咾肉",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/菠萝咕咾肉时蔬饭.md",
+    "category": "炒菜",
+    "title": "菠萝咕咾肉时蔬饭",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/蒜泥菠菜.md",
+    "category": "炒菜",
+    "title": "蒜泥菠菜",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/蒜苔炒木耳.md",
+    "category": "炒菜",
+    "title": "蒜苔炒木耳",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "129Kcal",
+      "蛋白质": "2.1g",
+      "脂肪": "8.8g",
+      "碳水化合物": "10.5g",
+      "钠": "1120mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/蒜苔炒香干.md",
+    "category": "炒菜",
+    "title": "蒜苔炒香干",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/蒜苔炒鸡胗.md",
+    "category": "炒菜",
+    "title": "蒜苔炒鸡胗",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "150Kcal",
+      "蛋白质": "9.7g",
+      "脂肪": "8.9g",
+      "碳水化合物": "7.8g",
+      "钠": "733mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [
+      "小炒河虾料"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/蒜黄炒鸡蛋.md",
+    "category": "炒菜",
+    "title": "蒜黄炒鸡蛋",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "114Kcal",
+      "蛋白质": "4.2g",
+      "脂肪": "9.4g",
+      "碳水化合物": "3.3g",
+      "钠": "475mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/蚕豆炒虾仁.md",
+    "category": "炒菜",
+    "title": "蚕豆炒虾仁",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "154Kcal",
+      "蛋白质": "8.3g",
+      "脂肪": "8.3g",
+      "碳水化合物": "11.5g",
+      "钠": "458mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/蚕豆炒鸡蛋.md",
+    "category": "炒菜",
+    "title": "蚕豆炒鸡蛋",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/西兰花炒鸡胸肉.md",
+    "category": "炒菜",
+    "title": "西兰花炒鸡胸肉",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "94Kcal",
+      "蛋白质": "8.3g",
+      "脂肪": "5.2g",
+      "碳水化合物": "3.5g",
+      "钠": "261mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [
+      "鸡胸肉调味汁"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/西红柿炒鸡蛋.md",
+    "category": "炒菜",
+    "title": "西红柿炒鸡蛋",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/西芹炒虾仁.md",
+    "category": "炒菜",
+    "title": "西芹炒虾仁",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "38Kcal",
+      "蛋白质": "2.2g",
+      "脂肪": "2.1g",
+      "碳水化合物": "2.7g",
+      "钠": "380mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/豆皮毛白菜.md",
+    "category": "炒菜",
+    "title": "豆皮毛白菜",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "113Kcal",
+      "蛋白质": "2.8g",
+      "脂肪": "10.7g",
+      "碳水化合物": "1.7g",
+      "钠": "445mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/贵州风味辣子鸡.md",
+    "category": "炒菜",
+    "title": "贵州风味辣子鸡",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/酸辣包菜.md",
+    "category": "炒菜",
+    "title": "酸辣包菜",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "95Kcal",
+      "蛋白质": "1.5g",
+      "脂肪": "8.0g",
+      "碳水化合物": "4.5g",
+      "钠": "491mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/酸辣土豆丝.md",
+    "category": "炒菜",
+    "title": "酸辣土豆丝",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/酸辣大白菜.md",
+    "category": "炒菜",
+    "title": "酸辣大白菜",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/酸辣海带丝.md",
+    "category": "炒菜",
+    "title": "酸辣海带丝",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/青椒毛豆米.md",
+    "category": "炒菜",
+    "title": "青椒毛豆米",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/青椒炒豆芽.md",
+    "category": "炒菜",
+    "title": "青椒炒豆芽",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/青椒炒鸡蛋.md",
+    "category": "炒菜",
+    "title": "青椒炒鸡蛋",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/香椿炒鸡蛋.md",
+    "category": "炒菜",
+    "title": "香椿炒鸡蛋",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/香菇青菜.md",
+    "category": "炒菜",
+    "title": "香菇青菜",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/鱼香肉丝.md",
+    "category": "炒菜",
+    "title": "鱼香肉丝",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/鱼香肉丝盖饭.md",
+    "category": "炒菜",
+    "title": "鱼香肉丝盖饭",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/鹌鹑蛋红烧肉.md",
+    "category": "炒菜",
+    "title": "鹌鹑蛋红烧肉",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "376Kcal",
+      "蛋白质": "17.0g",
+      "脂肪": "31.6g",
+      "碳水化合物": "6.7g",
+      "钠": "448mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炒菜/黄瓜炒红肠.md",
+    "category": "炒菜",
+    "title": "黄瓜炒红肠",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "104Kcal",
+      "蛋白质": "6.0g",
+      "脂肪": "6.9g",
+      "碳水化合物": "4.6g",
+      "钠": "811mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炖菜/README.md",
+    "category": "炖菜",
+    "title": "炖菜",
+    "is_index": true,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炖菜/土豆牛腩.md",
+    "category": "炖菜",
+    "title": "土豆牛腩",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炖菜/小鸡炖蘑菇.md",
+    "category": "炖菜",
+    "title": "小鸡炖蘑菇",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "131Kcal",
+      "蛋白质": "13.2g",
+      "脂肪": "7.1g",
+      "碳水化合物": "3.6g",
+      "钠": "407mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炖菜/板栗烧鸡.md",
+    "category": "炖菜",
+    "title": "金秋板栗烧鸡",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "203Kcal",
+      "蛋白质": "11.5g",
+      "脂肪": "11.9g",
+      "碳水化合物": "12.6g",
+      "钠": "587mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炖菜/梅干菜凤爪翅.md",
+    "category": "炖菜",
+    "title": "梅干菜凤爪翅",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炖菜/甜辣辣年糕烧鸡.md",
+    "category": "炖菜",
+    "title": "甜辣辣年糕烧鸡",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炖菜/白菜炖豆腐.md",
+    "category": "炖菜",
+    "title": "白菜炖豆腐",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [
+      "炒菜基料"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "炖菜/红烧冬瓜.md",
+    "category": "炖菜",
+    "title": "红烧冬瓜",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炖菜/红烧鱼块.md",
+    "category": "炖菜",
+    "title": "红烧鱼块",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炖菜/肉汁素鸡.md",
+    "category": "炖菜",
+    "title": "肉汁素鸡",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [
+      "素鸡煲调味料"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "炖菜/酸菜血旺豆腐.md",
+    "category": "炖菜",
+    "title": "酸菜血旺豆腐",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "72Kcal",
+      "蛋白质": "5.4g",
+      "脂肪": "4.1g",
+      "碳水化合物": "3.2g",
+      "钠": "623mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炖菜/银鱼浦鸡蛋.md",
+    "category": "炖菜",
+    "title": "银鱼浦鸡蛋",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "80Kcal",
+      "蛋白质": "6.9g",
+      "脂肪": "5.1g",
+      "碳水化合物": "1.7g",
+      "钠": "330mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炖菜/香辣鸡杂.md",
+    "category": "炖菜",
+    "title": "香辣鸡杂",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [
+      "鸡杂料"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "炖菜/鸡血汤.md",
+    "category": "炖菜",
+    "title": "鸡血汤",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炖菜/麻婆豆腐.md",
+    "category": "炖菜",
+    "title": "麻婆豆腐",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [
+      "麻婆豆腐料"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "炸品/README.md",
+    "category": "炸品",
+    "title": "炸品",
+    "is_index": true,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炸品/傲椒风味翅尖.md",
+    "category": "炸品",
+    "title": "傲椒风味翅尖",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炸品/嗨嗨桶（炸物桶）.md",
+    "category": "炸品",
+    "title": "嗨嗨桶（炸物桶）",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炸品/心形鸡排.md",
+    "category": "炸品",
+    "title": "心形鸡排",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炸品/手枪大鸡腿.md",
+    "category": "炸品",
+    "title": "手枪大鸡腿",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炸品/棒棒虾.md",
+    "category": "炸品",
+    "title": "棒棒虾",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炸品/炸肉肠.md",
+    "category": "炸品",
+    "title": "炸肉肠",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "226Kcal",
+      "蛋白质": "14.4g",
+      "脂肪": "11.4g",
+      "碳水化合物": "16.5g",
+      "钠": "922mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炸品/炸鸡排.md",
+    "category": "炸品",
+    "title": "炸鸡排",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炸品/炸鸡排（普通鸡排）.md",
+    "category": "炸品",
+    "title": "炸鸡排（普通鸡排）",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "297Kcal",
+      "蛋白质": "16.1g",
+      "脂肪": "18.3g",
+      "碳水化合物": "17.3g",
+      "钠": "887mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炸品/炸鸡排（调理鸡排）.md",
+    "category": "炸品",
+    "title": "炸鸡排（调理鸡排）",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "230Kcal",
+      "蛋白质": "15.2g",
+      "脂肪": "12.4g",
+      "碳水化合物": "14.4g",
+      "钠": "676mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炸品/炸鸡腿.md",
+    "category": "炸品",
+    "title": "炸鸡腿",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炸品/生炸大鸡腿.md",
+    "category": "炸品",
+    "title": "生炸大鸡腿",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炸品/糖糕（红糖馅）.md",
+    "category": "炸品",
+    "title": "糖糕（红糖馅）",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "248Kcal",
+      "蛋白质": "4.3g",
+      "脂肪": "7.1g",
+      "碳水化合物": "41.4g",
+      "钠": "23mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炸品/脆皮鸡翅.md",
+    "category": "炸品",
+    "title": "脆皮鸡翅",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "314Kcal",
+      "蛋白质": "13.8g",
+      "脂肪": "21.8g",
+      "碳水化合物": "16.1g",
+      "钠": "730mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炸品/薯条.md",
+    "category": "炸品",
+    "title": "薯条",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炸品/香脆薯饼.md",
+    "category": "炸品",
+    "title": "香脆薯饼",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炸品/香芋地瓜丸.md",
+    "category": "炸品",
+    "title": "香芋地瓜丸",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炸品/香酥鸡米花.md",
+    "category": "炸品",
+    "title": "香酥鸡米花",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "炸品/鸡肉洋葱圈.md",
+    "category": "炸品",
+    "title": "鸡肉洋葱圈",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "烤类/README.md",
+    "category": "烤类",
+    "title": "烤类",
+    "is_index": true,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "烤类/烤肠.md",
+    "category": "烤类",
+    "title": "烤肠",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "烫菜/README.md",
+    "category": "烫菜",
+    "title": "烫菜",
+    "is_index": true,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "烫菜/浇汁西兰花.md",
+    "category": "烫菜",
+    "title": "浇汁西兰花",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "烫菜/特色热干面.md",
+    "category": "烫菜",
+    "title": "特色热干面",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "烫菜/白灼虾（8只）.md",
+    "category": "烫菜",
+    "title": "白灼虾（8只）",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "107Kcal",
+      "蛋白质": "23.4g",
+      "脂肪": "1.0g",
+      "碳水化合物": "0.7g",
+      "钠": "444mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [
+      "葱油"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "烫菜/菠菜蛋皮丝.md",
+    "category": "烫菜",
+    "title": "菠菜蛋皮丝",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "烫菜/葱油拌面.md",
+    "category": "烫菜",
+    "title": "葱油拌面",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "烫菜/葱油生菜.md",
+    "category": "烫菜",
+    "title": "[葱油](/配料/葱油.md)生菜",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [
+      "葱油",
+      "豉油汁"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "烫菜/葱油菜心.md",
+    "category": "烫菜",
+    "title": "葱油菜心",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "烫菜/葱油菜苔.md",
+    "category": "烫菜",
+    "title": "葱油菜苔",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "烫菜/葱油青菜.md",
+    "category": "烫菜",
+    "title": "[葱油](/配料/葱油.md)青菜",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [
+      "葱油",
+      "豉油汁"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "烫菜/香脆木耳.md",
+    "category": "烫菜",
+    "title": "香脆木耳",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "烫菜/鸡汤娃娃菜.md",
+    "category": "烫菜",
+    "title": "鸡汤娃娃菜",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "烫菜/麻辣鸡块.md",
+    "category": "烫菜",
+    "title": "麻辣鸡块",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "煮锅/README.md",
+    "category": "煮锅",
+    "title": "煮锅",
+    "is_index": true,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "煮锅/冒烤鸭.md",
+    "category": "煮锅",
+    "title": "冒烤鸭",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "煮锅/嗨嗨锅（泡椒鸡米花米线）.md",
+    "category": "煮锅",
+    "title": "嗨嗨锅（泡椒鸡米花米线）",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "煮锅/嗨嗨锅（番茄肥牛锅）.md",
+    "category": "煮锅",
+    "title": "嗨嗨锅（番茄肥牛锅）",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "煮锅/嗨嗨锅（酸菜鱼米线）.md",
+    "category": "煮锅",
+    "title": "嗨嗨锅（酸菜鱼米线）",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "煮锅/嗨嗨锅（鲜蔬锅）.md",
+    "category": "煮锅",
+    "title": "嗨嗨锅（鲜蔬锅）",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "煮锅/金汤酸菜鱼.md",
+    "category": "煮锅",
+    "title": "金汤酸菜鱼",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "煮锅/金汤酸菜鱼（大份）.md",
+    "category": "煮锅",
+    "title": "金汤酸菜鱼（大份）",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "煮锅/铜锅安格斯肥牛.md",
+    "category": "煮锅",
+    "title": "铜锅安格斯肥牛",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "164Kcal",
+      "蛋白质": "4.6g",
+      "脂肪": "13.6g",
+      "碳水化合物": "6.3g",
+      "钠": "686mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "煮锅/铜锅川味水煮肉片.md",
+    "category": "煮锅",
+    "title": "铜锅川味水煮肉片",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "78Kcal",
+      "蛋白质": "5.5g",
+      "脂肪": "3.7g",
+      "碳水化合物": "5.6g",
+      "钠": "817mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [
+      "水煮料调味酱"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "煮锅/铜锅番茄虾滑.md",
+    "category": "煮锅",
+    "title": "铜锅番茄虾滑",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "39Kcal",
+      "蛋白质": "2.6g",
+      "脂肪": "1.2g",
+      "碳水化合物": "4.5g",
+      "钠": "269mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [
+      "番茄汤膏"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "煮锅/铜锅豆花鸡.md",
+    "category": "煮锅",
+    "title": "铜锅豆花鸡",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "91Kcal",
+      "蛋白质": "7.8g",
+      "脂肪": "5.3g",
+      "碳水化合物": "3.1g",
+      "钠": "682mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "砂锅菜/README.md",
+    "category": "砂锅菜",
+    "title": "砂锅菜",
+    "is_index": true,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "砂锅菜/砂锅三鲜豆腐.md",
+    "category": "砂锅菜",
+    "title": "砂锅三鲜豆腐",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [
+      "三鲜豆腐汤料"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "砂锅菜/砂锅原味鸡汤米线.md",
+    "category": "砂锅菜",
+    "title": "砂锅原味鸡汤米线",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "砂锅菜/砂锅木瓜.md",
+    "category": "砂锅菜",
+    "title": "砂锅木瓜",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "砂锅菜/砂锅泡椒鸡米花米线.md",
+    "category": "砂锅菜",
+    "title": "砂锅泡椒鸡米花米线",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "砂锅菜/砂锅牛杂煲.md",
+    "category": "砂锅菜",
+    "title": "砂锅牛杂煲",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "砂锅菜/砂锅番茄米线.md",
+    "category": "砂锅菜",
+    "title": "砂锅番茄米线",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "砂锅菜/砂锅盐焗鸡.md",
+    "category": "砂锅菜",
+    "title": "砂锅盐焗鸡",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "砂锅菜/砂锅老坛酸菜鱼.md",
+    "category": "砂锅菜",
+    "title": "砂锅老坛酸菜鱼",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "72Kcal",
+      "蛋白质": "2.9g",
+      "脂肪": "3.5g",
+      "碳水化合物": "7.2g",
+      "钠": "752mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [
+      "糊辣油",
+      "原味酸菜鱼底料"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "砂锅菜/砂锅肉汁素鸡.md",
+    "category": "砂锅菜",
+    "title": "砂锅肉汁素鸡",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "157Kcal",
+      "蛋白质": "6.9g",
+      "脂肪": "13.2g",
+      "碳水化合物": "3.1g",
+      "钠": "487mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "单份",
+      "出品"
+    ],
+    "ingredient_refs": [
+      "素鸡煲调味料"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "砂锅菜/砂锅腐竹.md",
+    "category": "砂锅菜",
+    "title": "砂锅腐竹",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "砂锅菜/砂锅蒜蓉粉丝虾.md",
+    "category": "砂锅菜",
+    "title": "砂锅蒜蓉粉丝虾",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "砂锅菜/砂锅豆花鸡.md",
+    "category": "砂锅菜",
+    "title": "砂锅豆花鸡",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "198Kcal",
+      "蛋白质": "11.2g",
+      "脂肪": "16.0g",
+      "碳水化合物": "2.6g",
+      "钠": "501mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "单份",
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "砂锅菜/砂锅酸菜鱼.md",
+    "category": "砂锅菜",
+    "title": "砂锅酸菜鱼",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "砂锅菜/砂锅香辣鱿鱼.md",
+    "category": "砂锅菜",
+    "title": "砂锅香辣鱿鱼",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "136Kcal",
+      "蛋白质": "8.2g",
+      "脂肪": "6.5g",
+      "碳水化合物": "11.2g",
+      "钠": "372mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "单份",
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "砂锅菜/酸菜肥肠煲.md",
+    "category": "砂锅菜",
+    "title": "酸菜肥肠煲",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/README.md",
+    "category": "蒸菜",
+    "title": "蒸菜",
+    "is_index": true,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/三色虾仁.md",
+    "category": "蒸菜",
+    "title": "三色虾仁",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/农家蒸蛋.md",
+    "category": "蒸菜",
+    "title": "农家蒸蛋",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/凤爪蒸豆米.md",
+    "category": "蒸菜",
+    "title": "凤爪蒸豆米",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/剁椒鱼头.md",
+    "category": "蒸菜",
+    "title": "剁椒鱼头",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "单份",
+      "出品"
+    ],
+    "ingredient_refs": [
+      "剁椒鱼头料"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/剁椒鱼头（白鲢鱼头版）.md",
+    "category": "蒸菜",
+    "title": "剁椒鱼头（白鲢鱼头版）",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "95Kcal",
+      "蛋白质": "6.4g",
+      "脂肪": "5.1g",
+      "碳水化合物": "5.9g",
+      "钠": "1770mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "单份",
+      "出品"
+    ],
+    "ingredient_refs": [
+      "剁椒鱼头料"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/剁椒鱼头（草鱼头版）.md",
+    "category": "蒸菜",
+    "title": "剁椒鱼头（草鱼头版）",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "100Kcal",
+      "蛋白质": "9.8g",
+      "脂肪": "4.9g",
+      "碳水化合物": "4.2g",
+      "钠": "1580mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "单份",
+      "出品"
+    ],
+    "ingredient_refs": [
+      "剁椒鱼头料"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/咸蛋黄狮子头（蒸制版）.md",
+    "category": "蒸菜",
+    "title": "咸蛋黄狮子头（蒸制版）",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "224Kcal",
+      "蛋白质": "11.7g",
+      "脂肪": "18.9g",
+      "碳水化合物": "2.2g",
+      "钠": "525mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/奥尔良鸡翅.md",
+    "category": "蒸菜",
+    "title": "奥尔良鸡翅",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/松糕.md",
+    "category": "蒸菜",
+    "title": "松糕",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/梅菜扣肉.md",
+    "category": "蒸菜",
+    "title": "梅菜扣肉",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/活珠子.md",
+    "category": "蒸菜",
+    "title": "活珠子/凤凰蛋",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/珍珠糯米肉丸.md",
+    "category": "蒸菜",
+    "title": "珍珠糯米肉丸",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "204Kcal",
+      "蛋白质": "9.4g",
+      "脂肪": "12.3g",
+      "碳水化合物": "14.1g",
+      "钠": "467mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/番茄菌菇肉丸.md",
+    "category": "蒸菜",
+    "title": "番茄菌菇肉丸",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "71Kcal",
+      "蛋白质": "4.1g",
+      "脂肪": "3.9g",
+      "碳水化合物": "4.9g",
+      "钠": "218mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [
+      "番茄汤膏"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/白切鸡.md",
+    "category": "蒸菜",
+    "title": "白切鸡",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "每份",
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/百叶包肉.md",
+    "category": "蒸菜",
+    "title": "百叶包肉",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "189Kcal",
+      "蛋白质": "11.1g",
+      "脂肪": "15.3g",
+      "碳水化合物": "2.2g",
+      "钠": "380mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/秘汁卤肉饭.md",
+    "category": "蒸菜",
+    "title": "秘汁卤肉饭",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/竹笋蒸鸡翅.md",
+    "category": "蒸菜",
+    "title": "竹笋蒸鸡翅",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [
+      "鸡翅调料"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/粉蒸肉.md",
+    "category": "蒸菜",
+    "title": "粉蒸肉",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/粗粮盒.md",
+    "category": "蒸菜",
+    "title": "粗粮盒",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/肉饼蒸蛋.md",
+    "category": "蒸菜",
+    "title": "肉饼蒸蛋",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/肉饼蒸蛋（常规版）.md",
+    "category": "蒸菜",
+    "title": "肉饼蒸蛋（常规版）",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "142Kcal",
+      "蛋白质": "10.6g",
+      "脂肪": "10.9g",
+      "碳水化合物": "0.7g",
+      "钠": "422mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/肉饼蒸蛋（马蹄版）.md",
+    "category": "蒸菜",
+    "title": "肉饼蒸蛋（马蹄版）",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "131Kcal",
+      "蛋白质": "12.4g",
+      "脂肪": "8.5g",
+      "碳水化合物": "1.4g",
+      "钠": "485mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/胡萝卜牛肉.md",
+    "category": "蒸菜",
+    "title": "胡萝卜牛肉",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/葱油鸡.md",
+    "category": "蒸菜",
+    "title": "葱油鸡",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/葱油鸡（小母鸡版）.md",
+    "category": "蒸菜",
+    "title": "[葱油](/配料/葱油.md)鸡（小母鸡版）",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "180Kcal",
+      "蛋白质": "20.7g",
+      "脂肪": "9.9g",
+      "碳水化合物": "2.0g",
+      "钠": "1080mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "每份",
+      "出品"
+    ],
+    "ingredient_refs": [
+      "葱油",
+      "葱油"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/葱油鸡（白切鸡版）.md",
+    "category": "蒸菜",
+    "title": "[葱油](/配料/葱油.md)鸡（白切鸡版）",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "183Kcal",
+      "蛋白质": "15.0g",
+      "脂肪": "13.3g",
+      "碳水化合物": "1.1g",
+      "钠": "812mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "每份",
+      "出品"
+    ],
+    "ingredient_refs": [
+      "葱油",
+      "葱油"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/葱油鸡（鸡排腿版）.md",
+    "category": "蒸菜",
+    "title": "[葱油](/配料/葱油.md)鸡（鸡排腿版）",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "每份",
+      "出品"
+    ],
+    "ingredient_refs": [
+      "葱油",
+      "葱油"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/蒜蓉娃娃菜.md",
+    "category": "蒸菜",
+    "title": "蒜蓉娃娃菜",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/蒜蓉粉丝虾.md",
+    "category": "蒸菜",
+    "title": "蒜蓉粉丝虾",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/蒸南瓜.md",
+    "category": "蒸菜",
+    "title": "蒸南瓜",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "65Kcal",
+      "蛋白质": "2.2g",
+      "脂肪": "0.0g",
+      "碳水化合物": "13.7g",
+      "钠": "0mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/蒸嫩豆腐.md",
+    "category": "蒸菜",
+    "title": "蒸嫩豆腐",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "112Kcal",
+      "蛋白质": "7.2g",
+      "脂肪": "4.5g",
+      "碳水化合物": "10.5g",
+      "钠": "529mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [
+      "豉油汁"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/虾仁蒸鸡蛋.md",
+    "category": "蒸菜",
+    "title": "虾仁蒸鸡蛋",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/蜜汁南瓜.md",
+    "category": "蒸菜",
+    "title": "蜜汁南瓜",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/豉汁鱼块.md",
+    "category": "蒸菜",
+    "title": "豉汁鱼块",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "121Kcal",
+      "蛋白质": "12.7g",
+      "脂肪": "7.3g",
+      "碳水化合物": "1.2g",
+      "钠": "927mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [
+      "蒸鱼调味汁"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/豌豆肉末.md",
+    "category": "蒸菜",
+    "title": "豌豆肉末",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/酱椒蒜香片片鱼.md",
+    "category": "蒸菜",
+    "title": "酱椒蒜香片片鱼",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/酱蒸白干.md",
+    "category": "蒸菜",
+    "title": "酱蒸白干",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [
+      "酱蒸白干料"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/酱蒸豆腐.md",
+    "category": "蒸菜",
+    "title": "酱蒸豆腐",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [
+      "酱蒸白干料"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/酱香小河虾.md",
+    "category": "蒸菜",
+    "title": "酱香小河虾",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/青椒蒸豆米.md",
+    "category": "蒸菜",
+    "title": "青椒蒸豆米",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "172Kcal",
+      "蛋白质": "9.1g",
+      "脂肪": "11.1g",
+      "碳水化合物": "9.0g",
+      "钠": "455mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/风干牛肉蒸白干.md",
+    "category": "蒸菜",
+    "title": "风干牛肉蒸白干",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [
+      "风干牛肉酱料"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/香肠蒸豆干.md",
+    "category": "蒸菜",
+    "title": "香肠蒸豆干",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "220Kcal",
+      "蛋白质": "15.3g",
+      "脂肪": "11.3g",
+      "碳水化合物": "14.2g",
+      "钠": "791mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [
+      "调味料（鸡汤专用）"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/香肠蒸豆米.md",
+    "category": "蒸菜",
+    "title": "香肠蒸豆米",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/香芋蒸排骨.md",
+    "category": "蒸菜",
+    "title": "香芋蒸排骨",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/香辣红油鸡（小母鸡版）.md",
+    "category": "蒸菜",
+    "title": "香辣红油鸡（小母鸡版）",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "每份",
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/香辣红油鸡（白切鸡版）.md",
+    "category": "蒸菜",
+    "title": "香辣红油鸡（白切鸡版）",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "每份",
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/香辣红油鸡（鸡排腿版）.md",
+    "category": "蒸菜",
+    "title": "香辣红油鸡（鸡排腿版）",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "每份",
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/香辣血旺.md",
+    "category": "蒸菜",
+    "title": "香辣血旺",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [
+      "血旺料"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "蒸菜/鸡汁辣鱼.md",
+    "category": "蒸菜",
+    "title": "鸡汁辣鱼",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "每份",
+      "出品"
+    ],
+    "ingredient_refs": [
+      "鸡汁辣鱼料"
+    ],
+    "is_2026": false
+  },
+  {
+    "path": "配料/README.md",
+    "category": "配料",
+    "title": "配料",
+    "is_index": true,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": true
+  },
+  {
+    "path": "配料/三鲜豆腐汤料.md",
+    "category": "配料",
+    "title": "三鲜豆腐汤料",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "配料/剁椒酱.md",
+    "category": "配料",
+    "title": "剁椒酱",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "配料/剁椒鱼头料.md",
+    "category": "配料",
+    "title": "剁椒鱼头料",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "配料/卤油.md",
+    "category": "配料",
+    "title": "卤油",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "配料/原味酸菜鱼底料.md",
+    "category": "配料",
+    "title": "原味酸菜鱼底料",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "配料/姜汁.md",
+    "category": "配料",
+    "title": "姜汁",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "配料/宫保鸡丁调味酱.md",
+    "category": "配料",
+    "title": "宫保鸡丁调味酱",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "配料/家常小炒料.md",
+    "category": "配料",
+    "title": "家常小炒料",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "配料/小炒河虾料.md",
+    "category": "配料",
+    "title": "小炒河虾料",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "配料/小炒肉调味汁.md",
+    "category": "配料",
+    "title": "小炒肉调味汁",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "配料/小炒肉调料(2026年更新).md",
+    "category": "配料",
+    "title": "小炒肉调料",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "配料/小炒肉调料.md",
+    "category": "配料",
+    "title": "小炒肉调料",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "配料/果味糖醋酱.md",
+    "category": "配料",
+    "title": "果味糖醋酱",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "配料/毛豆烧鸡料.md",
+    "category": "配料",
+    "title": "毛豆烧鸡料",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "配料/水煮料调味酱.md",
+    "category": "配料",
+    "title": "水煮料调味酱",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "配料/油焖茄子料.md",
+    "category": "配料",
+    "title": "油焖茄子料",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "配料/炒菜基料.md",
+    "category": "配料",
+    "title": "炒菜基料",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "配料/番茄汤膏.md",
+    "category": "配料",
+    "title": "番茄汤膏",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "配料/糊辣油.md",
+    "category": "配料",
+    "title": "糊辣油",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "配料/糯米酒汁.md",
+    "category": "配料",
+    "title": "糯米酒汁",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "配料/素鸡煲调味料.md",
+    "category": "配料",
+    "title": "素鸡煲调味料",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "配料/肥肠鸡酱料.md",
+    "category": "配料",
+    "title": "肥肠鸡酱料",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "配料/花椒汁.md",
+    "category": "配料",
+    "title": "花椒汁",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "配料/葱油.md",
+    "category": "配料",
+    "title": "葱油",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "配料/蒜蓉酱.md",
+    "category": "配料",
+    "title": "蒜蓉酱",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "配料/蒸蛋料.md",
+    "category": "配料",
+    "title": "蒸蛋料",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "配料/蒸鱼调味汁.md",
+    "category": "配料",
+    "title": "蒸鱼调味汁",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "配料/血旺料.md",
+    "category": "配料",
+    "title": "血旺料",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "配料/调味料（小炒鸡丁）.md",
+    "category": "配料",
+    "title": "调味料",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "配料/调味料（鸡汤专用）.md",
+    "category": "配料",
+    "title": "鸡汤料",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "配料/豉油汁.md",
+    "category": "配料",
+    "title": "豉油汁",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "配料/酱蒸白干料.md",
+    "category": "配料",
+    "title": "酱蒸白干料",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "配料/风干牛肉酱料.md",
+    "category": "配料",
+    "title": "风干牛肉酱料",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "配料/鱼香风味酱.md",
+    "category": "配料",
+    "title": "鱼香风味酱",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "配料/鸡杂料.md",
+    "category": "配料",
+    "title": "鸡杂料",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "配料/鸡汁辣鱼料.md",
+    "category": "配料",
+    "title": "鸡汁辣鱼料",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "配料/鸡油料.md",
+    "category": "配料",
+    "title": "鸡油料",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "配料/鸡翅调料.md",
+    "category": "配料",
+    "title": "鸡翅调料",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "配料/鸡胸肉调味汁.md",
+    "category": "配料",
+    "title": "鸡胸肉调味汁",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "配料/麻婆豆腐料.md",
+    "category": "配料",
+    "title": "麻婆豆腐料",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "饮品/README.md",
+    "category": "饮品",
+    "title": "饮品",
+    "is_index": true,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": false,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "饮品/东方树叶（335mL）.md",
+    "category": "饮品",
+    "title": "东方树叶（335mL）",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "饮品/农夫山泉矿泉水（运动盖）.md",
+    "category": "饮品",
+    "title": "农夫山泉矿泉水（运动盖）",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "饮品/劲酒.md",
+    "category": "饮品",
+    "title": "劲酒",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "饮品/原味豆浆.md",
+    "category": "饮品",
+    "title": "原味豆浆",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "饮品/原味豆浆（冲调版本）.md",
+    "category": "饮品",
+    "title": "原味豆浆（冲调版本）",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "57Kcal",
+      "蛋白质": "2.7g",
+      "脂肪": "1.3g",
+      "碳水化合物": "8.5g",
+      "钠": "18mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "饮品/原味豆浆（现磨版本）.md",
+    "category": "饮品",
+    "title": "原味豆浆（现磨版本）",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "14Kcal",
+      "蛋白质": "1.1g",
+      "脂肪": "0.7g",
+      "碳水化合物": "0.9g",
+      "钠": "0mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "饮品/奶皮子酸奶.md",
+    "category": "饮品",
+    "title": "奶皮子酸奶",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "饮品/摩登罐装可乐.md",
+    "category": "饮品",
+    "title": "摩登罐装可乐",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "饮品/摩登罐装芬达.md",
+    "category": "饮品",
+    "title": "摩登罐装芬达",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "饮品/摩登罐装雪碧.md",
+    "category": "饮品",
+    "title": "摩登罐装雪碧",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "饮品/摩登零度可乐.md",
+    "category": "饮品",
+    "title": "摩登零度可乐",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "饮品/热奶茶.md",
+    "category": "饮品",
+    "title": "热奶茶",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "饮品/猴头菇山药玉米糊.md",
+    "category": "饮品",
+    "title": "猴头菇山药玉米糊",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "64Kcal",
+      "蛋白质": "1.3g",
+      "脂肪": "0.0g",
+      "碳水化合物": "14.4g",
+      "钠": "0mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "饮品/精酿啤酒330mL.md",
+    "category": "饮品",
+    "title": "精酿啤酒330mL",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "饮品/红豆酒酿.md",
+    "category": "饮品",
+    "title": "红豆酒酿",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "56Kcal",
+      "蛋白质": "1.6g",
+      "脂肪": "0.0g",
+      "碳水化合物": "12.3g",
+      "钠": "0mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "饮品/苹果山楂红茶.md",
+    "category": "饮品",
+    "title": "苹果山楂红茶",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "饮品/蒙牛纯牛奶（150mL）.md",
+    "category": "饮品",
+    "title": "蒙牛纯牛奶（150mL）",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "饮品/酒酿蛋花甜羹.md",
+    "category": "饮品",
+    "title": "酒酿蛋花甜羹",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "37Kcal",
+      "蛋白质": "0.7g",
+      "脂肪": "0.7g",
+      "碳水化合物": "7.0g",
+      "钠": "8mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "饮品/银耳莲子炖梨.md",
+    "category": "饮品",
+    "title": "银耳莲子炖梨",
+    "is_index": false,
+    "has_nutrition": true,
+    "nutrition": {
+      "热量": "26Kcal",
+      "蛋白质": "0.0g",
+      "脂肪": "0.0g",
+      "碳水化合物": "6.5g",
+      "钠": "0.0mg"
+    },
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "饮品/雪花纯生啤酒（罐装）.md",
+    "category": "饮品",
+    "title": "雪花纯生啤酒（罐装）",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": false,
+    "yield_kw": [],
+    "ingredient_refs": [],
+    "is_2026": false
+  },
+  {
+    "path": "饮品/鸡笼香柠檬茶.md",
+    "category": "饮品",
+    "title": "鸡笼香柠檬茶",
+    "is_index": false,
+    "has_nutrition": false,
+    "nutrition": {},
+    "has_peiliao": true,
+    "has_buzhou": true,
+    "yield_kw": [
+      "出品"
+    ],
+    "ingredient_refs": [],
+    "is_2026": false
+  }
+]

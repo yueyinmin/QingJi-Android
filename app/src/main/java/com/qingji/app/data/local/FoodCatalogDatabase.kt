@@ -5,7 +5,14 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.qingji.app.data.local.dao.FoodCatalogDao
+import com.qingji.app.data.local.dao.OmniFoodCatalogDao
 import com.qingji.app.data.local.entity.CatalogFood
+import com.qingji.app.data.local.entity.FoodComposition
+import com.qingji.app.data.local.entity.FoodDataSource
+import com.qingji.app.data.local.entity.FoodQualityIssue
+import com.qingji.app.data.local.entity.NutritionSample
+import com.qingji.app.data.local.entity.OmniFoodEntity
+import com.qingji.app.data.local.entity.OmniFoodNutrition
 
 /**
  * ============================================================
@@ -20,10 +27,23 @@ import com.qingji.app.data.local.entity.CatalogFood
  * schema JSON（当前是 2.json），避免 Room 打开时做表结构体检不通过导致闪退。
  * ============================================================
  */
-@Database(entities = [CatalogFood::class], version = 2, exportSchema = true)
+@Database(
+    entities = [
+        CatalogFood::class,
+        OmniFoodEntity::class,
+        OmniFoodNutrition::class,
+        NutritionSample::class,
+        FoodComposition::class,
+        FoodDataSource::class,
+        FoodQualityIssue::class
+    ],
+    version = 3,
+    exportSchema = true
+)
 abstract class FoodCatalogDatabase : RoomDatabase() {
 
     abstract fun catalogDao(): FoodCatalogDao
+    abstract fun omniFoodDao(): OmniFoodCatalogDao
 
     companion object {
         /**
@@ -32,8 +52,11 @@ abstract class FoodCatalogDatabase : RoomDatabase() {
          * 以后换预置库，两边一起改，手机才会自动丢弃旧库、重新从 assets 拷新的。
          *
          * 0.2 → 0.3（v1.0.6）：删掉 state 列，纤维/钠/糖/钙改成可空（NULL = 未收录）。
+         * 0.3 → 0.4（v1.3.1）：OmniFood8K 第一批数据。旧 food_catalog 表 654 条保留，
+         *   新增 166 条命名食物；8,037 条样本、27,466 条组成关系独立入表，
+         *   异常记录隔离，不混入普通食物搜索。换库只删标准库文件，不碰 qingji.db。
          */
-        const val CATALOG_VERSION = "0.3"
+        const val CATALOG_VERSION = "0.4-omnifood8k"
         private const val DB_NAME = "food_catalog.db"
         private const val ASSET_PATH = "database/food_catalog.db"
         private const val PREFS_NAME = "qingji_catalog_meta"

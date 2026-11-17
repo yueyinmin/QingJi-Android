@@ -149,8 +149,12 @@ jobs:
           fi
           gh release upload ci-latest "$APK" --clobber
           # 把 Room 12 生成的 schema 一起挂出来，本地拿到后提交进仓库
-          SCHEMA=$(find app/schemas -path '*AppDatabase/12.json' | head -1 || true)
-          if [ -n "$SCHEMA" ]; then
-            gh release upload ci-latest "$SCHEMA#AppDatabase-12.json" --clobber
+          SCHEMA1=$(find app/schemas -path '*AppDatabase/12.json' | head -1 || true)
+          SCHEMA2=$(find app/schemas -path '*FoodCatalogDatabase/3.json' | head -1 || true)
+          if [ -n "$SCHEMA1" ]; then
+            gh release upload ci-latest "$SCHEMA1#AppDatabase-12.json" --clobber
+          fi
+          if [ -n "$SCHEMA2" ]; then
+            gh release upload ci-latest "$SCHEMA2#FoodCatalogDatabase-3.json" --clobber
           fi
           gh release view ci-latest --json assets --jq '.assets[].name'
