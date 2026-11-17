@@ -1,0 +1,39 @@
+﻿old_uuid,old_name_cn,upstream_slug,upstream_name_en,new_uuid,match_evidence,name_review,uncertain
+ex-chest-01,哑铃卧推,dumbbell-bench-press,Dumbbell Bench Press,ex-chest-01,旧代码显式 slug 精确命中,保留,否
+ex-chest-02,杠铃卧推,bench-press,Bench Press,ex-chest-02,旧代码显式 slug 精确命中,保留,否
+ex-chest-03,俯卧撑,push-up,Push-up,ex-chest-03,旧代码显式 slug 精确命中,保留,否
+ex-chest-04,上斜哑铃卧推,incline-dumbbell-press,Incline Dumbbell Press,ex-chest-04,旧代码显式 slug 精确命中,保留,否
+ex-chest-05,器械推胸,machine-chest-press,Machine Chest Press,ex-chest-05,旧代码显式 slug 精确命中,保留,否
+ex-chest-06,哑铃飞鸟,dumbbell-fly,Dumbbell Fly,ex-chest-06,旧代码显式 slug 精确命中,保留,否
+ex-back-01,引体向上,pull-up,Pull-up,ex-back-01,旧代码显式 slug 精确命中,保留,否
+ex-back-02,高位下拉,lat-pulldown,Lat Pulldown,ex-back-02,旧代码显式 slug 精确命中,保留,否
+ex-back-03,坐姿划船,seated-row,Seated Cable Row,ex-back-03,旧代码显式 slug 精确命中,建议改为「坐姿绳索划船」,否
+ex-back-04,单臂哑铃划船,one-arm-dumbbell-row,One-Arm Dumbbell Row,ex-back-04,旧代码显式 slug 精确命中,保留,否
+ex-back-05,杠铃划船,barbell-row,Barbell Row,ex-back-05,旧代码显式 slug 精确命中,保留,否
+ex-back-06,硬拉,deadlift,Deadlift,ex-back-06,旧代码显式 slug 精确命中,保留,否
+ex-shoulder-01,哑铃肩推,seated-dumbbell-press,Dumbbell Seated Shoulder Press,ex-shoulder-01,旧代码显式 slug 精确命中,建议改为「坐姿哑铃肩推」,否
+ex-shoulder-02,哑铃侧平举,lateral-raise,Lateral Raise,ex-shoulder-02,旧代码显式 slug 精确命中,保留,否
+ex-shoulder-03,面拉,face-pull,Face Pull,ex-shoulder-03,旧代码显式 slug 精确命中,保留,否
+ex-shoulder-04,阿诺德推举,arnold-press,Arnold Press,ex-shoulder-04,旧代码显式 slug 精确命中,保留,否
+ex-shoulder-05,俯身反向飞鸟,bent-over-rear-delt-raise,Bent-Over Rear Delt Raise,ex-shoulder-05,旧代码显式 slug 精确命中,保留,否
+ex-arm-01,杠铃弯举,ez-bar-curl,EZ-Bar Curl,ex-arm-01,旧代码显式 slug 精确命中,建议改为「EZ 杠弯举」,否
+ex-arm-02,哑铃交替弯举,bicep-curl,Bicep Curl,ex-arm-02,旧代码显式 slug 精确命中,建议改为「哑铃弯举」,否
+ex-arm-03,绳索下压,tricep-pushdown,Tricep Pushdown,ex-arm-03,旧代码显式 slug 精确命中,保留,否
+ex-arm-04,窄距俯卧撑,diamond-push-up,Diamond Push-up,ex-arm-04,旧代码显式 slug 精确命中,建议改为「钻石俯卧撑」,否
+ex-arm-05,锤式弯举,hammer-curl,Hammer Curl,ex-arm-05,旧代码显式 slug 精确命中,保留,否
+ex-leg-01,杠铃深蹲,squat,Squat,ex-leg-01,旧代码显式 slug 精确命中,保留,否
+ex-leg-02,哑铃深蹲,goblet-squat,Goblet Squat,ex-leg-02,旧代码显式 slug 精确命中,建议改为「高脚杯深蹲」,否
+ex-leg-03,罗马尼亚硬拉,dumbbell-romanian-deadlift,Dumbbell Romanian Deadlift,ex-leg-03,旧代码显式 slug 精确命中,建议改为「哑铃罗马尼亚硬拉」,否
+ex-leg-04,腿举,leg-press,Leg Press,ex-leg-04,旧代码显式 slug 精确命中,保留,否
+ex-leg-05,箭步蹲,forward-lunge,Forward Lunge,ex-leg-05,旧代码显式 slug 精确命中,保留,否
+ex-leg-06,提踵,calf-raise,Calf Raise,ex-leg-06,旧代码显式 slug 精确命中,保留,否
+ex-core-01,平板支撑,plank,Plank,ex-core-01,旧代码显式 slug 精确命中,保留,否
+ex-core-02,卷腹,crunch,Crunch,ex-core-02,旧代码显式 slug 精确命中,保留,否
+ex-core-03,死虫式,dead-bug,Dead Bug,ex-core-03,旧代码显式 slug 精确命中,保留,否
+ex-core-04,俄罗斯转体,russian-twist,Russian Twist,ex-core-04,旧代码显式 slug 精确命中,保留,否
+ex-core-05,悬垂举腿,hanging-leg-raise,Hanging Leg Raise,ex-core-05,旧代码显式 slug 精确命中,保留,否
+ex-stretch-01,胸部拉伸,doorway-chest-stretch,Doorway Chest Stretch,ex-stretch-01,旧代码显式 slug 精确命中,保留,否
+ex-stretch-02,背阔肌拉伸,childs-pose,Child's Pose,ex-stretch-02,旧代码显式 slug 精确命中,建议改为「婴儿式」,否
+ex-stretch-03,股四头肌拉伸,standing-quad-stretch,Standing Quad Stretch,ex-stretch-03,旧代码显式 slug 精确命中,保留,否
+ex-stretch-04,腘绳肌拉伸,hamstring-stretch,Hamstring Stretch,ex-stretch-04,旧代码显式 slug 精确命中,保留,否
+ex-stretch-05,髋屈肌拉伸,kneeling-hip-flexor-stretch,Kneeling Hip Flexor Stretch,ex-stretch-05,旧代码显式 slug 精确命中,保留,否
