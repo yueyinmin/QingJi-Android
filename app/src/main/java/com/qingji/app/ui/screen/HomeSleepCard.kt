@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.qingji.app.data.local.entity.SleepRecordEntity
+import com.qingji.app.domain.SleepScoreCalculator
 import com.qingji.app.ui.components.SectionCard
 import com.qingji.app.ui.theme.Dimens
 import com.qingji.app.ui.theme.MultiColor
@@ -43,8 +44,20 @@ import com.qingji.app.ui.theme.TextSizes
 internal fun SleepSummaryCard(
     lastNight: SleepRecordEntity?,
     onClick: () -> Unit,
+    /** 近 7 晚记录，供评分的规律性项用；不传则该项不计分（不会显示错分） */
+    recentNights: List<SleepRecordEntity> = emptyList(),
     modifier: Modifier = Modifier
 ) {
+    // 和睡眠页用同一个 Calculator，两处分数口径完全一致（工单：评分回溯不落库）。
+    val score = lastNight?.let { night ->
+        val date = night.date
+        SleepScoreCalculator.score(
+            record = night,
+            recentRecords = recentNights.filter {
+                !it.date.isBefore(date.minusDays(6)) && !it.date.isAfter(date)
+            }
+        )
+    }
     SectionCard(
         contentPadding = 14.dp,
         modifier = modifier.clickable { onClick() }
@@ -95,9 +108,9 @@ internal fun SleepSummaryCard(
             }
             if (lastNight != null) {
                 Column(horizontalAlignment = Alignment.End) {
-                    if (lastNight.quality > 0) {
+                    if (score != null) {
                         Text(
-                            SleepRecordEntity.qualityLabel(lastNight.quality),
+                            "${score.score} · ${score.rating}",
                             fontSize = TextSizes.Caption,
                             color = MultiColor.FastingText,
                             fontWeight = FontWeight.SemiBold
