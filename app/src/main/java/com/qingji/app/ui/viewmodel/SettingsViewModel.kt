@@ -131,9 +131,13 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     fun setExerciseCompensation(enabled: Boolean) =
         put(SettingsKeys.EXERCISE_COMPENSATION, enabled)
 
-    /** 补偿比例 0-100；0 等于关闭。滑杆四段（0/25/50/75/100）。 */
-    fun setExerciseCompensationPct(pct: Int) =
-        put(SettingsKeys.EXERCISE_COMPENSATION_PCT, pct.coerceIn(0, 100))
+    /** 补偿比例 0-100；0 等于关闭。滑杆四段（0/25/50/75/100）。
+     *  2026-11-18：比例是唯一开关，选 0% 就等于关闭，同步写布尔键保持一致。 */
+    fun setExerciseCompensationPct(pct: Int) {
+        val v = pct.coerceIn(0, 100)
+        put(SettingsKeys.EXERCISE_COMPENSATION_PCT, v)
+        put(SettingsKeys.EXERCISE_COMPENSATION, v > 0)
+    }
 
     fun setDietPreference(text: String) = put(SettingsKeys.DIET_PREFERENCE, text)
 
