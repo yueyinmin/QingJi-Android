@@ -9,9 +9,11 @@ import com.qingji.app.data.local.entity.BodyMeasure
 import com.qingji.app.data.local.entity.ExerciseLog
 import com.qingji.app.data.local.entity.FoodLog
 import com.qingji.app.data.local.entity.ProgressPhoto
+import com.qingji.app.data.local.entity.SleepRecordEntity
 import com.qingji.app.data.local.entity.UserProfile
 import com.qingji.app.data.local.entity.WeightLog
 import com.qingji.app.data.repository.QingJiRepository
+import com.qingji.app.data.repository.SleepRepository
 import com.qingji.app.domain.AppClock
 import java.time.LocalDate
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,6 +28,8 @@ import kotlinx.coroutines.launch
 class ProgressViewModel(app: Application) : AndroidViewModel(app) {
 
     private val repo = QingJiRepository(app)
+    /** 睡眠表在独立仓库，日记卡只读它，不新建 ViewModel 免得日期状态打架 */
+    private val sleepRepo = SleepRepository(app)
 
     /** 运动库（预置 + 收藏置顶） */
     val exercisePresets: StateFlow<List<com.qingji.app.data.local.entity.ExercisePreset>> =
@@ -82,6 +86,19 @@ class ProgressViewModel(app: Application) : AndroidViewModel(app) {
 
     /** 进度照片（最新在前）。 */
     val photos: StateFlow<List<ProgressPhoto>> = repo.observePhotos()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    // ---------- 三种日记卡的近 30 天数据（只读展示，不落库、不改表） ----------
+    private val diaryMonthStart: LocalDate get() = AppClock.today().minusDays(29)
+
+    /** 近 30 晚睡眠（睡眠日记卡）。 */
+    val sleepMonth: StateFlow<List<SleepRecordEntity>> = sleepRepo
+        .observeRange(diaryMonthStart, AppClock.today())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** 近 30 天运动（运动日记卡）。 */
+    val exerciseMonth: StateFlow<List<ExerciseLog>> = repo
+        .observeExerciseRange(diaryMonthStart, AppClock.today())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     fun setRange(days: Int?) {

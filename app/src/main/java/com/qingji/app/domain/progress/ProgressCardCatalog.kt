@@ -35,13 +35,20 @@ object ProgressCardCatalog {
     const val NUTRITION = "nutrition"
     const val MEASURE = "measure"
     const val PHOTOS = "photos"
+    // 2026-11-18：三种日记卡（工单 P1a/P1b），日记页形式按日期分组的滚动流。
+    const val SLEEP_DIARY = "sleep_diary"
+    const val EXERCISE_DIARY = "exercise_diary"
+    const val FOOD_DIARY = "food_diary"
 
     /**
      * 默认可管理顺序（也是「重置」恢复的顺序）。
      * 「身体数据」卡不在这里 —— 它固定在页面最上，不进管理列表。
+     * 新卡一律追加到末尾：老用户存过的顺序里没有它们，parseOrder 会自动补上，
+     * 不会因为旧设置而看不见新卡（见下方 parseOrder 注释）。
      */
     val DEFAULT_ORDER: List<String> = listOf(
-        EXERCISE, FORECAST, CHART, WATER, NUTRITION, MEASURE, PHOTOS
+        EXERCISE, FORECAST, CHART, WATER, NUTRITION, MEASURE, PHOTOS,
+        SLEEP_DIARY, EXERCISE_DIARY, FOOD_DIARY
     )
 
     /** 卡片 ID 是否属于可管理卡片。 */

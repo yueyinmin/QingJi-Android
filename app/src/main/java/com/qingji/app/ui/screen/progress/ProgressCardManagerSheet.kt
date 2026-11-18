@@ -69,7 +69,10 @@ fun ProgressCardManagerSheet(
         ProgressCardCatalog.WATER to s("近一周饮水"),
         ProgressCardCatalog.NUTRITION to s("近一周营养摄入"),
         ProgressCardCatalog.MEASURE to s("身体维度"),
-        ProgressCardCatalog.PHOTOS to s("进度照片")
+        ProgressCardCatalog.PHOTOS to s("进度照片"),
+        ProgressCardCatalog.SLEEP_DIARY to s("睡眠日记"),
+        ProgressCardCatalog.EXERCISE_DIARY to s("运动日记"),
+        ProgressCardCatalog.FOOD_DIARY to s("饮食日记")
     )
     var localOrder by remember { mutableStateOf(order) }
     var localHidden by remember { mutableStateOf(hidden) }
