@@ -44,6 +44,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.qingji.app.data.local.entity.Food
 import com.qingji.app.domain.AllergenRules
 import com.qingji.app.domain.FoodCategory
+import com.qingji.app.domain.NutritionMatch
 import com.qingji.app.domain.FoodIcon
 import com.qingji.app.domain.MealRules
 import com.qingji.app.ui.components.HintBox
@@ -208,6 +209,21 @@ fun FoodLibraryScreen(
                         category = available.first()
                     }
 
+                    // v1.3.10 搜索升级：搜索时不再被左侧分类卡住——
+                    // 命中跨全部分类显示；命中不足 3 条时自动补「相关食物」
+                    // （NutritionMatch 相似度 ≥45，如搜姜母鸭带出啤酒鸭/盐水鸭），
+                    // 解决「搜一道菜只出一条，看着少一大截」的问题。
+                    val searching = query.trim().isNotEmpty()
+                    val related = if (searching) {
+                        allFoods.filter {
+                            it.category != FoodCategory.FAST_FOOD &&
+                                !matchesFood(it) &&
+                                NutritionMatch.score(query.trim(), it.name) >= 45
+                        }.take(12)
+                    } else {
+                        emptyList()
+                    }
+
                     // 2026-11-18：右上横排细类（照外卖快餐同款样式）。
                     // 细类来自数据里的 subcategory 字段，按食物条数多的排前面；
                     // 纯英文的值（staple/dish/fruit 这类录入痕迹）不上横栏，
@@ -260,8 +276,8 @@ fun FoodLibraryScreen(
                         }
 
                         Column(modifier = Modifier.weight(1f)) {
-                            // 横排细类胶囊：和外卖快餐右上那排同款
-                            if (subs.isNotEmpty()) {
+                            // 横排细类胶囊：和外卖快餐右上那排同款（搜索模式下隐藏）
+                            if (!searching && subs.isNotEmpty()) {
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -305,9 +321,13 @@ fun FoodLibraryScreen(
                             // 家常菜 190 条、全库 1121 条时，旧写法每次进分类都要把整个列表
                             // 的组件全部建出来，来回切换明显卡顿；LazyColumn 视口外不组合。
                             // 2026-11-18：再叠加细类过滤。
-                            val filtered = homeFoods.filter {
-                                it.category == category &&
-                                    (effectiveSub == "" || it.subcategory == effectiveSub)
+                            val filtered = if (searching) {
+                                homeFoods
+                            } else {
+                                homeFoods.filter {
+                                    it.category == category &&
+                                        (effectiveSub == "" || it.subcategory == effectiveSub)
+                                }
                             }
                             androidx.compose.foundation.lazy.LazyColumn(
                                 modifier = Modifier
@@ -315,7 +335,17 @@ fun FoodLibraryScreen(
                                     .padding(horizontal = 10.dp)
                             ) {
                                 item { Spacer(Modifier.height(4.dp)) }
-                                if (filtered.isEmpty()) {
+                                if (searching) {
+                                    item {
+                                        Text(
+                                            text = s("匹配结果") + " · " + filtered.size,
+                                            fontSize = 11.sp,
+                                            color = TextSecondary,
+                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
+                                        )
+                                    }
+                                }
+                                if (filtered.isEmpty() && related.isEmpty()) {
                                     item {
                                         HintBox(text = s("这道分类下暂时没有菜品"))
                                     }
@@ -327,7 +357,32 @@ fun FoodLibraryScreen(
                                 ) { i ->
                                     val food = filtered[i]
                                     LibraryFoodRow(
-                                        name = food.name,
+                                        name = if (searching) food.name + "（" + food.category + "）" else food.name,
+                                        kcalPer100g = food.kcalPer100g,
+                                        favorite = food.favorite,
+                                        risky = AllergenRules.isRisky(food.name, allergens),
+                                        onFavorite = { vm.toggleFavorite(food) },
+                                        onClick = { pick = food }
+                                    )
+                                }
+                                if (searching && related.isNotEmpty()) {
+                                    item {
+                                        Text(
+                                            text = s("相关食物") + " · " + related.size,
+                                            fontSize = 11.sp,
+                                            color = TextSecondary,
+                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 10.dp)
+                                        )
+                                    }
+                                }
+                                items(
+                                    count = related.size,
+                                    key = { i -> "rel_" + related[i].id },
+                                    contentType = { "food_row" }
+                                ) { i ->
+                                    val food = related[i]
+                                    LibraryFoodRow(
+                                        name = food.name + "（" + food.category + "）",
                                         kcalPer100g = food.kcalPer100g,
                                         favorite = food.favorite,
                                         risky = AllergenRules.isRisky(food.name, allergens),
