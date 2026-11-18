@@ -6,12 +6,15 @@ import org.json.JSONObject
 /**
  * 一组训练记录。重量一律 kg（基准单位），lb 只在界面上换算。
  * rpe = 0 表示「这次没填自觉费力程度」；restSec = 0 表示没记组间休息。
+ * completed = 用户是否点了「完成此组」（v1.4 健康体系：完成后自动开始组间休息）。
+ * 旧数据没有这个字段，读出来默认 false，不影响历史展示与结算。
  */
 data class WorkoutSet(
     val weightKg: Double = 0.0,
     val reps: Int = 0,
     val rpe: Int = 0,
-    val restSec: Int = 0
+    val restSec: Int = 0,
+    val completed: Boolean = false
 )
 
 /**
@@ -47,6 +50,7 @@ object TrainingMath {
                 put("r", s.reps)
                 put("rpe", s.rpe)
                 put("rest", s.restSec)
+                put("done", s.completed)
             })
         }
     }.toString()
@@ -62,7 +66,8 @@ object TrainingMath {
                     weightKg = o.optDouble("w", 0.0).takeIf { it.isFinite() && it >= 0.0 } ?: 0.0,
                     reps = o.optInt("r", 0).coerceAtLeast(0),
                     rpe = o.optInt("rpe", 0).coerceIn(0, 10),
-                    restSec = o.optInt("rest", 0).coerceAtLeast(0)
+                    restSec = o.optInt("rest", 0).coerceAtLeast(0),
+                    completed = o.optBoolean("done", false)
                 )
             }
         }.getOrDefault(emptyList())

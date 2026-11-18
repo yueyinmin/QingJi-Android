@@ -8,6 +8,7 @@ import com.qingji.app.data.local.entity.ExerciseEntity
 import com.qingji.app.data.local.entity.PlanExercise
 import com.qingji.app.data.local.entity.TrainingPlan
 import com.qingji.app.data.local.entity.TrainingPlanDay
+import com.qingji.app.data.local.entity.WorkoutSession
 import com.qingji.app.data.repository.TrainingRepository
 import com.qingji.app.domain.AppClock
 import com.qingji.app.domain.PersonalBestCalculator
@@ -102,6 +103,30 @@ class TrainingPlanViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             repo.activatePlan(trimmed, "custom", days)
             say("已启用「$trimmed」")
+        }
+    }
+
+    // ---------- v1.4 健康体系：从历史训练复制为我的计划（工单 4.5） ----------
+    /** 最近训练列表（按时间倒序，UI 取前几条展示「存为我的计划」入口）。 */
+    val sessions: StateFlow<List<WorkoutSession>> =
+        repo.observeSessions()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /**
+     * 把一场历史训练存为「我的计划」（只存不激活，用户在计划历史里自行启用）。
+     * 动作库找不到的动作会如实提示；计划是独立副本，不影响历史训练。
+     */
+    fun saveHistoryAsTemplate(session: WorkoutSession) {
+        viewModelScope.launch {
+            runCatching {
+                val name = "我的计划 · ${session.date}"
+                val (_, missing) = repo.saveSessionAsTemplate(session.uuid, name)
+                if (missing.isEmpty()) {
+                    say("已存为「$name」，在计划历史里可随时启用")
+                } else {
+                    say("已存为「$name」；${missing.size} 个动作在动作库找不到（${missing.take(3).joinToString("、")}）已按名字保留")
+                }
+            }.onFailure { say("保存失败：${it.message ?: "未知错误"}") }
         }
     }
 
