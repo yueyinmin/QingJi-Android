@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.qingji.app.data.local.entity.ExercisePreset
+import com.qingji.app.data.repository.HealthRepository
 import com.qingji.app.domain.ExerciseCalculator
 import com.qingji.app.ui.components.AppBottomSheet
 import com.qingji.app.ui.components.ExerciseIcon
@@ -74,12 +75,14 @@ import com.qingji.app.ui.viewmodel.ExerciseViewModel
  * 自定义运动用 category = 「自定义」标记，归到「自定义」页签。
  * ============================================================
  */
-private val TABS = listOf("最近", "常用", "收藏", "自定义", "全部")
+private val TABS = listOf("最近", "常用", "收藏", "自定义", "全部", "训练记录")
 private const val TAB_RECENT = 0
 private const val TAB_COMMON = 1
 private const val TAB_FAVORITE = 2
 private const val TAB_CUSTOM = 3
 private const val TAB_ALL = 4
+/** 2026-11-18：选已有训练，调整它已计入的消耗（不新建记录、不双计） */
+private const val TAB_TRAINING = 5
 
 @Composable
 fun ExercisePickerScreen(
@@ -91,6 +94,9 @@ fun ExercisePickerScreen(
 ) {
     val presets by vm.presets.collectAsState()
     val recentNames by vm.recentNames.collectAsState()
+    // 2026-11-18：「训练记录」页签的数据
+    val sessions by vm.sessions.collectAsState()
+    val ledger by vm.ledger.collectAsState()
 
     var keyword by remember { mutableStateOf("") }
     var tab by remember { mutableStateOf(TAB_COMMON) }
@@ -99,6 +105,13 @@ fun ExercisePickerScreen(
     var newName by remember { mutableStateOf("") }
     var newMet by remember { mutableStateOf("5.0") }
     var error by remember { mutableStateOf("") }
+    // 选中的训练场次 + 消耗输入弹层
+    var selectedSession by remember {
+        mutableStateOf<com.qingji.app.data.local.entity.WorkoutSession?>(null)
+    }
+    var sessionKcalInput by remember { mutableStateOf("") }
+    var sessionAdjustError by remember { mutableStateOf("") }
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     val visible = remember(presets, recentNames, keyword, tab) {
         val base = when (tab) {
@@ -246,6 +259,38 @@ fun ExercisePickerScreen(
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            if (tab == TAB_TRAINING) {
+                // 2026-11-18：列出用户真正做过的训练。点一条调整它已计入的消耗；
+                // 保存走「覆盖同一账本行」，不新建运动记录，绝不双计。
+                items(sessions, key = { it.uuid }) { session ->
+                    val kcal = ledger.firstOrNull {
+                        it.sourceType == HealthRepository.SOURCE_STRENGTH_TRAINING && it.sourceId == session.uuid
+                    }?.caloriesGross ?: 0.0
+                    TrainingSessionRow(
+                        date = session.date,
+                        durationMinutes = session.durationMinutes,
+                        kcal = kcal,
+                        onClick = {
+                            selectedSession = session
+                            sessionKcalInput = if (kcal > 0.0) kcal.toInt().toString() else ""
+                            sessionAdjustError = ""
+                        }
+                    )
+                }
+                if (sessions.isEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 40.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "还没有训练记录，先到训练中心完成一次训练",
+                                fontSize = 13.sp, color = TextSecondary
+                            )
+                        }
+                    }
+                }
+            } else {
             items(visible, key = { it.id }) { item ->
                 ExercisePresetRow(
                     item = item,
@@ -275,6 +320,7 @@ fun ExercisePickerScreen(
                     }
                 }
             }
+            } // else 分支结束（非训练页签的运动预设列表）
             item { Spacer(Modifier.height(16.dp)) }
         }
     }
@@ -332,6 +378,52 @@ fun ExercisePickerScreen(
         }
     }
 
+    // ---------- 2026-11-18：选训练后调整它已计入的消耗 ----------
+    selectedSession?.let { session ->
+        AppBottomSheet(
+            title = "这次训练的消耗",
+            subtitle = "${session.date} · ${session.durationMinutes} 分钟 · 已计入运动消耗",
+            confirmText = "保存",
+            closeOnConfirm = false,
+            onConfirm = {
+                val kcal = sessionKcalInput.toDoubleOrNull()
+                if (kcal == null || kcal < 0) {
+                    sessionAdjustError = "请填一个不小于 0 的数字"
+                } else {
+                    vm.adjustTrainingCalorie(session.uuid, kcal) { ok ->
+                        if (ok) {
+                            selectedSession = null
+                            android.widget.Toast.makeText(
+                                context, "已更新，运动消耗总额已同步", android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                        } else {
+                            sessionAdjustError = "这场训练没有找到消耗记录，请到训练中心重新保存一次"
+                        }
+                    }
+                }
+            },
+            onDismiss = { selectedSession = null }
+        ) {
+            Text(
+                text = "训练保存时已自动算过本次消耗。这里改的数字会直接更新到运动消耗总额，" +
+                    "不会重复记一笔。",
+                fontSize = 12.sp, color = TextSecondary
+            )
+            Spacer(Modifier.height(12.dp))
+            OutlinedTextField(
+                value = sessionKcalInput,
+                onValueChange = { sessionKcalInput = it; sessionAdjustError = "" },
+                singleLine = true,
+                label = { Text("消耗（千卡）", fontSize = 12.sp) },
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            )
+            if (sessionAdjustError.isNotBlank()) {
+                Spacer(Modifier.height(6.dp))
+                Text(text = sessionAdjustError, fontSize = 12.sp, color = DangerRed)
+            }
+        }
+    }
     // ---------- 拍照识别：诚实说明还没做，不摆一个点了没反应的假入口 ----------
     if (showPhotoHint) {
         AppBottomSheet(
@@ -414,5 +506,50 @@ private fun ExercisePresetRow(
                 .size(24.dp)
                 .pressable { onToggleFavorite(!item.favorite) }
         )
+    }
+}
+
+/**
+ * 「训练记录」页签里的一行：日期 + 时长 + 已计入的消耗。
+ * 点一下调整这次训练已计入的消耗（覆盖同一账本行，不新建记录）。
+ */
+@Composable
+private fun TrainingSessionRow(
+    date: java.time.LocalDate,
+    durationMinutes: Int,
+    kcal: Double,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(CardWhite)
+            .pressable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(46.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(QingJiGreenLight),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(text = "🏋️", fontSize = 22.sp)
+        }
+        Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
+            Text(
+                text = "${date.monthValue}月${date.dayOfMonth}日 力量训练",
+                fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary
+            )
+            Spacer(Modifier.height(5.dp))
+            Text(
+                text = "$durationMinutes 分钟 · 已计入 ${kcal.toInt()} 千卡",
+                fontSize = 12.sp, color = TextSecondary
+            )
+        }
+        Text(text = "调整", fontSize = 12.sp, color = QingJiGreenDark,
+            modifier = Modifier.padding(8.dp))
     }
 }

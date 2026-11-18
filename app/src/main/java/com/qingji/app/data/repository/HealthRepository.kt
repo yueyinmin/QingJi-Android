@@ -235,6 +235,31 @@ class HealthRepository(private val context: Context) {
     /** 全量账本观察流（进展页运动消耗卡用，力量+有氧统一口径，记完自动刷新）。 */
     fun observeAllLedger(): Flow<List<ExerciseSessionCalorieEntity>> = ledgerDao.observeAll()
 
+    /**
+     * 从「记一次 → 选择训练」调整某场训练已计入的消耗（2026-11-18）。
+     *
+     * 关键：训练保存时账本已经有一行 STRENGTH_TRAINING / sourceId = 场次 uuid。
+     * 这里走 upsert 覆盖同一行，只改消耗值、不改来源和日期——
+     * 绝不新建 exercise_log，否则镜像又会写一行，同一场训练被记两次。
+     *
+     * @return 是否找到并更新了那场训练的账本行（没找到返回 false，调用方如实提示）
+     */
+    suspend fun adjustTrainingCalorie(sessionUuid: String, kcal: Double): Boolean {
+        val row = ledgerDao.findBySource(SOURCE_STRENGTH_TRAINING, sessionUuid) ?: return false
+        ledgerDao.upsert(
+            row.copy(
+                caloriesGross = kcal.coerceAtLeast(0.0),
+                calculationMethod = "user_direct",
+                updatedAt = System.currentTimeMillis()
+            )
+        )
+        return true
+    }
+
+    /** 取某场训练当前已计入的消耗（给选择弹层回填当前值），没记过返回 null。 */
+    suspend fun trainingCalorie(sessionUuid: String): Double? =
+        ledgerDao.findBySource(SOURCE_STRENGTH_TRAINING, sessionUuid)?.caloriesGross
+
     companion object {
         const val SOURCE_STRENGTH_TRAINING = "STRENGTH_TRAINING"
         const val SOURCE_CARDIO = "CARDIO"
