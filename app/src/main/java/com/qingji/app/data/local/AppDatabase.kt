@@ -40,6 +40,7 @@ import com.qingji.app.data.local.dao.SelfDisciplineInterventionDao
 import com.qingji.app.data.local.dao.ExerciseCalorieConfigDao
 import com.qingji.app.data.local.dao.ExerciseSessionCalorieDao
 import com.qingji.app.data.local.dao.SleepDao
+import com.qingji.app.data.local.dao.DailyHealthSummaryDao
 import com.qingji.app.data.local.entity.AiConfig
 import com.qingji.app.data.local.entity.BodyMeasure
 import com.qingji.app.data.local.entity.Diary
@@ -72,6 +73,7 @@ import com.qingji.app.data.local.entity.SelfDisciplineInterventionEntity
 import com.qingji.app.data.local.entity.ExerciseCalorieConfigEntity
 import com.qingji.app.data.local.entity.ExerciseSessionCalorieEntity
 import com.qingji.app.data.local.entity.SleepRecordEntity
+import com.qingji.app.data.local.entity.DailyHealthSummaryEntity
 import java.time.LocalDate
 
 /**
@@ -140,9 +142,11 @@ class Converters {
         ExerciseCalorieConfigEntity::class,
         ExerciseSessionCalorieEntity::class,
         // v1.4 健康体系 V1.1（Room 14）：睡眠记录（工单 9），旧表一列不动
-        SleepRecordEntity::class
+        SleepRecordEntity::class,
+        // v1.4 健康体系 V1.1（Room 15）：每日健康汇总缓存（工单 10.2，可重建），旧表一列不动
+        DailyHealthSummaryEntity::class
     ],
-    version = 14,
+    version = 15,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -186,6 +190,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun exerciseCalorieConfigDao(): ExerciseCalorieConfigDao
     abstract fun exerciseSessionCalorieDao(): ExerciseSessionCalorieDao
     abstract fun sleepDao(): SleepDao
+    abstract fun dailyHealthSummaryDao(): DailyHealthSummaryDao
 
     companion object {
         /** 整个 App 只保留一个数据库实例，重复创建会出问题。 */
@@ -511,7 +516,7 @@ abstract class AppDatabase : RoomDatabase() {
                 MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
                 MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8,
                 MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12,
-                MIGRATION_12_13, MIGRATION_13_14
+                MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15
             )
         }
 
@@ -724,6 +729,37 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_sleep_record_date` ON `sleep_record` (`date`)")
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_sleep_record_sourceType_externalId` ON `sleep_record` (`sourceType`, `externalId`)")
+            }
+        }
+
+        /**
+         * v1.4 健康体系 V1.1（Room 14 → 15）：每日健康汇总缓存表（工单 10.2）。
+         * 全新表只有 CREATE TABLE + 唯一索引，一行旧数据都不碰。
+         * 表本身是可重建缓存，迁移失败重装也能从原始记录算回来。
+         */
+        internal val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `daily_health_summary` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`date` TEXT NOT NULL, " +
+                        "`calorieIntake` REAL NOT NULL DEFAULT 0.0, " +
+                        "`proteinG` REAL NOT NULL DEFAULT 0.0, " +
+                        "`carbohydratesG` REAL NOT NULL DEFAULT 0.0, " +
+                        "`fatG` REAL NOT NULL DEFAULT 0.0, " +
+                        "`exerciseCalories` REAL NOT NULL DEFAULT 0.0, " +
+                        "`strengthCalories` REAL NOT NULL DEFAULT 0.0, " +
+                        "`cardioCalories` REAL NOT NULL DEFAULT 0.0, " +
+                        "`walkingCalories` REAL NOT NULL DEFAULT 0.0, " +
+                        "`workoutDurationMinutes` INTEGER NOT NULL DEFAULT 0, " +
+                        "`workoutCount` INTEGER NOT NULL DEFAULT 0, " +
+                        "`workoutVolumeKg` REAL NOT NULL DEFAULT 0.0, " +
+                        "`sleepDurationMinutes` INTEGER NOT NULL DEFAULT 0, " +
+                        "`sleepRecordCount` INTEGER NOT NULL DEFAULT 0, " +
+                        "`signature` TEXT NOT NULL DEFAULT '', " +
+                        "`lastCalculatedAt` INTEGER NOT NULL DEFAULT 0)"
+                )
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_daily_health_summary_date` ON `daily_health_summary` (`date`)")
             }
         }
 
