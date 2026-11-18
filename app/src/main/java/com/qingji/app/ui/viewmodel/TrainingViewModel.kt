@@ -10,8 +10,10 @@ import com.qingji.app.data.prefs.DraftExercise
 import com.qingji.app.data.prefs.WorkoutDraft
 import com.qingji.app.data.repository.TrainingRepository
 import com.qingji.app.domain.AppClock
+import com.qingji.app.domain.SessionCalorieCalculator
 import com.qingji.app.domain.TrainingMath
 import com.qingji.app.domain.WorkoutSet
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -45,6 +47,25 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
     val allWorkoutExercises: StateFlow<List<WorkoutExercise>> = repo.observeAllWorkoutExercises()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    // ---------- v1.4 健康体系：热量估算支持 ----------
+    /** 结算/预览用体重（口径与现有运动模块一致：档案起始体重，兜底 70kg）。 */
+    val settleWeight: StateFlow<Double> = repo.observeSettleWeight()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 70.0)
+
+    /** 类型级 MET 参数（启动时读一次，参数库是只读种子数据）。 */
+    val metDefaults: StateFlow<Map<String, Triple<Double, Double, Double>>> =
+        kotlinx.coroutines.flow.flow { emit(repo.health().typeMetDefaults()) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
+    /** 某个动作的 MET 三档：拉伸走 flexibility，其余走中等力量；参数库没读到给兜底。 */
+    fun metForExercise(exerciseUuid: String, isStretch: Boolean): Triple<Double, Double, Double> {
+        val defaults = metDefaults.value
+        val type = if (isStretch) "flexibility" else "strength_moderate"
+        return defaults[type]
+            ?: defaults["strength_moderate"]
+            ?: Triple(4.25, 5.0, 5.75)
+    }
+
     private val _draft = MutableStateFlow(repo.draftStore.load())
     val draft: StateFlow<WorkoutDraft?> = _draft.asStateFlow()
 
@@ -64,6 +85,10 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
     init {
         // 首次进入时灌最小内置动作库
         viewModelScope.launch { repo.ensureSeed() }
+        // 健康体系：历史训练场次补算进消耗账本（幂等，重复跑不会写重）
+        viewModelScope.launch {
+            runCatching { repo.health().ensureLedgerBackfill(repo.observeSettleWeight().first()) }
+        }
     }
 
     fun setUnit(unit: String) {
@@ -268,10 +293,19 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
         }
 
         viewModelScope.launch {
-            repo.saveSession(session, items)
+            val weight = settleWeight.value
+            val settledKcal = repo.saveSession(session, items, weight)
             draftStore.clear()
             _draft.value = null
-            say(if (editing) "已更新这次训练" else "训练已保存")
+            say(
+                if (!editing && settledKcal > 0.0) {
+                    "训练已保存，预计消耗约 ${SessionCalorieCalculator.displayKcal(settledKcal)} 千卡（估算）"
+                } else if (editing) {
+                    "已更新这次训练，消耗已重新结算"
+                } else {
+                    "训练已保存"
+                }
+            )
             onDone(true)
         }
     }

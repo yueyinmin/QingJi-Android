@@ -34,6 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.qingji.app.data.prefs.WorkoutDraftStore
+import com.qingji.app.domain.SessionCalorieCalculator
 import com.qingji.app.domain.TrainingMath
 import com.qingji.app.ui.components.AppDialog
 import com.qingji.app.ui.components.PageTopBar
@@ -66,6 +67,9 @@ fun TrainingActiveScreen(
     val unit by vm.unit.collectAsState()
     val library by vm.exercises.collectAsState()
     val message by vm.message.collectAsState()
+    // v1.4 健康体系：结算体重 + MET 参数，用来实时算「每组/整场预计消耗」
+    val settleWeight by vm.settleWeight.collectAsState()
+    val metDefaults by vm.metDefaults.collectAsState()
     var showPicker by remember { mutableStateOf(false) }
     var showDiscard by remember { mutableStateOf(false) }
     var noteText by remember { mutableStateOf("") }
@@ -143,11 +147,20 @@ fun TrainingActiveScreen(
                 Spacer(Modifier.height(10.dp))
 
                 d.exercises.forEach { e ->
+                    val entity = library.firstOrNull { it.uuid == e.exerciseUuid }
+                    val met = vm.metForExercise(e.exerciseUuid, entity?.isStretch == true)
                     SetEditorCard(
                         name = e.name,
                         sets = e.sets,
                         unit = unit,
                         fromLast = e.fromLast,
+                        setKcal = SessionCalorieCalculator.previewSetKcalList(
+                            metLow = met.first,
+                            metModerate = met.second,
+                            metHigh = met.third,
+                            weightKg = settleWeight,
+                            sets = e.sets
+                        ),
                         onUpdate = { index, set -> vm.updateSet(e.key, index, set) },
                         onAdd = { vm.addSet(e.key) },
                         onRemoveSet = { index -> vm.removeSet(e.key, index) },
@@ -188,9 +201,21 @@ fun TrainingActiveScreen(
                     Text("本次小结", fontSize = TextSizes.CardTitle,
                         fontWeight = FontWeight.SemiBold, color = TextPrimary)
                     Spacer(Modifier.height(6.dp))
+                    // v1.4 健康体系：整场预计消耗 = 各组做功+组间休息（静息 MET）+ 动作切换准备时间
+                    val previewEntries = d.exercises.map { e ->
+                        val entity = library.firstOrNull { it.uuid == e.exerciseUuid }
+                        val met = vm.metForExercise(e.exerciseUuid, entity?.isStretch == true)
+                        SessionCalorieCalculator.PreviewEntry(met.first, met.second, met.third, e.sets)
+                    }
+                    val previewKcal = SessionCalorieCalculator.previewSessionTotalKcal(previewEntries, settleWeight)
                     Text("${d.exercises.size} 个动作 · ${allSets.size} 组 · 训练量 %.1f kg".format(volume),
                         fontSize = TextSizes.Body, color = TextPrimary)
-                    Text("训练量是估算值，仅供参考，不是医学结论。",
+                    if (allSets.any { it.reps > 0 || it.weightKg > 0.0 }) {
+                        Spacer(Modifier.height(2.dp))
+                        Text("预计消耗约 ${SessionCalorieCalculator.displayKcal(previewKcal)} 千卡（估算，保存后计入运动消耗）",
+                            fontSize = TextSizes.Body, color = QingJiGreen)
+                    }
+                    Text("训练量与消耗都是估算值，仅供参考，不是医学结论。",
                         fontSize = TextSizes.Tiny, color = TextSecondary)
                 }
                 Spacer(Modifier.height(16.dp))
