@@ -14,6 +14,7 @@ import com.qingji.app.data.local.entity.TrainingPlanDay
 import com.qingji.app.data.local.entity.WorkoutExercise
 import com.qingji.app.data.local.entity.WorkoutSession
 import com.qingji.app.data.prefs.WorkoutDraftStore
+import com.qingji.app.domain.PlanExerciseResolver
 import com.qingji.app.domain.SessionCalorieCalculator
 import com.qingji.app.domain.TrainingMath
 import com.qingji.app.domain.WorkoutSet
@@ -227,31 +228,35 @@ class TrainingRepository(context: Context) {
         val session = sessionDao.findByUuid(sessionUuid)
             ?: throw IllegalArgumentException("训练记录不存在或已删除")
         val items = workoutExerciseDao.findBySession(sessionUuid)
-        val exerciseNames = items.map { it.exerciseNameSnapshot }.filter { it.isNotBlank() }
-        require(exerciseNames.isNotEmpty()) { "这场训练没有动作明细" }
+        require(items.any { it.exerciseNameSnapshot.isNotBlank() }) { "这场训练没有动作明细" }
         val library = exerciseDao.findAll()
-        val missing = exerciseNames.filter { n -> library.none { it.name == n } }
-        val weekday = session.date.dayOfWeek.value
-        val days = listOf(
-            TrainingTemplateData.TemplateDay(
-                weekday = weekday,
-                title = "从历史复制 · ${session.date}",
-                exerciseNames = exerciseNames
+        // v1.3.7：UUID 优先、名字兜底（纯函数在 domain/PlanExerciseResolver）。
+        // 动作库改名后，历史里的 UUID 还能对上；老数据 UUID 为空才退回名字快照。
+        val uuids = library.map { it.uuid }.toSet()
+        val names = library.associate { it.name to it.uuid }
+        val resolved = items.filter { it.exerciseNameSnapshot.isNotBlank() }.map { item ->
+            item to PlanExerciseResolver.resolve(
+                PlanExerciseResolver.Ref(item.exerciseUuid, item.exerciseNameSnapshot),
+                uuids, names
             )
-        )
+        }
+        val missing = resolved.mapNotNull { it.second.missingName }
+        val weekday = session.date.dayOfWeek.value
+        val title = "从历史复制 · ${session.date}"
         val uuid = "plan-${java.util.UUID.randomUUID()}"
         val now = System.currentTimeMillis()
         db.withTransaction {
             // 只存不激活：不调 deactivateAll，isActive=false，用户在计划历史里自己启用
             planDao.insertAll(listOf(TrainingPlan(uuid, name, "history:${sessionUuid}", false, now)))
             val dayId = planDayDao.insertOne(
-                TrainingPlanDay(planUuid = uuid, weekday = weekday, title = days.first().title, isRest = false)
+                TrainingPlanDay(planUuid = uuid, weekday = weekday, title = title, isRest = false)
             )
-            planExerciseDao.insertAll(days.first().exerciseNames.mapIndexed { i, exerciseName ->
+            planExerciseDao.insertAll(resolved.mapIndexed { i, (item, hit) ->
                 PlanExercise(
                     dayId = dayId,
-                    exerciseUuid = library.firstOrNull { it.name == exerciseName }?.uuid.orEmpty(),
-                    exerciseNameSnapshot = exerciseName,
+                    // 找不到也保留名字快照，计划照存；UI 用 missing 名单提示兼容
+                    exerciseUuid = hit.exerciseUuid,
+                    exerciseNameSnapshot = item.exerciseNameSnapshot,
                     targetSets = 3,
                     targetReps = 10,
                     targetWeightKg = 0.0,
