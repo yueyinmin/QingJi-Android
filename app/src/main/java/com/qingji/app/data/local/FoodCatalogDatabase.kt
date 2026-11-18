@@ -98,8 +98,12 @@ abstract class FoodCatalogDatabase : RoomDatabase() {
          *   （takeaway_product / variant / combo / combo_item / nutrition / platform /
          *   store_scope / data_source），结构先行、数据为空（红线 15：无真实商品不造假）。
          *   堂食菜不复制成外卖商品，只留 linkedFoodId 逻辑关联。旧 11 表数据全量搬运。
+         * 0.7 -> 0.8（六大快餐品牌 - 纯数据）：brand 表追加肯德基/麦当劳/华莱士/塔斯汀/
+         *   必胜客/达美乐 6 行，food_catalog 主表追加 160 条（food_id 从 210001 起，
+         *   source_id = brandId，audit_status=0）。营养按每 100g 存，每份值用真实/估算克重
+         *   折算，估算份重已在 portion_note 标注。外卖 8 张表仍为空。Room v5 不动。
          */
-        const val CATALOG_VERSION = "0.7-laoxiangji-takeaway"
+        const val CATALOG_VERSION = "0.8-fastfood-brands"
         private const val DB_NAME = "food_catalog.db"
         private const val ASSET_PATH = "database/food_catalog.db"
         private const val PREFS_NAME = "qingji_catalog_meta"

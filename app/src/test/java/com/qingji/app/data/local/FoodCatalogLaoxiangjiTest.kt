@@ -35,9 +35,9 @@ class FoodCatalogLaoxiangjiTest {
         }
 
     @Test
-    fun `主表1121条 老乡鸡301条进主表且全部未审核`() = runBlocking<Unit> {
+    fun `主表1281条 老乡鸡301条进主表且全部未审核`() = runBlocking<Unit> {
         openDb("lxj_main.db").use { db ->
-            assertEquals(1121, db.queryCount("SELECT COUNT(*) FROM food_catalog"))
+            assertEquals(1281, db.queryCount("SELECT COUNT(*) FROM food_catalog"))
             assertEquals(
                 301,
                 db.queryCount("SELECT COUNT(*) FROM food_catalog WHERE source_id='laoxiangji'")
@@ -60,12 +60,15 @@ class FoodCatalogLaoxiangjiTest {
     }
 
     @Test
-    fun `品牌由数据库驱动 首期只有老乡鸡`() = runBlocking<Unit> {
+    fun `品牌由数据库驱动 老乡鸡居首 六大快餐品牌在列`() = runBlocking<Unit> {
         openDb("lxj_brand.db").use { db ->
             val brands = db.brandCatalogDao().findEnabledBrands()
-            assertEquals(1, brands.size)
+            // 0.8：老乡鸡 + 肯德基/麦当劳/华莱士/塔斯汀/必胜客/达美乐
+            assertEquals(7, brands.size)
             assertEquals("laoxiangji", brands[0].brandId)
             assertEquals("老乡鸡", brands[0].name)
+            val ids = brands.map { it.brandId }
+            assertTrue(ids.containsAll(listOf("kfc", "mcdonalds", "hls", "tastien", "pizzahut", "dominos")))
         }
     }
 
