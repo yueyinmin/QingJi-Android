@@ -1,20 +1,33 @@
 package com.qingji.app.ui.screen.progress
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.qingji.app.data.local.entity.BodyMeasure
 import com.qingji.app.data.local.entity.ExerciseLog
 import com.qingji.app.data.local.entity.FoodLog
 import com.qingji.app.data.local.entity.ProgressPhoto
+import com.qingji.app.data.local.entity.SleepRecordEntity
 import com.qingji.app.data.local.entity.WeightLog
 import com.qingji.app.domain.AppClock
+import com.qingji.app.domain.SleepScoreCalculator
 import com.qingji.app.domain.WeightForecastCalculator
+import com.qingji.app.domain.progress.DiaryGrouping
 import com.qingji.app.domain.progress.ProgressCardCatalog
 import com.qingji.app.ui.components.WeightForecastCard
+import com.qingji.app.ui.i18n.s
+import com.qingji.app.ui.theme.QingJiGreen
+import com.qingji.app.ui.theme.TextPrimary
+import com.qingji.app.ui.theme.TextSecondary
+import com.qingji.app.ui.theme.TextSizes
 import com.qingji.app.ui.screen.BodyMeasureCard
 import com.qingji.app.ui.screen.ExerciseWeekCard
 import com.qingji.app.ui.screen.NutritionWeekCard
@@ -42,7 +55,11 @@ data class ProgressCardData(
     val waterGoalMl: Int = 3200,
     val foodWeek: List<FoodLog> = emptyList(),
     val latestMeasure: BodyMeasure? = null,
-    val photos: List<ProgressPhoto> = emptyList()
+    val photos: List<ProgressPhoto> = emptyList(),
+    /** 三种日记卡的近 30 天数据（只读展示，不改表） */
+    val sleepRecords: List<SleepRecordEntity> = emptyList(),
+    val exerciseLogs: List<ExerciseLog> = emptyList(),
+    val foodLogs: List<FoodLog> = emptyList()
 )
 
 /** 卡片里的交互回调，同样集中管理，渲染分派本身保持纯展示。 */
@@ -53,7 +70,11 @@ data class ProgressCardActions(
     val onAddMeasure: () -> Unit = {},
     val onAddPhoto: () -> Unit = {},
     val onDeletePhoto: (Long) -> Unit = {},
-    val onViewAllPhotos: () -> Unit = {}
+    val onViewAllPhotos: () -> Unit = {},
+    /** 三种日记卡空态的直达按钮 */
+    val onOpenSleep: () -> Unit = {},
+    val onOpenExercise: () -> Unit = {},
+    val onOpenFoodLibrary: () -> Unit = {}
 )
 
 /**
@@ -121,5 +142,63 @@ fun ProgressCardRenderer(
             onDelete = { id -> actions.onDeletePhoto(id) },
             onViewAll = actions.onViewAllPhotos
         )
+
+        ProgressCardCatalog.SLEEP_DIARY -> {
+            val groups = DiaryGrouping.groupByDate(data.sleepRecords, { it.date })
+            DiarySectionCard(
+                title = s("睡眠日记"),
+                groups = groups,
+                emptyText = s("还没有睡眠日记，记第一晚吧"),
+                emptyActionText = s("去记录"),
+                onEmptyAction = actions.onOpenSleep
+            ) { r ->
+                val minutes = r.durationMinutes
+                val duration = "%d:%02d".format(minutes / 60, minutes % 60)
+                val score = SleepScoreCalculator.score(r, data.sleepRecords)
+                Text("🌙 $duration · ${score.score} · ${s(score.rating)}",
+                    fontSize = TextSizes.Caption, color = TextPrimary,
+                    modifier = Modifier.weight(1f))
+                if (r.wakeCount > 0) {
+                    Text("${s("夜醒")} ${r.wakeCount} ${s("次")}",
+                        fontSize = TextSizes.Tiny, color = TextSecondary)
+                }
+            }
+        }
+
+        ProgressCardCatalog.EXERCISE_DIARY -> {
+            val groups = DiaryGrouping.groupByDate(data.exerciseLogs, { it.date })
+            DiarySectionCard(
+                title = s("运动日记"),
+                groups = groups,
+                emptyText = s("还没有运动记录，记一次吧"),
+                emptyActionText = s("去记录"),
+                onEmptyAction = actions.onOpenExercise
+            ) { log ->
+                Text("🏃 ${log.type} · ${log.minutes}${s("分钟")}",
+                    fontSize = TextSizes.Caption, color = TextPrimary,
+                    modifier = Modifier.weight(1f))
+                Text("${log.kcal.toInt()} ${s("千卡")}",
+                    fontSize = TextSizes.Caption, color = QingJiGreen,
+                    fontWeight = FontWeight.SemiBold)
+            }
+        }
+
+        ProgressCardCatalog.FOOD_DIARY -> {
+            val groups = DiaryGrouping.groupByDate(data.foodLogs, { it.date })
+            DiarySectionCard(
+                title = s("饮食日记"),
+                groups = groups,
+                emptyText = s("还没有饮食记录，记一餐吧"),
+                emptyActionText = s("去记录"),
+                onEmptyAction = actions.onOpenFoodLibrary
+            ) { log ->
+                Text("🍽 ${log.foodName} · ${log.grams.toInt()}g",
+                    fontSize = TextSizes.Caption, color = TextPrimary,
+                    modifier = Modifier.weight(1f))
+                Text("${log.kcal.toInt()} ${s("千卡")}",
+                    fontSize = TextSizes.Caption, color = QingJiGreen,
+                    fontWeight = FontWeight.SemiBold)
+            }
+        }
     }
 }

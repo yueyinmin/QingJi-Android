@@ -79,6 +79,8 @@ fun ProgressScreen(
      * 两条路记出来的数据不一样，用户会以为步数白填了。
      */
     onOpenExercise: () -> Unit = {},
+    /** P1：睡眠日记卡空态的「去记录」直达睡眠页 */
+    onOpenSleepDiary: () -> Unit = {},
     modifier: Modifier = Modifier,
     /** tabfix：滚动状态由 Root 持有，切 Tab 回来不丢位置。 */
     scrollState: ScrollState = rememberScrollState(),
@@ -99,6 +101,9 @@ fun ProgressScreen(
     val exerciseWeek by vm.exerciseWeek.collectAsState()
     val bodyMeasures by vm.bodyMeasures.collectAsState()
     val photos by vm.photos.collectAsState()
+    // P1：三种日记卡的近 30 天数据（只读展示）
+    val sleepMonth by vm.sleepMonth.collectAsState()
+    val exerciseMonth by vm.exerciseMonth.collectAsState()
 
     var showBodyMeasure by remember { mutableStateOf(false) }
     // v3.4.0：进度照片「查看全部 / 前后对比」全屏图库
@@ -244,7 +249,10 @@ fun ProgressScreen(
                         waterGoalMl = settings.waterGoalMl,
                         foodWeek = foodWeek,
                         latestMeasure = bodyMeasures.firstOrNull(),
-                        photos = photos
+                        photos = photos,
+                        sleepRecords = sleepMonth,
+                        exerciseLogs = exerciseMonth,
+                        foodLogs = foodMonth
                     ),
                     actions = ProgressCardActions(
                         onAddExercise = onOpenExercise,
@@ -253,7 +261,10 @@ fun ProgressScreen(
                         onAddMeasure = { showBodyMeasure = true },
                         onAddPhoto = { pickPhoto.launch("image/*") },
                         onDeletePhoto = { id -> vm.deletePhoto(id) },
-                        onViewAllPhotos = { showPhotoGallery = true }
+                        onViewAllPhotos = { showPhotoGallery = true },
+                        onOpenSleep = onOpenSleepDiary,
+                        onOpenExercise = onOpenExercise,
+                        onOpenFoodLibrary = onOpenFoodLibrary
                     )
                 )
             }

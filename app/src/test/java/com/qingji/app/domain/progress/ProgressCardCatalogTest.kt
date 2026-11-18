@@ -8,19 +8,24 @@ import org.junit.Test
  *
  * 这些断言锁的是「改造前后行为一致」：
  * 空值、未知 ID、缺卡补位、隐藏过滤 —— 任何一条变了，用户的卡片布局就会乱。
+ * 2026-11-18 追加三种日记卡（sleep/exercise/food_diary）：老设置缺卡要自动补到末尾。
  */
 class ProgressCardCatalogTest {
 
     @Test
-    fun `默认顺序包含七张可管理卡片且身体数据不在其中`() {
-        assertEquals(7, ProgressCardCatalog.DEFAULT_ORDER.size)
+    fun `默认顺序包含十张可管理卡片且身体数据不在其中`() {
+        assertEquals(10, ProgressCardCatalog.DEFAULT_ORDER.size)
         assertEquals(
-            listOf("exercise", "forecast", "chart", "water", "nutrition", "measure", "photos"),
+            listOf(
+                "exercise", "forecast", "chart", "water", "nutrition", "measure", "photos",
+                "sleep_diary", "exercise_diary", "food_diary"
+            ),
             ProgressCardCatalog.DEFAULT_ORDER
         )
         // 身体数据卡固定最上，不属于可管理卡片
         assertEquals(false, ProgressCardCatalog.isKnown("body"))
         assertEquals(true, ProgressCardCatalog.isKnown("photos"))
+        assertEquals(true, ProgressCardCatalog.isKnown("sleep_diary"))
     }
 
     @Test
@@ -33,22 +38,28 @@ class ProgressCardCatalogTest {
     fun `未知ID被丢弃不报错`() {
         val raw = "chart,not_a_card,water"
         assertEquals(
-            listOf("chart", "water", "exercise", "forecast", "nutrition", "measure", "photos"),
+            listOf(
+                "chart", "water", "exercise", "forecast", "nutrition", "measure", "photos",
+                "sleep_diary", "exercise_diary", "food_diary"
+            ),
             ProgressCardCatalog.parseOrder(raw)
         )
     }
 
     @Test
     fun `旧设置里缺的新卡按默认顺序补到末尾`() {
-        // 老版本只存过三张卡，后来新增了 measure / photos，应该自动出现
+        // 老版本只存过三张卡，后来新增了 measure/photos 和三种日记卡，应该自动出现
         val raw = "water,exercise,chart"
         val order = ProgressCardCatalog.parseOrder(raw)
         assertEquals(listOf("water", "exercise", "chart"), order.take(3))
         assertEquals(
-            listOf("forecast", "nutrition", "measure", "photos"),
+            listOf(
+                "forecast", "nutrition", "measure", "photos",
+                "sleep_diary", "exercise_diary", "food_diary"
+            ),
             order.drop(3)
         )
-        assertEquals(7, order.size)
+        assertEquals(10, order.size)
     }
 
     @Test
@@ -62,10 +73,13 @@ class ProgressCardCatalogTest {
     fun `可见卡片等于排序后去掉隐藏项`() {
         val visible = ProgressCardCatalog.visibleCards(
             rawOrder = "photos,chart",
-            rawHidden = "water,nutrition"
+            rawHidden = "water,nutrition,sleep_diary"
         )
         assertEquals(
-            listOf("photos", "chart", "exercise", "forecast", "measure"),
+            listOf(
+                "photos", "chart", "exercise", "forecast", "measure",
+                "exercise_diary", "food_diary"
+            ),
             visible
         )
     }
