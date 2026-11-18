@@ -215,6 +215,53 @@ class TrainingRepository(context: Context) {
     suspend fun useTemplate(template: TrainingTemplateData.Template): String =
         activatePlan(template.name, "template:${template.id}", template.days)
 
+    /**
+     * v1.4 健康体系（工单 4.5）：把一场历史训练复制为「我的计划」（默认不激活）。
+     * 动作按名字快照解析成稳定动作 ID，动作库找不到的就保留名字、ID 留空，
+     * 返回缺失名单给 UI 做兼容提示（工单要求：动作缺失时给出提示）。
+     * 计划是独立副本，之后改计划 / 停用 / 删除都不会反向动到这次历史训练。
+     *
+     * @return Pair(planUuid, 动作库里找不到的动作名列表)
+     */
+    suspend fun saveSessionAsTemplate(sessionUuid: String, name: String): Pair<String, List<String>> {
+        val session = sessionDao.findByUuid(sessionUuid)
+            ?: throw IllegalArgumentException("训练记录不存在或已删除")
+        val items = workoutExerciseDao.findBySession(sessionUuid)
+        val exerciseNames = items.map { it.exerciseNameSnapshot }.filter { it.isNotBlank() }
+        require(exerciseNames.isNotEmpty()) { "这场训练没有动作明细" }
+        val library = exerciseDao.findAll()
+        val missing = exerciseNames.filter { n -> library.none { it.name == n } }
+        val weekday = session.date.dayOfWeek.value
+        val days = listOf(
+            TrainingTemplateData.TemplateDay(
+                weekday = weekday,
+                title = "从历史复制 · ${session.date}",
+                exerciseNames = exerciseNames
+            )
+        )
+        val uuid = "plan-${java.util.UUID.randomUUID()}"
+        val now = System.currentTimeMillis()
+        db.withTransaction {
+            // 只存不激活：不调 deactivateAll，isActive=false，用户在计划历史里自己启用
+            planDao.insertAll(listOf(TrainingPlan(uuid, name, "history:${sessionUuid}", false, now)))
+            val dayId = planDayDao.insertOne(
+                TrainingPlanDay(planUuid = uuid, weekday = weekday, title = days.first().title, isRest = false)
+            )
+            planExerciseDao.insertAll(days.first().exerciseNames.mapIndexed { i, exerciseName ->
+                PlanExercise(
+                    dayId = dayId,
+                    exerciseUuid = library.firstOrNull { it.name == exerciseName }?.uuid.orEmpty(),
+                    exerciseNameSnapshot = exerciseName,
+                    targetSets = 3,
+                    targetReps = 10,
+                    targetWeightKg = 0.0,
+                    orderInDay = i
+                )
+            })
+        }
+        return uuid to missing
+    }
+
     suspend fun deactivatePlan(uuid: String) = planDao.setActive(uuid, false)
 
     /** 从历史里重新启用：仍然保证同时只有一个 isActive=true。 */

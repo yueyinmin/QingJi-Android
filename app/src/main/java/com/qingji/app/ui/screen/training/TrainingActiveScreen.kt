@@ -93,6 +93,28 @@ fun TrainingActiveScreen(
     val allSets = d?.exercises.orEmpty().flatMap { it.sets }
     val volume = TrainingMath.sessionVolume(allSets)
     val paused = (d?.pausedAt ?: 0L) > 0L
+    // v1.4 健康体系：组间休息计时状态
+    val restTimer by vm.restTimer.collectAsState()
+    val restRemaining = restTimer.remainingSeconds(now)
+    val restFinished = restTimer.totalMs > 0L && restRemaining <= 0L && !restTimer.paused
+
+    // 休息倒计时走完轻量提醒：短震一下（没震动器的设备静默跳过），不弹窗不抢焦点
+    val context = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(restFinished) {
+        if (restFinished) {
+            runCatching {
+                val vib = context.getSystemService(android.content.Context.VIBRATOR_SERVICE)
+                        as? android.os.Vibrator
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    vib?.vibrate(android.os.VibrationEffect.createOneShot(300L,
+                        android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+                } else {
+                    @Suppress("DEPRECATION")
+                    vib?.vibrate(300L)
+                }
+            }
+        }
+    }
 
     Column(modifier = modifier.fillMaxSize().background(PageBackground)) {
         PageTopBar(title = if (d?.editingUuid.isNullOrEmpty()) "开始训练" else "修改训练", onBack = onBack)
@@ -124,6 +146,18 @@ fun TrainingActiveScreen(
                     editing = d.editingUuid.isNotEmpty(),
                     onTogglePause = { vm.togglePause() }
                 )
+                // v1.4 健康体系：组间休息倒计时条（勾选「完成此组」自动开始）
+                if (restTimer.totalMs > 0L) {
+                    Spacer(Modifier.height(8.dp))
+                    RestTimerBar(
+                        totalSeconds = restTimer.totalMs / 1000L,
+                        remainingSeconds = restRemaining,
+                        paused = restTimer.paused,
+                        finished = restFinished,
+                        onPauseResume = { if (restTimer.paused) vm.resumeRest() else vm.pauseRest() },
+                        onSkip = { vm.skipRest() }
+                    )
+                }
                 Spacer(Modifier.height(10.dp))
 
                 // kg / lb 只影响显示与输入，库里始终存 kg
@@ -164,7 +198,8 @@ fun TrainingActiveScreen(
                         onUpdate = { index, set -> vm.updateSet(e.key, index, set) },
                         onAdd = { vm.addSet(e.key) },
                         onRemoveSet = { index -> vm.removeSet(e.key, index) },
-                        onRemoveExercise = { vm.removeExercise(e.key) }
+                        onRemoveExercise = { vm.removeExercise(e.key) },
+                        onToggleComplete = { index -> vm.toggleSetComplete(e.key, index) }
                     )
                     Spacer(Modifier.height(8.dp))
                 }

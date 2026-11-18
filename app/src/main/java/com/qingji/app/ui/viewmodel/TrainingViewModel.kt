@@ -10,6 +10,7 @@ import com.qingji.app.data.prefs.DraftExercise
 import com.qingji.app.data.prefs.WorkoutDraft
 import com.qingji.app.data.repository.TrainingRepository
 import com.qingji.app.domain.AppClock
+import com.qingji.app.domain.RestTimerState
 import com.qingji.app.domain.SessionCalorieCalculator
 import com.qingji.app.domain.TrainingMath
 import com.qingji.app.domain.WorkoutSet
@@ -36,6 +37,43 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
 
     private val repo = TrainingRepository(app)
     val draftStore = repo.draftStore
+
+    // ---------- v1.4 健康体系：组间休息计时 ----------
+    // 时间戳驱动（和整场训练计时同一个思路）：只存「倒计时到哪一刻结束」，
+    // 页面怎么重组、每秒怎么刷新都不会丢；暂停时把剩余毫秒冻结下来。
+    // 状态类在 domain/RestTimer.kt（纯逻辑可单测），这里只管持有和流转。
+    private val _restTimer = MutableStateFlow(RestTimerState())
+    val restTimer: StateFlow<RestTimerState> = _restTimer.asStateFlow()
+
+    private val _restDefaultSec = MutableStateFlow(repo.draftStore.restDefaultSeconds())
+    val restDefaultSec: StateFlow<Int> = _restDefaultSec.asStateFlow()
+
+    /** 开始一轮休息倒计时。正在计时再来一次 = 从头重新计。 */
+    fun startRest(seconds: Int = _restDefaultSec.value) {
+        val t = System.currentTimeMillis()
+        val total = seconds.coerceIn(15, 600) * 1000L
+        _restTimer.value = RestTimerState(endsAt = t + total, totalMs = total)
+    }
+
+    fun pauseRest() {
+        _restTimer.value = _restTimer.value.pausedAt(System.currentTimeMillis())
+    }
+
+    fun resumeRest() {
+        _restTimer.value = _restTimer.value.resumedAt(System.currentTimeMillis())
+    }
+
+    /** 跳过 / 关掉这轮休息（结束后再点一次也能关掉提示）。 */
+    fun skipRest() {
+        _restTimer.value = RestTimerState()
+    }
+
+    /** 改默认休息时长（15~600 秒），立即写进偏好，下次休息按新值。 */
+    fun setRestDefault(seconds: Int) {
+        val v = seconds.coerceIn(15, 600)
+        repo.draftStore.setRestDefaultSeconds(v)
+        _restDefaultSec.value = v
+    }
 
     val exercises: StateFlow<List<ExerciseEntity>> = repo.observeExercises()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -185,6 +223,32 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
             if (e.key != key) e
             else e.copy(sets = e.sets.mapIndexed { i, s -> if (i == index) set else s })
         }))
+    }
+
+    /**
+     * v1.4 健康体系：标记 / 取消某组完成。
+     * 勾选完成时，如果这场训练还有下一组要练，就按默认时长自动开始组间休息；
+     * 取消勾选只改标记，不动正在走的计时。
+     */
+    fun toggleSetComplete(key: String, index: Int) {
+        val d = _draft.value ?: return
+        val st = _restTimer.value
+        var wasLast = true
+        persist(d.copy(exercises = d.exercises.map { e ->
+            if (e.key != key) e
+            else e.copy(sets = e.sets.mapIndexed { i, s ->
+                if (i == index) {
+                    // 同动作内后面还有没完成的组，就不算最后一组
+                    wasLast = e.sets.drop(i + 1).none { !it.completed }
+                    s.copy(completed = !s.completed)
+                } else s
+            })
+        }))
+        val justCompleted = d.exercises
+            .firstOrNull { it.key == key }?.sets?.getOrNull(index)?.completed != true
+        if (justCompleted && st.totalMs <= 0L) {
+            startRest()
+        }
     }
 
     /** 加一组：默认复制上一组的重量/次数，连续记录时少敲几下。 */

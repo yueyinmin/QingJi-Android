@@ -64,6 +64,8 @@ class WorkoutDraftStore(context: Context) {
     companion object {
         private const val KEY_DRAFT = "draft_json"
         private const val KEY_UNIT = "weight_unit"   // kg / lb，纯显示层，不进备份
+        private const val KEY_REST_DEFAULT = "rest_default_sec"  // 组间休息默认时长（秒）
+        private const val DEFAULT_REST_SEC = 90
         const val UNIT_KG = "kg"
         const val UNIT_LB = "lb"
     }
@@ -138,6 +140,14 @@ class WorkoutDraftStore(context: Context) {
 
     fun setUnit(unit: String) {
         sp.edit().putString(KEY_UNIT, if (unit == UNIT_LB) UNIT_LB else UNIT_KG).apply()
+    }
+
+    /** 组间休息默认时长（秒）。勾选「完成此组」后按它自动开始倒计时。 */
+    fun restDefaultSeconds(): Int =
+        sp.getInt(KEY_REST_DEFAULT, DEFAULT_REST_SEC).coerceIn(15, 600)
+
+    fun setRestDefaultSeconds(seconds: Int) {
+        sp.edit().putInt(KEY_REST_DEFAULT, seconds.coerceIn(15, 600)).apply()
     }
 
     /** 恢复出厂：草稿和单位偏好一起清。 */

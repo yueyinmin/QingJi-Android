@@ -80,6 +80,8 @@ fun TrainingPlanScreen(
     val planExercises by vm.planExercises.collectAsState()
     val library by vm.exercises.collectAsState()
     val message by vm.message.collectAsState()
+    // v1.4 健康体系：最近训练列表，供「从历史训练生成计划」选择
+    val recentSessions by vm.sessions.collectAsState()
 
     var pendingTemplate by remember { mutableStateOf<String?>(null) }
     var showCustom by remember { mutableStateOf(false) }
@@ -176,6 +178,37 @@ fun TrainingPlanScreen(
             ) { Text("自己排一周（自定义计划）", fontSize = TextSizes.Body) }
 
             Spacer(Modifier.height(16.dp))
+
+            // ---------- v1.4 健康体系：从历史训练生成计划（工单 4.5） ----------
+            // 取最近 5 次训练，点「存为我的计划」就把那场的动作安排复制成一份
+            // 不激活的计划副本；动作库缺了的动作会按名字保留并提示。
+            val historyCandidates = recentSessions
+                .filter { it.uuid != active?.source?.removePrefix("history:") }  // 防重复存同一场
+                .take(5)
+            if (historyCandidates.isNotEmpty()) {
+                Text("从历史训练生成", fontSize = TextSizes.CardTitle,
+                    fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                Spacer(Modifier.height(4.dp))
+                Text("把练过的一场动作安排存成计划副本，之后可随时启用；不影响历史记录。",
+                    fontSize = TextSizes.Tiny, color = TextSecondary)
+                Spacer(Modifier.height(8.dp))
+                historyCandidates.forEach { s ->
+                    SectionCard(contentPadding = Dimens.CardPaddingCompact) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(s.date.toString(), fontSize = TextSizes.Body, color = TextPrimary)
+                                Text("${s.durationMinutes} 分钟", fontSize = TextSizes.Tiny, color = TextSecondary)
+                            }
+                            TextButton(onClick = { vm.saveHistoryAsTemplate(s) }) {
+                                Text("存为我的计划", fontSize = TextSizes.Caption, color = QingJiGreen)
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
             // ---------- 计划历史 ----------
             val history = plans.filter { !it.isActive }
             if (history.isNotEmpty()) {
@@ -187,7 +220,12 @@ fun TrainingPlanScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(p.name, fontSize = TextSizes.Body, color = TextPrimary)
-                                Text(if (p.source.startsWith("template:")) "来自模板" else "自定义",
+                                Text(
+                                    when {
+                                        p.source.startsWith("template:") -> "来自模板"
+                                        p.source.startsWith("history:") -> "来自历史训练"
+                                        else -> "自定义"
+                                    },
                                     fontSize = TextSizes.Tiny, color = TextSecondary)
                             }
                             TextButton(onClick = { vm.reactivate(p.uuid) }) {
