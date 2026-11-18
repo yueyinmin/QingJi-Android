@@ -60,6 +60,28 @@ class FoodCatalogLaoxiangjiTest {
     }
 
     @Test
+    fun `0千卡整理 40道有出处回填 其余保持零不编造`() = runBlocking<Unit> {
+        openDb("lxj_zero_kcal.db").use { db ->
+            assertEquals(
+                40,
+                db.queryCount("SELECT COUNT(*) FROM food_catalog WHERE source_id='laoxiangji' AND source_note LIKE '%热量估算%'")
+            )
+            assertEquals(
+                96,
+                db.queryCount("SELECT COUNT(*) FROM food_catalog WHERE source_id='laoxiangji' AND energy_kcal<=0")
+            )
+            fun kcalOf(name: String): Double = db.openHelper.readableDatabase.query(
+                "SELECT energy_kcal FROM food_catalog WHERE name=? AND source_id='laoxiangji'",
+                arrayOf(name)
+            ).use { c -> assertTrue(c.moveToFirst()); c.getDouble(0) }
+            // 同名匹配：番茄鸡蛋面 = v0.2 标准库 135 kcal/100g
+            assertEquals(135.0, kcalOf("番茄鸡蛋面"), 0.0)
+            // 无出处：大排面仍是 0，界面显示「暂无热量数据」，不冒充 0 千卡
+            assertEquals(0.0, kcalOf("大排面"), 0.0)
+        }
+    }
+
+    @Test
     fun `品牌由数据库驱动 老乡鸡居首 六大快餐品牌在列`() = runBlocking<Unit> {
         openDb("lxj_brand.db").use { db ->
             val brands = db.brandCatalogDao().findEnabledBrands()
