@@ -59,7 +59,9 @@ data class ProgressCardData(
     /** 三种日记卡的近 30 天数据（只读展示，不改表） */
     val sleepRecords: List<SleepRecordEntity> = emptyList(),
     val exerciseLogs: List<ExerciseLog> = emptyList(),
-    val foodLogs: List<FoodLog> = emptyList()
+    val foodLogs: List<FoodLog> = emptyList(),
+    /** 统一运动消耗账本（力量+有氧），运动消耗卡统计口径 */
+    val exerciseLedger: List<com.qingji.app.data.local.entity.ExerciseSessionCalorieEntity> = emptyList()
 )
 
 /** 卡片里的交互回调，同样集中管理，渲染分派本身保持纯展示。 */
@@ -99,6 +101,8 @@ fun ProgressCardRenderer(
             // v1.3.7：卡片内部要支持今日/近7天/近30天切换，传近 30 天全量，
             // 由 ExerciseRangeCalculator 在卡片内过滤（原来传的是本周，切不了维度）
             list = data.exerciseLogs.ifEmpty { data.exerciseWeek },
+            // 2026-11-18：统计口径改用统一账本（力量+有氧），力量训练消耗才不会漏
+            ledger = data.exerciseLedger,
             onAdd = actions.onAddExercise,
             onEdit = { log -> actions.onEditExercise(log) },
             onDelete = { id -> actions.onDeleteExercise(id) }

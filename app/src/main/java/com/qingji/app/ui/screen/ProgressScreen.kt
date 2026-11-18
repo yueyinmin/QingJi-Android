@@ -106,6 +106,8 @@ fun ProgressScreen(
     // P1：三种日记卡的近 30 天数据（只读展示）
     val sleepMonth by vm.sleepMonth.collectAsState()
     val exerciseMonth by vm.exerciseMonth.collectAsState()
+    // 统一运动消耗账本（力量+有氧），运动消耗卡统计口径
+    val exerciseLedger by vm.exerciseLedger.collectAsState()
 
     var showBodyMeasure by remember { mutableStateOf(false) }
     // v3.4.0：进度照片「查看全部 / 前后对比」全屏图库
@@ -254,7 +256,8 @@ fun ProgressScreen(
                         photos = photos,
                         sleepRecords = sleepMonth,
                         exerciseLogs = exerciseMonth,
-                        foodLogs = foodMonth
+                        foodLogs = foodMonth,
+                        exerciseLedger = exerciseLedger
                     ),
                     actions = ProgressCardActions(
                         onAddExercise = onOpenExercise,

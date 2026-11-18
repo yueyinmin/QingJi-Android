@@ -104,10 +104,22 @@ internal fun TodaySummaryCard(
         ?: profile?.waterGoalMl?.takeIf { it > 0 }
         ?: 2000
     val eatenKcal = state.totalKcal.toInt()
-    val remainingKcal = goalKcal - eatenKcal
+    // 2026-11-18：运动补偿接入主数字。补偿开启后，「今日剩余」直接变成
+    // 「预算 + 运动加成 − 已吃」，主人做完训练抬头就能看到额度变多。
+    val exerciseBonus = ExerciseCompensation.bonusKcal(
+        state.exerciseKcal, exerciseCompensation, exerciseCompensationPct
+    )
+    val remainingKcal = ExerciseCompensation.remainingWithBonus(
+        goalKcal, eatenKcal, state.exerciseKcal, exerciseCompensation, exerciseCompensationPct
+    )
+    // 纯饮食剩余（不含补偿），卡片下方小字用，跟主数字对照着看
+    val remainingFoodOnly = ExerciseCompensation.remainingFoodOnly(goalKcal, eatenKcal)
 
+    // 进度条分母也带上运动加成：挣了额度后，进度条应该涨得慢一点，
+    // 不然主数字说「还剩很多」、进度条却快满了，两处对不上。
+    val effectiveGoal = (goalKcal + exerciseBonus).coerceAtLeast(1)
     // 「进度条动效」设置：开了就 400ms 补间，关了直接跳到位
-    val rawProgress = eatenKcal.toFloat() / goalKcal
+    val rawProgress = eatenKcal.toFloat() / effectiveGoal
     // v7：切 Tab 回首页时 Composable 重建，animateFloatAsState 会从 0 重新
     // 补间一遍——主人看到的「闪一下」主要就是它和水杯涨水。首帧用 snap
     // 直接落在当前值，之后数据变化才走 400ms 补间。
@@ -198,13 +210,9 @@ internal fun TodaySummaryCard(
             }
         }
         Spacer(Modifier.height(8.dp))
-        // 预计热量缺口 = 每日预算 + 运动消耗×补偿比例 − 已吃
-        // v1.4：补偿口径统一下沉到 ExerciseCompensation（与周小结同一处计算），
-        // 开关关闭时加成为 0（消耗统计照常保留，只是不加进额度）
-        val exerciseBonus = ExerciseCompensation.bonusKcal(
-            state.exerciseKcal, exerciseCompensation, exerciseCompensationPct
-        )
-        val gap = remainingKcal + exerciseBonus
+        // 主数字已含运动补偿；这里的小字改成「纯饮食剩余」对照，
+        // 让主人看清多出来的额度是运动挣的（主数字 − 小字 = 运动加成）。
+        // 开关关闭时两者相等，运动加成显示 0，符合「关了不加额度」的规矩。
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
@@ -212,9 +220,15 @@ internal fun TodaySummaryCard(
             // 参考图用「已吃/预算」的分数形式，比「已吃 xx 千卡」更省地方
             Text(text = "$eatenKcal/$goalKcal", fontSize = 12.sp, color = TextSecondary)
             Text(
-                text = if (gap >= 0) "预计缺口 $gap 千卡" else "反超 ${-gap} 千卡",
+                text = if (exerciseBonus > 0) {
+                    "纯饮食剩 $remainingFoodOnly · 运动 +$exerciseBonus"
+                } else if (remainingFoodOnly >= 0) {
+                    "预计缺口 $remainingFoodOnly 千卡"
+                } else {
+                    "反超 ${-remainingFoodOnly} 千卡"
+                },
                 fontSize = 12.sp,
-                color = if (gap >= 0) TextSecondary else DangerRed
+                color = if (remainingFoodOnly >= 0) TextSecondary else DangerRed
             )
         }
 

@@ -25,4 +25,27 @@ object ExerciseCompensation {
         if (!enabled || pct <= 0 || exerciseKcal <= 0.0) return 0
         return (exerciseKcal * pct / 100.0).toInt()
     }
+
+    /**
+     * 首页「今日剩余」主数字（2026-11-18：运动补偿接入主数字）。
+     *
+     * 补偿开启时，运动消耗按比例加回额度，主数字直接变成
+     * 「预算 + 运动加成 − 已吃」；关闭时退回原来的「预算 − 已吃」。
+     * 这样主人做完训练，抬头就能看到剩余额度变多，不用再去看小字。
+     *
+     * @return 今日剩余（可能为负，负的说明反超了预算，UI 会标红）
+     */
+    fun remainingWithBonus(
+        goalKcal: Int,
+        eatenKcal: Int,
+        exerciseKcal: Double,
+        enabled: Boolean,
+        pct: Int
+    ): Int = goalKcal - eatenKcal + bonusKcal(exerciseKcal, enabled, pct)
+
+    /**
+     * 卡片下方小字「纯饮食剩余」：永远不含运动补偿，用来跟主数字对照，
+     * 让主人看清这多出来的额度是运动挣的，不是凭空多出来的预算。
+     */
+    fun remainingFoodOnly(goalKcal: Int, eatenKcal: Int): Int = goalKcal - eatenKcal
 }
