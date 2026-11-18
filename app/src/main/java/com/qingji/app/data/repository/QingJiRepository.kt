@@ -133,6 +133,21 @@ class QingJiRepository(private val context: Context) {
         db.usageStatDao().increment(log.date, "body")
     }
 
+    /** v1.3.7：按 id 取一条有氧记录，给确认页回填「修改」。 */
+    suspend fun findExercise(id: Long): ExerciseLog? = db.exerciseLogDao().findById(id)
+
+    /**
+     * v1.3.7：修改一条有氧记录。账本镜像先删后重插，避免改了日期/类型后
+     * 旧镜像残留（sourceId 虽然一样，但 sourceType 会随 type 变）。
+     */
+    suspend fun updateExercise(log: ExerciseLog) {
+        db.exerciseLogDao().update(log)
+        runCatching {
+            healthRepository().deleteExerciseLogMirror(log.id)
+            healthRepository().mirrorExerciseLog(log)
+        }
+    }
+
     suspend fun deleteExercise(id: Long) {
         db.exerciseLogDao().deleteById(id)
         // 账本镜像联动删除：删运动记录，消耗也跟着消失，不会残留旧数字

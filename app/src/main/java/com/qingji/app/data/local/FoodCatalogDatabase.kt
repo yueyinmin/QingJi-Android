@@ -102,8 +102,11 @@ abstract class FoodCatalogDatabase : RoomDatabase() {
          *   必胜客/达美乐 6 行，food_catalog 主表追加 160 条（food_id 从 210001 起，
          *   source_id = brandId，audit_status=0）。营养按每 100g 存，每份值用真实/估算克重
          *   折算，估算份重已在 portion_note 标注。外卖 8 张表仍为空。Room v5 不动。
+         * 0.8 -> 0.9（v1.3.5）：老乡鸡 0 千卡整理——40 道从本地可信库做同名/同类近似
+         *   匹配并写回热量与三大营养素，source_note 留痕；其余保持无数据，界面显示
+         *   「暂无热量数据」而不是「0 千卡」。表结构不变，audit_status 不变。
          */
-        const val CATALOG_VERSION = "0.8-fastfood-brands"
+        const val CATALOG_VERSION = "0.9-lxj-kcal-match"
         private const val DB_NAME = "food_catalog.db"
         private const val ASSET_PATH = "database/food_catalog.db"
         private const val PREFS_NAME = "qingji_catalog_meta"
