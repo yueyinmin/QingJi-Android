@@ -103,8 +103,6 @@ fun ProgressScreen(
     val exerciseWeek by vm.exerciseWeek.collectAsState()
     val bodyMeasures by vm.bodyMeasures.collectAsState()
     val photos by vm.photos.collectAsState()
-    // v1.3.7：肌群分布（只读聚合，近 30 天力量训练按动作库主分类）
-    val muscleBuckets by vm.muscleDistribution.collectAsState()
     // P1：三种日记卡的近 30 天数据（只读展示）
     val sleepMonth by vm.sleepMonth.collectAsState()
     val exerciseMonth by vm.exerciseMonth.collectAsState()
@@ -256,8 +254,7 @@ fun ProgressScreen(
                         photos = photos,
                         sleepRecords = sleepMonth,
                         exerciseLogs = exerciseMonth,
-                        foodLogs = foodMonth,
-                        muscleBuckets = muscleBuckets
+                        foodLogs = foodMonth
                     ),
                     actions = ProgressCardActions(
                         onAddExercise = onOpenExercise,
