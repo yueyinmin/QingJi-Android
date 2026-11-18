@@ -232,6 +232,9 @@ class HealthRepository(private val context: Context) {
 
     suspend fun ledgerAll(): List<ExerciseSessionCalorieEntity> = ledgerDao.findAll()
 
+    /** 全量账本观察流（进展页运动消耗卡用，力量+有氧统一口径，记完自动刷新）。 */
+    fun observeAllLedger(): Flow<List<ExerciseSessionCalorieEntity>> = ledgerDao.observeAll()
+
     companion object {
         const val SOURCE_STRENGTH_TRAINING = "STRENGTH_TRAINING"
         const val SOURCE_CARDIO = "CARDIO"

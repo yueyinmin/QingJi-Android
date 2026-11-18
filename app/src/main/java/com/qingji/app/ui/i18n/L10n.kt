@@ -343,6 +343,16 @@ private val EN: Map<String, String> = mapOf(
     "近7天运动消耗" to "7-day burn",
     "近30天运动消耗" to "30-day burn",
     "改" to "Edit",
+
+    // ---------- 2026-11-18：运动消耗账本口径 + 首页补偿主数字 ----------
+    "力量" to "Strength",
+    "有氧" to "Cardio",
+    "步行" to "Walking",
+    "其他" to "Other",
+    "力量训练场次已计入消耗，明细请到训练中心查看" to
+        "Strength sessions are counted above. See details in Training.",
+    "纯饮食剩" to "Food only",
+    "运动 +" to "Exercise +",
 )
 
 

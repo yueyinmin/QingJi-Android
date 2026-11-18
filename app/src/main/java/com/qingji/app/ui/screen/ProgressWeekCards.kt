@@ -28,7 +28,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.qingji.app.data.local.entity.ExerciseSessionCalorieEntity
 import com.qingji.app.domain.AppClock
+import com.qingji.app.domain.ExerciseLedgerCalculator
 import com.qingji.app.domain.ExerciseRangeCalculator
 import com.qingji.app.ui.components.SectionCard
 import com.qingji.app.ui.i18n.s
@@ -228,6 +230,10 @@ internal fun MacroFigure(label: String, grams: Double, color: Color) {
  * 运动消耗卡（v1.3.7 起支持 今日 / 近7天 / 近30天 切换，工单 4.4 日周月统计）。
  * 传入的 list 是近 30 天全量，卡片内部按所选范围自己过滤；
  * 这样切换维度不用重新查库，也不改表结构。
+ *
+ * 2026-11-18：统计数字改用统一账本 [ledger]（力量训练结算 + 有氧镜像都在内），
+ * 解决「做完力量训练，近七天消耗纹丝不动」。明细列表仍用有氧记录（能改能删），
+ * 力量场次在训练中心管理，这里只在数字和分类占比里体现。
  */
 @Composable
 fun ExerciseWeekCard(
@@ -235,18 +241,34 @@ fun ExerciseWeekCard(
     onAdd: () -> Unit,
     onDelete: (Long) -> Unit,
     /** v1.3.7：改一条（工单 4.4 增查改删）；可选参数，老调用不用改 */
-    onEdit: (com.qingji.app.data.local.entity.ExerciseLog) -> Unit = {}
+    onEdit: (com.qingji.app.data.local.entity.ExerciseLog) -> Unit = {},
+    /** 2026-11-18：统一运动消耗账本；统计口径以它为准，老调用不传则退回有氧表 */
+    ledger: List<ExerciseSessionCalorieEntity> = emptyList()
 ) {
     var range by remember { mutableStateOf(ExerciseRangeCalculator.RANGE_WEEK) }
     val today = AppClock.today()
-    val summary = remember(list, range, today) {
+    // 统计：账本有数据就用账本（力量+有氧全含），没有才退回原来的有氧表口径
+    val useLedger = ledger.isNotEmpty()
+    val ledgerSummary = remember(ledger, range, today) {
+        ExerciseLedgerCalculator.summarize(ledger, range, today)
+    }
+    val cardioSummary = remember(list, range, today) {
         ExerciseRangeCalculator.summarize(list, range, today)
     }
+    val count = if (useLedger) ledgerSummary.count else cardioSummary.count
+    val minutes = if (useLedger) ledgerSummary.minutes else cardioSummary.minutes
+    val total = if (useLedger) ledgerSummary.kcal else cardioSummary.kcal
     // 明细只显示所选范围里最近的 3 条（旧的在下、新的在上），跟原来一致
     val visibleLogs = remember(list, range, today) {
         ExerciseRangeCalculator.filter(list, range, today).takeLast(3).reversed()
     }
-    val total = summary.kcal
+    // 账本里属于力量训练的条数，用来在明细区提示「力量场次在训练中心看」
+    val strengthCount = if (useLedger) {
+        ledgerSummary.byKind.firstOrNull { it.kind == ExerciseLedgerCalculator.KIND_STRENGTH }?.kcal?.let { kcal ->
+            if (kcal > 0.0) ledgerSummary.byKind.size else 0
+        } ?: 0
+    } else 0
+    val hasStrength = strengthCount > 0
 
     // 360dp 窄屏走查：右侧 QuickActionColumn 是 4 颗 52dp 圆按钮、右留 16dp，
     // 浮在内容之上，占住屏幕右侧 (W-68dp) ~ (W-16dp) 这一条。
@@ -263,17 +285,35 @@ fun ExerciseWeekCard(
         ) {
             Column {
                 Text(
-                    text = s("${summary.label}运动消耗"),
+                    text = s("${ledgerSummary.label}运动消耗"),
                     fontSize = TextSizes.CardTitle,
                     fontWeight = FontWeight.SemiBold,
                     color = TextPrimary
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = "共 ${total.toInt()} 千卡 · ${summary.count} 次 · ${summary.minutes} 分钟",
+                    text = "共 ${total.toInt()} 千卡 · $count 次 · $minutes 分钟",
                     fontSize = TextSizes.Caption,
                     color = TextSecondary
                 )
+                // 有账本数据时显示分类占比：力量 / 有氧 / 步行，让主人看清消耗哪来的
+                // 本地化名在 Composable 作用域先算好，joinToString 的 lambda 里只查表
+                if (useLedger && ledgerSummary.byKind.isNotEmpty()) {
+                    val kindNames = mapOf(
+                        ExerciseLedgerCalculator.KIND_STRENGTH to s("力量"),
+                        ExerciseLedgerCalculator.KIND_CARDIO to s("有氧"),
+                        ExerciseLedgerCalculator.KIND_WALK to s("步行"),
+                        ExerciseLedgerCalculator.KIND_OTHER to s("其他")
+                    )
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        text = ledgerSummary.byKind.joinToString(" · ") { kind ->
+                            "${kindNames[kind.kind] ?: kind.kind} ${kind.kcal.toInt()}"
+                        },
+                        fontSize = TextSizes.Tiny,
+                        color = TextSecondary
+                    )
+                }
             }
             Text(
                 text = s("+ 记一次"),
@@ -366,6 +406,16 @@ fun ExerciseWeekCard(
                     }
                 }
             }
+        }
+        // 力量训练的消耗已计入上面的总数，但场次明细在训练中心管理，
+        // 这里如实提示一声，免得主人以为「数字涨了却看不到那条记录」。
+        if (hasStrength) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = s("力量训练场次已计入消耗，明细请到训练中心查看"),
+                fontSize = TextSizes.Tiny,
+                color = TextSecondary
+            )
         }
     }
 }

@@ -12,6 +12,7 @@ import com.qingji.app.data.local.entity.ProgressPhoto
 import com.qingji.app.data.local.entity.SleepRecordEntity
 import com.qingji.app.data.local.entity.UserProfile
 import com.qingji.app.data.local.entity.WeightLog
+import com.qingji.app.data.repository.HealthRepository
 import com.qingji.app.data.repository.QingJiRepository
 import com.qingji.app.data.repository.SleepRepository
 import com.qingji.app.domain.AppClock
@@ -30,6 +31,8 @@ class ProgressViewModel(app: Application) : AndroidViewModel(app) {
     private val repo = QingJiRepository(app)
     /** 睡眠表在独立仓库，日记卡只读它，不新建 ViewModel 免得日期状态打架 */
     private val sleepRepo = SleepRepository(app)
+    /** 统一运动消耗账本：运动消耗卡读它（力量+有氧同一口径），只读不改 */
+    private val healthRepo = HealthRepository(app)
 
     /** 运动库（预置 + 收藏置顶） */
     val exercisePresets: StateFlow<List<com.qingji.app.data.local.entity.ExercisePreset>> =
@@ -100,6 +103,14 @@ class ProgressViewModel(app: Application) : AndroidViewModel(app) {
     val exerciseMonth: StateFlow<List<ExerciseLog>> = repo
         .observeExerciseRange(diaryMonthStart, AppClock.today())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /**
+     * 统一运动消耗账本（运动消耗卡统计用）：力量训练结算 + 有氧镜像都在这里。
+     * 卡片的「总千卡 / 次数 / 分钟 / 分类」按它聚合，力量训练消耗才不会被漏掉。
+     */
+    val exerciseLedger: StateFlow<List<com.qingji.app.data.local.entity.ExerciseSessionCalorieEntity>> =
+        healthRepo.observeAllLedger()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     fun setRange(days: Int?) {
         _rangeDays.value = days
