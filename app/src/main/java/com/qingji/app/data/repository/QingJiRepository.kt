@@ -248,11 +248,24 @@ class QingJiRepository(private val context: Context) {
         if (id < CATALOG_ID_START) userFoodDao.setFavorite(id, favorite)
     }
 
-    /** 把 AI 识别出来的食物存进用户库（source = user，绝不写只读标准库）。 */
-    suspend fun addUserFood(name: String, kcalPer100g: Double, protein: Double, carb: Double, fat: Double) {
-        if (name.isBlank()) return
+    /**
+     * 把 AI 识别出来的食物存进用户库（source = user，绝不写只读标准库）。
+     * 2026-11-18 修复：原来和标准库同名就直接静默跳过，但 AI 识别的餐名
+     * 基本都来自标准库，导致「存进我的食物库」永远存不进去；
+     * 现在改成允许与标准库同名（这是主人这一餐自己的折算值，跟标准库是两回事），
+     * 只和自定义库自己重名的才去重。
+     * @return true = 真的写进去了；false = 自定义库已有同名，跳过
+     */
+    suspend fun addUserFood(
+        name: String,
+        kcalPer100g: Double,
+        protein: Double,
+        carb: Double,
+        fat: Double
+    ): Boolean {
+        if (name.isBlank()) return false
         val trimmed = name.trim()
-        if (catalogDao.findByName(trimmed) != null || userFoodDao.findByName(trimmed) != null) return
+        if (userFoodDao.findByName(trimmed) != null) return false
         userFoodDao.insert(
             UserFood(
                 name = trimmed,
@@ -264,6 +277,7 @@ class QingJiRepository(private val context: Context) {
                 category = com.qingji.app.domain.FoodCategory.guess(trimmed)
             )
         )
+        return true
     }
 
     // ---------- 轻断食 ----------
