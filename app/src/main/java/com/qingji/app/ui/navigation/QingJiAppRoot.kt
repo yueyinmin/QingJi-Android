@@ -446,6 +446,7 @@ fun QingJiAppRoot(
                         val sleepVm: com.qingji.app.ui.viewmodel.SleepViewModel =
                             androidx.lifecycle.viewmodel.compose.viewModel()
                         val lastNightSleep by sleepVm.lastNight.collectAsState()
+                        val recentSleepNights by sleepVm.recent30.collectAsState()
                         HomeScreen(
                             onAddRecord = { showAddSheet = true },
                             onOpenAnalysis = { navController.navigate(QingJiRoutes.AiAnalysis) },
@@ -459,6 +460,7 @@ fun QingJiAppRoot(
                             onOpenTraining = { navController.navigate(QingJiRoutes.TrainingHistory) },
                             onOpenSleep = { navController.navigate(QingJiRoutes.Sleep) },
                             lastNightSleep = lastNightSleep,
+                            recentSleepNights = recentSleepNights,
                             onOpenSelfDiscipline = { navController.navigate(QingJiRoutes.SelfDiscipline) },
                             onOpenExercise = { navController.navigate(QingJiRoutes.ExercisePicker) },
                             onSelfDisciplineCheckin = {
@@ -498,6 +500,8 @@ fun QingJiAppRoot(
                             onOpenWaterSheet = openWaterSheet,
                             // v1.0.6：运动卡片的「+ 记一次」走二级页，才能填步数 / 公里
                             onOpenExercise = { navController.navigate(QingJiRoutes.ExercisePicker) },
+                            // P1：睡眠日记卡空态直达睡眠页
+                            onOpenSleepDiary = { navController.navigate(QingJiRoutes.Sleep) },
                             scrollState = tabScrollStates.getValue(QingJiTab.Progress),
                             weeklySummary = weeklySummary,
                             vm = progressVm
