@@ -55,14 +55,14 @@ class FoodCatalogTakeawayTest {
     @Test
     fun `Room版本5身份正确 旧数据一行不丢`() = runBlocking<Unit> {
         openDb("tw_migration.db").use { db ->
-            assertEquals(1121, db.queryCount("SELECT COUNT(*) FROM food_catalog"))
+            assertEquals(1281, db.queryCount("SELECT COUNT(*) FROM food_catalog"))
             assertEquals(301, db.queryCount("SELECT COUNT(*) FROM food_catalog WHERE source_id='laoxiangji'"))
             assertEquals(654, db.queryCount("SELECT COUNT(*) FROM food_catalog WHERE source_id='CNFCT-APPROX'"))
             assertEquals(166, db.queryCount("SELECT COUNT(*) FROM food_catalog WHERE source_id='OmniFood8K'"))
             assertEquals(8033, db.queryCount("SELECT COUNT(*) FROM nutrition_sample"))
             assertEquals(27457, db.queryCount("SELECT COUNT(*) FROM food_composition"))
             assertEquals(176, db.queryCount("SELECT COUNT(*) FROM brand_dish_trace"))
-            assertEquals(1, db.queryCount("SELECT COUNT(*) FROM brand"))
+            assertEquals(7, db.queryCount("SELECT COUNT(*) FROM brand"))
         }
     }
 
@@ -82,8 +82,10 @@ class FoodCatalogTakeawayTest {
             assertTrue(dao.byBrandAndCategory("laoxiangji", cat).all { it.category == cat })
             // 品牌维度拼音搜索
             assertTrue(dao.searchByBrand("laoxiangji", "mckr").any { it.name.contains("梅菜扣肉") })
-            // 别的品牌为空（品牌隔离）
-            assertTrue(dao.byBrandAndCategory("kfc", "").isEmpty())
+            // 0.8：kfc 不再为空——六大快餐品牌接入，21 条且不串品牌
+            val kfcFoods = dao.byBrandAndCategory("kfc", "")
+            assertEquals(21, kfcFoods.size)
+            assertTrue(kfcFoods.all { it.sourceId == "kfc" })
         }
     }
 

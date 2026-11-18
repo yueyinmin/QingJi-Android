@@ -171,6 +171,14 @@ interface WorkoutSessionDao {
     @Query("SELECT DISTINCT date FROM workout_session")
     suspend fun findAllDates(): List<LocalDate>
 
+    /** 健康体系 V1.1：当日训练场次轻量聚合（次数+时长和），供每日汇总共用。 */
+    @Query(
+        "SELECT COUNT(*) AS count, " +
+        "COALESCE(SUM(durationMinutes),0) AS durationSum " +
+        "FROM workout_session WHERE date = :date"
+    )
+    suspend fun dayAggregate(date: String): WorkoutDayAgg?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(item: WorkoutSession)
 
@@ -209,6 +217,17 @@ interface WorkoutExerciseDao {
     suspend fun clearAll()
 
     /**
+     * 健康体系 V1.1（每日汇总工单 10.2）：当日所有场次的组 JSON。
+     * JOIN 场次表拿日期；容量 kg 在仓库层用 TrainingMath 解析（JSON 无法 SQL 聚合）。
+     */
+    @Query(
+        "SELECT we.setsJson FROM workout_exercise we " +
+        "JOIN workout_session ws ON we.sessionUuid = ws.uuid " +
+        "WHERE ws.date = :date"
+    )
+    suspend fun findSetsBySessionDate(date: String): List<String>
+
+    /**
      * 「上次成绩自动带出」：同一个动作，取最近一次训练里最后保存的那包组数据。
      * 有 uuid 优先按 uuid 找；自建动作被删过（uuid 为空串）时，退回按名字快照精确匹配。
      */
@@ -225,3 +244,9 @@ interface WorkoutExerciseDao {
     )
     suspend fun findLatestSets(exerciseUuid: String, nameSnapshot: String): String?
 }
+
+/** 每日汇总：训练场次当日聚合（健康体系 V1.1）。 */
+data class WorkoutDayAgg(
+    val count: Int,
+    val durationSum: Int
+)

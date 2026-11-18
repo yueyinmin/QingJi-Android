@@ -38,12 +38,19 @@ object WeeklySummaryCalculator {
         val advice: String
     )
 
+    /**
+     * v1.4：新增运动补偿两个参数（默认关闭），缺口口径与首页额度卡统一——
+     * 平均缺口 = 每日预算 + 消耗×补偿比例（开关关为 0） − 摄入，
+     * 运动加成统一走 ExerciseCompensation，不再各算各的。
+     */
     fun summarize(
         days: List<Day>,
         dailyGoal: Int,
         waterGoal: Int,
         startWeight: Double?,
-        endWeight: Double?
+        endWeight: Double?,
+        exerciseCompensationEnabled: Boolean = false,
+        exerciseCompensationPct: Int = 50
     ): Summary {
         val recorded = days.filter { it.hasLog }
         val n = recorded.size
@@ -65,7 +72,13 @@ object WeeklySummaryCalculator {
         }
 
         val avgKcal = (recorded.sumOf { it.kcal } / n).roundToInt()
-        val avgGap = (recorded.sumOf { dailyGoal + it.exerciseKcal - it.kcal } / n).roundToInt()
+        val avgGap = (
+            recorded.sumOf {
+                dailyGoal + ExerciseCompensation.bonusKcal(
+                    it.exerciseKcal, exerciseCompensationEnabled, exerciseCompensationPct
+                ) - it.kcal
+            } / n
+            ).roundToInt()
         val change = if (
             startWeight != null && endWeight != null && startWeight > 0 && endWeight > 0
         ) endWeight - startWeight else 0.0

@@ -37,6 +37,10 @@ import com.qingji.app.data.local.dao.SelfDisciplineUrgeDao
 import com.qingji.app.data.local.dao.SelfDisciplineSettingDao
 import com.qingji.app.data.local.dao.SelfDisciplineMilestoneDao
 import com.qingji.app.data.local.dao.SelfDisciplineInterventionDao
+import com.qingji.app.data.local.dao.ExerciseCalorieConfigDao
+import com.qingji.app.data.local.dao.ExerciseSessionCalorieDao
+import com.qingji.app.data.local.dao.SleepDao
+import com.qingji.app.data.local.dao.DailyHealthSummaryDao
 import com.qingji.app.data.local.entity.AiConfig
 import com.qingji.app.data.local.entity.BodyMeasure
 import com.qingji.app.data.local.entity.Diary
@@ -66,6 +70,10 @@ import com.qingji.app.data.local.entity.SelfDisciplineUrgeEntity
 import com.qingji.app.data.local.entity.SelfDisciplineSettingEntity
 import com.qingji.app.data.local.entity.SelfDisciplineMilestoneEntity
 import com.qingji.app.data.local.entity.SelfDisciplineInterventionEntity
+import com.qingji.app.data.local.entity.ExerciseCalorieConfigEntity
+import com.qingji.app.data.local.entity.ExerciseSessionCalorieEntity
+import com.qingji.app.data.local.entity.SleepRecordEntity
+import com.qingji.app.data.local.entity.DailyHealthSummaryEntity
 import java.time.LocalDate
 
 /**
@@ -129,9 +137,16 @@ class Converters {
         SelfDisciplineUrgeEntity::class,
         SelfDisciplineSettingEntity::class,
         SelfDisciplineMilestoneEntity::class,
-        SelfDisciplineInterventionEntity::class
+        SelfDisciplineInterventionEntity::class,
+        // v1.4 健康体系 P0（Room 13）：运动热量参数库 + 统一运动消耗账本，旧表一列不动
+        ExerciseCalorieConfigEntity::class,
+        ExerciseSessionCalorieEntity::class,
+        // v1.4 健康体系 V1.1（Room 14）：睡眠记录（工单 9），旧表一列不动
+        SleepRecordEntity::class,
+        // v1.4 健康体系 V1.1（Room 15）：每日健康汇总缓存（工单 10.2，可重建），旧表一列不动
+        DailyHealthSummaryEntity::class
     ],
-    version = 12,
+    version = 15,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -170,6 +185,12 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun selfDisciplineSettingDao(): SelfDisciplineSettingDao
     abstract fun selfDisciplineMilestoneDao(): SelfDisciplineMilestoneDao
     abstract fun selfDisciplineInterventionDao(): SelfDisciplineInterventionDao
+
+    // ---------- 健康体系 V1.0（Room 13） ----------
+    abstract fun exerciseCalorieConfigDao(): ExerciseCalorieConfigDao
+    abstract fun exerciseSessionCalorieDao(): ExerciseSessionCalorieDao
+    abstract fun sleepDao(): SleepDao
+    abstract fun dailyHealthSummaryDao(): DailyHealthSummaryDao
 
     companion object {
         /** 整个 App 只保留一个数据库实例，重复创建会出问题。 */
@@ -494,7 +515,8 @@ abstract class AppDatabase : RoomDatabase() {
             listOf(
                 MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
                 MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8,
-                MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12
+                MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12,
+                MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15
             )
         }
 
@@ -596,6 +618,148 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE `exercise` ADD COLUMN `assetPath` TEXT NOT NULL DEFAULT ''")
                 db.execSQL("ALTER TABLE `exercise` ADD COLUMN `attribution` TEXT NOT NULL DEFAULT ''")
                 db.execSQL("CREATE TABLE IF NOT EXISTS `library_meta` (`key` TEXT NOT NULL, `value` TEXT NOT NULL DEFAULT '', PRIMARY KEY(`key`))")
+            }
+        }
+
+        /**
+         * 12 → 13：健康体系 V1.0 P0（运动热量参数库 + 统一运动消耗账本）。
+         *
+         * 只新建两张表 + 给参数库灌 12 行类型级 MET 种子，一行旧数据都不碰、不改旧列。
+         * 实体的 @ColumnInfo(defaultValue=...) 与下面 SQL 的 DEFAULT 逐字一致
+         * （规矩见类头「动表结构四件套」）。
+         *
+         * 消耗账本的唯一索引 (sourceType, sourceId) 是去重的根基：
+         * 同一场训练重复保存、重复结算、备份恢复都只会有一行。
+         * MET 种子值 = 工单初始参考值（口径沿用现有 MET×体重÷60×分钟，用户已拍板），
+         * metLow/metHigh = 参考值 ×0.85 / ×1.15，与现有强度系数一致。
+         */
+        internal val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `exercise_calorie_config` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`exerciseId` TEXT NOT NULL DEFAULT '', " +
+                        "`activityType` TEXT NOT NULL, " +
+                        "`metLow` REAL NOT NULL DEFAULT 0.0, " +
+                        "`metModerate` REAL NOT NULL DEFAULT 0.0, " +
+                        "`metHigh` REAL NOT NULL DEFAULT 0.0, " +
+                        "`source` TEXT NOT NULL DEFAULT '', " +
+                        "`version` TEXT NOT NULL DEFAULT '', " +
+                        "`isEnabled` INTEGER NOT NULL DEFAULT 1)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_exercise_calorie_config_activityType` ON `exercise_calorie_config` (`activityType`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_exercise_calorie_config_exerciseId` ON `exercise_calorie_config` (`exerciseId`)")
+
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `exercise_session_calorie` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`sourceType` TEXT NOT NULL, " +
+                        "`sourceId` TEXT NOT NULL, " +
+                        "`date` TEXT NOT NULL, " +
+                        "`durationSeconds` INTEGER NOT NULL DEFAULT 0, " +
+                        "`caloriesGross` REAL NOT NULL DEFAULT 0.0, " +
+                        "`weightSnapshot` REAL NOT NULL DEFAULT 0.0, " +
+                        "`calculationMethod` TEXT NOT NULL DEFAULT '', " +
+                        "`calculationVersion` TEXT NOT NULL DEFAULT '', " +
+                        "`createdAt` INTEGER NOT NULL DEFAULT 0, " +
+                        "`updatedAt` INTEGER NOT NULL DEFAULT 0)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_exercise_session_calorie_date` ON `exercise_session_calorie` (`date`)")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_exercise_session_calorie_sourceType_sourceId` ON `exercise_session_calorie` (`sourceType`, `sourceId`)")
+
+                // MET 参数种子（幂等：IGNORE，重复跑迁移/重复启动都不会写重）
+                val metSource = "Compendium of Physical Activities 近似值"
+                val metVersion = "met-v1"
+                val seeds = listOf(
+                    // activityType to (moderate) —— low/high 由 moderate ×0.85/×1.15 派生
+                    "strength_light" to 3.5,        // 轻度力量训练
+                    "strength_moderate" to 5.0,     // 中等力量训练
+                    "strength_heavy" to 6.0,        // 高强度力量训练
+                    "bodyweight_circuit" to 5.0,    // 自重循环训练
+                    "hiit" to 8.0,                  // 高强度间歇训练
+                    "flexibility" to 2.3,           // 拉伸、放松
+                    "walking_stroll" to 3.5,        // 中速步行
+                    "walking_brisk" to 4.3,         // 快走
+                    "jogging" to 7.0,               // 慢跑
+                    "running" to 8.3,               // 跑步
+                    "cycling" to 6.8,               // 骑行
+                    "swimming" to 6.0               // 游泳
+                )
+                seeds.forEach { (type, moderate) ->
+                    db.execSQL(
+                        "INSERT OR IGNORE INTO `exercise_calorie_config` " +
+                            "(`exerciseId`,`activityType`,`metLow`,`metModerate`,`metHigh`,`source`,`version`,`isEnabled`) " +
+                            "VALUES ('', ?, ?, ?, ?, ?, ?, 1)",
+                        arrayOf(
+                            type,
+                            Math.round(moderate * 0.85 * 100.0) / 100.0,
+                            moderate,
+                            Math.round(moderate * 1.15 * 100.0) / 100.0,
+                            metSource,
+                            metVersion
+                        )
+                    )
+                }
+            }
+        }
+
+        /**
+         * v1.4 健康体系 V1.1（Room 13 → 14）：睡眠记录表（工单 9）。
+         * 全新表，只有 CREATE TABLE + 索引，一行旧数据都不碰。
+         * defaultValue 与 SleepRecordEntity 的 @ColumnInfo 逐字一致（四件套纪律③）。
+         */
+        internal val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `sleep_record` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`date` TEXT NOT NULL, " +
+                        "`startTime` INTEGER NOT NULL, " +
+                        "`endTime` INTEGER NOT NULL, " +
+                        "`durationMinutes` INTEGER NOT NULL DEFAULT 0, " +
+                        "`quality` INTEGER NOT NULL DEFAULT 0, " +
+                        "`morningFeeling` INTEGER NOT NULL DEFAULT 0, " +
+                        "`wakeCount` INTEGER NOT NULL DEFAULT 0, " +
+                        "`napMinutes` INTEGER NOT NULL DEFAULT 0, " +
+                        "`note` TEXT NOT NULL DEFAULT '', " +
+                        "`sourceType` TEXT NOT NULL DEFAULT 'MANUAL', " +
+                        "`externalId` TEXT NOT NULL DEFAULT '', " +
+                        "`createdAt` INTEGER NOT NULL DEFAULT 0, " +
+                        "`updatedAt` INTEGER NOT NULL DEFAULT 0)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_sleep_record_date` ON `sleep_record` (`date`)")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_sleep_record_sourceType_externalId` ON `sleep_record` (`sourceType`, `externalId`)")
+            }
+        }
+
+        /**
+         * v1.4 健康体系 V1.1（Room 14 → 15）：每日健康汇总缓存表（工单 10.2）。
+         * 全新表只有 CREATE TABLE + 唯一索引，一行旧数据都不碰。
+         * 表本身是可重建缓存，迁移失败重装也能从原始记录算回来。
+         */
+        internal val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `daily_health_summary` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`date` TEXT NOT NULL, " +
+                        "`calorieIntake` REAL NOT NULL DEFAULT 0.0, " +
+                        "`proteinG` REAL NOT NULL DEFAULT 0.0, " +
+                        "`carbohydratesG` REAL NOT NULL DEFAULT 0.0, " +
+                        "`fatG` REAL NOT NULL DEFAULT 0.0, " +
+                        "`exerciseCalories` REAL NOT NULL DEFAULT 0.0, " +
+                        "`strengthCalories` REAL NOT NULL DEFAULT 0.0, " +
+                        "`cardioCalories` REAL NOT NULL DEFAULT 0.0, " +
+                        "`walkingCalories` REAL NOT NULL DEFAULT 0.0, " +
+                        "`workoutDurationMinutes` INTEGER NOT NULL DEFAULT 0, " +
+                        "`workoutCount` INTEGER NOT NULL DEFAULT 0, " +
+                        "`workoutVolumeKg` REAL NOT NULL DEFAULT 0.0, " +
+                        "`sleepDurationMinutes` INTEGER NOT NULL DEFAULT 0, " +
+                        "`sleepRecordCount` INTEGER NOT NULL DEFAULT 0, " +
+                        "`signature` TEXT NOT NULL DEFAULT '', " +
+                        "`lastCalculatedAt` INTEGER NOT NULL DEFAULT 0)"
+                )
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_daily_health_summary_date` ON `daily_health_summary` (`date`)")
             }
         }
 

@@ -321,10 +321,14 @@ fun SetEditorCard(
     sets: List<WorkoutSet>,
     unit: String,
     fromLast: Boolean,
+    /** v1.4 健康体系：每一组已记部分的估算热量（做功+组间休息），空列表 = 不显示这一行 */
+    setKcal: List<Double> = emptyList(),
     onUpdate: (Int, WorkoutSet) -> Unit,
     onAdd: () -> Unit,
     onRemoveSet: (Int) -> Unit,
     onRemoveExercise: () -> Unit,
+    /** v1.4 健康体系：勾选 / 取消「完成此组」，勾选后自动开始组间休息 */
+    onToggleComplete: (Int) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     SectionCard(
@@ -359,13 +363,19 @@ fun SetEditorCard(
             Text("重量($unit)", fontSize = TextSizes.Tiny, color = TextSecondary, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
             Text("次数", fontSize = TextSizes.Tiny, color = TextSecondary, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
             Text("RPE", fontSize = TextSizes.Tiny, color = TextSecondary, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+            Text("完成", fontSize = TextSizes.Tiny, color = TextSecondary, modifier = Modifier.width(32.dp))
             Spacer(Modifier.width(28.dp))
         }
         Spacer(Modifier.height(6.dp))
         sets.forEachIndexed { index, set ->
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("${index + 1}", fontSize = TextSizes.Body, color = TextSecondary,
-                    modifier = Modifier.width(24.dp))
+                Text(
+                    text = "${index + 1}",
+                    fontSize = TextSizes.Body,
+                    color = if (set.completed) QingJiGreen else TextSecondary,
+                    fontWeight = if (set.completed) FontWeight.Bold else FontWeight.Normal,
+                    modifier = Modifier.width(24.dp)
+                )
                 NumberField(
                     value = if (unit == "lb") TrainingMath.kgToLb(set.weightKg) else set.weightKg,
                     isDecimal = true,
@@ -388,6 +398,15 @@ fun SetEditorCard(
                     onValue = { raw -> onUpdate(index, set.copy(rpe = raw.toInt().coerceIn(0, 10))) },
                     modifier = Modifier.weight(1f).padding(horizontal = 3.dp)
                 )
+                // v1.4 健康体系：完成勾选。点了变绿，同时自动开始组间休息倒计时。
+                Box(modifier = Modifier.width(32.dp), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = if (set.completed) "✓" else "○",
+                        fontSize = 18.sp,
+                        color = if (set.completed) QingJiGreen else TextSecondary,
+                        modifier = Modifier.clickable { onToggleComplete(index) }
+                    )
+                }
                 Box(modifier = Modifier.width(28.dp), contentAlignment = Alignment.Center) {
                     Text("×", fontSize = 16.sp, color = TextSecondary,
                         modifier = Modifier.clickable { onRemoveSet(index) })
@@ -399,6 +418,18 @@ fun SetEditorCard(
             Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(4.dp))
             Text("添加一组", fontSize = TextSizes.Body)
+        }
+        // 每组估算热量：只列已记的组（次数或重量至少填一个），数字随
+        // 次数/RPE/休息时长自然变化，不是固定值；整体是估算，仅供参考。
+        if (setKcal.isNotEmpty()) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = "各组热量（估算）：" + setKcal.withIndex().joinToString(" · ") { (i, kcal) ->
+                    "第${i + 1}组 ≈ ${com.qingji.app.domain.SessionCalorieCalculator.displayKcal(kcal)} 千卡"
+                },
+                fontSize = TextSizes.Tiny,
+                color = TextSecondary
+            )
         }
     }
 }
@@ -463,6 +494,69 @@ fun WorkoutTimerBar(
                 OutlinedButton(onClick = onTogglePause) {
                     Text(if (paused) "继续" else "暂停", fontSize = TextSizes.Body)
                 }
+            }
+        }
+    }
+}
+
+/**
+ * v1.4 健康体系：组间休息倒计时条。
+ * 剩余时间由「结束时间戳 - now」算出来，页面怎么重组都不会丢；
+ * 走完后条子变成浅绿提示「休息结束」，点「知道了」关掉，
+ * 不弹窗不抢焦点，不阻塞用户记组。
+ */
+@Composable
+fun RestTimerBar(
+    totalSeconds: Long,
+    remainingSeconds: Long,
+    paused: Boolean,
+    finished: Boolean,
+    onPauseResume: () -> Unit,
+    onSkip: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    SectionCard(modifier = modifier, contentPadding = Dimens.CardPaddingCompact) {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = if (finished) "休息结束，开练！" else "组间休息",
+                    fontSize = TextSizes.Caption,
+                    color = if (finished) QingJiGreen else TextSecondary
+                )
+                Text(
+                    text = if (finished) "搞定" else TrainingMath.formatDuration(remainingSeconds),
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (finished) QingJiGreen else TextPrimary
+                )
+            }
+            if (!finished) {
+                OutlinedButton(onClick = onPauseResume) {
+                    Text(if (paused) "继续" else "暂停", fontSize = TextSizes.Body)
+                }
+                Spacer(Modifier.width(8.dp))
+            }
+            OutlinedButton(onClick = onSkip) {
+                Text(if (finished) "知道了" else "跳过", fontSize = TextSizes.Body)
+            }
+        }
+        // 进度条：按总时长画剩余比例，总时长为 0 时不画（防除零）
+        if (totalSeconds > 0 && !finished) {
+            Spacer(Modifier.height(8.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(DividerColor)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(remainingSeconds.toFloat() / totalSeconds.toFloat())
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(QingJiGreen)
+                )
             }
         }
     }
