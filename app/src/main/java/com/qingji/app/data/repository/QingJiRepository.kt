@@ -562,13 +562,20 @@ class QingJiRepository(private val context: Context) {
         }
 
         val candidates = try {
-            allFoodsOnce().map {
-                it.name to Per100g(
+            // v1.3.10：候选表带上别名（split "|"），AI 叫别名时也能命中同名库条目。
+            allFoodsOnce().flatMap {
+                val per = Per100g(
                     kcal = it.kcalPer100g,
                     protein = it.proteinPer100g,
                     carb = it.carbPer100g,
                     fat = it.fatPer100g
                 )
+                val primary = it.name to per
+                val aliasList = it.aliases.split("|")
+                    .map { a -> a.trim() }
+                    .filter { a -> a.isNotEmpty() && a != it.name }
+                    .map { a -> a to per }
+                listOf(primary) + aliasList
             }
         } catch (e: Exception) {
             emptyList()
@@ -591,8 +598,32 @@ class QingJiRepository(private val context: Context) {
                 item.copy(grams = grams, kcal = NutritionMatch.saneKcal(item.kcal, grams))
             }
         }
+        // v1.3.10 兜底：命不中库（或命中的库条目本身宏量全 0）时，AI 偷懒只给热量，
+        // 蛋白/碳水/脂肪就会落成 0（用户吃了个 250 千卡的姜母鸭三大营养素全是 0）。
+        // 对这些条目按「精确名（含别名）」回查一次库，命中就用库宏量按克数折算；
+        // 查不到 / 库里本身是真实 0（白酒、无糖茶）就保持原样，不编数。
+        val backfilled = items.map { item ->
+            if (!(item.kcal > 0 && item.proteinG <= 0 && item.carbG <= 0 && item.fatG <= 0)) {
+                return@map item
+            }
+            val key = NutritionMatch.normalizeName(item.name)
+            val hasMacro: (Per100g) -> Boolean =
+                { per -> per.protein > 0 || per.carb > 0 || per.fat > 0 }
+            val exact = candidates.firstOrNull { (name, per) ->
+                NutritionMatch.normalizeName(name) == key && hasMacro(per)
+            } ?: candidates.firstOrNull { (name, per) ->
+                val n = NutritionMatch.normalizeName(name)
+                (n.contains(key) || key.contains(n)) && hasMacro(per)
+            }
+            if (exact == null) {
+                item
+            } else {
+                val per = NutritionMatch.compute(exact.second, item.grams)
+                item.copy(proteinG = per.protein, carbG = per.carb, fatG = per.fat)
+            }
+        }
         return auditNutritionConsistency(
-            renamed.copy(items = items, totalKcal = items.sumOf { it.kcal })
+            renamed.copy(items = backfilled, totalKcal = backfilled.sumOf { it.kcal })
         )
     }
 

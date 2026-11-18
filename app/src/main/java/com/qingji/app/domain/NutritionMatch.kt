@@ -65,6 +65,9 @@ object NutritionMatch {
         return best
     }
 
+    /** 供仓储层兜底回查用的公开归一化（规则与内部 normalize 完全一致）。 */
+    fun normalizeName(raw: String): String = normalize(raw)
+
     /**
      * 给一对名字打分，0～100。
      * 100 = 完全一样；包含关系给 60～88；部分重合按比例给分。
