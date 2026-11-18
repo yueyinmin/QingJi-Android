@@ -52,6 +52,7 @@ import com.qingji.app.ui.components.AppDialog
 import com.qingji.app.ui.components.HintBox
 import com.qingji.app.ui.components.PageTopBar
 import com.qingji.app.ui.components.SectionCard
+import com.qingji.app.ui.components.WheelDatePicker
 import com.qingji.app.ui.components.WheelTimePicker
 import com.qingji.app.ui.i18n.s
 import com.qingji.app.ui.theme.CardWhite
@@ -624,8 +625,9 @@ private fun SleepFormSheet(
             .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
     }
     // 新增时默认入睡 = 选中日期前一天 23:30，起床 = 选中日期 07:30
+    val initialSleepDate = startFromEdit ?: defaultDate.minusDays(1)
     var sleepDate by remember(editing?.id) {
-        mutableStateOf(startFromEdit ?: defaultDate.minusDays(1))
+        mutableStateOf(initialSleepDate)
     }
     var wakeDate by remember(editing?.id) {
         mutableStateOf(endFromEdit ?: defaultDate)
@@ -644,6 +646,12 @@ private fun SleepFormSheet(
     }
     var showSleepPicker by remember { mutableStateOf(false) }
     var showWakePicker by remember { mutableStateOf(false) }
+    // 2026-11-18：日期改成「年/月/日」三列滚轮弹出选择，‹ › 箭头只做一天微调保留。
+    // 允许范围最早 30 天前；编辑更老的记录时放宽到那条记录的入睡日，
+    // 不然老记录一打开滚轮就是「非法日期」、确定不了。
+    var showSleepDatePicker by remember { mutableStateOf(false) }
+    var showWakeDatePicker by remember { mutableStateOf(false) }
+    val minSleepDate = minOf(today.minusDays(30), initialSleepDate)
     var quality by remember(editing?.id) { mutableStateOf(editing?.quality ?: 3) }
     var feeling by remember(editing?.id) { mutableStateOf(editing?.morningFeeling ?: 3) }
     var wakeCount by remember(editing?.id) { mutableStateOf(editing?.wakeCount ?: 0) }
@@ -672,10 +680,10 @@ private fun SleepFormSheet(
             Spacer(Modifier.height(12.dp))
 
             DateTimeRow(s("入睡"), sleepDate, sleepTime,
-                { sleepDate = it }, { showSleepPicker = true }, today)
+                { sleepDate = it }, { showSleepDatePicker = true }, { showSleepPicker = true }, today)
             Spacer(Modifier.height(6.dp))
             DateTimeRow(s("起床"), wakeDate, wakeTime,
-                { wakeDate = it }, { showWakePicker = true }, today)
+                { wakeDate = it }, { showWakeDatePicker = true }, { showWakePicker = true }, today)
             Spacer(Modifier.height(8.dp))
 
             if (formMinutes <= 0) {
@@ -789,15 +797,85 @@ private fun SleepFormSheet(
                 onSelected = { h, m -> wakeTime = LocalTime.of(h, m) })
         }
     }
+
+    // ---------- 日期滚轮弹层（年/月/日三列，2026-11-18） ----------
+    // 滚轮停下就回传；拼出的日期合法（在允许范围内、当月存在）才写回表单，
+    // 不合法时确定按钮置灰 + 红字提示可选范围，防止存出 2 月 30 日这种脏数据。
+    if (showSleepDatePicker) {
+        var picked by remember {
+            mutableStateOf(Triple(sleepDate.year, sleepDate.monthValue, sleepDate.dayOfMonth))
+        }
+        val pickedDate = runCatching {
+            LocalDate.of(picked.first, picked.second, picked.third)
+        }.getOrNull()
+        val valid = pickedDate != null &&
+            !pickedDate.isBefore(minSleepDate) && !pickedDate.isAfter(today)
+        AppDialog(
+            title = s("选择入睡日期"),
+            confirmEnabled = valid,
+            onConfirm = {},
+            onDismiss = { showSleepDatePicker = false }
+        ) {
+            WheelDatePicker(initialDate = sleepDate) { y, m, d ->
+                picked = Triple(y, m, d)
+                val parsed = runCatching { LocalDate.of(y, m, d) }.getOrNull()
+                if (parsed != null && !parsed.isBefore(minSleepDate) && !parsed.isAfter(today)) {
+                    sleepDate = parsed
+                }
+            }
+            if (!valid) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = s("超出可记录范围") + "：" +
+                        "${minSleepDate.format(DATE_CN)} ~ ${today.format(DATE_CN)}",
+                    fontSize = TextSizes.Caption, color = DangerRed
+                )
+            }
+        }
+    }
+    if (showWakeDatePicker) {
+        var picked by remember {
+            mutableStateOf(Triple(wakeDate.year, wakeDate.monthValue, wakeDate.dayOfMonth))
+        }
+        val pickedDate = runCatching {
+            LocalDate.of(picked.first, picked.second, picked.third)
+        }.getOrNull()
+        // 起床日不能早于入睡日、不能晚于今天
+        val valid = pickedDate != null &&
+            !pickedDate.isBefore(sleepDate) && !pickedDate.isAfter(today)
+        AppDialog(
+            title = s("选择起床日期"),
+            confirmEnabled = valid,
+            onConfirm = {},
+            onDismiss = { showWakeDatePicker = false }
+        ) {
+            WheelDatePicker(initialDate = wakeDate) { y, m, d ->
+                picked = Triple(y, m, d)
+                val parsed = runCatching { LocalDate.of(y, m, d) }.getOrNull()
+                if (parsed != null && !parsed.isBefore(sleepDate) && !parsed.isAfter(today)) {
+                    wakeDate = parsed
+                }
+            }
+            if (!valid) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = s("起床日期不能早于入睡日期"),
+                    fontSize = TextSizes.Caption, color = DangerRed
+                )
+            }
+        }
+    }
 }
 
-/** 表单里的日期 + 时刻行：日期左右调（最长回退 30 天），时刻点开轮盘。 */
+/** 表单里的日期 + 时刻行：点日期弹「年/月/日」三列滚轮，‹ › 只做一天微调，时刻点开轮盘。 */
 @Composable
 private fun DateTimeRow(
     label: String,
     date: LocalDate,
     time: LocalTime,
     onShiftDate: (LocalDate) -> Unit,
+    /** 点日期文字 → 弹出三列滚轮日期选择（2026-11-18 加的，之前日期点不动只能靠箭头） */
+    onDateClick: () -> Unit,
     onClickTime: () -> Unit,
     today: LocalDate
 ) {
@@ -807,11 +885,19 @@ private fun DateTimeRow(
             modifier = Modifier
                 .clickable {
                     val prev = date.minusDays(1)
-                    if (!prev.isBefore(today.minusDays(30))) onShiftDate(prev)
+                    if (!prev.isBefore(minOf(today.minusDays(30), date))) onShiftDate(prev)
                 }
                 .padding(horizontal = 8.dp))
-        Text(date.format(DATE_CN), fontSize = TextSizes.Caption, color = TextSecondary,
-            textAlign = TextAlign.Center, modifier = Modifier.width(64.dp))
+        // 日期文字做成浅色底的小按钮：一眼看出能点，点了弹三列滚轮
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .background(DividerColor.copy(alpha = 0.45f))
+                .clickable { onDateClick() }
+                .padding(horizontal = 8.dp, vertical = 5.dp)
+        ) {
+            Text(date.format(DATE_CN), fontSize = TextSizes.Caption, color = TextPrimary)
+        }
         Text("›", fontSize = 20.sp,
             color = if (date.isBefore(today)) TextSecondary else DividerColor,
             modifier = Modifier
