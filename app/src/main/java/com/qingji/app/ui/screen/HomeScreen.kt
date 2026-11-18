@@ -107,6 +107,8 @@ fun HomeScreen(
     onOpenSleep: () -> Unit = {},
     /** 健康体系 V1.1：昨晚睡眠数据（null = 尚未记录）。Root 层 collect，保持和其它卡同一数据流模式 */
     lastNightSleep: com.qingji.app.data.local.entity.SleepRecordEntity? = null,
+    /** 近 30 晚记录：首页睡眠评分的规律性项用（Root 层 collect，和睡眠页同源） */
+    recentSleepNights: List<com.qingji.app.data.local.entity.SleepRecordEntity> = emptyList(),
     /** 与日记页、训练页共用同一个 ViewModel，进行中状态才对得上 */
     trainingVm: TrainingViewModel = viewModel(),
     /** P1：读当前启用的计划，给「今日训练」卡显示今日安排 */
@@ -360,6 +362,7 @@ fun HomeScreen(
         Spacer(Modifier.height(12.dp))
         SleepSummaryCard(
             lastNight = lastNightSleep,
+            recentNights = recentSleepNights,
             onClick = onOpenSleep
         )
 

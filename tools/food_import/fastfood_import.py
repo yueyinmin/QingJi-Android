@@ -38,7 +38,9 @@ BRANDS = [
     ("dominos", "达美乐", "营养 达美乐台湾官网营养标示（大陆配方可能略有差异）| 未逐条人工核对", "fastfood-csv-0.3.1", "达美乐.fixed.csv"),
 ]
 
-CATALOG_VERSION = "0.8-fastfood-brands"
+# 0.9：老乡鸡 0 千卡整理后统一版本。重建完本脚本后须再跑
+# patch_lxj_zero_kcal.py，否则老乡鸡热量回填会丢。
+CATALOG_VERSION = "0.9-lxj-kcal-match"
 
 # 估算份重（克）：仅用于原始数据没有真实克重的行，portion_note 会标注估算
 def estimate_grams(name: str, portion: str) -> int:

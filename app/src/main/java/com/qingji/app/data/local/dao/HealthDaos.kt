@@ -80,6 +80,13 @@ interface ExerciseSessionCalorieDao {
     suspend fun findAll(): List<ExerciseSessionCalorieEntity>
 
     /**
+     * 全量账本观察流：进展页「运动消耗」卡用它做统计（力量 + 有氧都在内）。
+     * 用 Flow 而不是一次性的 findAll()，记一次/结束训练后卡片能自动刷新。
+     */
+    @Query("SELECT * FROM exercise_session_calorie ORDER BY date ASC")
+    fun observeAll(): Flow<List<ExerciseSessionCalorieEntity>>
+
+    /**
      * 幂等写入：唯一索引 (sourceType, sourceId) 冲突时整行替换。
      * 训练保存/编辑重算、镜像同步都走这里，同一场永远只有一行。
      */

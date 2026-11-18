@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -56,17 +57,17 @@ import com.qingji.app.ui.viewmodel.FoodLibraryViewModel
 
 /**
  * ============================================================
- * 外卖快餐 → 选品牌 → 品牌菜单（第六阶段 UI，工单 2.3/2.4/2.5）
+ * 外卖快餐 → 品牌 → 菜品（v1.3.5 UI 对齐家庭厨房）
  * ------------------------------------------------------------
- * 品牌胶囊由数据库 brand 表动态驱动（红线 5：不写死老乡鸡按钮），
- * 横向滚动不换行；选中浅绿底 + 绿字，切换只换菜单。
+ * 布局与「家庭厨房」统一为双栏：左侧竖排分类，右侧 LazyColumn 卡片列表。
+ * 差别只在顶部多一行品牌胶囊（数据由 brand 表动态驱动，红线 5 不写死品牌）。
  *
- * 用户拍板：菜单 = 老乡鸡 301 道真实堂食菜（卡片标「堂食·溯源报告2.0」），
- * 每道可点开折叠溯源详情。外卖商品 8 张表全空 → 顶部如实显示空态，
- * 绝不把堂食菜复制成外卖商品（红线 3/15）。
+ * 数据口径：菜单仍是老乡鸡 301 道堂食菜（外卖 8 张表为空，如实说明）。
+ * 40 道原来显示「0 千卡」的菜已从本地可信库匹配（同名/同类近似，来源写进
+ * source_note）；剩下没数据的显示「暂无热量数据」并排到分类末尾——
+ * 绝不把「没数据」说成「0 千卡」（红线 3/15）。
  *
- * 家庭厨房分支、底部导航、收藏、饮食记录链路一律不碰：本组件只替换
- * FoodLibraryScreen 里 kitchenTab==1 的旧「FAST_FOOD 平铺」实现。
+ * 家庭厨房分支、底部导航、收藏、记餐链路一律不动。
  * ============================================================
  */
 @Composable
@@ -91,123 +92,141 @@ fun BrandMenuScreen(
             selectedCategory = ""
         }
     }
-    // 品牌变了重置分类，避免上一个品牌的分类残留（工单 2.5-4：只更新列表，不闪烁）
     LaunchedEffect(selectedBrandId) { selectedCategory = "" }
 
     val selectedBrand: BrandEntity? = brands.firstOrNull { it.brandId == selectedBrandId }
     val q = query.trim()
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        // ---- 品牌选择栏：横向滚动胶囊（首期只有老乡鸡）----
-        if (brands.isNotEmpty()) {
-            Text(
-                text = s("选择品牌"),
-                fontSize = 12.sp,
-                color = TextSecondary,
-                modifier = Modifier.padding(horizontal = Dimens.ScreenPadding, vertical = 4.dp)
-            )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = Dimens.ScreenPadding),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                brands.forEach { brand ->
-                    val selected = brand.brandId == selectedBrandId
-                    Text(
-                        text = brand.name,
-                        fontSize = 13.sp,
-                        color = if (selected) QingJiGreenDark else TextSecondary,
-                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(Dimens.PillCorner))
-                            .background(if (selected) QingJiGreenLight else CardWhite)
-                            .clickable {
-                                vm.selectBrand(brand.brandId)
-                                selectedCategory = ""
-                            }
-                            .padding(horizontal = 16.dp, vertical = 7.dp)
-                    )
-                }
-            }
-            Spacer(Modifier.height(8.dp))
-        }
-
-        if (selectedBrand == null) {
-            HintBox(text = s("暂无可用品牌"))
-            return@Column
-        }
-
-        // ---- 外卖商品空态（8 张表全空，如实说明，不造假）----
-        HintBox(text = s("${selectedBrand.name}外卖商品暂无公开数据；下面展示的是堂食菜品，来自菜品溯源报告 2.0"))
-        Spacer(Modifier.height(6.dp))
-
-        // ---- 分类栏：堂食菜按实际分类动态生成，无菜分类不展示 ----
+    // 2026-11-18 UI 改造：对齐截图「家庭厨房」的双级布局——
+    // 左边竖排大类（这里是品牌），右边顶部横排细类（这里是菜品分类），下面是卡片列表。
+    // 数据口径、收藏、溯源、搜索、记餐链路一律不动，只改排布。
+    if (brands.isEmpty() || selectedBrand == null) {
+        HintBox(text = s("暂无可用品牌"))
+    } else {
+        // 菜品分类：当前品牌菜单里出现过的 category，全部 + 具体类，横排可滑动
         val allLabel = s("全部")
         val categories = remember(menu, allLabel) {
             listOf(allLabel) + menu.map { it.category }.distinct().filter { it.isNotBlank() }.sorted()
         }
         val effectiveCategory = if (selectedCategory in categories) selectedCategory else categories.first()
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = Dimens.ScreenPadding),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            categories.forEach { cat ->
-                val selected = cat == effectiveCategory
-                Text(
-                    text = cat,
-                    fontSize = 12.sp,
-                    color = if (selected) QingJiGreenDark else TextSecondary,
-                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(Dimens.PillCorner))
-                        .background(if (selected) QingJiGreenLight else CardWhite)
-                        .clickable { selectedCategory = cat }
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                )
-            }
-        }
-        Spacer(Modifier.height(6.dp))
 
-        // ---- 菜单列表：按分类 + 搜索词过滤（搜索沿用现有 matchesFood 口径）----
-        val filtered = menu.filter { food ->
-            (effectiveCategory == s("全部") || food.category == effectiveCategory) &&
-                (q.isBlank() || food.name.contains(q, ignoreCase = true) ||
-                    food.pinyin.startsWith(q, ignoreCase = true) ||
-                    food.pinyinFull.startsWith(q, ignoreCase = true) ||
-                    food.aliases.split("|").any { it.contains(q, ignoreCase = true) })
+        val filtered = remember(menu, effectiveCategory, q) {
+            menu.filter { food ->
+                (effectiveCategory == allLabel || food.category == effectiveCategory) &&
+                    (q.isBlank() || food.name.contains(q, ignoreCase = true) ||
+                        food.pinyin.startsWith(q, ignoreCase = true) ||
+                        food.pinyinFull.startsWith(q, ignoreCase = true) ||
+                        food.aliases.split("|").any { it.contains(q, ignoreCase = true) })
+            }.sortedWith(
+                // 有热量的排前面；同样没数据的按名字排，翻起来有章法。
+                compareBy<Food> { it.kcalPer100g <= 0.0 }.thenBy { it.name }
+            )
         }
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = Dimens.ScreenPadding)
-        ) {
-            if (filtered.isEmpty()) {
-                HintBox(text = s("这道分类下暂时没有菜品"))
-            } else {
-                filtered.forEach { food ->
-                    BrandDishRow(
-                        food = food,
-                        risky = AllergenRules.isRisky(food.name, allergens),
-                        onFavorite = { vm.toggleFavorite(food) },
-                        onClick = { onPick(food) },
-                        onTrace = {
-                            traceDish = food
+
+        Row(modifier = Modifier.fillMaxSize()) {
+            // ---------- 左竖排：品牌（替代原来的顶部横胶囊） ----------
+            Column(
+                modifier = Modifier
+                    .width(88.dp)
+                    .background(CardWhite)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                brands.forEach { brand ->
+                    val selected = brand.brandId == selectedBrandId
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(if (selected) QingJiGreenLight else Color.Transparent)
+                            .clickable {
+                                vm.selectBrand(brand.brandId)
+                                selectedCategory = ""
+                            }
+                            .padding(vertical = 12.dp, horizontal = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(text = "🏪", fontSize = 13.sp)
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = brand.name,
+                            fontSize = 12.sp,
+                            color = if (selected) QingJiGreenDark else TextSecondary,
+                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                            maxLines = 2
+                        )
+                    }
+                }
+                Spacer(Modifier.height(60.dp))
+            }
+
+            // ---------- 右侧：顶部横排细类 + 菜列表 ----------
+            Column(modifier = Modifier.weight(1f)) {
+                // 空态提示：外卖商品没有公开数据，别误当成堂食菜单
+                Text(
+                    text = selectedBrand.name + " " +
+                        s("外卖商品暂无公开数据；下面展示堂食菜品，来自菜品溯源报告 2.0"),
+                    fontSize = 11.sp,
+                    color = TextSecondary,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                )
+                // 横排细类胶囊（可横向滑动），跟家庭厨房「面条/包点/馄饨」那排一个样式
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    categories.forEach { cat ->
+                        val selected = cat == effectiveCategory
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(Dimens.PillCorner))
+                                .background(if (selected) QingJiGreen else QingJiGreenLight)
+                                .clickable { selectedCategory = cat }
+                                .padding(horizontal = 14.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = cat,
+                                fontSize = 12.sp,
+                                color = if (selected) CardWhite else QingJiGreenDark,
+                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+                            )
                         }
-                    )
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 10.dp)
+                ) {
+                    item { Spacer(Modifier.height(4.dp)) }
+                    if (filtered.isEmpty()) {
+                        item { HintBox(text = s("这道分类下暂时没有菜品")) }
+                    } else {
+                        items(
+                            count = filtered.size,
+                            key = { i -> filtered[i].id },
+                            contentType = { "brand_food_row" }
+                        ) { i ->
+                            val food = filtered[i]
+                            BrandDishRow(
+                                food = food,
+                                risky = AllergenRules.isRisky(food.name, allergens),
+                                onFavorite = { vm.toggleFavorite(food) },
+                                onClick = { onPick(food) },
+                                onTrace = { traceDish = food }
+                            )
+                        }
+                    }
+                    item { Spacer(Modifier.height(80.dp)) }
                 }
             }
-            Spacer(Modifier.height(80.dp))
         }
     }
 
-    // ---- 载入溯源详情（异步），成功后弹折叠面板 ----
+    // ---- 溯源详情异步加载，成功后弹折叠面板 ----
     LaunchedEffect(traceDish) {
         traceDetail = traceDish?.let { vm.brandDishDetail(it) }
     }
@@ -220,7 +239,7 @@ fun BrandMenuScreen(
     }
 }
 
-/** 品牌菜单的一行：复用 LibraryFoodRow 的视觉语言，标「堂食·溯源2.0」+ 溯源按钮。 */
+/** 一行菜：和家庭厨房 LibraryFoodRow 同款视觉，多一个溯源按钮。 */
 @Composable
 private fun BrandDishRow(
     food: Food,
@@ -262,11 +281,14 @@ private fun BrandDishRow(
             }
             Spacer(Modifier.height(2.dp))
             Text(
-                text = "${food.kcalPer100g.toInt()} 千卡/100g · ${s("堂食")}·${s("溯源报告2.0")}",
+                text = if (food.kcalPer100g > 0.0) {
+                    "${food.kcalPer100g.toInt()} ${s("千卡")}/100g · ${s("堂食")}"
+                } else {
+                    s("暂无热量数据")
+                },
                 fontSize = 11.sp, color = TextSecondary
             )
         }
-        // 溯源入口
         Box(
             modifier = Modifier.size(32.dp).clip(CircleShape).clickable { onTrace() },
             contentAlignment = Alignment.Center
@@ -279,7 +301,6 @@ private fun BrandDishRow(
             )
         }
         Spacer(Modifier.width(2.dp))
-        // 收藏
         Box(
             modifier = Modifier.size(30.dp).clip(CircleShape).clickable { onFavorite() },
             contentAlignment = Alignment.Center
@@ -294,10 +315,7 @@ private fun BrandDishRow(
     Spacer(Modifier.height(6.dp))
 }
 
-/**
- * 菜品溯源折叠详情（工单第九节十项内容）。
- * 有数据分组折叠展示；trace 为空显示「暂无公开资料」（不推测供应商/加工方式）。
- */
+/** 菜品溯源详情：有数据分组展示，没有就如实说「暂无公开资料」。 */
 @Composable
 private fun TraceDetailSheet(
     dishName: String,
@@ -362,3 +380,4 @@ private fun TraceSection(title: String, body: String) {
         Text(text = body, fontSize = 12.sp, color = TextPrimary)
     }
 }
+

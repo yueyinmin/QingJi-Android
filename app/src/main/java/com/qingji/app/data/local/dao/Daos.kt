@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
+import androidx.room.Update
 import com.qingji.app.data.local.entity.AiConfig
 import com.qingji.app.data.local.entity.BodyMeasure
 import com.qingji.app.data.local.entity.ExerciseLog
@@ -349,6 +350,13 @@ interface ExerciseLogDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(item: ExerciseLog): Long
+
+    /** v1.3.7：改一条有氧记录（工单 4.4「增查改删」补上「改」）。 */
+    @Update
+    suspend fun update(item: ExerciseLog)
+
+    @Query("SELECT * FROM exercise_log WHERE id = :id")
+    suspend fun findById(id: Long): ExerciseLog?
 
     @Query("DELETE FROM exercise_log WHERE id = :id")
     suspend fun deleteById(id: Long)

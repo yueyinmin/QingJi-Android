@@ -98,9 +98,42 @@ data class WorkoutSession(
     @ColumnInfo(defaultValue = "0") val endedAt: Long = 0L,
     @ColumnInfo(defaultValue = "0") val durationMinutes: Int = 0,
     @ColumnInfo(defaultValue = "") val note: String = "",
+    /**
+     * 数据来源：MANUAL（手动，当前唯一入口）/ HEALTH_CONNECT / DEVICE（设备同步预留）。
+     * 现有历史行都是小写 "manual"，解析时两种大小写都认，不强改老数据。
+     */
     @ColumnInfo(defaultValue = "manual") val source: String = "manual",
     @ColumnInfo(defaultValue = "0") val createdAt: Long = 0L
-)
+) {
+    companion object {
+        const val SOURCE_MANUAL = "manual"
+        const val SOURCE_HEALTH_CONNECT = "HEALTH_CONNECT"
+        const val SOURCE_DEVICE = "DEVICE"
+
+        /** 解析来源（兼容老数据的大小写差异）。 */
+        fun isManual(source: String): Boolean =
+            source.equals(SOURCE_MANUAL, ignoreCase = true) || source.isBlank()
+    }
+}
+
+/**
+ * ============================================================
+ * 训练侧设备同步预留（工单 4.2 第 10 项 P2）—— 为什么要「只留约定、不建索引」
+ * ------------------------------------------------------------
+ * 睡眠侧（SleepRecordEntity）已经是完整预留：sourceType 枚举 + externalId +
+ * (sourceType, externalId) 唯一索引。训练侧照搬看似顺理成章，但有个坑：
+ *   workout_session 里存量全是手动记录，externalId 若统一填空串 ""，
+ *   UNIQUE(source, externalId) 会让所有老行互相冲突 → 升级后 Room 打不开库。
+ * 真接设备时按这个顺序做，才不会踩雷：
+ *   ① Room 16：ALTER TABLE workout_session ADD COLUMN externalId TEXT NOT NULL DEFAULT '';
+ *   ② 建【部分唯一索引】CREATE UNIQUE INDEX ... WHERE externalId <> ''
+ *      （只约束真的有外部 ID 的行，空串不参与；Room @Entity 表达不了 partial index，
+ *        只能写在 migration 的 execSQL 里，别写进 indices = [...]）;
+ *   ③ 同步入口先按 externalId 查重，存在就覆盖同一条，绝不重复导入。
+ * 现在这一步只补齐 source 常量和这段约定，不动表结构、不加 Room 版本 —— 
+ * 零迁移风险，也不会给真机升级埋雷。
+ * ============================================================
+ */
 
 /**
  * 表 21：会话里的一个动作 + 它下面所有的组。

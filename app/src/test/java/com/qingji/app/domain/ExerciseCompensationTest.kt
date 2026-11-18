@@ -32,4 +32,32 @@ class ExerciseCompensationTest {
         assertEquals(300, ExerciseCompensation.bonusKcal(300.0, enabled = true, pct = 100))
         assertEquals(75, ExerciseCompensation.bonusKcal(300.0, enabled = true, pct = 25))
     }
+
+    // ---- 2026-11-18：运动补偿接入首页主数字后的断言 ----
+
+    @Test
+    fun `今日剩余含补偿 预算2000吃1200运动300补偿50等于950`() {
+        // 2000 − 1200 + (300 × 50%) = 950
+        assertEquals(950, ExerciseCompensation.remainingWithBonus(2000, 1200, 300.0, true, 50))
+    }
+
+    @Test
+    fun `补偿关闭时今日剩余退回预算减已吃`() {
+        assertEquals(800, ExerciseCompensation.remainingWithBonus(2000, 1200, 300.0, false, 50))
+    }
+
+    @Test
+    fun `纯饮食剩余永远不含补偿`() {
+        assertEquals(800, ExerciseCompensation.remainingFoodOnly(2000, 1200))
+        // 主数字 − 纯饮食剩余 = 运动加成 150
+        val main = ExerciseCompensation.remainingWithBonus(2000, 1200, 300.0, true, 50)
+        assertEquals(150, main - ExerciseCompensation.remainingFoodOnly(2000, 1200))
+    }
+
+    @Test
+    fun `吃超预算时今日剩余为负 主数字和小字都不含糊`() {
+        // 2200 已吃 > 2000 预算，纯饮食 −200；运动加成 150 → 主数字 −50（仍反超）
+        assertEquals(-200, ExerciseCompensation.remainingFoodOnly(2000, 2200))
+        assertEquals(-50, ExerciseCompensation.remainingWithBonus(2000, 2200, 300.0, true, 50))
+    }
 }
