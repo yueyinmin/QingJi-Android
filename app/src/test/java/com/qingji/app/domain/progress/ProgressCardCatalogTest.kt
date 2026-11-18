@@ -13,12 +13,12 @@ import org.junit.Test
 class ProgressCardCatalogTest {
 
     @Test
-    fun `默认顺序包含十张可管理卡片且身体数据不在其中`() {
-        assertEquals(10, ProgressCardCatalog.DEFAULT_ORDER.size)
+    fun `默认顺序包含十一张可管理卡片且身体数据不在其中`() {
+        assertEquals(11, ProgressCardCatalog.DEFAULT_ORDER.size)
         assertEquals(
             listOf(
                 "exercise", "forecast", "chart", "water", "nutrition", "measure", "photos",
-                "sleep_diary", "exercise_diary", "food_diary"
+                "sleep_diary", "exercise_diary", "food_diary", "muscle_distribution"
             ),
             ProgressCardCatalog.DEFAULT_ORDER
         )
@@ -40,7 +40,7 @@ class ProgressCardCatalogTest {
         assertEquals(
             listOf(
                 "chart", "water", "exercise", "forecast", "nutrition", "measure", "photos",
-                "sleep_diary", "exercise_diary", "food_diary"
+                "sleep_diary", "exercise_diary", "food_diary", "muscle_distribution"
             ),
             ProgressCardCatalog.parseOrder(raw)
         )
@@ -55,11 +55,11 @@ class ProgressCardCatalogTest {
         assertEquals(
             listOf(
                 "forecast", "nutrition", "measure", "photos",
-                "sleep_diary", "exercise_diary", "food_diary"
+                "sleep_diary", "exercise_diary", "food_diary", "muscle_distribution"
             ),
             order.drop(3)
         )
-        assertEquals(10, order.size)
+        assertEquals(11, order.size)
     }
 
     @Test
@@ -78,7 +78,7 @@ class ProgressCardCatalogTest {
         assertEquals(
             listOf(
                 "photos", "chart", "exercise", "forecast", "measure",
-                "exercise_diary", "food_diary"
+                "exercise_diary", "food_diary", "muscle_distribution"
             ),
             visible
         )

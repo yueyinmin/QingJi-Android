@@ -39,6 +39,8 @@ object ProgressCardCatalog {
     const val SLEEP_DIARY = "sleep_diary"
     const val EXERCISE_DIARY = "exercise_diary"
     const val FOOD_DIARY = "food_diary"
+    // v1.3.7：肌群分布（工单 4.2 第 6 项 P2），近 30 天力量训练按动作库分类聚合
+    const val MUSCLE_DISTRIBUTION = "muscle_distribution"
 
     /**
      * 默认可管理顺序（也是「重置」恢复的顺序）。
@@ -48,7 +50,7 @@ object ProgressCardCatalog {
      */
     val DEFAULT_ORDER: List<String> = listOf(
         EXERCISE, FORECAST, CHART, WATER, NUTRITION, MEASURE, PHOTOS,
-        SLEEP_DIARY, EXERCISE_DIARY, FOOD_DIARY
+        SLEEP_DIARY, EXERCISE_DIARY, FOOD_DIARY, MUSCLE_DISTRIBUTION
     )
 
     /** 卡片 ID 是否属于可管理卡片。 */

@@ -72,7 +72,8 @@ fun ProgressCardManagerSheet(
         ProgressCardCatalog.PHOTOS to s("进度照片"),
         ProgressCardCatalog.SLEEP_DIARY to s("睡眠日记"),
         ProgressCardCatalog.EXERCISE_DIARY to s("运动日记"),
-        ProgressCardCatalog.FOOD_DIARY to s("饮食日记")
+        ProgressCardCatalog.FOOD_DIARY to s("饮食日记"),
+        ProgressCardCatalog.MUSCLE_DISTRIBUTION to s("肌群分布")
     )
     var localOrder by remember { mutableStateOf(order) }
     var localHidden by remember { mutableStateOf(hidden) }
