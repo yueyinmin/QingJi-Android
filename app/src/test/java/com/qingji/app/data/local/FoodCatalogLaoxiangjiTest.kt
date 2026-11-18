@@ -60,15 +60,21 @@ class FoodCatalogLaoxiangjiTest {
     }
 
     @Test
-    fun `0千卡整理 40道有出处回填 其余保持零不编造`() = runBlocking<Unit> {
+    fun `0千卡整理 两轮共136道有出处回填 仅2道包装标示保持零`() = runBlocking<Unit> {
         openDb("lxj_zero_kcal.db").use { db ->
+            // 第一轮 40 道 + 第二轮 94 道 = 136 道有出处（source_note 留痕）。
             assertEquals(
-                40,
+                136,
                 db.queryCount("SELECT COUNT(*) FROM food_catalog WHERE source_id='laoxiangji' AND source_note LIKE '%热量估算%'")
             )
+            // 299/301 有热量；剩 2 道是矿泉水/无糖可乐这类包装标示 0，保守留空。
             assertEquals(
-                96,
+                2,
                 db.queryCount("SELECT COUNT(*) FROM food_catalog WHERE source_id='laoxiangji' AND energy_kcal<=0")
+            )
+            assertEquals(
+                299,
+                db.queryCount("SELECT COUNT(*) FROM food_catalog WHERE source_id='laoxiangji' AND energy_kcal>0")
             )
             fun kcalOf(name: String): Double = db.openHelper.readableDatabase.query(
                 "SELECT energy_kcal FROM food_catalog WHERE name=? AND source_id='laoxiangji'",
@@ -76,8 +82,8 @@ class FoodCatalogLaoxiangjiTest {
             ).use { c -> assertTrue(c.moveToFirst()); c.getDouble(0) }
             // 同名匹配：番茄鸡蛋面 = v0.2 标准库 135 kcal/100g
             assertEquals(135.0, kcalOf("番茄鸡蛋面"), 0.0)
-            // 无出处：大排面仍是 0，界面显示「暂无热量数据」，不冒充 0 千卡
-            assertEquals(0.0, kcalOf("大排面"), 0.0)
+            // 第二轮同类近似：大排面 = 排骨面锚点 160 kcal/100g（非官方值，note 有出处）
+            assertEquals(160.0, kcalOf("大排面"), 0.0)
         }
     }
 
