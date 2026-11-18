@@ -59,13 +59,17 @@ data class ProgressCardData(
     /** 三种日记卡的近 30 天数据（只读展示，不改表） */
     val sleepRecords: List<SleepRecordEntity> = emptyList(),
     val exerciseLogs: List<ExerciseLog> = emptyList(),
-    val foodLogs: List<FoodLog> = emptyList()
+    val foodLogs: List<FoodLog> = emptyList(),
+    /** v1.3.7：肌群分布桶（近 30 天力量训练，只读） */
+    val muscleBuckets: List<com.qingji.app.domain.MuscleDistributionCalculator.Bucket> = emptyList()
 )
 
 /** 卡片里的交互回调，同样集中管理，渲染分派本身保持纯展示。 */
 data class ProgressCardActions(
     val onAddExercise: () -> Unit = {},
     val onDeleteExercise: (Long) -> Unit = {},
+    /** v1.3.7：修改一条有氧记录（工单 4.4「改」） */
+    val onEditExercise: (ExerciseLog) -> Unit = {},
     val onSelectRange: (Int?) -> Unit = {},
     val onAddMeasure: () -> Unit = {},
     val onAddPhoto: () -> Unit = {},
@@ -94,8 +98,11 @@ fun ProgressCardRenderer(
 ) {
     when (cardId) {
         ProgressCardCatalog.EXERCISE -> ExerciseWeekCard(
-            list = data.exerciseWeek,
+            // v1.3.7：卡片内部要支持今日/近7天/近30天切换，传近 30 天全量，
+            // 由 ExerciseRangeCalculator 在卡片内过滤（原来传的是本周，切不了维度）
+            list = data.exerciseLogs.ifEmpty { data.exerciseWeek },
             onAdd = actions.onAddExercise,
+            onEdit = { log -> actions.onEditExercise(log) },
             onDelete = { id -> actions.onDeleteExercise(id) }
         )
 
@@ -200,5 +207,9 @@ fun ProgressCardRenderer(
                     fontWeight = FontWeight.SemiBold)
             }
         }
+
+        ProgressCardCatalog.MUSCLE_DISTRIBUTION -> MuscleDistributionCard(
+            buckets = data.muscleBuckets
+        )
     }
 }

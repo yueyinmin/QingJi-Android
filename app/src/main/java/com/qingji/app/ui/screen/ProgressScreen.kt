@@ -79,6 +79,8 @@ fun ProgressScreen(
      * 两条路记出来的数据不一样，用户会以为步数白填了。
      */
     onOpenExercise: () -> Unit = {},
+    /** v1.3.7：修改一条有氧记录，回调把原记录交出去（Root 找预设 id 后跳确认页） */
+    onEditExercise: (com.qingji.app.data.local.entity.ExerciseLog) -> Unit = {},
     /** P1：睡眠日记卡空态的「去记录」直达睡眠页 */
     onOpenSleepDiary: () -> Unit = {},
     modifier: Modifier = Modifier,
@@ -101,6 +103,8 @@ fun ProgressScreen(
     val exerciseWeek by vm.exerciseWeek.collectAsState()
     val bodyMeasures by vm.bodyMeasures.collectAsState()
     val photos by vm.photos.collectAsState()
+    // v1.3.7：肌群分布（只读聚合，近 30 天力量训练按动作库主分类）
+    val muscleBuckets by vm.muscleDistribution.collectAsState()
     // P1：三种日记卡的近 30 天数据（只读展示）
     val sleepMonth by vm.sleepMonth.collectAsState()
     val exerciseMonth by vm.exerciseMonth.collectAsState()
@@ -252,10 +256,12 @@ fun ProgressScreen(
                         photos = photos,
                         sleepRecords = sleepMonth,
                         exerciseLogs = exerciseMonth,
-                        foodLogs = foodMonth
+                        foodLogs = foodMonth,
+                        muscleBuckets = muscleBuckets
                     ),
                     actions = ProgressCardActions(
                         onAddExercise = onOpenExercise,
+                        onEditExercise = onEditExercise,
                         onDeleteExercise = { id -> vm.deleteExercise(id) },
                         onSelectRange = { days -> vm.setRange(days) },
                         onAddMeasure = { showBodyMeasure = true },

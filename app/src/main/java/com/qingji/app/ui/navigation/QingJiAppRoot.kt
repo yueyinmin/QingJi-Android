@@ -500,6 +500,17 @@ fun QingJiAppRoot(
                             onOpenWaterSheet = openWaterSheet,
                             // v1.0.6：运动卡片的「+ 记一次」走二级页，才能填步数 / 公里
                             onOpenExercise = { navController.navigate(QingJiRoutes.ExercisePicker) },
+                            // v1.3.7：改一条有氧记录。用类型名找预设拿 id，
+                            // 自建/已删的预设找不到就回去让用户重新记，不跳到空白确认页。
+                            onEditExercise = { log ->
+                                val presetId = progressVm.exercisePresets.value
+                                    .firstOrNull { it.name == log.type }?.id
+                                if (presetId != null) {
+                                    navController.navigate(QingJiRoutes.exerciseConfirm(presetId, log.id))
+                                } else {
+                                    navController.navigate(QingJiRoutes.ExercisePicker)
+                                }
+                            },
                             // P1：睡眠日记卡空态直达睡眠页
                             onOpenSleepDiary = { navController.navigate(QingJiRoutes.Sleep) },
                             scrollState = tabScrollStates.getValue(QingJiTab.Progress),
@@ -648,10 +659,15 @@ fun QingJiAppRoot(
                     }
                     composable(
                         route = QingJiRoutes.ExerciseConfirm,
-                        arguments = listOf(navArgument("presetId") { type = NavType.LongType })
+                        arguments = listOf(
+                            navArgument("presetId") { type = NavType.LongType },
+                            navArgument("editLogId") { type = NavType.LongType; defaultValue = -1L }
+                        )
                     ) { entry ->
                         ExerciseConfirmScreen(
                             presetId = entry.arguments?.getLong("presetId") ?: 0L,
+                            // v1.3.7：>0 = 修改已有有氧记录；-1 = 新建
+                            editLogId = entry.arguments?.getLong("editLogId") ?: -1L,
                             onBack = { navController.popBackStack() },
                             onSaved = { navController.popBackStack(QingJiTab.Home.route, false) }
                         )
