@@ -321,6 +321,8 @@ fun SetEditorCard(
     sets: List<WorkoutSet>,
     unit: String,
     fromLast: Boolean,
+    /** v1.4 健康体系：每一组已记部分的估算热量（做功+组间休息），空列表 = 不显示这一行 */
+    setKcal: List<Double> = emptyList(),
     onUpdate: (Int, WorkoutSet) -> Unit,
     onAdd: () -> Unit,
     onRemoveSet: (Int) -> Unit,
@@ -399,6 +401,18 @@ fun SetEditorCard(
             Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(4.dp))
             Text("添加一组", fontSize = TextSizes.Body)
+        }
+        // 每组估算热量：只列已记的组（次数或重量至少填一个），数字随
+        // 次数/RPE/休息时长自然变化，不是固定值；整体是估算，仅供参考。
+        if (setKcal.isNotEmpty()) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = "各组热量（估算）：" + setKcal.withIndex().joinToString(" · ") { (i, kcal) ->
+                    "第${i + 1}组 ≈ ${com.qingji.app.domain.SessionCalorieCalculator.displayKcal(kcal)} 千卡"
+                },
+                fontSize = TextSizes.Tiny,
+                color = TextSecondary
+            )
         }
     }
 }

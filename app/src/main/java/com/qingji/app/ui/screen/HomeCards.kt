@@ -28,6 +28,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import com.qingji.app.domain.ExerciseCompensation
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -198,12 +199,11 @@ internal fun TodaySummaryCard(
         }
         Spacer(Modifier.height(8.dp))
         // 预计热量缺口 = 每日预算 + 运动消耗×补偿比例 − 已吃
-        // v1.0.7：全额加回会放大设备高估误差，默认只补 50%（对标竞品策略）
-        val exerciseBonus = if (exerciseCompensationPct > 0) {
-            (state.exerciseKcal * exerciseCompensationPct / 100).toInt()
-        } else {
-            0
-        }
+        // v1.4：补偿口径统一下沉到 ExerciseCompensation（与周小结同一处计算），
+        // 开关关闭时加成为 0（消耗统计照常保留，只是不加进额度）
+        val exerciseBonus = ExerciseCompensation.bonusKcal(
+            state.exerciseKcal, exerciseCompensation, exerciseCompensationPct
+        )
         val gap = remainingKcal + exerciseBonus
         Row(
             modifier = Modifier.fillMaxWidth(),

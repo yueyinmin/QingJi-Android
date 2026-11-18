@@ -67,8 +67,15 @@ class WeeklySummaryCalculatorTest {
 
     @Test
     fun exerciseKcalIsAddedToGap() {
-        val r = summarize(days(3, kcal = 1500.0, exercise = 200.0), goal = 1800)
-        assertEquals(500, r.avgGap)
+        // v1.4 口径统一下沉：补偿关闭（默认）时消耗不加进缺口；开了才按比例加
+        val d = days(3, kcal = 1500.0, exercise = 200.0)
+        assertEquals(300, summarize(d, goal = 1800).avgGap)
+        assertEquals(
+            400,
+            WeeklySummaryCalculator.summarize(
+                d, 1800, 2000, null, null, exerciseCompensationEnabled = true, exerciseCompensationPct = 50
+            ).avgGap
+        )
     }
 
     @Test
@@ -108,5 +115,27 @@ class WeeklySummaryCalculatorTest {
         listOf("诊断", "治疗", "就医", "疾病", "药").forEach {
             assertFalse("结论里不该出现「$it」", all.contains(it))
         }
+    }
+
+    @Test
+    fun exerciseCompensationUnifiesGapCalculation() {
+        // v1.4 口径统一下沉：缺口 = 预算 + 消耗×补偿比例（开关关为 0） − 摄入
+        val d = days(3, kcal = 1500.0, exercise = 300.0)
+        // 补偿关闭：缺口 = 1800 - 1500 = 300，消耗不加成
+        assertEquals(300, summarize(d).avgGap)
+        // 补偿开启 50%：缺口 = 1800 + 150 - 1500 = 450
+        assertEquals(
+            450,
+            WeeklySummaryCalculator.summarize(
+                d, 1800, 2000, null, null, exerciseCompensationEnabled = true, exerciseCompensationPct = 50
+            ).avgGap
+        )
+        // 比例 0：等价于关闭
+        assertEquals(
+            300,
+            WeeklySummaryCalculator.summarize(
+                d, 1800, 2000, null, null, exerciseCompensationEnabled = true, exerciseCompensationPct = 0
+            ).avgGap
+        )
     }
 }
