@@ -21,7 +21,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.outlined.AltRoute
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Bedtime
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.PhotoCamera
@@ -54,12 +53,12 @@ import com.qingji.app.ui.theme.pressable
  * ============================================================
  * 底部中间「+」弹出的记录面板（v3.2 按吃有数的排法重做）
  * ------------------------------------------------------------
- * 从上到下四层（v9 重排）：
+ * 从上到下三层（v1.5 压缩版）：
  * 1. 柔和绿渐变横幅「扫描食物」→ 拍照 AI 识别；
- * 2. 2 行 4 列图标网格：语音输入 / 文字录入 / 扫条形码 / 食物库，
- *    记录喝水 / 每日打卡 / 冲动记录 / 目标偏离（同一套卡片等比缩小）；
- * 3. 2×2 浅底宽卡：记录运动 / 记录体重 / 开始训练 / 记录有氧；
- * 4. 体型照片链接 + 悬浮关闭键。
+ * 2. 「日常记录」8 宫格（v1.5：原「饮食快捷」+「日常管理」合并）：语音输入 / 文字录入 /
+ *    扫条形码 / 食物库 / 记录喝水 / 每日打卡 / 睡眠记录 / 自律管理；
+ * 3. 2×2 浅底宽卡：开始训练 / 记录有氧 / 记录体重 / 体型照片。
+ *    v1.5 底部悬浮关闭键删除——下滑或点遮罩即可关闭。
  *
  * v3.2.2：用户要「参考图那种多彩」，这里改回固定语义色，
  * 颜色统一从 ui/theme/Color.kt 的 MultiColor 取，不随主题色开关变。
@@ -127,7 +126,8 @@ fun AddRecordSheet(
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 18.dp)
-                .padding(bottom = 20.dp)
+                .padding(top = 4.dp)
+                .padding(bottom = 10.dp)
         ) {
             // ---------- A. 主入口：扫描食物（v1.4 方案 A：明显加大视觉面积） ----------
             // 工单 2.2：横向大卡片、占据最明显视觉面积、不缩成普通宫格按钮。
@@ -141,7 +141,7 @@ fun AddRecordSheet(
                         )
                     )
                     .pressable { go(onImage) }
-                    .padding(horizontal = 16.dp, vertical = 24.dp),
+                    .padding(horizontal = 16.dp, vertical = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
@@ -189,8 +189,8 @@ fun AddRecordSheet(
                 }
             }
 
-            // ---------- B. 饮食快捷区（工单 2.2 B） ----------
-            SectionLabel("饮食快捷")
+            // ---------- B. 日常记录区（v1.5：原「饮食快捷」+「日常管理」合并为 8 宫格） ----------
+            SectionLabel("日常记录")
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 SheetIconCard("语音输入", Icons.Outlined.Mic, MultiColor.Voice, Modifier.weight(1f)) {
                     go(onVoice)
@@ -205,12 +205,7 @@ fun AddRecordSheet(
                     go(onSearchFood)
                 }
             }
-
-            // ---------- C. 日常管理区（工单 2.2 C）：喝水 / 每日打卡 / 睡眠 / 自律管理 ----------
-            // v1.4：每日打卡只有一个入口；冲动记录、目标偏离并入「自律管理」；
-            // 睡眠从记一笔直达（工单 9）。
-            Spacer(Modifier.height(12.dp))
-            SectionLabel("日常管理")
+            Spacer(Modifier.height(6.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 SheetIconCard("记录喝水", Icons.Outlined.WaterDrop, MultiColor.Drink, Modifier.weight(1f)) {
                     go(onWater)
@@ -226,10 +221,10 @@ fun AddRecordSheet(
                 }
             }
 
-            // ---------- D. 运动与身体区（工单 2.2 D）：四宫格，删除重复「记录运动」 ----------
+            // ---------- C. 运动与身体区（工单 2.2 D）：四宫格，删除重复「记录运动」 ----------
             // 原来的「记录运动」「记录有氧」两个入口跳的是同一个页面（重复），
             // 按工单只保留「记录有氧」；力量训练继续走「开始训练」。
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(8.dp))
             SectionLabel("运动与身体")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SheetWideCard("开始训练", "🏋️", MultiColor.Exercise, Modifier.weight(1f)) {
@@ -249,32 +244,9 @@ fun AddRecordSheet(
                 }
             }
 
-            // v9/v1.4：原「更新我的体型照片」链接并入上方四宫格的「体型照片」卡，
-            // 不再单独占一行，减少底部留白（工单 2.3）。
-            Spacer(Modifier.height(20.dp))
-
-            // ---------- 悬浮关闭键 ----------
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.Center
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(CardWhite)
-                        .border(1.dp, DividerColor, CircleShape)
-                        .pressable { onDismiss() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Close,
-                        contentDescription = "关闭",
-                        tint = TextPrimary,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-            }
+            // v9/v1.4：原「更新我的体型照片」链接并入上方四宫格的「体型照片」卡。
+            // v1.5：底部悬浮关闭键删除——下滑或点遮罩即可关闭，弹层整体变矮。
+            Spacer(Modifier.height(4.dp))
         }
     }
 }
