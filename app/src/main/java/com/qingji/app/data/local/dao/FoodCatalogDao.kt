@@ -74,4 +74,46 @@ interface FoodCatalogDao {
 
     @Query("SELECT COUNT(*) FROM food_catalog")
     fun observeCount(): Flow<Int>
+
+    // ---------- 品牌堂食菜（第六阶段 UI：外卖快餐 → 选品牌 → 堂食菜单）----------
+    // 堂食菜 source_id = brandId（如 laoxiangji），food_id >= 200001。
+    // 红线：这是「堂食菜当菜单」，不是外卖商品；外卖商品走 takeaway_* 独立表。
+
+    /** 某品牌的全部堂食菜（菜单数据源，含拼音供本地过滤）。 */
+    @Query("SELECT * FROM food_catalog WHERE source_id = :brandId ORDER BY category ASC, name ASC")
+    fun observeByBrand(brandId: String): Flow<List<CatalogFood>>
+
+    /** 某品牌 + 分类的堂食菜。category 传空串表示全部分类。 */
+    @Query(
+        "SELECT * FROM food_catalog WHERE source_id = :brandId " +
+            "AND (:category = '' OR category = :category) ORDER BY name ASC"
+    )
+    suspend fun byBrandAndCategory(brandId: String, category: String): List<CatalogFood>
+
+    /** 某品牌实际有菜的分类（无菜分类不展示）。 */
+    @Query("SELECT DISTINCT category FROM food_catalog WHERE source_id = :brandId ORDER BY category ASC")
+    suspend fun categoriesForBrand(brandId: String): List<String>
+
+    /** 品牌维度搜索：中文/别名/拼音首字母/全拼，只在本品牌堂食菜里搜。 */
+    @Query(
+        """
+        SELECT * FROM food_catalog
+        WHERE source_id = :brandId AND :keyword <> ''
+          AND (
+            name LIKE '%' || :keyword || '%'
+            OR aliases LIKE '%' || :keyword || '%'
+            OR pinyin LIKE :keyword || '%'
+            OR pinyin_full LIKE :keyword || '%'
+          )
+        ORDER BY
+            CASE
+                WHEN name = :keyword THEN 0
+                WHEN pinyin_full = :keyword THEN 1
+                WHEN name LIKE :keyword || '%' THEN 2
+                ELSE 3
+            END, name
+        LIMIT 100
+        """
+    )
+    suspend fun searchByBrand(brandId: String, keyword: String): List<CatalogFood>
 }
