@@ -18,9 +18,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.outlined.AltRoute
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
-import androidx.compose.material.icons.outlined.AltRoute
-import androidx.compose.material.icons.outlined.Bolt
+import androidx.compose.material.icons.outlined.Bedtime
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.Mic
@@ -80,18 +80,19 @@ fun AddRecordSheet(
     onBarcode: () -> Unit,
     /** 直接记一杯水（默认 200ml） */
     onWater: () -> Unit = {},
-    /** 进进展页记运动 */
-    onExercise: () -> Unit = {},
     /** 训练中心 P0：开始一次力量训练 */
     onStartTraining: () -> Unit = {},
     /** 训练中心 P0：记录有氧，直接复用现有「记录运动」流程，不另做新页 */
     onAerobic: () -> Unit = {},
     /** 进进展页更新体型照片 */
     onBodyPhoto: () -> Unit = {},
-    /** 自律管理（SD-001）：每日打卡 / 冲动记录 / 目标偏离 */
-    onSelfDisciplineCheckin: () -> Unit = {},
-    onSelfDisciplineUrge: () -> Unit = {},
-    onSelfDisciplineDeviation: () -> Unit = {}
+    /** 健康体系 V1.1：睡眠记录（工单 9，记一笔直达，不先进设置页） */
+    onSleep: () -> Unit = {},
+    /**
+     * 健康体系 V1.1（工单 3）：自律管理统一入口，直达「目标与打卡」页面。
+     * 原「冲动记录」「目标偏离」两个独立快捷入口并入自律管理，不再单独出现。
+     */
+    onSelfDiscipline: () -> Unit = {}
 ) {
     // 先收起弹层再执行动作，否则弹层会盖住刚打开的新页面
     val go: (() -> Unit) -> Unit = { action ->
@@ -128,52 +129,53 @@ fun AddRecordSheet(
                 .padding(horizontal = 18.dp)
                 .padding(bottom = 20.dp)
         ) {
-            // ---------- 1. 扫描食物横幅（参考图的柔和绿渐变） ----------
+            // ---------- A. 主入口：扫描食物（v1.4 方案 A：明显加大视觉面积） ----------
+            // 工单 2.2：横向大卡片、占据最明显视觉面积、不缩成普通宫格按钮。
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
+                    .clip(RoundedCornerShape(18.dp))
                     .background(
                         Brush.horizontalGradient(
                             listOf(MultiColor.ScanStart, MultiColor.ScanEnd)
                         )
                     )
                     .pressable { go(onImage) }
-                    .padding(horizontal = 14.dp, vertical = 16.dp),
+                    .padding(horizontal = 16.dp, vertical = 24.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
                     modifier = Modifier
-                        .size(46.dp)
-                        .clip(RoundedCornerShape(13.dp))
-                        .background(Color.White.copy(alpha = 0.22f)),
+                        .size(56.dp)
+                        .clip(RoundedCornerShape(15.dp))
+                        .background(Color.White.copy(alpha = 0.24f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.PhotoCamera,
                         contentDescription = null,
                         tint = Color.White,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(30.dp)
                     )
                 }
-                Spacer(Modifier.width(12.dp))
+                Spacer(Modifier.width(14.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "扫描食物",
-                        fontSize = 17.sp,
+                        fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
                     )
-                    Spacer(Modifier.height(3.dp))
+                    Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "AI 视觉识别，智能估算热量",
-                        fontSize = 11.sp,
+                        text = "拍照 AI 识别，智能估算热量",
+                        fontSize = 12.sp,
                         color = Color.White.copy(alpha = 0.88f)
                     )
                 }
                 Box(
                     modifier = Modifier
-                        .size(32.dp)
+                        .size(36.dp)
                         .clip(CircleShape)
                         .background(Color.White),
                     contentAlignment = Alignment.Center
@@ -182,64 +184,53 @@ fun AddRecordSheet(
                         imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                         contentDescription = null,
                         tint = MultiColor.ScanArrow,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
 
+            // ---------- B. 饮食快捷区（工单 2.2 B） ----------
+            SectionLabel("饮食快捷")
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                SheetIconCard("语音输入", Icons.Outlined.Mic, MultiColor.Voice, Modifier.weight(1f)) {
+                    go(onVoice)
+                }
+                SheetIconCard("文字录入", Icons.Outlined.EditNote, MultiColor.TextAi, Modifier.weight(1f)) {
+                    go(onTextAi)
+                }
+                SheetIconCard("扫条形码", Icons.Outlined.QrCode, MultiColor.Barcode, Modifier.weight(1f)) {
+                    go(onBarcode)
+                }
+                SheetIconCard("食物库", Icons.AutoMirrored.Outlined.MenuBook, MultiColor.FoodLibrary, Modifier.weight(1f)) {
+                    go(onSearchFood)
+                }
+            }
+
+            // ---------- C. 日常管理区（工单 2.2 C）：喝水 / 每日打卡 / 睡眠 / 自律管理 ----------
+            // v1.4：每日打卡只有一个入口；冲动记录、目标偏离并入「自律管理」；
+            // 睡眠从记一笔直达（工单 9）。
             Spacer(Modifier.height(12.dp))
-
-            // ---------- 2. 2 行 4 列图标网格（8 个入口，等比缩小） ----------
-            // v9：下面三个自律模块移到「记录」宽卡上方；文字录入 / 扫条形码
-            // 从底部宽按钮改成与语音输入同款的图标卡，一起进网格。
-            Column {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    SheetIconCard("语音输入", Icons.Outlined.Mic, MultiColor.Voice, Modifier.weight(1f)) {
-                        go(onVoice)
-                    }
-                    SheetIconCard("文字录入", Icons.Outlined.EditNote, MultiColor.TextAi, Modifier.weight(1f)) {
-                        go(onTextAi)
-                    }
-                    SheetIconCard("扫条形码", Icons.Outlined.QrCode, MultiColor.Barcode, Modifier.weight(1f)) {
-                        go(onBarcode)
-                    }
-                    SheetIconCard("食物库", Icons.AutoMirrored.Outlined.MenuBook, MultiColor.FoodLibrary, Modifier.weight(1f)) {
-                        go(onSearchFood)
-                    }
+            SectionLabel("日常管理")
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                SheetIconCard("记录喝水", Icons.Outlined.WaterDrop, MultiColor.Drink, Modifier.weight(1f)) {
+                    go(onWater)
                 }
-                Spacer(Modifier.height(6.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    SheetIconCard("记录喝水", Icons.Outlined.WaterDrop, MultiColor.Drink, Modifier.weight(1f)) {
-                        go(onWater)
-                    }
-                    SheetIconCard("每日打卡", Icons.Outlined.TaskAlt, MultiColor.QuickWeight, Modifier.weight(1f)) {
-                        go(onSelfDisciplineCheckin)
-                    }
-                    SheetIconCard("冲动记录", Icons.Outlined.Bolt, MultiColor.FastingText, Modifier.weight(1f)) {
-                        go(onSelfDisciplineUrge)
-                    }
-                    SheetIconCard("目标偏离", Icons.Outlined.AltRoute, MultiColor.QuickBook, Modifier.weight(1f)) {
-                        go(onSelfDisciplineDeviation)
-                    }
+                SheetIconCard("每日打卡", Icons.Outlined.TaskAlt, MultiColor.QuickWeight, Modifier.weight(1f)) {
+                    go(onSelfDiscipline)
+                }
+                SheetIconCard("睡眠记录", Icons.Outlined.Bedtime, MultiColor.FastingText, Modifier.weight(1f)) {
+                    go(onSleep)
+                }
+                SheetIconCard("自律管理", Icons.AutoMirrored.Outlined.AltRoute, MultiColor.QuickBook, Modifier.weight(1f)) {
+                    go(onSelfDiscipline)
                 }
             }
 
-            Spacer(Modifier.height(10.dp))
-
-            // ---------- 3. 两张浅底宽卡（蓝 / 绿） ----------
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SheetWideCard("记录运动", "🏃", MultiColor.Exercise, Modifier.weight(1f)) {
-                    go(onExercise)
-                }
-                SheetWideCard("记录体重", "⚖️", MultiColor.Weight, Modifier.weight(1f)) {
-                    go(onWeight)
-                }
-            }
-
-            Spacer(Modifier.height(10.dp))
-
-            // ---------- 3.5 训练中心（P0）：开始训练 / 记录有氧 ----------
-            // 「记录有氧」直接跳现有的运动选择页，不新建第二条数据体系。
+            // ---------- D. 运动与身体区（工单 2.2 D）：四宫格，删除重复「记录运动」 ----------
+            // 原来的「记录运动」「记录有氧」两个入口跳的是同一个页面（重复），
+            // 按工单只保留「记录有氧」；力量训练继续走「开始训练」。
+            Spacer(Modifier.height(12.dp))
+            SectionLabel("运动与身体")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SheetWideCard("开始训练", "🏋️", MultiColor.Exercise, Modifier.weight(1f)) {
                     go(onStartTraining)
@@ -248,32 +239,19 @@ fun AddRecordSheet(
                     go(onAerobic)
                 }
             }
-
-            // v9：自律三入口已并入上方 2 行 4 列网格，放在「记录」宽卡之前。
-            Spacer(Modifier.height(14.dp))
-
-            // ---------- 4. 体型照片 + 补充入口 ----------
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .pressable { go(onBodyPhoto) }
-                    .padding(vertical = 8.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.PhotoCamera,
-                    contentDescription = null,
-                    tint = TextSecondary,
-                    modifier = Modifier.size(15.dp)
-                )
-                Spacer(Modifier.width(6.dp))
-                Text(text = "更新我的体型照片", fontSize = 12.sp, color = TextSecondary)
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SheetWideCard("记录体重", "⚖️", MultiColor.Weight, Modifier.weight(1f)) {
+                    go(onWeight)
+                }
+                SheetWideCard("体型照片", "📸", MultiColor.QuickBook, Modifier.weight(1f)) {
+                    go(onBodyPhoto)
+                }
             }
 
-            // v9：文字录入 / 扫条形码已改成图标卡，并入上方 2 行 4 列网格。
-            Spacer(Modifier.height(18.dp))
+            // v9/v1.4：原「更新我的体型照片」链接并入上方四宫格的「体型照片」卡，
+            // 不再单独占一行，减少底部留白（工单 2.3）。
+            Spacer(Modifier.height(20.dp))
 
             // ---------- 悬浮关闭键 ----------
             Box(
@@ -299,6 +277,14 @@ fun AddRecordSheet(
             }
         }
     }
+}
+
+/** v1.4 方案 A：分区小标题（工单 2.2 的 B/C/D 区）。 */
+@Composable
+private fun SectionLabel(text: String) {
+    Spacer(Modifier.height(12.dp))
+    Text(text, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = TextSecondary)
+    Spacer(Modifier.height(6.dp))
 }
 
 /**
