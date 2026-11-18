@@ -39,6 +39,7 @@ import com.qingji.app.data.local.dao.SelfDisciplineMilestoneDao
 import com.qingji.app.data.local.dao.SelfDisciplineInterventionDao
 import com.qingji.app.data.local.dao.ExerciseCalorieConfigDao
 import com.qingji.app.data.local.dao.ExerciseSessionCalorieDao
+import com.qingji.app.data.local.dao.SleepDao
 import com.qingji.app.data.local.entity.AiConfig
 import com.qingji.app.data.local.entity.BodyMeasure
 import com.qingji.app.data.local.entity.Diary
@@ -70,6 +71,7 @@ import com.qingji.app.data.local.entity.SelfDisciplineMilestoneEntity
 import com.qingji.app.data.local.entity.SelfDisciplineInterventionEntity
 import com.qingji.app.data.local.entity.ExerciseCalorieConfigEntity
 import com.qingji.app.data.local.entity.ExerciseSessionCalorieEntity
+import com.qingji.app.data.local.entity.SleepRecordEntity
 import java.time.LocalDate
 
 /**
@@ -136,9 +138,11 @@ class Converters {
         SelfDisciplineInterventionEntity::class,
         // v1.4 健康体系 P0（Room 13）：运动热量参数库 + 统一运动消耗账本，旧表一列不动
         ExerciseCalorieConfigEntity::class,
-        ExerciseSessionCalorieEntity::class
+        ExerciseSessionCalorieEntity::class,
+        // v1.4 健康体系 V1.1（Room 14）：睡眠记录（工单 9），旧表一列不动
+        SleepRecordEntity::class
     ],
-    version = 13,
+    version = 14,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -181,6 +185,7 @@ abstract class AppDatabase : RoomDatabase() {
     // ---------- 健康体系 V1.0（Room 13） ----------
     abstract fun exerciseCalorieConfigDao(): ExerciseCalorieConfigDao
     abstract fun exerciseSessionCalorieDao(): ExerciseSessionCalorieDao
+    abstract fun sleepDao(): SleepDao
 
     companion object {
         /** 整个 App 只保留一个数据库实例，重复创建会出问题。 */
@@ -506,7 +511,7 @@ abstract class AppDatabase : RoomDatabase() {
                 MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
                 MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8,
                 MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12,
-                MIGRATION_12_13
+                MIGRATION_12_13, MIGRATION_13_14
             )
         }
 
@@ -690,6 +695,35 @@ abstract class AppDatabase : RoomDatabase() {
                         )
                     )
                 }
+            }
+        }
+
+        /**
+         * v1.4 健康体系 V1.1（Room 13 → 14）：睡眠记录表（工单 9）。
+         * 全新表，只有 CREATE TABLE + 索引，一行旧数据都不碰。
+         * defaultValue 与 SleepRecordEntity 的 @ColumnInfo 逐字一致（四件套纪律③）。
+         */
+        internal val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `sleep_record` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`date` TEXT NOT NULL, " +
+                        "`startTime` INTEGER NOT NULL, " +
+                        "`endTime` INTEGER NOT NULL, " +
+                        "`durationMinutes` INTEGER NOT NULL DEFAULT 0, " +
+                        "`quality` INTEGER NOT NULL DEFAULT 0, " +
+                        "`morningFeeling` INTEGER NOT NULL DEFAULT 0, " +
+                        "`wakeCount` INTEGER NOT NULL DEFAULT 0, " +
+                        "`napMinutes` INTEGER NOT NULL DEFAULT 0, " +
+                        "`note` TEXT NOT NULL DEFAULT '', " +
+                        "`sourceType` TEXT NOT NULL DEFAULT 'MANUAL', " +
+                        "`externalId` TEXT NOT NULL DEFAULT '', " +
+                        "`createdAt` INTEGER NOT NULL DEFAULT 0, " +
+                        "`updatedAt` INTEGER NOT NULL DEFAULT 0)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_sleep_record_date` ON `sleep_record` (`date`)")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_sleep_record_sourceType_externalId` ON `sleep_record` (`sourceType`, `externalId`)")
             }
         }
 
