@@ -2,6 +2,7 @@ package com.qingji.app.ui.screen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -90,6 +91,9 @@ fun FoodLibraryScreen(
     var tab by remember { mutableStateOf(0) }
     var kitchenTab by remember { mutableStateOf(0) }
     var category by remember { mutableStateOf(FoodCategory.STAPLE) }
+    // 2026-11-18：家庭厨房的横排细类（大类右上的那排小胶囊）。空串 = 全部。
+    // 切大类时不用手动清它：细类不匹配时自动回落到「全部」。
+    var subCategory by remember { mutableStateOf("") }
     var pick by remember { mutableStateOf<Food?>(null) }
     var showSearch by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
@@ -183,14 +187,7 @@ fun FoodLibraryScreen(
             )
         }
 
-        // 免责：654 条营养值是初采估算（PRD 13.1 口径）
-        Text(
-            text = s("食物热量按常见值估算，日常记账够用，别当营养学依据"),
-            fontSize = 11.sp,
-            color = TextSecondary,
-            modifier = Modifier.padding(horizontal = 16.dp)
-        )
-        Spacer(Modifier.height(8.dp))
+        // 2026-11-18：去掉标题下那行免责小字（主人嫌它是多余的小黑字备注）
 
         // 内容区占满剩余高度，底栏才不会被列表挤出屏幕
         Column(modifier = Modifier.weight(1f)) {
@@ -211,6 +208,21 @@ fun FoodLibraryScreen(
                         category = available.first()
                     }
 
+                    // 2026-11-18：右上横排细类（照外卖快餐同款样式）。
+                    // 细类来自数据里的 subcategory 字段，按食物条数多的排前面；
+                    // 纯英文的值（staple/dish/fruit 这类录入痕迹）不上横栏，
+                    // 那些食物照样能在「全部」里翻到。
+                    val subs = homeFoods
+                        .filter { it.category == category && it.subcategory.isNotBlank() }
+                        .groupingBy { it.subcategory }
+                        .eachCount()
+                        .entries
+                        .filter { (it.key.firstOrNull()?.code ?: 0) > 127 } // 只要中文细类
+                        .sortedByDescending { it.value }
+                        .map { it.key }
+                    val effectiveSub = if (subCategory in subs) subCategory else ""
+                    val allSubLabel = s("全部")
+
                     Row(modifier = Modifier.fillMaxWidth().weight(1f)) {
                         Column(
                             modifier = Modifier
@@ -224,7 +236,10 @@ fun FoodLibraryScreen(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .background(if (selected) QingJiGreenLight else Color.Transparent)
-                                        .clickable { category = cat }
+                                        .clickable {
+                                            category = cat
+                                            subCategory = "" // 换大类，细类回到「全部」
+                                        }
                                         .padding(vertical = 12.dp, horizontal = 10.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
@@ -244,32 +259,84 @@ fun FoodLibraryScreen(
                             Spacer(Modifier.height(60.dp))
                         }
 
-                        // v1.4 性能专项（工单 11）：Column 全量组合 → LazyColumn 只组合可见行。
-                        // 家常菜 190 条、全库 1121 条时，旧写法每次进分类都要把整个列表
-                        // 的组件全部建出来，来回切换明显卡顿；LazyColumn 视口外不组合。
-                        val filtered = homeFoods.filter { it.category == category }
-                        androidx.compose.foundation.lazy.LazyColumn(
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(horizontal = 10.dp)
-                        ) {
-                            item { Spacer(Modifier.height(4.dp)) }
-                            items(
-                                count = filtered.size,
-                                key = { i -> filtered[i].id },
-                                contentType = { "food_row" }
-                            ) { i ->
-                                val food = filtered[i]
-                                LibraryFoodRow(
-                                    name = food.name,
-                                    kcalPer100g = food.kcalPer100g,
-                                    favorite = food.favorite,
-                                    risky = AllergenRules.isRisky(food.name, allergens),
-                                    onFavorite = { vm.toggleFavorite(food) },
-                                    onClick = { pick = food }
-                                )
+                        Column(modifier = Modifier.weight(1f)) {
+                            // 横排细类胶囊：和外卖快餐右上那排同款
+                            if (subs.isNotEmpty()) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .horizontalScroll(rememberScrollState())
+                                        .padding(horizontal = 10.dp, vertical = 2.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    listOf(allSubLabel).forEach { label ->
+                                        val selected = effectiveSub == ""
+                                        Text(
+                                            text = label,
+                                            fontSize = 12.sp,
+                                            color = if (selected) Color.White else TextSecondary,
+                                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(999.dp))
+                                                .background(if (selected) QingJiGreen else CardWhite)
+                                                .clickable { subCategory = "" }
+                                                .padding(horizontal = 14.dp, vertical = 6.dp)
+                                        )
+                                    }
+                                    subs.forEach { sub ->
+                                        val selected = sub == effectiveSub
+                                        Text(
+                                            text = sub,
+                                            fontSize = 12.sp,
+                                            color = if (selected) Color.White else TextSecondary,
+                                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(999.dp))
+                                                .background(if (selected) QingJiGreen else CardWhite)
+                                                .clickable { subCategory = sub }
+                                                .padding(horizontal = 14.dp, vertical = 6.dp)
+                                        )
+                                    }
+                                }
                             }
-                            item { Spacer(Modifier.height(80.dp)) }
+
+                            // v1.4 性能专项（工单 11）：Column 全量组合 → LazyColumn 只组合可见行。
+                            // 家常菜 190 条、全库 1121 条时，旧写法每次进分类都要把整个列表
+                            // 的组件全部建出来，来回切换明显卡顿；LazyColumn 视口外不组合。
+                            // 2026-11-18：再叠加细类过滤。
+                            val filtered = homeFoods.filter {
+                                it.category == category &&
+                                    (effectiveSub == "" || it.subcategory == effectiveSub)
+                            }
+                            androidx.compose.foundation.lazy.LazyColumn(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(horizontal = 10.dp)
+                            ) {
+                                item { Spacer(Modifier.height(4.dp)) }
+                                if (filtered.isEmpty()) {
+                                    item {
+                                        HintBox(text = s("这道分类下暂时没有菜品"))
+                                    }
+                                }
+                                items(
+                                    count = filtered.size,
+                                    key = { i -> filtered[i].id },
+                                    contentType = { "food_row" }
+                                ) { i ->
+                                    val food = filtered[i]
+                                    LibraryFoodRow(
+                                        name = food.name,
+                                        kcalPer100g = food.kcalPer100g,
+                                        favorite = food.favorite,
+                                        risky = AllergenRules.isRisky(food.name, allergens),
+                                        onFavorite = { vm.toggleFavorite(food) },
+                                        onClick = { pick = food }
+                                    )
+                                }
+                                item { Spacer(Modifier.height(80.dp)) }
+                            }
                         }
                     }
                 } else {
