@@ -58,8 +58,10 @@ object QingJiRoutes {
 
     /** v3.3.0 运动模块：二级「记录运动」 → 三级「确认记录」。 */
     const val ExercisePicker = "exercise_picker"
-    const val ExerciseConfirm = "exercise_confirm/{presetId}"
-    fun exerciseConfirm(presetId: Long) = "exercise_confirm/$presetId"
+    const val ExerciseConfirm = "exercise_confirm/{presetId}?editLogId={editLogId}"
+    /** editLogId > 0 表示修改已有记录，默认 -1 = 新建。可选参数，老调用不用改。 */
+    fun exerciseConfirm(presetId: Long, editLogId: Long = -1L) =
+        "exercise_confirm/$presetId?editLogId=$editLogId"
 
     /** 训练中心 P0：进行中训练 / 训练日记。 */
     const val TrainingActive = "training_active"

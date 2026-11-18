@@ -21,6 +21,7 @@ import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -71,6 +72,8 @@ fun ExerciseConfirmScreen(
     onBack: () -> Unit,
     /** 保存成功后回首页 */
     onSaved: () -> Unit,
+    /** v1.3.7：>0 = 修改这条已有记录（回填原值），-1 = 新建 */
+    editLogId: Long = -1L,
     modifier: Modifier = Modifier,
     vm: ExerciseViewModel = viewModel()
 ) {
@@ -85,6 +88,31 @@ fun ExerciseConfirmScreen(
     var showCustomWheel by remember { mutableStateOf(false) }
     var showDateTimeWheel by remember { mutableStateOf(false) }
 
+    // v1.3.7 修改模式：把原记录读出来回填。
+    // 只回填「当初真记过的原始数字」——按步数记的就回填步数，按公里记的回填公里，
+    // 不凭 kcal 反推一个假步数出来（那是编数据）。
+    var editingLog by remember { mutableStateOf<ExerciseLog?>(null) }
+    LaunchedEffect(editLogId) {
+        if (editLogId <= 0L) return@LaunchedEffect
+        val log = vm.findForEdit(editLogId) ?: return@LaunchedEffect
+        editingLog = log
+        when {
+            log.steps > 0 -> {
+                mode = ExerciseCalculator.MODE_STEPS
+                amount = log.steps
+            }
+            log.distanceKm > 0.0 -> {
+                mode = ExerciseCalculator.MODE_KM
+                amount = log.distanceKm.toInt()
+            }
+            else -> {
+                mode = ExerciseCalculator.MODE_MINUTES
+                amount = log.minutes
+            }
+        }
+        whenAt = log.date.atStartOfDay()
+    }
+
     val estimate = ExerciseCalculator.estimate(
         met = preset?.met ?: 5.0,
         weightKg = weightKg,
@@ -97,7 +125,7 @@ fun ExerciseConfirmScreen(
     val minAmount = minOf(mode)
 
     Column(modifier = modifier.fillMaxSize().background(PageBackground)) {
-        PageTopBar(title = "确认记录", onBack = onBack)
+        PageTopBar(title = if (editLogId > 0L) "修改记录" else "确认记录", onBack = onBack)
 
         // ---------- 中间滚动区 ----------
         Column(
@@ -303,18 +331,21 @@ fun ExerciseConfirmScreen(
                     .background(QingJiGreen)
                     .pressable(enabled = preset != null) {
                         val p = preset ?: return@pressable
-                        vm.save(
-                            ExerciseLog(
-                                date = whenAt.toLocalDate(),
-                                type = p.name,
-                                minutes = estimate.minutes,
-                                kcal = estimate.kcal,
-                                // v1.0.6：按哪种方式记的就把那个原始数字留下来，
-                                // 其它方式留 0（不按步频/配速反推一个假数出来冒充原始值）
-                                steps = if (mode == ExerciseCalculator.MODE_STEPS) amount else 0,
-                                distanceKm = if (mode == ExerciseCalculator.MODE_KM) amount.toDouble() else 0.0
-                            )
-                        ) { onSaved() }
+                        val log = ExerciseLog(
+                            // 修改时保留原 id / createdAt，账本镜像靠 id 对齐
+                            id = editingLog?.id ?: 0L,
+                            createdAt = editingLog?.createdAt ?: System.currentTimeMillis(),
+                            date = whenAt.toLocalDate(),
+                            type = p.name,
+                            minutes = estimate.minutes,
+                            kcal = estimate.kcal,
+                            // v1.0.6：按哪种方式记的就把那个原始数字留下来，
+                            // 其它方式留 0（不按步频/配速反推一个假数出来冒充原始值）
+                            steps = if (mode == ExerciseCalculator.MODE_STEPS) amount else 0,
+                            distanceKm = if (mode == ExerciseCalculator.MODE_KM) amount.toDouble() else 0.0
+                        )
+                        if (editingLog != null) vm.update(log) { onSaved() }
+                        else vm.save(log) { onSaved() }
                     },
                 contentAlignment = Alignment.Center
             ) {

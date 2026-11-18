@@ -57,4 +57,16 @@ class ExerciseViewModel(app: Application) : AndroidViewModel(app) {
             onDone()
         }
     }
+
+    // ---------- v1.3.7：有氧记录「改」（工单 4.4 增查改删） ----------
+    /** 编辑前先把那条记录读出来，确认页拿它回填当时的输入方式和原始数字。 */
+    suspend fun findForEdit(id: Long): ExerciseLog? = repo.findExercise(id)
+
+    /** 修改一条（保留原 id），账本镜像在 repo 里先删后重插。 */
+    fun update(log: ExerciseLog, onDone: () -> Unit = {}) {
+        viewModelScope.launch {
+            repo.updateExercise(log)
+            onDone()
+        }
+    }
 }

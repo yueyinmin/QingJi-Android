@@ -17,6 +17,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,8 +29,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.qingji.app.domain.AppClock
+import com.qingji.app.domain.ExerciseRangeCalculator
 import com.qingji.app.ui.components.SectionCard
 import com.qingji.app.ui.i18n.s
+import com.qingji.app.ui.theme.CardWhite
 import com.qingji.app.ui.theme.Dimens
 import com.qingji.app.ui.theme.DividerColor
 import com.qingji.app.ui.theme.MacroCarb
@@ -220,14 +224,29 @@ internal fun MacroFigure(label: String, grams: Double, color: Color) {
 }
 
 
-/** 本周运动消耗。 */
+/**
+ * 运动消耗卡（v1.3.7 起支持 今日 / 近7天 / 近30天 切换，工单 4.4 日周月统计）。
+ * 传入的 list 是近 30 天全量，卡片内部按所选范围自己过滤；
+ * 这样切换维度不用重新查库，也不改表结构。
+ */
 @Composable
 fun ExerciseWeekCard(
     list: List<com.qingji.app.data.local.entity.ExerciseLog>,
     onAdd: () -> Unit,
-    onDelete: (Long) -> Unit
+    onDelete: (Long) -> Unit,
+    /** v1.3.7：改一条（工单 4.4 增查改删）；可选参数，老调用不用改 */
+    onEdit: (com.qingji.app.data.local.entity.ExerciseLog) -> Unit = {}
 ) {
-    val total = list.sumOf { it.kcal }
+    var range by remember { mutableStateOf(ExerciseRangeCalculator.RANGE_WEEK) }
+    val today = AppClock.today()
+    val summary = remember(list, range, today) {
+        ExerciseRangeCalculator.summarize(list, range, today)
+    }
+    // 明细只显示所选范围里最近的 3 条（旧的在下、新的在上），跟原来一致
+    val visibleLogs = remember(list, range, today) {
+        ExerciseRangeCalculator.filter(list, range, today).takeLast(3).reversed()
+    }
+    val total = summary.kcal
 
     // 360dp 窄屏走查：右侧 QuickActionColumn 是 4 颗 52dp 圆按钮、右留 16dp，
     // 浮在内容之上，占住屏幕右侧 (W-68dp) ~ (W-16dp) 这一条。
@@ -244,14 +263,14 @@ fun ExerciseWeekCard(
         ) {
             Column {
                 Text(
-                    text = s("本周运动消耗"),
+                    text = s("${summary.label}运动消耗"),
                     fontSize = TextSizes.CardTitle,
                     fontWeight = FontWeight.SemiBold,
                     color = TextPrimary
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = "共 ${total.toInt()} 千卡 · ${list.size} 次",
+                    text = "共 ${total.toInt()} 千卡 · ${summary.count} 次 · ${summary.minutes} 分钟",
                     fontSize = TextSizes.Caption,
                     color = TextSecondary
                 )
@@ -268,9 +287,33 @@ fun ExerciseWeekCard(
             )
         }
 
-        if (list.isNotEmpty()) {
+        // v1.3.7：日 / 周 / 月维度胶囊。当前维度绿底白字，其余浅底绿字。
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            listOf(
+                ExerciseRangeCalculator.RANGE_DAY to "今日",
+                ExerciseRangeCalculator.RANGE_WEEK to "近7天",
+                ExerciseRangeCalculator.RANGE_MONTH to "近30天"
+            ).forEach { (key, label) ->
+                val selected = key == range
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(Dimens.PillCorner))
+                        .background(if (selected) QingJiGreen else QingJiGreenLight)
+                        .pressable { range = key }
+                        .padding(horizontal = 10.dp, vertical = 5.dp)
+                ) {
+                    Text(
+                        text = s(label), fontSize = TextSizes.Tiny,
+                        color = if (selected) CardWhite else QingJiGreenDark
+                    )
+                }
+            }
+        }
+
+        if (visibleLogs.isNotEmpty()) {
             Spacer(Modifier.height(10.dp))
-            list.takeLast(3).reversed().forEach { log ->
+            visibleLogs.forEach { log ->
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -301,6 +344,15 @@ fun ExerciseWeekCard(
                     }
                     Text(text = "${log.kcal.toInt()} 千卡", fontSize = 12.sp, color = QingJiGreenDark)
                     Spacer(Modifier.size(6.dp))
+                    // v1.3.7：修改入口。跟删除一样给 36dp 热区，窄屏也点得中。
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clickable { onEdit(log) },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(text = s("改"), fontSize = 12.sp, color = QingJiGreenDark)
+                    }
                     // 原来只是 Text 加 4dp 内边距，点击热区不到 24dp，
                     // 就算没被悬浮栏挡住也很难点中；改成 36dp 透明方形热区，
                     // 视觉上还是同一个「×」，只是更容易点。
