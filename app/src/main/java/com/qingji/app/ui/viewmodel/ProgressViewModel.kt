@@ -14,7 +14,6 @@ import com.qingji.app.data.local.entity.UserProfile
 import com.qingji.app.data.local.entity.WeightLog
 import com.qingji.app.data.repository.QingJiRepository
 import com.qingji.app.data.repository.SleepRepository
-import com.qingji.app.data.repository.TrainingRepository
 import com.qingji.app.domain.AppClock
 import java.time.LocalDate
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,8 +30,6 @@ class ProgressViewModel(app: Application) : AndroidViewModel(app) {
     private val repo = QingJiRepository(app)
     /** 睡眠表在独立仓库，日记卡只读它，不新建 ViewModel 免得日期状态打架 */
     private val sleepRepo = SleepRepository(app)
-    /** v1.3.7：肌群分布只读动作库分类 + 训练明细，只读不改，不新建 ViewModel */
-    private val trainingRepo = TrainingRepository(app)
 
     /** 运动库（预置 + 收藏置顶） */
     val exercisePresets: StateFlow<List<com.qingji.app.data.local.entity.ExercisePreset>> =
@@ -103,30 +100,6 @@ class ProgressViewModel(app: Application) : AndroidViewModel(app) {
     val exerciseMonth: StateFlow<List<ExerciseLog>> = repo
         .observeExerciseRange(diaryMonthStart, AppClock.today())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-
-    // ---------- v1.3.7：肌群分布（工单 4.2 第 6 项 P2，只读不改表） ----------
-    /** 动作库 UUID → 七分类 key，给训练明细归类用。 */
-    private val exerciseCategories: StateFlow<List<Pair<String, String>>> =
-        trainingRepo.observeExercises()
-            .map { list -> list.map { it.uuid to it.category } }
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-
-    /** 近 30 天力量训练明细。肌群分布只按组数与训练量聚合，不写回任何表。 */
-    private val workoutMonth: StateFlow<List<com.qingji.app.data.local.entity.WorkoutExercise>> =
-        trainingRepo.observeAllWorkoutExercises()
-            .map { rows ->
-                val from = AppClock.today().minusDays(29)
-                // WorkoutExercise 没有日期列，靠会话表过滤稍重；近 30 天量小，
-                // 这里先全量取，UI 只展示，不参与结算，避免过度查询
-                rows.takeLast(2000)
-            }
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-
-    /** 七类 + 未分类的组数 / 训练量，按固定顺序。 */
-    val muscleDistribution: StateFlow<List<com.qingji.app.domain.MuscleDistributionCalculator.Bucket>> =
-        kotlinx.coroutines.flow.combine(exerciseCategories, workoutMonth) { cats, rows ->
-            com.qingji.app.domain.MuscleDistributionCalculator.compute(cats, rows)
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     fun setRange(days: Int?) {
         _rangeDays.value = days

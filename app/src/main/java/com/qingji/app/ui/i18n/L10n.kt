@@ -335,21 +335,13 @@ private val EN: Map<String, String> = mapOf(
     "🏃" to "🏃",
     "🍽" to "🍽",
 
-    // ---------- 2026-11-18 v1.3.7：有氧编辑/日周月 + 肌群分布 + 模板UUID ----------
+    // ---------- 2026-11-18 v1.3.7：有氧编辑/日周月 + 模板UUID ----------
     "修改记录" to "Edit record",
     "近7天" to "7 days",
     "近30天" to "30 days",
     "今日运动消耗" to "Today's burn",
     "近7天运动消耗" to "7-day burn",
     "近30天运动消耗" to "30-day burn",
-    "肌群分布" to "Muscle distribution",
-    "按动作库主分类统计近 30 天训练，估算值仅供参考" to
-        "Last 30 days by primary muscle group (estimate)",
-    "还没有力量训练组记录。开始一次训练，这里就会显示各肌群的占比。" to
-        "No strength sets yet. Start a workout to see your muscle mix.",
-    "训练量 = 重量 × 次数；一个动作只算主分类，不重复计数。" to
-        "Volume = weight × reps; each exercise counts once, by primary group.",
-    "未分类" to "Uncategorized",
     "改" to "Edit",
 )
 

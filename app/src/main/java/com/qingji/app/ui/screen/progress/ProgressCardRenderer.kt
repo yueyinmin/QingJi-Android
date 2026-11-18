@@ -59,9 +59,7 @@ data class ProgressCardData(
     /** 三种日记卡的近 30 天数据（只读展示，不改表） */
     val sleepRecords: List<SleepRecordEntity> = emptyList(),
     val exerciseLogs: List<ExerciseLog> = emptyList(),
-    val foodLogs: List<FoodLog> = emptyList(),
-    /** v1.3.7：肌群分布桶（近 30 天力量训练，只读） */
-    val muscleBuckets: List<com.qingji.app.domain.MuscleDistributionCalculator.Bucket> = emptyList()
+    val foodLogs: List<FoodLog> = emptyList()
 )
 
 /** 卡片里的交互回调，同样集中管理，渲染分派本身保持纯展示。 */
@@ -207,9 +205,5 @@ fun ProgressCardRenderer(
                     fontWeight = FontWeight.SemiBold)
             }
         }
-
-        ProgressCardCatalog.MUSCLE_DISTRIBUTION -> MuscleDistributionCard(
-            buckets = data.muscleBuckets
-        )
     }
 }
