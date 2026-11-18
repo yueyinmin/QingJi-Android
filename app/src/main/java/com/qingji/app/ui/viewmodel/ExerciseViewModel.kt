@@ -4,7 +4,9 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.qingji.app.data.local.entity.ExerciseLog
+import com.qingji.app.data.repository.HealthRepository
 import com.qingji.app.data.repository.QingJiRepository
+import com.qingji.app.data.repository.TrainingRepository
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
@@ -22,6 +24,9 @@ import kotlinx.coroutines.launch
  */
 class ExerciseViewModel(app: Application) : AndroidViewModel(app) {
     private val repo = QingJiRepository(app)
+    /** 2026-11-18：「记一次 → 选择训练」用，训练场次列表 + 调整账本消耗 */
+    private val trainingRepo = TrainingRepository(app)
+    private val healthRepo = HealthRepository(app)
 
     /** 运动库（预置 30 条 + 用户新建的，DAO 已按收藏置顶、名称排序）。 */
     val presets: StateFlow<List<com.qingji.app.data.local.entity.ExercisePreset>> =
@@ -67,6 +72,32 @@ class ExerciseViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             repo.updateExercise(log)
             onDone()
+        }
+    }
+
+    // ---------- 2026-11-18：「记一次 → 选择训练」 ----------
+    /** 训练场次（近的在前），给选择页列出用户真正做过的训练。 */
+    val sessions: StateFlow<List<com.qingji.app.data.local.entity.WorkoutSession>> =
+        trainingRepo.observeSessions()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** 账本行（查某场训练当前已计入的消耗），UI 按 sourceId 匹配。 */
+    val ledger: StateFlow<List<com.qingji.app.data.local.entity.ExerciseSessionCalorieEntity>> =
+        healthRepo.observeAllLedger()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** 取某场训练当前已计入的消耗（选弹层回填当前值）。 */
+    suspend fun trainingCalorie(sessionUuid: String): Double? =
+        healthRepo.trainingCalorie(sessionUuid)
+
+    /**
+     * 调整某场训练的消耗：upsert 覆盖原账本行，不新建运动记录、不双计。
+     * @return 是否成功（false = 那场训练没有账本行，UI 如实提示）
+     */
+    fun adjustTrainingCalorie(sessionUuid: String, kcal: Double, onDone: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            val ok = healthRepo.adjustTrainingCalorie(sessionUuid, kcal)
+            onDone(ok)
         }
     }
 }
