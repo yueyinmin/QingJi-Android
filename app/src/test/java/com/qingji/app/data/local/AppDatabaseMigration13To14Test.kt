@@ -88,4 +88,26 @@ class AppDatabaseMigration13To14Test {
         }
         assertTrue("唯一索引没生效：同来源同外部ID不应重复插入", rejected)
     }
+
+    @Test
+    fun `14 到 15 迁移后 汇总缓存表建立`() {
+        // 直接复用已升到 14 的库（上一个用例跑完后的 db 不共享，这里重新开一个再升两次）
+        val db = openV13()
+        AppDatabase.MIGRATION_13_14.migrate(db)
+        AppDatabase.MIGRATION_14_15.migrate(db)
+
+        val found = db.query("SELECT name FROM sqlite_master WHERE type='table' AND name='daily_health_summary'")
+            .use { c -> c.moveToFirst() }
+        assertTrue("daily_health_summary 表未创建", found)
+
+        // 唯一索引：同一天再插一行必须被拒
+        db.execSQL("INSERT INTO daily_health_summary (date) VALUES ('2026-11-18')")
+        var rejected = false
+        try {
+            db.execSQL("INSERT INTO daily_health_summary (date) VALUES ('2026-11-18')")
+        } catch (e: Exception) {
+            rejected = true
+        }
+        assertTrue("唯一索引没生效", rejected)
+    }
 }

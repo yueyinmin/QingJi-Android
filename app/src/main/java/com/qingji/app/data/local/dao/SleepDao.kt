@@ -46,4 +46,18 @@ interface SleepDao {
 
     @Query("SELECT COUNT(*) FROM sleep_record")
     suspend fun count(): Int
+
+    /** 健康体系 V1.1：当日睡眠轻量聚合（归属日期 = 起床日期），供每日汇总共用。 */
+    @Query(
+        "SELECT COUNT(*) AS count, " +
+        "COALESCE(SUM(durationMinutes),0) AS minutesSum " +
+        "FROM sleep_record WHERE date = :date"
+    )
+    suspend fun dayAggregate(date: String): SleepDayAgg?
 }
+
+/** 每日汇总：睡眠当日聚合（健康体系 V1.1）。 */
+data class SleepDayAgg(
+    val count: Int,
+    val minutesSum: Int
+)

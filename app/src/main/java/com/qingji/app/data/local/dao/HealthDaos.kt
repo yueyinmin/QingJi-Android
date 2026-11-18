@@ -68,6 +68,14 @@ interface ExerciseSessionCalorieDao {
     @Query("SELECT sourceId FROM exercise_session_calorie WHERE sourceType = :sourceType")
     suspend fun findSourceIds(sourceType: String): List<String>
 
+    /** 健康体系 V1.1：当日消耗账本按来源聚合（每来源条数+毛热量和），供每日汇总共用。 */
+    @Query(
+        "SELECT sourceType AS sourceType, COUNT(*) AS count, " +
+        "COALESCE(SUM(caloriesGross),0.0) AS kcalSum " +
+        "FROM exercise_session_calorie WHERE date = :date GROUP BY sourceType"
+    )
+    suspend fun dayAggregate(date: String): List<LedgerDayAgg>
+
     @Query("SELECT * FROM exercise_session_calorie ORDER BY date ASC")
     suspend fun findAll(): List<ExerciseSessionCalorieEntity>
 
@@ -116,3 +124,10 @@ interface ExerciseSessionCalorieDao {
     )
     suspend fun deleteOrphanStrengthRows()
 }
+
+/** 每日汇总：消耗账本按来源当日聚合（健康体系 V1.1）。 */
+data class LedgerDayAgg(
+    val sourceType: String,
+    val count: Int,
+    val kcalSum: Double
+)
