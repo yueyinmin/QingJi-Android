@@ -654,7 +654,9 @@ fun QingJiAppRoot(
                                     popUpTo(QingJiRoutes.ExercisePicker) { inclusive = false }
                                     launchSingleTop = true
                                 }
-                            }
+                            },
+                            // 2026-11-18：记力量 → 跳训练中心的开始训练页
+                            onOpenStrengthTraining = { navController.navigate(QingJiRoutes.TrainingActive) }
                         )
                     }
                     composable(
@@ -684,7 +686,8 @@ fun QingJiAppRoot(
                             vm = trainingVm,
                             onBack = { navController.popBackStack() },
                             onStartTraining = { navController.navigate(QingJiRoutes.TrainingActive) },
-                            onEditSession = { navController.navigate(QingJiRoutes.TrainingActive) }
+                            onEditSession = { navController.navigate(QingJiRoutes.TrainingActive) },
+                            onBackfill = { navController.navigate(QingJiRoutes.TrainingActive) }
                         )
                     }
                     // ---------- 训练中心 P1 ----------

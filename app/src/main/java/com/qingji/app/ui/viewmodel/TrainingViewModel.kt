@@ -148,6 +148,38 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
         )
     }
 
+    /**
+     * 2026-11-18：补记一次力量训练（从「训练记录」页进来）。
+     * 计时器对过去没意义，所以补记稿直接带指定时长（默认 60 分钟，可改）
+     * 和补记日期（默认今天，可在进行中页点日期改过去任何一天）。
+     */
+    fun startBackfill() {
+        if (_draft.value != null) return
+        val t = System.currentTimeMillis()
+        persist(
+            WorkoutDraft(
+                sessionUuid = UUID.randomUUID().toString(),
+                startedAt = t,
+                pausedAt = t,               // 补记不跑计时
+                pausedMs = 0L,
+                durationOverrideMin = 60,
+                backfillDate = AppClock.today().toString()
+            )
+        )
+    }
+
+    /** 手动指定训练时长（分钟）；0 = 恢复按计时算。 */
+    fun setDurationOverride(min: Int) {
+        val d = _draft.value ?: return
+        persist(d.copy(durationOverrideMin = min.coerceIn(0, 600)))
+    }
+
+    /** 补记模式下改这场训练算哪一天的。 */
+    fun setBackfillDate(date: LocalDate) {
+        val d = _draft.value ?: return
+        persist(d.copy(backfillDate = date.toString()))
+    }
+
     /** 当天已保存的会话可以继续改明细；时间与时长保留原值。 */
     fun editSession(uuid: String, onLoaded: () -> Unit = {}) {
         viewModelScope.launch {
@@ -318,30 +350,49 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
 
-        val t = System.currentTimeMillis()
         val editing = d.editingUuid.isNotEmpty()
+        // 2026-11-18：指定时长优先（补记必须有；正常练点了「改时长」也按它算）
+        val overrideMin = d.durationOverrideMin
+        val backfillDate = runCatching { LocalDate.parse(d.backfillDate) }.getOrNull()
         val session = if (editing) {
             WorkoutSession(
                 uuid = d.sessionUuid,
                 date = runCatching { LocalDate.parse(d.originalDate) }.getOrDefault(AppClock.today()),
                 startedAt = d.fixedStartedAt,
                 endedAt = d.fixedEndedAt,
-                durationMinutes = d.fixedDurationMinutes,
+                durationMinutes = overrideMin.takeIf { it > 0 } ?: d.fixedDurationMinutes,
                 note = d.note,
                 source = "manual",
                 createdAt = d.fixedCreatedAt
             )
+        } else if (backfillDate != null && overrideMin > 0) {
+            // 补记：日期用选的那天，时长用手填的分钟数
+            WorkoutSession(
+                uuid = d.sessionUuid,
+                date = backfillDate,
+                startedAt = backfillDate.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli(),
+                endedAt = backfillDate.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli() +
+                    overrideMin * 60_000L,
+                durationMinutes = overrideMin,
+                note = d.note,
+                source = "manual",
+                createdAt = System.currentTimeMillis()
+            )
         } else {
-            val seconds = d.elapsedSeconds(t)
+            val seconds = d.elapsedSeconds(System.currentTimeMillis())
+            val durationMin = overrideMin.takeIf { it > 0 }
+                ?: ((seconds + 59L) / 60L).toInt().coerceAtLeast(1)
+            val endedAt = if (overrideMin > 0) d.startedAt + overrideMin * 60_000L
+                else System.currentTimeMillis()
             WorkoutSession(
                 uuid = d.sessionUuid,
                 date = AppClock.today(),
                 startedAt = d.startedAt,
-                endedAt = t,
-                durationMinutes = ((seconds + 59L) / 60L).toInt().coerceAtLeast(1),
+                endedAt = endedAt,
+                durationMinutes = durationMin,
                 note = d.note,
                 source = "manual",
-                createdAt = t
+                createdAt = System.currentTimeMillis()
             )
         }
 
