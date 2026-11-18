@@ -142,22 +142,34 @@ internal fun TodaySummaryCard(
     // 右侧高水杯上挂的完成度百分比
     val waterPercent = (state.waterMl * 100 / goalWater.coerceAtLeast(1)).coerceIn(0, 100)
 
+    // 2026-11-18 参考新版式：只重排左侧「今日剩余 + 营养素」的内容，
+    // 右侧贯穿的高水杯原样保留（主人明确：别去掉水杯，只改今日剩余那块）。
+    // 左侧顺序：标题行 → 大数字 → 运动消耗橙字 → 进度条 → 已吃/缺口 → 营养素。
     SectionCard {
         Row(
             modifier = Modifier.fillMaxWidth(),
             // 右侧水杯跟卡片上下居中，不要贴着顶边或底边
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 左栏：热量 / 营养素 / 断食条；右栏：一根贯穿卡片的高水杯
+            // 左栏：热量 / 营养素；右栏：一根贯穿卡片的高水杯
             Column(modifier = Modifier.weight(1f)) {
+        // ---------- 标题行：今日剩余 ›  |  减脂胶囊 ----------
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = s("今日剩余"), fontSize = 14.sp, color = TextSecondary)
-            Spacer(Modifier.weight(1f))
-            // v1.0.7：目标状态从顶栏挪进来，和「今日剩余」同一行、水杯上方
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = s("今日剩余"),
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextPrimary
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(text = "›", fontSize = 16.sp, color = TextSecondary)
+            }
+            // v1.0.7：目标状态（减脂/增肌/保持）胶囊，和标题同一行
             Text(
                 text = when (goalMode) {
                     "gain" -> s("增肌")
@@ -175,7 +187,7 @@ internal fun TodaySummaryCard(
             )
         }
 
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(8.dp))
 
         // 数字变化时上下滚动一下：吃完记一笔，能明显看到剩余额度往下掉
         com.qingji.app.ui.components.AnimatedNumber(
@@ -187,6 +199,22 @@ internal fun TodaySummaryCard(
             color = if (remainingKcal < 0) DangerRed else TextPrimary,
             suffix = " 千卡"
         )
+
+        // 运动消耗橙色小字（参考图样式）：有运动记录才出现，
+        // 补偿开着说明加成了多少额度，关着提示「未计补偿」，不再藏在小字里
+        if (state.exerciseKcal > 0.0) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = if (exerciseBonus > 0) {
+                    "运动消耗 ${state.exerciseKcal.toInt()} · 补偿 +$exerciseBonus"
+                } else {
+                    "运动消耗 ${state.exerciseKcal.toInt()} · 未计补偿"
+                },
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = WarnOrange
+            )
+        }
 
         Spacer(Modifier.height(10.dp))
 
@@ -210,22 +238,18 @@ internal fun TodaySummaryCard(
             }
         }
         Spacer(Modifier.height(8.dp))
-        // 主数字已含运动补偿；这里的小字改成「纯饮食剩余」对照，
-        // 让主人看清多出来的额度是运动挣的（主数字 − 小字 = 运动加成）。
-        // 开关关闭时两者相等，运动加成显示 0，符合「关了不加额度」的规矩。
+        // 左边「已吃/预算」；右边「预期缺口」= 纯饮食剩余（不含运动补偿），
+        // 吃超了变红字「反超 N 千卡」。主数字含补偿、缺口不含，两处对照着看。
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // 参考图用「已吃/预算」的分数形式，比「已吃 xx 千卡」更省地方
             Text(text = "$eatenKcal/$goalKcal", fontSize = 12.sp, color = TextSecondary)
             Text(
-                text = if (exerciseBonus > 0) {
-                    "纯饮食剩 $remainingFoodOnly · 运动 +$exerciseBonus"
-                } else if (remainingFoodOnly >= 0) {
-                    "预计缺口 $remainingFoodOnly 千卡"
+                text = if (remainingFoodOnly >= 0) {
+                    "预期缺口：$remainingFoodOnly"
                 } else {
-                    "反超 ${-remainingFoodOnly} 千卡"
+                    "反超 ${-remainingFoodOnly}"
                 },
                 fontSize = 12.sp,
                 color = if (remainingFoodOnly >= 0) TextSecondary else DangerRed
@@ -233,11 +257,23 @@ internal fun TodaySummaryCard(
         }
 
         Spacer(Modifier.height(14.dp))
-        // 灰线隔开「预计热量缺口」和「营养素」，但不分成两块卡片
+        // 灰线隔开热量区和「营养素」，但不分成两块卡片
         androidx.compose.material3.HorizontalDivider(color = DividerColor)
         Spacer(Modifier.height(14.dp))
 
-        Text(text = s("营养素 (g)"), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = s("营养素 (g)"),
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TextPrimary
+            )
+            Spacer(Modifier.width(4.dp))
+            Text(text = "›", fontSize = 16.sp, color = TextSecondary)
+        }
         Spacer(Modifier.height(10.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             NutrientColumn(
@@ -263,13 +299,9 @@ internal fun TodaySummaryCard(
             )
         }
 
-        // 饮水不再单独占一块 + 四颗快捷按钮：进度收进右侧的高水杯，
-        // 加水操作收进「快速记录喝水」弹层（点杯子打开），卡片更接近参考样式。
-
-
             } // 左栏 Column 结束
 
-            // 右栏：一根贯穿整张卡的高水杯，中间挂完成度胶囊，下面写「已喝/目标」
+            // 右栏：一根贯穿整张卡的高水杯，下面写「已喝/目标」（原样保留）
             if (showWater) {
                 Spacer(Modifier.width(12.dp))
                 Column(
@@ -293,10 +325,6 @@ internal fun TodaySummaryCard(
                             bubbleTint = MultiColor.WaterSurface.copy(alpha = 0.9f),
                             // v1.5：杯内容量数字整个去掉（主人不要杯内计量数字）
                         )
-                        // v1.0.10：水杯上叠的那个白色圆按钮去掉了。
-                        // 它只是个可拖拽的完成度胶囊（纯视觉、不改水量），
-                        // 在杯身上凭空多一个白圆，主人反馈「不正常」。
-                        // 完成度改到杯子下方的文字里，一眼能看懂，杯身保持干净。
                     }
                     Spacer(Modifier.height(6.dp))
                     // 紧凑写法，窄屏也不会被截成「3200 /」；顺带带上完成度
@@ -399,30 +427,33 @@ internal fun TodaySummaryCard(
 }
 
 
-/** 营养素一列：名称、进度、目标。 */
+/**
+ * 营养素一列（2026-11-18 参考新版式）：名称 → 大数字（目标额度）→ 进度条 → 已吃/目标。
+ * 大数字恒显目标，动的是小字和进度条；吃超目标时大数字标红提醒。
+ * 档案没算过目标（=0）时兜底显示已吃，避免一列全是 0。
+ */
 @Composable
 internal fun NutrientColumn(
     name: String,
     current: Int,
     goal: Int,
-    /** 进度条下面那颗小圆点，用跟主题走的三大营养素色 */
+    /** 进度条用跟主题走的三大营养素色 */
     dotColor: Color,
     modifier: Modifier = Modifier
 ) {
-    val percent = if (goal == 0) 0 else current * 100 / goal
+    val fraction = if (goal == 0) 0f else (current.toFloat() / goal).coerceIn(0f, 1f)
+    val overGoal = goal > 0 && current > goal
     Column(modifier = modifier) {
         Text(text = name, fontSize = 12.sp, color = TextSecondary)
         Spacer(Modifier.height(4.dp))
         Text(
-            text = "$current/$goal",
-            fontSize = 15.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = TextPrimary
+            text = (if (goal > 0) goal else current).toString(),
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = if (overGoal) DangerRed else TextPrimary
         )
         Spacer(Modifier.height(6.dp))
-        // v6：进度条按本列标注色（小圆点同款）做「浅 → 深」横向渐变，
-        // 不再是统一的主题绿；轨道照旧 DividerColor，超 100% 夹紧到满条。
-        val fraction = if (goal == 0) 0f else (current.toFloat() / goal).coerceIn(0f, 1f)
+        // 进度条按本列标注色做「浅 → 深」横向渐变；轨道照旧 DividerColor，超 100% 夹紧到满条
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -442,18 +473,13 @@ internal fun NutrientColumn(
                     )
             )
         }
-        // 参考图里每列下面还有百分比 + 一颗彩色小点
+        // 小字是真正在动的数：已吃/目标
         Spacer(Modifier.height(5.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(5.dp)
-                    .clip(CircleShape)
-                    .background(dotColor)
-            )
-            Spacer(Modifier.width(4.dp))
-            Text(text = "$percent%", fontSize = 10.sp, color = TextSecondary)
-        }
+        Text(
+            text = "$current/$goal",
+            fontSize = 11.sp,
+            color = if (overGoal) DangerRed else TextSecondary
+        )
     }
 }
 
