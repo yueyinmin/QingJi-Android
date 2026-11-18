@@ -492,7 +492,9 @@ fun WorkoutTimerBar(
     /** 非空 = 补记模式，显示补记日期，不显示计时。 */
     backfillDate: String = "",
     /** 补记模式下点日期行弹日期滚轮。 */
-    onDateClick: () -> Unit = {}
+    onDateClick: () -> Unit = {},
+    /** 编辑旧记录时的原始时长（分钟），大数字直接显示它而不是 misleading 的计时。 */
+    editingDurationMin: Int = 0
 ) {
     SectionCard(modifier = modifier, contentPadding = Dimens.CardPaddingCompact) {
         if (backfillDate.isNotBlank()) {
@@ -506,7 +508,7 @@ fun WorkoutTimerBar(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("补记日期（点这里改）", fontSize = TextSizes.Caption, color = TextSecondary)
+                    Text("补记日期", fontSize = TextSizes.Caption, color = TextSecondary)
                     Text(dateText, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
                 }
                 Text("改日期", fontSize = TextSizes.Body, color = QingJiGreen)
@@ -517,7 +519,7 @@ fun WorkoutTimerBar(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("训练时长（点这里改）", fontSize = TextSizes.Caption, color = TextSecondary)
+                    Text("训练时长", fontSize = TextSizes.Caption, color = TextSecondary)
                     Text("${durationOverrideMin.coerceAtLeast(1)} 分钟",
                         fontSize = 20.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
                 }
@@ -529,14 +531,16 @@ fun WorkoutTimerBar(
                     modifier = Modifier.weight(1f).clickable { onDurationClick() },
                     verticalArrangement = Arrangement.Center
                 ) {
-                    Text(if (editing) "修改这次训练" else "本次训练时长",
+                    Text(if (editing) "修改这次训练 · 时长" else "本次训练时长",
                         fontSize = TextSizes.Caption, color = TextSecondary)
+                    // 大数字只放纯时长，不再缀「点这里可改」小尾巴；
+                    // 入口是右边的绿字「改时长」，整个大数字区域照样能点。
                     Text(
-                        // 指定了时长就按指定的显示，并标出来；没指定照旧走计时
-                        text = if (durationOverrideMin > 0) {
-                            "${durationOverrideMin} 分钟（已手动指定）"
-                        } else if (editing) "时长保持原样 · 点这里可改"
-                        else TrainingMath.formatDuration(elapsedSeconds) + " · 点这里可改",
+                        text = when {
+                            durationOverrideMin > 0 -> "${durationOverrideMin} 分钟"
+                            editing && editingDurationMin > 0 -> "${editingDurationMin} 分钟"
+                            else -> TrainingMath.formatDuration(elapsedSeconds)
+                        },
                         fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TextPrimary
                     )
                 }

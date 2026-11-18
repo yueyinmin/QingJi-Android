@@ -159,7 +159,8 @@ fun TrainingActiveScreen(
                     onDurationClick = { showDurationWheel = true },
                     onResetDuration = { vm.setDurationOverride(0) },
                     backfillDate = d.backfillDate,
-                    onDateClick = { showDateWheel = true }
+                    onDateClick = { showDateWheel = true },
+                    editingDurationMin = d.fixedDurationMinutes
                 )
                 // v1.4 健康体系：组间休息倒计时条（勾选「完成此组」自动开始）
                 if (restTimer.totalMs > 0L) {
