@@ -60,6 +60,8 @@ class QingJiRepository(private val context: Context) {
 
     private val catalogDao = catalog.catalogDao()
     private val omniDao = catalog.omniFoodDao()
+    private val brandDao = catalog.brandCatalogDao()
+    private val takeawayDao = catalog.takeawayDao()
     private val userFoodDao = db.userFoodDao()
     private val favoriteDao = db.foodFavoriteDao()
 
@@ -324,6 +326,54 @@ class QingJiRepository(private val context: Context) {
     /** 可订阅的总条数（标准库 + 用户自建），搜索页靠它区分「载入中 / 空 / 没搜到」。 */
     fun observeFoodCount(): Flow<Int> =
         combine(catalogDao.observeCount(), userFoodDao.observeCount()) { a, b -> a + b }
+
+    // ==================== 品牌食物库（第六阶段 UI）====================
+    // 用户拍板：外卖快餐 → 选品牌 → 用堂食菜当菜单（301 条真实老乡鸡菜，
+    // 标注「堂食·溯源报告2.0」，可搜可收藏可看溯源）。外卖商品 8 张表全空，
+    // 空态如实提示，绝不把堂食菜复制成外卖商品（红线 3/15）。
+
+    /** 已启用品牌列表（数据库动态驱动，UI 不写死；换品牌只换菜单）。 */
+    fun observeBrands(): Flow<List<com.qingji.app.data.local.entity.BrandEntity>> =
+        brandDao.observeBrands()
+
+    /** 某品牌堂食菜菜单（source_id = brandId）。收藏状态按名字绑定现有机制，不动用户数据。 */
+    fun observeBrandMenu(brandId: String): Flow<List<com.qingji.app.data.local.entity.Food>> =
+        combine(
+            catalogDao.observeByBrand(brandId),
+            favoriteDao.observeAll()
+        ) { dishes, favs ->
+            val names = favs.map { it.name }.toSet()
+            dishes.map { it.toFood(favorite = it.name in names) }
+        }
+
+    /** 某品牌实际有菜的分类（无菜分类不展示）。 */
+    suspend fun brandCategories(brandId: String): List<String> = catalogDao.categoriesForBrand(brandId)
+
+    /** 品牌维度搜索：只搜当前品牌的堂食菜，中文/别名/拼音都能搜。 */
+    suspend fun searchBrandMenu(brandId: String, keyword: String): List<com.qingji.app.data.local.entity.Food> {
+        val key = keyword.trim()
+        val favs = favoriteDao.allNames().toSet()
+        val rows = if (key.isEmpty()) {
+            catalogDao.byBrandAndCategory(brandId, "").take(100)
+        } else {
+            catalogDao.searchByBrand(brandId, key.lowercase())
+        }
+        return rows.map { it.toFood(favorite = it.name in favs) }
+    }
+
+    /** 一道堂食菜的溯源聚合；没查到 trace 返回 null，界面显示「暂无公开资料」。 */
+    suspend fun brandDishDetail(food: com.qingji.app.data.local.entity.Food): com.qingji.app.domain.BrandDishDetail? {
+        if (food.sourceId.isBlank()) return null
+        val trace = brandDao.traceForDish(food.id.toString()) ?: return null
+        return com.qingji.app.domain.BrandDishDetail(
+            trace = trace,
+            ingredients = brandDao.ingredientsForDish(food.id.toString()),
+            processing = brandDao.processingForDish(food.id.toString())
+        )
+    }
+
+    /** 外卖商品是否有真实数据（首期恒为 0 → UI 显示空态，不造假）。 */
+    suspend fun takeawayProductCount(): Int = takeawayDao.productCount()
 
     /**
      * v1.0.4 起标准食物库随 APK 预置在 assets 里，Room 首次打开时自动拷出来，

@@ -6,6 +6,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.qingji.app.data.local.dao.FoodCatalogDao
 import com.qingji.app.data.local.dao.OmniFoodCatalogDao
+import com.qingji.app.data.local.dao.TakeawayCatalogDao
 import com.qingji.app.data.local.entity.BrandDishIngredientEntity
 import com.qingji.app.data.local.entity.BrandDishProcessingEntity
 import com.qingji.app.data.local.entity.BrandDishTraceEntity
@@ -17,6 +18,14 @@ import com.qingji.app.data.local.entity.FoodQualityIssue
 import com.qingji.app.data.local.entity.NutritionSample
 import com.qingji.app.data.local.entity.OmniFoodEntity
 import com.qingji.app.data.local.entity.OmniFoodNutrition
+import com.qingji.app.data.local.entity.TakeawayComboEntity
+import com.qingji.app.data.local.entity.TakeawayComboItemEntity
+import com.qingji.app.data.local.entity.TakeawayDataSourceEntity
+import com.qingji.app.data.local.entity.TakeawayNutritionEntity
+import com.qingji.app.data.local.entity.TakeawayPlatformEntity
+import com.qingji.app.data.local.entity.TakeawayProductEntity
+import com.qingji.app.data.local.entity.TakeawayStoreScopeEntity
+import com.qingji.app.data.local.entity.TakeawayVariantEntity
 
 /**
  * ============================================================
@@ -44,9 +53,18 @@ import com.qingji.app.data.local.entity.OmniFoodNutrition
         BrandEntity::class,
         BrandDishTraceEntity::class,
         BrandDishIngredientEntity::class,
-        BrandDishProcessingEntity::class
+        BrandDishProcessingEntity::class,
+        // 第六阶段 外卖快餐独立体系（Room v5）：8 张空表，无真实商品不造假
+        TakeawayProductEntity::class,
+        TakeawayVariantEntity::class,
+        TakeawayComboEntity::class,
+        TakeawayComboItemEntity::class,
+        TakeawayNutritionEntity::class,
+        TakeawayPlatformEntity::class,
+        TakeawayStoreScopeEntity::class,
+        TakeawayDataSourceEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = true
 )
 abstract class FoodCatalogDatabase : RoomDatabase() {
@@ -54,6 +72,7 @@ abstract class FoodCatalogDatabase : RoomDatabase() {
     abstract fun catalogDao(): FoodCatalogDao
     abstract fun omniFoodDao(): OmniFoodCatalogDao
     abstract fun brandCatalogDao(): com.qingji.app.data.local.dao.BrandCatalogDao
+    abstract fun takeawayDao(): TakeawayCatalogDao
 
     companion object {
         /**
@@ -75,8 +94,12 @@ abstract class FoodCatalogDatabase : RoomDatabase() {
          *   堂食菜品 280 条进 food_catalog 主表（source_id='laoxiangji'，audit_status=0），
          *   溯源数据来自《老乡鸡菜品溯源报告 2.0》（每条带报告页码）。
          *   预置库由 laoxiangji_import.py 按 Room schema 4.json 重建，绝不手写建表 SQL。
+         * 0.6 → 0.7（外卖体系 · Room v4→v5）：新增外卖 8 张独立表
+         *   （takeaway_product / variant / combo / combo_item / nutrition / platform /
+         *   store_scope / data_source），结构先行、数据为空（红线 15：无真实商品不造假）。
+         *   堂食菜不复制成外卖商品，只留 linkedFoodId 逻辑关联。旧 11 表数据全量搬运。
          */
-        const val CATALOG_VERSION = "0.6-laoxiangji"
+        const val CATALOG_VERSION = "0.7-laoxiangji-takeaway"
         private const val DB_NAME = "food_catalog.db"
         private const val ASSET_PATH = "database/food_catalog.db"
         private const val PREFS_NAME = "qingji_catalog_meta"

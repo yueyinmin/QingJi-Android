@@ -11,8 +11,10 @@ import com.qingji.app.data.repository.QingJiRepository
 import com.qingji.app.domain.AppClock
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
 /**
@@ -51,6 +53,40 @@ class FoodLibraryViewModel(app: Application) : AndroidViewModel(app) {
                 .sortedByDescending { it.lastDate }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    // ==================== 品牌食物库（外卖快餐分支）====================
+    /** 已启用品牌，数据库动态驱动；空 = 没有品牌（首期老乡鸡 1 个）。 */
+    val brands: StateFlow<List<com.qingji.app.data.local.entity.BrandEntity>> =
+        repo.observeBrands()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** 当前选中的品牌 ID；切换只换菜单，不动收藏和历史。 */
+    private val _selectedBrandId = MutableStateFlow("")
+    val selectedBrandId: StateFlow<String> = _selectedBrandId
+
+    /** 当前品牌菜单（堂食菜当菜单）。品牌变了自动换数据。 */
+    val brandMenu: StateFlow<List<com.qingji.app.data.local.entity.Food>> =
+        _selectedBrandId.flatMapLatest { id ->
+            if (id.isBlank()) kotlinx.coroutines.flow.flowOf(emptyList())
+            else repo.observeBrandMenu(id)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    fun selectBrand(brandId: String) {
+        _selectedBrandId.value = brandId
+    }
+
+    /** 打开外卖快餐时，默认选首个品牌（页面只负责调用，不写死品牌名）。 */
+    fun ensureBrandSelected() {
+        if (_selectedBrandId.value.isBlank() && brands.value.isNotEmpty()) {
+            _selectedBrandId.value = brands.value.first().brandId
+        }
+    }
+
+    suspend fun brandCategories(): List<String> =
+        repo.brandCategories(_selectedBrandId.value)
+
+    suspend fun brandDishDetail(food: com.qingji.app.data.local.entity.Food) =
+        repo.brandDishDetail(food)
 
     fun toggleFavorite(food: com.qingji.app.data.local.entity.Food) {
         viewModelScope.launch { repo.setFoodFavorite(food.id, !food.favorite) }

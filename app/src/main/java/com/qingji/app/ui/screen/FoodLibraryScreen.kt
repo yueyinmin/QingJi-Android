@@ -265,43 +265,15 @@ fun FoodLibraryScreen(
                         }
                     }
                 } else {
-                    // 外卖快餐：按品牌分组
-                    val fastFoods = allFoods.filter {
-                        it.category == FoodCategory.FAST_FOOD && matchesFood(it)
-                    }
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f)
-                            .verticalScroll(rememberScrollState())
-                            .padding(horizontal = Dimens.ScreenPadding)
-                    ) {
-                        if (fastFoods.isEmpty()) {
-                            HintBox(text = "外卖快餐暂时还没有数据")
-                        } else {
-                            // v3.4.0：清单品牌列全部留空，外卖快餐改按一级分类分流，
-                            // 不再靠 brand 是否为空判断，也不再按品牌分组（F4）
-                            Text(
-                                text = s("外卖 / 连锁常见份量"),
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = TextPrimary,
-                                modifier = Modifier.padding(vertical = 8.dp)
-                            )
-                            fastFoods.forEach { food ->
-                                LibraryFoodRow(
-                                    name = food.name,
-                                    kcalPer100g = food.kcalPer100g,
-                                    favorite = food.favorite,
-                                    risky = AllergenRules.isRisky(food.name, allergens),
-                                    onFavorite = { vm.toggleFavorite(food) },
-                                    onClick = { pick = food }
-                                )
-                            }
-                            Spacer(Modifier.height(6.dp))
-                        }
-                        Spacer(Modifier.height(80.dp))
-                    }
+                    // 外卖快餐（第六阶段）：品牌选择 → 品牌菜单 → 溯源详情。
+                    // 品牌由数据库动态驱动；堂食菜当菜单；外卖商品空态如实提示。
+                    // 家庭厨房分支、底栏、收藏、记录链路都不动。
+                    BrandMenuScreen(
+                        vm = vm,
+                        allergens = allergens,
+                        query = query,
+                        onPick = { food -> pick = food }
+                    )
                 }
             }
 
