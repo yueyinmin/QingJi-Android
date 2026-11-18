@@ -83,6 +83,17 @@ fun TrainingDiaryContent(
     var detailUuid by remember { mutableStateOf<String?>(null) }
     var pendingDelete by remember { mutableStateOf<String?>(null) }
 
+    // ---------- 健康体系 V1.1（工单 10.4）：月历选日期 → 每日健康汇总 ----------
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val healthRepo = remember(context) {
+        com.qingji.app.data.repository.DailyHealthRepository(context)
+    }
+    var selectedDate by remember { mutableStateOf(java.time.LocalDate.now()) }
+    var daySummary by remember { mutableStateOf<com.qingji.app.data.local.entity.DailyHealthSummaryEntity?>(null) }
+    LaunchedEffect(selectedDate) {
+        daySummary = healthRepo.summaryFor(selectedDate)
+    }
+
     val bySession = remember(allExercises) { allExercises.groupBy { it.sessionUuid } }
     val trainingDates = remember(sessions) { sessions.map { it.date }.toSet() }
     val monthSessions = sessions.filter { YearMonth.from(it.date) == month }
@@ -141,7 +152,14 @@ fun TrainingDiaryContent(
                 month = month,
                 trainingDates = trainingDates,
                 onPrevMonth = { onMonthChange(month.minusMonths(1)) },
-                onNextMonth = { onMonthChange(month.plusMonths(1)) }
+                onNextMonth = { onMonthChange(month.plusMonths(1)) },
+                onSelectDate = { selectedDate = it }
+            )
+            Spacer(Modifier.height(12.dp))
+
+            // ---------- 每日健康汇总（健康体系 V1.1，工单 10.4：选日期看当天全部模块） ----------
+            DailyHealthSummaryCard(
+                summary = daySummary?.takeIf { it.date == selectedDate }
             )
             Spacer(Modifier.height(12.dp))
 

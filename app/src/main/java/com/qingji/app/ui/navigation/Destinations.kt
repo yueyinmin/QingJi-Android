@@ -73,6 +73,9 @@ object QingJiRoutes {
     const val TrainingPlan = "training_plan"
     const val PersonalBest = "personal_best"
 
+    // ---------- 健康体系 V1.1：睡眠（工单 9，记一笔直达） ----------
+    const val Sleep = "sleep"
+
     // ---------- 自律管理模块（P0，SD-001） ----------
     /** 模块首页 Dashboard。 */
     const val SelfDiscipline = "self_discipline"
@@ -103,6 +106,7 @@ object QingJiRoutes {
         Fasting, FoodPreference, FoodLibrary, WidgetSettings, ExercisePicker, ExerciseConfirm,
         TrainingActive, TrainingHistory,
         ExerciseLibrary, ExerciseFavorites, ExerciseDetail, TrainingPlan, PersonalBest,
+        Sleep,
         SelfDiscipline, SelfDisciplineGoals, SelfDisciplineGoalEdit, SelfDisciplineCheckin,
         SelfDisciplineUrge, SelfDisciplineDeviation, SelfDisciplineHistory, SelfDisciplineSettings
     )

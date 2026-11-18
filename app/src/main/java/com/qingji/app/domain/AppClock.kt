@@ -36,4 +36,12 @@ object AppClock {
             ZoneId.systemDefault()
         }
     }
+
+    /**
+     * 健康体系 V1.1：把 epoch 毫秒按当前时区换算成日历日。
+     * 睡眠归属日期（工单 9.4：按起床日期归属）用它——
+     * 必须走统一时区，不能用系统默认，否则统计口径不一致。
+     */
+    fun ofEpochMillisToLocalDate(epochMillis: Long): LocalDate =
+        java.time.Instant.ofEpochMilli(epochMillis).atZone(zone).toLocalDate()
 }

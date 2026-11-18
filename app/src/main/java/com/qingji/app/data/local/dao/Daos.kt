@@ -159,8 +159,22 @@ interface FoodLogDao {
     @Query("SELECT COUNT(*) FROM food_log WHERE date = :date")
     suspend fun countOn(date: LocalDate): Int
 
+
     @Query("DELETE FROM food_log")
     suspend fun clearAll()
+
+    /**
+     * 健康体系 V1.1：当日饮食轻量聚合（一条 SQL，供每日汇总的值+签名共用）。
+     */
+    @Query(
+        "SELECT COUNT(*) AS count, " +
+        "COALESCE(SUM(kcal),0.0) AS kcalSum, " +
+        "COALESCE(SUM(proteinG),0.0) AS proteinSum, " +
+        "COALESCE(SUM(carbG),0.0) AS carbSum, " +
+        "COALESCE(SUM(fatG),0.0) AS fatSum " +
+        "FROM food_log WHERE date = :date"
+    )
+    suspend fun dayAggregate(date: LocalDate): FoodDayAgg?
 }
 
 /** 饮水记录。 */
@@ -401,3 +415,12 @@ interface ExercisePresetDao {
     @Query("DELETE FROM exercise_preset WHERE category = :category")
     suspend fun deleteByCategory(category: String)
 }
+
+/** 每日汇总：饮食当日聚合（健康体系 V1.1）。 */
+data class FoodDayAgg(
+    val count: Int,
+    val kcalSum: Double,
+    val proteinSum: Double,
+    val carbSum: Double,
+    val fatSum: Double
+)

@@ -244,14 +244,22 @@ fun FoodLibraryScreen(
                             Spacer(Modifier.height(60.dp))
                         }
 
-                        Column(
+                        // v1.4 性能专项（工单 11）：Column 全量组合 → LazyColumn 只组合可见行。
+                        // 家常菜 190 条、全库 1121 条时，旧写法每次进分类都要把整个列表
+                        // 的组件全部建出来，来回切换明显卡顿；LazyColumn 视口外不组合。
+                        val filtered = homeFoods.filter { it.category == category }
+                        androidx.compose.foundation.lazy.LazyColumn(
                             modifier = Modifier
                                 .weight(1f)
-                                .verticalScroll(rememberScrollState())
                                 .padding(horizontal = 10.dp)
                         ) {
-                            Spacer(Modifier.height(4.dp))
-                            homeFoods.filter { it.category == category }.forEach { food ->
+                            item { Spacer(Modifier.height(4.dp)) }
+                            items(
+                                count = filtered.size,
+                                key = { i -> filtered[i].id },
+                                contentType = { "food_row" }
+                            ) { i ->
+                                val food = filtered[i]
                                 LibraryFoodRow(
                                     name = food.name,
                                     kcalPer100g = food.kcalPer100g,
@@ -261,7 +269,7 @@ fun FoodLibraryScreen(
                                     onClick = { pick = food }
                                 )
                             }
-                            Spacer(Modifier.height(80.dp))
+                            item { Spacer(Modifier.height(80.dp)) }
                         }
                     }
                 } else {

@@ -364,10 +364,22 @@ fun DietHeatmapCard(
     SectionCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = "饮食 30 天",
+                text = "饮食 · 近 30 天",
                 fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = TextPrimary
+            )
+            Spacer(Modifier.width(6.dp))
+            // v1.4（工单 8.2）：明确标识这是「连续 30 天滚动窗口」，不是自然月历——
+            // 两种视图不得混用同一标题造成误解。
+            Text(
+                text = "连续 30 天滚动视图",
+                fontSize = 10.sp,
+                color = TextSecondary,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(DividerColor.copy(alpha = 0.5f))
+                    .padding(horizontal = 6.dp, vertical = 2.dp)
             )
         }
 
@@ -375,7 +387,10 @@ fun DietHeatmapCard(
 
         val cells = DiaryRules.cells(today, 30)
         val leading = cells.first().dayOfWeek.value - 1
-        val grid: List<LocalDate?> = List(leading) { null } + cells
+        // v1.4：尾部也补齐到 7 的倍数。否则最后一行格子数不满 7 时，
+        // weight(1f) 会把这几个格子拉宽，跟上面的行对不齐（工单 8.2 排列真实性问题）。
+        val grid: List<LocalDate?> =
+            List(leading) { null } + cells + List((7 - (leading + cells.size) % 7) % 7) { null }
 
         // 搬到训练日记后，右侧有 4 颗悬浮按钮（50dp + 右留 16dp）。
         // 给网格整体留 44dp 安全边距，最后一列才不会被按钮挡住点不到。

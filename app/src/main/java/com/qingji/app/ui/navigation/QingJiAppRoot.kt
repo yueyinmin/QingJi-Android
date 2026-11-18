@@ -442,6 +442,10 @@ fun QingJiAppRoot(
                     }
                 ) {
                     composable(QingJiTab.Home.route) {
+                        // 健康体系 V1.1：首页睡眠摘要卡的数据源（与睡眠页共用同一个 VM）
+                        val sleepVm: com.qingji.app.ui.viewmodel.SleepViewModel =
+                            androidx.lifecycle.viewmodel.compose.viewModel()
+                        val lastNightSleep by sleepVm.lastNight.collectAsState()
                         HomeScreen(
                             onAddRecord = { showAddSheet = true },
                             onOpenAnalysis = { navController.navigate(QingJiRoutes.AiAnalysis) },
@@ -453,6 +457,8 @@ fun QingJiAppRoot(
                             onOpenFasting = { navController.navigate(QingJiRoutes.Fasting) },
                             onOpenFoodLibrary = { navController.navigate(QingJiRoutes.FoodLibrary) },
                             onOpenTraining = { navController.navigate(QingJiRoutes.TrainingHistory) },
+                            onOpenSleep = { navController.navigate(QingJiRoutes.Sleep) },
+                            lastNightSleep = lastNightSleep,
                             onOpenSelfDiscipline = { navController.navigate(QingJiRoutes.SelfDiscipline) },
                             onOpenExercise = { navController.navigate(QingJiRoutes.ExercisePicker) },
                             onSelfDisciplineCheckin = {
@@ -705,6 +711,16 @@ fun QingJiAppRoot(
                         )
                     }
 
+                    // ---------- 健康体系 V1.1：睡眠（工单 9，记一笔直达） ----------
+                    composable(QingJiRoutes.Sleep) {
+                        val sleepVm: com.qingji.app.ui.viewmodel.SleepViewModel =
+                            androidx.lifecycle.viewmodel.compose.viewModel()
+                        com.qingji.app.ui.screen.SleepScreen(
+                            vm = sleepVm,
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
+
                     // ==================== 自律管理（P0） ====================
                     composable(QingJiRoutes.SelfDiscipline) {
                         SelfDisciplineDashboardScreen(
@@ -835,28 +851,19 @@ fun QingJiAppRoot(
                 showAddSheet = false
                 showWaterSheet = true
             },
-            // v3.3.0：记运动改走独立的「记录运动」二级页，不再只是跳进展页
-            onExercise = { navController.navigate(QingJiRoutes.ExercisePicker) },
+            // v1.4（工单 2.2 D）：删除重复「记录运动」入口，力量训练走开始训练，
+            // 其他运动统一从「记录有氧」进运动选择页。
             onStartTraining = { navController.navigate(QingJiRoutes.TrainingActive) },
             onAerobic = { navController.navigate(QingJiRoutes.ExercisePicker) },
             onBodyPhoto = { navController.navigate(QingJiTab.Progress.route) },
-            // 自律管理：有主要目标就直达对应页，没有就先回模块首页建目标
-            onSelfDisciplineCheckin = {
-                val id = selfDisciplineVm.primaryGoal.value?.id
+            // v1.4（工单 9）：睡眠从记一笔直达记录页
+            onSleep = { navController.navigate(QingJiRoutes.Sleep) },
+            // v1.4（工单 3）：自律管理统一入口，直达「目标与打卡」页面（SelfDisciplineGoals
+            // 的目标列表里每条目标带「去打卡」）；没有目标先进模块首页建目标。
+            onSelfDiscipline = {
+                val hasGoal = selfDisciplineVm.primaryGoal.value?.id != null
                 navController.navigate(
-                    if (id != null) QingJiRoutes.selfDisciplineCheckin(id) else QingJiRoutes.SelfDiscipline
-                )
-            },
-            onSelfDisciplineUrge = {
-                val id = selfDisciplineVm.primaryGoal.value?.id
-                navController.navigate(
-                    if (id != null) QingJiRoutes.selfDisciplineUrge(id) else QingJiRoutes.SelfDiscipline
-                )
-            },
-            onSelfDisciplineDeviation = {
-                val id = selfDisciplineVm.primaryGoal.value?.id
-                navController.navigate(
-                    if (id != null) QingJiRoutes.selfDisciplineDeviation(id) else QingJiRoutes.SelfDiscipline
+                    if (hasGoal) QingJiRoutes.SelfDisciplineGoals else QingJiRoutes.SelfDiscipline
                 )
             }
         )
