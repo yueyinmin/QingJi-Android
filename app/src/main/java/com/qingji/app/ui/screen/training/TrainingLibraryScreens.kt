@@ -1,6 +1,7 @@
 package com.qingji.app.ui.screen.training
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -92,47 +93,62 @@ fun ExerciseLibraryScreen(
             title = if (favoritesOnly) "我的动作收藏" else "动作库",
             onBack = onBack
         )
-        Column(
+        // v1.4 性能专项（工单 11）：旧写法 Column+verticalScroll 会把 302 张动作卡
+        // 全部组合出来再滚动，进页面和来回切分类都明显卡顿；
+        // LazyColumn 视口外不组合，图片也在可见时才加载。
+        LazyColumn(
             modifier = Modifier
                 .weight(1f)
-                .verticalScroll(rememberScrollState())
                 .padding(horizontal = Dimens.ScreenPadding)
         ) {
-            Spacer(Modifier.height(10.dp))
+            item { Spacer(Modifier.height(10.dp)) }
             if (message != null) {
-                Text(message.orEmpty(), fontSize = TextSizes.Caption, color = QingJiGreen)
-                Spacer(Modifier.height(6.dp))
+                item {
+                    Text(message.orEmpty(), fontSize = TextSizes.Caption, color = QingJiGreen)
+                    Spacer(Modifier.height(6.dp))
+                }
             }
             // 搜索框
-            BasicTextField(
-                value = query,
-                onValueChange = { query = it },
-                singleLine = true,
-                textStyle = TextStyle(fontSize = TextSizes.Body, color = TextPrimary),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(Dimens.ItemCorner))
-                    .background(CardWhite)
-                    .padding(12.dp),
-                decorationBox = { inner ->
-                    if (query.isEmpty()) Text("搜中文名 / 英文名 / 肌群 / 器械", fontSize = TextSizes.Body, color = TextSecondary)
-                    inner()
-                }
-            )
-            Spacer(Modifier.height(10.dp))
-            MuscleCategoryTabs(selected = category, onSelect = { category = it })
-            Spacer(Modifier.height(10.dp))
+            item {
+                BasicTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    singleLine = true,
+                    textStyle = TextStyle(fontSize = TextSizes.Body, color = TextPrimary),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(Dimens.ItemCorner))
+                        .background(CardWhite)
+                        .padding(12.dp),
+                    decorationBox = { inner ->
+                        if (query.isEmpty()) Text("搜中文名 / 英文名 / 肌群 / 器械", fontSize = TextSizes.Body, color = TextSecondary)
+                        inner()
+                    }
+                )
+            }
+            item {
+                Spacer(Modifier.height(10.dp))
+                MuscleCategoryTabs(selected = category, onSelect = { category = it })
+                Spacer(Modifier.height(10.dp))
+            }
 
             if (shown.isEmpty()) {
-                SectionCard {
-                    Text(
-                        if (favoritesOnly) "还没有收藏动作。在动作详情里点「收藏」就会出现在这里。"
-                        else "没找到动作。可以回训练页用「自己加一个」新建。",
-                        fontSize = TextSizes.Body, color = TextSecondary
-                    )
+                item {
+                    SectionCard {
+                        Text(
+                            if (favoritesOnly) "还没有收藏动作。在动作详情里点「收藏」就会出现在这里。"
+                            else "没找到动作。可以回训练页用「自己加一个」新建。",
+                            fontSize = TextSizes.Body, color = TextSecondary
+                        )
+                    }
                 }
             } else {
-                shown.forEach { e ->
+                items(
+                    count = shown.size,
+                    key = { i -> shown[i].uuid },
+                    contentType = { "exercise_card" }
+                ) { i ->
+                    val e = shown[i]
                     SectionCard(
                         modifier = Modifier.clickable { onOpenDetail(e.uuid) },
                         contentPadding = Dimens.CardPaddingCompact
@@ -183,7 +199,7 @@ fun ExerciseLibraryScreen(
                     Spacer(Modifier.height(8.dp))
                 }
             }
-            Spacer(Modifier.height(Dimens.FabSpace))
+            item { Spacer(Modifier.height(Dimens.FabSpace)) }
         }
     }
 }

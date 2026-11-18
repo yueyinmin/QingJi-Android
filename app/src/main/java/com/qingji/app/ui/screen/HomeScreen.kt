@@ -103,6 +103,10 @@ fun HomeScreen(
     onSelfDisciplineHistory: () -> Unit = {},
     /** 记一次运动（走现有的运动选择页） */
     onOpenExercise: () -> Unit = {},
+    /** 健康体系 V1.1（工单 10.3）：点睡眠摘要卡 → 进睡眠记录页 */
+    onOpenSleep: () -> Unit = {},
+    /** 健康体系 V1.1：昨晚睡眠数据（null = 尚未记录）。Root 层 collect，保持和其它卡同一数据流模式 */
+    lastNightSleep: com.qingji.app.data.local.entity.SleepRecordEntity? = null,
     /** 与日记页、训练页共用同一个 ViewModel，进行中状态才对得上 */
     trainingVm: TrainingViewModel = viewModel(),
     /** P1：读当前启用的计划，给「今日训练」卡显示今日安排 */
@@ -350,6 +354,13 @@ fun HomeScreen(
             draft = trainingDraft,
             onClick = onOpenTraining,
             arrangement = todayArrangement
+        )
+
+        // ---------- 昨晚睡眠（健康体系 V1.1，工单 10.3：首页三大模块摘要之一） ----------
+        Spacer(Modifier.height(12.dp))
+        SleepSummaryCard(
+            lastNight = lastNightSleep,
+            onClick = onOpenSleep
         )
 
         // ---------- 自律管理快捷卡片（SD-001） ----------

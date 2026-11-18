@@ -442,6 +442,10 @@ fun QingJiAppRoot(
                     }
                 ) {
                     composable(QingJiTab.Home.route) {
+                        // 健康体系 V1.1：首页睡眠摘要卡的数据源（与睡眠页共用同一个 VM）
+                        val sleepVm: com.qingji.app.ui.viewmodel.SleepViewModel =
+                            androidx.lifecycle.viewmodel.compose.viewModel()
+                        val lastNightSleep by sleepVm.lastNight.collectAsState()
                         HomeScreen(
                             onAddRecord = { showAddSheet = true },
                             onOpenAnalysis = { navController.navigate(QingJiRoutes.AiAnalysis) },
@@ -453,6 +457,8 @@ fun QingJiAppRoot(
                             onOpenFasting = { navController.navigate(QingJiRoutes.Fasting) },
                             onOpenFoodLibrary = { navController.navigate(QingJiRoutes.FoodLibrary) },
                             onOpenTraining = { navController.navigate(QingJiRoutes.TrainingHistory) },
+                            onOpenSleep = { navController.navigate(QingJiRoutes.Sleep) },
+                            lastNightSleep = lastNightSleep,
                             onOpenSelfDiscipline = { navController.navigate(QingJiRoutes.SelfDiscipline) },
                             onOpenExercise = { navController.navigate(QingJiRoutes.ExercisePicker) },
                             onSelfDisciplineCheckin = {
