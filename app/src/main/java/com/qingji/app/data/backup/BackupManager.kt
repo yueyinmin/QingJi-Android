@@ -404,6 +404,7 @@ class BackupManager(private val context: Context) {
                         put("kcal", e.kcal)
                         put("steps", e.steps)
                         put("distanceKm", e.distanceKm)
+                        put("sourceId", e.sourceId)
                         put("createdAt", e.createdAt)
                     })
                 }

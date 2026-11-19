@@ -368,6 +368,14 @@ interface ExerciseLogDao {
     @Query("SELECT * FROM exercise_log ORDER BY createdAt DESC LIMIT :limit")
     fun observeRecent(limit: Int): Flow<List<ExerciseLog>>
 
+    /** v1.4.2：力量训练写进运动日记，按来源 ID 找那条日志（防重复 / 编辑复用）。 */
+    @Query("SELECT * FROM exercise_log WHERE sourceId = :sourceId LIMIT 1")
+    suspend fun findBySourceId(sourceId: String): ExerciseLog?
+
+    /** v1.4.2：删除训练时联动删掉它写进运动日记的那条日志。 */
+    @Query("DELETE FROM exercise_log WHERE sourceId = :sourceId")
+    suspend fun deleteBySourceId(sourceId: String)
+
     /** v1.0.6：清除记录 / 恢复出厂要能整表清空。 */
     @Query("DELETE FROM exercise_log")
     suspend fun clearAll()

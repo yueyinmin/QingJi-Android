@@ -253,6 +253,30 @@ class BackupParsingTest {
         assertEquals(0.0, exercise.distanceKm, 0.001)
     }
 
+    @Test
+    fun oldExerciseWithoutSourceId_getsEmptyString() {
+        // v1.4.2 前备份没有 sourceId，默认空串 = 手动运动，不能被误当训练日记日志
+        val json = """
+        {"app":"qingji","version":1,
+         "exercises":[{"date":"2026-11-01","type":"跑步","minutes":30,"kcal":300}]}
+        """.trimIndent()
+        val exercise = parseBackup(json).getOrThrow().exercises.first()
+        assertEquals("", exercise.sourceId)
+    }
+
+    @Test
+    fun strengthDiaryLog_sourceIdRestored() {
+        // 力量训练写进运动日记的日志带 sourceId（= 场次 uuid），恢复后关联不能丢
+        val json = """
+        {"app":"qingji","version":5,
+         "exercises":[{"date":"2026-11-19","type":"力量","minutes":45,"kcal":300,
+                       "sourceId":"session-uuid-1","createdAt":1000}]}
+        """.trimIndent()
+        val exercise = parseBackup(json).getOrThrow().exercises.first()
+        assertEquals("力量", exercise.type)
+        assertEquals("session-uuid-1", exercise.sourceId)
+    }
+
     // ============================================================
     // 补充：空备份要能识别出来、照片路径要留着
     // ============================================================

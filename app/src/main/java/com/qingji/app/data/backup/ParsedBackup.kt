@@ -415,6 +415,8 @@ private fun parseExercise(o: JSONObject): ExerciseLog? {
         // 旧备份没有这两列，读出来是 0，表示「当时确实没存」
         steps = o.optInt("steps", 0),
         distanceKm = o.optDouble("distanceKm", 0.0),
+        // v1.4.2：旧备份没有 sourceId，默认空串（手动运动）；训练日记日志恢复后仍保持关联
+        sourceId = o.optString("sourceId", ""),
         createdAt = o.optLong("createdAt", System.currentTimeMillis())
     )
 }

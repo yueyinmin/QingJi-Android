@@ -370,7 +370,7 @@ private fun InfoLine(label: String, value: String) {
  *    资产全在 assets/ 里，走 file:///android_asset，完全离线、不依赖网络。
  */
 @Composable
-private fun ExerciseMediaImage(
+internal fun ExerciseMediaImage(
     media: ExerciseMediaMapping.ExerciseMedia?,
     modifier: Modifier = Modifier,
     fallback: @Composable () -> Unit

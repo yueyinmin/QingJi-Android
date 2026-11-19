@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
@@ -59,12 +60,15 @@ import com.qingji.app.data.local.entity.WorkoutSession
 import com.qingji.app.data.prefs.WorkoutDraft
 import com.qingji.app.domain.TrainingMath
 import com.qingji.app.domain.WorkoutSet
+import com.qingji.app.data.training.media.ExerciseMediaMapping
+import com.qingji.app.ui.components.PrimaryButton
 import com.qingji.app.ui.components.SectionCard
 import com.qingji.app.ui.i18n.s
 import com.qingji.app.ui.theme.CardWhite
 import com.qingji.app.ui.theme.Dimens
 import com.qingji.app.ui.theme.DividerColor
 import com.qingji.app.ui.theme.QingJiGreen
+import com.qingji.app.ui.theme.QingJiGreenDark
 import com.qingji.app.ui.theme.QingJiGreenLight
 import com.qingji.app.ui.theme.TextPrimary
 import com.qingji.app.ui.theme.TextSecondary
@@ -414,11 +418,7 @@ fun SetEditorCard(
             }
             Spacer(Modifier.height(6.dp))
         }
-        OutlinedButton(onClick = onAdd, modifier = Modifier.fillMaxWidth()) {
-            Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-            Spacer(Modifier.width(4.dp))
-            Text("添加一组", fontSize = TextSizes.Body)
-        }
+        PrimaryButton(text = "添加一组", icon = Icons.Filled.Add, onClick = onAdd)
         // 每组估算热量：只列已记的组（次数或重量至少填一个），数字随
         // 次数/RPE/休息时长自然变化，不是固定值；整体是估算，仅供参考。
         if (setKcal.isNotEmpty()) {
@@ -725,9 +725,31 @@ fun ExercisePickerSheet(
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(Dimens.TinyCorner))
                             .clickable { onPick(e); onDismiss() }
-                            .padding(horizontal = 8.dp, vertical = 10.dp),
+                            .padding(horizontal = 8.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        // 64dp 统一圆角缩略图：本地 SVG 首帧，走 coil 内存/磁盘缓存不重复下载；
+                        // 自建动作 / 加载失败 / 无图时用动作名首字占位，行高不变（T01/T03/T05）
+                        Box(
+                            modifier = Modifier
+                                .size(64.dp)
+                                .clip(RoundedCornerShape(Dimens.ItemCorner))
+                                .background(QingJiGreenLight),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            ExerciseMediaImage(
+                                media = ExerciseMediaMapping.forUuid(e.uuid),
+                                modifier = Modifier.size(64.dp)
+                            ) {
+                                Text(
+                                    e.name.take(1),
+                                    fontSize = 22.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = QingJiGreenDark
+                                )
+                            }
+                        }
+                        Spacer(Modifier.size(10.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(e.name, fontSize = TextSizes.Body, color = TextPrimary)
                             Text(
@@ -737,6 +759,13 @@ fun ExercisePickerSheet(
                             )
                         }
                         if (e.isFavorite) Text("★", fontSize = 14.sp, color = QingJiGreen)
+                        Spacer(Modifier.size(4.dp))
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = null,
+                            tint = QingJiGreen,
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
                 }
                 if (filtered.isEmpty()) {
@@ -777,11 +806,13 @@ fun ExercisePickerSheet(
                     }) { Text("添加", fontSize = TextSizes.Body) }
                 }
             } else {
-                OutlinedButton(onClick = { showCustom = true }, modifier = Modifier.fillMaxWidth()) {
-                    Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("动作库里没有？自己加一个", fontSize = TextSizes.Body)
-                }
+                // v1.4.2（工单四）：主要操作改一级按钮——主题色实心 + 白色文字/加号，
+                // 文案更直白，用户一眼知道这是可点的主入口（T09）
+                PrimaryButton(
+                    text = "添加自定义动作",
+                    icon = Icons.Filled.Add,
+                    onClick = { showCustom = true }
+                )
             }
             Spacer(Modifier.height(20.dp))
         }

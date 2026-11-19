@@ -41,6 +41,7 @@ import com.qingji.app.data.local.TrainingTemplateData
 import com.qingji.app.data.local.entity.ExerciseEntity
 import com.qingji.app.ui.components.AppDialog
 import com.qingji.app.ui.components.PageTopBar
+import com.qingji.app.ui.components.PrimaryButton
 import com.qingji.app.ui.components.SectionCard
 import com.qingji.app.ui.theme.CardWhite
 import com.qingji.app.ui.theme.Dimens
@@ -168,14 +169,14 @@ fun TrainingPlanScreen(
                 Spacer(Modifier.height(8.dp))
             }
 
-            OutlinedButton(
+            PrimaryButton(
+                text = "自己排一周（自定义计划）",
                 onClick = {
                     customDays = (1..7).map { CustomDayDraft(it) }
                     editingDay = null
                     showCustom = true
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) { Text("自己排一周（自定义计划）", fontSize = TextSizes.Body) }
+                }
+            )
 
             Spacer(Modifier.height(16.dp))
 

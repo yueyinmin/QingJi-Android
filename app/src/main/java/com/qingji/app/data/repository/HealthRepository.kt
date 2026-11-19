@@ -134,6 +134,10 @@ class HealthRepository(private val context: Context) {
      * REPLACE 保证同一 id 永远只有一行、且值和源记录一致。
      */
     suspend fun mirrorExerciseLog(log: ExerciseLog) {
+        // v1.4.2：力量训练写进运动日记的日志带 sourceId（= 场次 uuid），
+        // 那场训练保存时账本已经有 STRENGTH_TRAINING 结算行了，这里再镜像就重复计消耗。
+        // 实时写入和 ensureLedgerBackfill 历史补算都走这里，一处拦截两条路径都覆盖。
+        if (log.sourceId.isNotBlank()) return
         ledgerDao.upsert(
             ExerciseSessionCalorieEntity(
                 sourceType = sourceTypeForExerciseLog(log.type),

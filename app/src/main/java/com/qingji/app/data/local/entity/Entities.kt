@@ -249,6 +249,14 @@ data class ExerciseLog(
     @ColumnInfo(defaultValue = "0") val steps: Int = 0,
     /** 用户按「公里」记录时填的公里数；其它方式记为 0.0 */
     @ColumnInfo(defaultValue = "0.0") val distanceKm: Double = 0.0,
+    /**
+     * 关联来源 ID（v1.4.2）：力量训练写进运动日记时，这里存 workout_session 的 uuid，
+     * 用于防重复（一次训练一条）/编辑复用（改同一条）/删除联动。
+     * 手动记的运动保持空串——历史行迁移后也是空串，互不影响。
+     * 注意：带 sourceId 的力量训练日志【不生成账本镜像】，因为训练保存时已结算账本，
+     * 镜像会让同一场训练的消耗算两次（HealthRepository.mirrorExerciseLog 会跳过）。
+     */
+    @ColumnInfo(defaultValue = "") val sourceId: String = "",
     val createdAt: Long = System.currentTimeMillis()
 )
 

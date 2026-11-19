@@ -152,7 +152,7 @@ class Converters {
         UserBrand::class,
         UserBrandDish::class
     ],
-    version = 17,
+    version = 18,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -524,7 +524,7 @@ abstract class AppDatabase : RoomDatabase() {
                 MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8,
                 MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12,
                 MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16,
-                MIGRATION_16_17
+                MIGRATION_16_17, MIGRATION_17_18
             )
         }
 
@@ -824,6 +824,19 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_user_brand_dish_brandId` ON `user_brand_dish` (`brandId`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_user_brand_dish_name` ON `user_brand_dish` (`name`)")
+            }
+        }
+
+        /**
+         * v1.4.2（Room 17 → 18）：运动日记数据来源统一。
+         * 力量训练结束要写一条 exercise_log 进运动日记，需要一个和 workout_session
+         * 关联的标记来做防重复 / 编辑复用 / 删除联动。加一列 sourceId（默认空串），
+         * 老行全部是空串、行为不变；只加一列，不建索引、不动任何存量数据。
+         * 默认值必须和 ExerciseLog.@ColumnInfo(defaultValue = "") 逐字一致。
+         */
+        internal val MIGRATION_17_18 = object : Migration(17, 18) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `exercise_log` ADD COLUMN `sourceId` TEXT NOT NULL DEFAULT ''")
             }
         }
 

@@ -7,6 +7,7 @@ import com.qingji.app.data.local.TrainingSeed
 import com.qingji.app.data.local.TrainingSeedImportPlanner
 import com.qingji.app.data.local.TrainingTemplateData
 import com.qingji.app.data.local.entity.ExerciseEntity
+import com.qingji.app.data.local.entity.ExerciseLog
 import com.qingji.app.data.local.entity.LibraryMeta
 import com.qingji.app.data.local.entity.PlanExercise
 import com.qingji.app.data.local.entity.TrainingPlan
@@ -43,6 +44,7 @@ class TrainingRepository(context: Context) {
     private val planExerciseDao = db.planExerciseDao()
     private val sessionDao = db.workoutSessionDao()
     private val workoutExerciseDao = db.workoutExerciseDao()
+    private val exerciseLogDao = db.exerciseLogDao()
 
     /** 健康体系 V1.0：统一运动消耗账本（结算/删除联动都在这里做）。 */
     private val healthRepository = HealthRepository(context)
@@ -143,11 +145,40 @@ class TrainingRepository(context: Context) {
                 )
                 settledKcal = row.caloriesGross
             }
+            // v1.4.2：同一事务里写一条 exercise_log，力量训练才能进「运动日记」。
+            // 带 sourceId=场次uuid → 防重复（一次训练一条）、编辑复用同一条；
+            // HealthRepository 对带 sourceId 的日志跳过账本镜像，消耗不会算两次。
+            upsertTrainingDiaryLog(session, settledKcal)
         }
         return settledKcal
     }
 
-    /** 删除会话要连明细、连消耗账本一起删，不留孤儿行（消耗不会残留）。 */
+    /**
+     * 把一场力量训练写进运动日记（exercise_log）。
+     * 按 sourceId（场次 uuid）查：有就更新、没有就插入 → 新建/编辑共用一条，
+     * 重复保存也不会多记。kcal 用本场结算值，日记显示与账本一致。
+     * type 固定「力量」，与运动日记卡、手动记运动的分类口径一致。
+     */
+    private suspend fun upsertTrainingDiaryLog(session: WorkoutSession, kcal: Double) {
+        val existing = exerciseLogDao.findBySourceId(session.uuid)
+        val log = ExerciseLog(
+            id = existing?.id ?: 0L,
+            date = session.date,
+            type = DIARY_TYPE_STRENGTH,
+            minutes = session.durationMinutes,
+            kcal = kcal,
+            sourceId = session.uuid,
+            createdAt = existing?.createdAt ?: System.currentTimeMillis()
+        )
+        if (existing == null) exerciseLogDao.insert(log) else exerciseLogDao.update(log)
+    }
+
+    companion object {
+        /** 力量训练写进运动日记的固定分类名（与手动「记一次运动」的力量分类同词）。 */
+        const val DIARY_TYPE_STRENGTH = "力量"
+    }
+
+    /** 删除会话要连明细、连消耗账本、连运动日记日志一起删，不留孤儿行。 */
     suspend fun deleteSession(uuid: String) {
         db.withTransaction {
             workoutExerciseDao.deleteBySession(uuid)
@@ -155,6 +186,8 @@ class TrainingRepository(context: Context) {
             healthRepository.ledgerDao().deleteBySource(
                 HealthRepository.SOURCE_STRENGTH_TRAINING, uuid
             )
+            // v1.4.2：联动删掉写进运动日记的那条，删训练后日记不残留
+            exerciseLogDao.deleteBySourceId(uuid)
         }
     }
 

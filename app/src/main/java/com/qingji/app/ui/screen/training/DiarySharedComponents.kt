@@ -37,9 +37,9 @@ import com.qingji.app.ui.theme.TextSizes
 /** 统一的整宽主操作按钮：训练日记「开始训练」、心情日记「写一篇日记」。 */
 @Composable
 fun DiaryPrimaryButton(text: String, onClick: () -> Unit) {
-    Button(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
-        Text(text, fontSize = TextSizes.Body)
-    }
+    // v1.4.2：统一走全局 PrimaryButton（主题色实心 + 白字 + 按压缩放反馈），
+    // 和 App 其它主要操作保持一致，不再各写一份裸 Button。
+    com.qingji.app.ui.components.PrimaryButton(text = text, onClick = onClick)
 }
 
 /** 统一的三栏统计项：value 在上、18sp 粗体，label 在下、Tiny 灰字。 */

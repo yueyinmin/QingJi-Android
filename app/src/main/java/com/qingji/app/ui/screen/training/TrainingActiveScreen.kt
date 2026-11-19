@@ -16,6 +16,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -38,6 +40,7 @@ import com.qingji.app.domain.SessionCalorieCalculator
 import com.qingji.app.domain.TrainingMath
 import com.qingji.app.ui.components.AppDialog
 import com.qingji.app.ui.components.PageTopBar
+import com.qingji.app.ui.components.PrimaryButton
 import com.qingji.app.ui.components.SectionCard
 import com.qingji.app.ui.theme.CardWhite
 import com.qingji.app.ui.theme.Dimens
@@ -220,9 +223,7 @@ fun TrainingActiveScreen(
                     Spacer(Modifier.height(8.dp))
                 }
 
-                OutlinedButton(onClick = { showPicker = true }, modifier = Modifier.fillMaxWidth()) {
-                    Text("+ 添加动作", fontSize = TextSizes.Body)
-                }
+                PrimaryButton(text = "添加动作", icon = Icons.Filled.Add, onClick = { showPicker = true })
                 Spacer(Modifier.height(12.dp))
 
                 SectionCard(contentPadding = Dimens.CardPaddingCompact) {

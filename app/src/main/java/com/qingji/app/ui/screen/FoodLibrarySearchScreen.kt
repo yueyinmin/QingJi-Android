@@ -54,6 +54,8 @@ import com.qingji.app.domain.FoodNutritionCalculator
 import com.qingji.app.domain.FoodSearchResult
 import com.qingji.app.ui.components.AppBottomSheet
 import com.qingji.app.ui.components.HintBox
+import com.qingji.app.ui.components.PrimaryButton
+import com.qingji.app.ui.components.SecondaryButton
 import com.qingji.app.ui.theme.CardWhite
 import com.qingji.app.ui.theme.Dimens
 import com.qingji.app.ui.theme.PageBackground
@@ -189,13 +191,9 @@ fun FoodLibrarySearchScreen(
                     Spacer(Modifier.height(6.dp))
                     Text("换个词试试，或者自己建一个", fontSize = 13.sp, color = TextSecondary)
                     Spacer(Modifier.height(24.dp))
-                    androidx.compose.material3.Button(onClick = onAddCustomFood) {
-                        Text("创建自定义食物")
-                    }
+                    PrimaryButton(text = "创建自定义食物", onClick = onAddCustomFood)
                     Spacer(Modifier.height(10.dp))
-                    androidx.compose.material3.OutlinedButton(onClick = onManageBrands) {
-                        Text("创建外卖品牌")
-                    }
+                    SecondaryButton(text = "创建外卖品牌", onClick = onManageBrands)
                     Spacer(Modifier.height(10.dp))
                     Text("重新搜索", fontSize = 13.sp, color = QingJiGreen,
                         modifier = Modifier.clickable { vm.clearKeyword() })

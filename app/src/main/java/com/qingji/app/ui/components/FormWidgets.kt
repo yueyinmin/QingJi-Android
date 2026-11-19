@@ -30,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -116,13 +117,20 @@ fun PageTopBar(
     }
 }
 
-/** 主色实心按钮。 */
+/**
+ * 一级按钮（Primary）——全 App 主要操作的统一视觉规范（v1.4.2 工单五）：
+ * 主题色实心背景 + 白色文字/图标 + 12dp 圆角 + 按压缩放反馈。
+ * 二级/三级操作请分别用 SecondaryButton / TertiaryButton，别把主要操作做成描边按钮。
+ *
+ * @param icon 可选前置图标（白色），如添加动作场景的加号。
+ */
 @Composable
 fun PrimaryButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    icon: ImageVector? = null
 ) {
     // 按下时轻微缩小：这是全 App 主要操作按钮的统一按压反馈
     val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
@@ -151,7 +159,70 @@ fun PrimaryButton(
             disabledContentColor = TextSecondary
         )
     ) {
+        if (icon != null) {
+            Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.size(6.dp))
+        }
         Text(text = text, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
+/**
+ * 二级按钮（Secondary）——次要操作：查看详情 / 编辑 / 查看全部 / 筛选切换。
+ * 主题色低透明浅底 + 主题色文字，不用重描边。
+ */
+@Composable
+fun SecondaryButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    icon: ImageVector? = null
+) {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier.height(44.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = QingJiGreenLight,
+            contentColor = QingJiGreenDark,
+            disabledContainerColor = DividerColor,
+            disabledContentColor = TextSecondary
+        )
+    ) {
+        if (icon != null) {
+            Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.size(6.dp))
+        }
+        Text(text = text, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
+/**
+ * 三级按钮（Tertiary）——轻量操作：取消 / 返回 / 更多次要入口。
+ * 无实心底板，主题色文字，靠点击区域响应。
+ */
+@Composable
+fun TertiaryButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
+) {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier.height(40.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Color.Transparent,
+            contentColor = QingJiGreenDark,
+            disabledContainerColor = Color.Transparent,
+            disabledContentColor = TextSecondary
+        )
+    ) {
+        Text(text = text, fontSize = 14.sp, fontWeight = FontWeight.Medium)
     }
 }
 
