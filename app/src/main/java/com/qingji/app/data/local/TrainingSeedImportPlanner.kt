@@ -7,7 +7,7 @@ import com.qingji.app.data.local.entity.ExerciseEntity
  *
  * 数据来源优先级（明确规则，不许隐式覆盖）：
  *   · 用户字段：uuid / isBuiltIn / isFavorite / createdAt / updatedAt / steps / commonMistakes
- *     一律沿用数据库里已有的值，种子数据不碰；
+ *     沿用数据库里已有的值；但 steps / commonMistakes 老值为空时允许种子回填（v2 撰写了训练指导），
  *   · 动作库字段：name / englishName / slug / category / 肌群 / 器械 / exerciseType /
  *     isStretch / assetPath / attribution，以 Workout Guide 清单为准。
  *   · uuid 命中但 isBuiltIn=false（用户自建）→ 整条跳过，绝不覆盖。
@@ -65,8 +65,8 @@ object TrainingSeedImportPlanner {
                     name = uniqueName(seed.name, old.uuid),
                     isBuiltIn = true,
                     isFavorite = old.isFavorite,
-                    steps = old.steps,
-                    commonMistakes = old.commonMistakes,
+                    steps = old.steps.ifBlank { seed.steps },
+                    commonMistakes = old.commonMistakes.ifBlank { seed.commonMistakes },
                     createdAt = old.createdAt,
                     updatedAt = old.updatedAt
                 )

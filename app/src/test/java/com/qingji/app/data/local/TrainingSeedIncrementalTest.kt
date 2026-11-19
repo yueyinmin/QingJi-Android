@@ -22,6 +22,7 @@ import org.robolectric.RobolectricTestRunner
  *
  * 数据来源优先级（明确规则）：
  *   · 用户字段：uuid / isBuiltIn / isFavorite / createdAt / updatedAt / steps / commonMistakes
+ *     （steps / commonMistakes 空值视为未编辑，允许种子回填；非空沿用用户值）
  *   · 动作库字段：name / englishName / slug / category / 肌群 / 器械 / 类型 / 素材 / 授权
  */
 @RunWith(RobolectricTestRunner::class)
@@ -62,7 +63,9 @@ class TrainingSeedIncrementalTest {
         assertTrue(all.all { it.slug.isNotBlank() })
         assertTrue(all.all { it.assetPath.startsWith("exercises/") })
         assertTrue(all.all { it.attribution.contains("CC BY-SA 4.0") })
-        assertTrue("上游无步骤数据，必须留空", all.all { it.steps.isEmpty() })
+        assertTrue("v2 起每条动作必须带要点", all.all { it.steps.isNotBlank() })
+        assertTrue("v2 起每条动作必须带常见错误", all.all { it.commonMistakes.isNotBlank() })
+        assertTrue("要点应含换行分条", all.all { it.steps.contains("\n") })
     }
 
     @Test
@@ -110,6 +113,11 @@ class TrainingSeedIncrementalTest {
         val fav = dao.findByUuid("ex-chest-01")!!
         assertTrue("原收藏状态必须保留", fav.isFavorite)
         assertEquals("用户写过的要点不能被覆盖", "我写过的要点", fav.steps)
+        val blank = dao.findByUuid("ex-chest-02")!!
+        assertTrue("空要点应被种子回填", blank.steps.isNotBlank())
+        assertTrue("空常见错误应被种子回填", blank.commonMistakes.isNotBlank())
+        val pull = dao.findByUuid("ex-back-01")!!
+        assertTrue("老库空 steps 也应回填", pull.steps.isNotBlank())
         val custom = dao.findByUuid("user-abc")!!
         assertFalse("自建动作必须还在", custom.isBuiltIn)
         assertTrue("自建动作的收藏必须保留", custom.isFavorite)
