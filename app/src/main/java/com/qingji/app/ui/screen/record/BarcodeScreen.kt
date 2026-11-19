@@ -84,10 +84,20 @@ fun BarcodeScreen(
     var recordDate by remember { mutableStateOf(AppClock.today()) }
     var showDatePicker by remember { mutableStateOf(false) }
 
-    // 手动录入兜底表单
+    // 手动录入兜底表单（v1.5 阶段三：扩展为完整营养录入）
     var showManual by remember { mutableStateOf(false) }
     var manualName by remember { mutableStateOf("") }
     var manualKcal by remember { mutableStateOf("") }
+    var manualProtein by remember { mutableStateOf("") }
+    var manualCarb by remember { mutableStateOf("") }
+    var manualFat by remember { mutableStateOf("") }
+
+    // 扫码命中结果的可编辑营养（v1.5 阶段三：命中后用户可核对/修改再保存）
+    var editNutrition by remember { mutableStateOf(false) }
+    var editKcal by remember { mutableStateOf("") }
+    var editProtein by remember { mutableStateOf("") }
+    var editCarb by remember { mutableStateOf("") }
+    var editFat by remember { mutableStateOf("") }
 
     fun resolve(code: String) {
         scope.launch {
@@ -99,6 +109,12 @@ fun BarcodeScreen(
                 onSuccess = {
                     food = it
                     gramsText = it.defaultGrams.toInt().toString()
+                    // 命中结果带出可编辑营养，用户可核对/修改
+                    editKcal = it.kcalPer100g.toString()
+                    editProtein = it.proteinPer100g.toString()
+                    editCarb = it.carbPer100g.toString()
+                    editFat = it.fatPer100g.toString()
+                    editNutrition = false
                     infoText = if (it.source == "openfoodfacts") {
                         "从开放食品库查到，已缓存到本机，下次断网也能用"
                     } else {
@@ -218,6 +234,48 @@ fun BarcodeScreen(
                         fontSize = 12.sp,
                         color = TextSecondary
                     )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = if (editNutrition) "✏️ 正在修改营养数据" else "数据不对？可点下方修改后再记",
+                        fontSize = 12.sp,
+                        color = com.qingji.app.ui.theme.QingJiGreen,
+                        modifier = Modifier.clickable { editNutrition = !editNutrition }
+                    )
+                    // v1.5 阶段三：命中结果可编辑（用户核对后再保存）
+                    if (editNutrition) {
+                        Spacer(Modifier.height(10.dp))
+                        LabeledTextField(label = "热量（千卡/100g）", value = editKcal, onValueChange = { editKcal = it }, decimalOnly = true)
+                        Spacer(Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Box(Modifier.weight(1f)) { LabeledTextField(label = "蛋白质(g)", value = editProtein, onValueChange = { editProtein = it }, decimalOnly = true) }
+                            Box(Modifier.weight(1f)) { LabeledTextField(label = "碳水(g)", value = editCarb, onValueChange = { editCarb = it }, decimalOnly = true) }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        LabeledTextField(label = "脂肪(g/100g)", value = editFat, onValueChange = { editFat = it }, decimalOnly = true)
+                        Spacer(Modifier.height(10.dp))
+                        com.qingji.app.ui.components.PrimaryButton(
+                            text = "保存营养修改",
+                            onClick = {
+                                val k = editKcal.toDoubleOrNull()
+                                if (k == null || k < 0) {
+                                    errorText = "热量要填非负数字"
+                                } else {
+                                    scope.launch {
+                                        val updated = item.copy(
+                                            kcalPer100g = k,
+                                            proteinPer100g = editProtein.toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0,
+                                            carbPer100g = editCarb.toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0,
+                                            fatPer100g = editFat.toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
+                                        )
+                                        vm.updateScannedFood(updated)
+                                        food = updated
+                                        editNutrition = false
+                                        infoText = "营养数据已更新到本机食物库"
+                                    }
+                                }
+                            }
+                        )
+                    }
                     Spacer(Modifier.height(12.dp))
                     LabeledTextField(
                         label = "吃了多少克",
@@ -269,6 +327,13 @@ fun BarcodeScreen(
                         hint = "看包装上的营养成分表",
                         decimalOnly = true
                     )
+                    Spacer(Modifier.height(10.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Box(Modifier.weight(1f)) { LabeledTextField(label = "蛋白质(g)", value = manualProtein, onValueChange = { manualProtein = it }, hint = "选填", decimalOnly = true) }
+                        Box(Modifier.weight(1f)) { LabeledTextField(label = "碳水(g)", value = manualCarb, onValueChange = { manualCarb = it }, hint = "选填", decimalOnly = true) }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    LabeledTextField(label = "脂肪(g/100g)", value = manualFat, onValueChange = { manualFat = it }, hint = "选填", decimalOnly = true)
                     Spacer(Modifier.height(12.dp))
                     PrimaryButton(
                         text = "保存并继续记一笔",
@@ -278,8 +343,16 @@ fun BarcodeScreen(
                                 manualName.isBlank() -> errorText = "填一下食物名称"
                                 kcal == null || kcal <= 0 -> errorText = "热量要填大于 0 的数字"
                                 else -> scope.launch {
-                                    val created = vm.saveManual(manualName, kcal, codeInput)
+                                    val created = vm.saveManual(
+                                        name = manualName,
+                                        kcal = kcal,
+                                        code = codeInput,
+                                        protein = manualProtein.toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0,
+                                        carb = manualCarb.toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0,
+                                        fat = manualFat.toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
+                                    )
                                     food = created
+                                    gramsText = "100"
                                     showManual = false
                                     infoText = "已存进本机食物库，下次扫这个条码直接命中"
                                 }

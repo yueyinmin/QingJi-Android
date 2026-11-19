@@ -71,6 +71,20 @@ object ProgressCardCatalog {
     fun parseHidden(raw: String?): Set<String> =
         raw.orEmpty().split(",").filter { it.isNotBlank() }.toSet()
 
+    /**
+     * 拖拽排序的纯换位函数（QJ-UI-PROGRESS-DRAG-001）。
+     * 按【卡片 ID】把某张卡移到目标索引，不依赖列表索引身份 —— 列表重排后
+     * 用 ID 反查当前位置，避免旧实现用 dragFrom 索引导致的"拖谁错位"。
+     *
+     * 返回值是新列表（不改入参）。任何非法入参（ID 不存在、索引越界）原样返回，
+     * 保证 UI 在拖拽边界不会把列表搞丢或重复。
+     */
+    fun moveToIndex(order: List<String>, cardId: String, targetIndex: Int): List<String> {
+        val from = order.indexOf(cardId)
+        if (from < 0 || targetIndex !in order.indices || from == targetIndex) return order
+        return order.toMutableList().apply { add(targetIndex, removeAt(from)) }
+    }
+
     /** 真正要渲染的卡片：排好序 + 去掉被隐藏的。 */
     fun visibleCards(rawOrder: String?, rawHidden: String?): List<String> {
         val hidden = parseHidden(rawHidden)

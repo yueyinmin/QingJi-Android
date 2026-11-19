@@ -111,20 +111,32 @@ class FoodLibraryViewModel(app: Application) : AndroidViewModel(app) {
         dayOffset: Int = 0,
         per100gProtein: Double = 0.0,
         per100gCarb: Double = 0.0,
-        per100gFat: Double = 0.0
+        per100gFat: Double = 0.0,
+        basis: String = com.qingji.app.domain.FoodNutritionCalculator.PER_100G,
+        servingGrams: Double = 100.0
     ) {
         viewModelScope.launch {
-            val ratio = grams / 100.0
+            // v1.5：统一走公共折算工具，按计量基准换算；热量+三宏量用同一倍率。
+            // 蛋白粉每100g、实际吃40g → ratio=0.4，四项一起乘 0.4。
+            val consumed = com.qingji.app.domain.FoodNutritionCalculator.compute(
+                kcalPerBasis = per100gKcal,
+                proteinPerBasis = per100gProtein,
+                carbPerBasis = per100gCarb,
+                fatPerBasis = per100gFat,
+                basis = basis,
+                servingGrams = servingGrams,
+                grams = grams
+            )
             repo.addFoodLog(
                 com.qingji.app.data.local.entity.FoodLog(
                     date = AppClock.today().minusDays(dayOffset.toLong()),
                     mealType = mealType,
                     foodName = foodName,
                     grams = grams,
-                    kcal = per100gKcal * ratio,
-                    proteinG = per100gProtein * ratio,
-                    carbG = per100gCarb * ratio,
-                    fatG = per100gFat * ratio,
+                    kcal = consumed.kcal,
+                    proteinG = consumed.proteinG,
+                    carbG = consumed.carbG,
+                    fatG = consumed.fatG,
                     source = "manual"
                 )
             )

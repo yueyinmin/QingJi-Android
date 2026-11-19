@@ -10,6 +10,8 @@ import com.qingji.app.data.local.entity.FoodLog
 import com.qingji.app.data.local.entity.ProgressPhoto
 import com.qingji.app.data.local.entity.UsageStat
 import com.qingji.app.data.local.entity.UserFood
+import com.qingji.app.data.local.entity.UserBrand
+import com.qingji.app.data.local.entity.UserBrandDish
 import com.qingji.app.data.local.entity.UserProfile
 import com.qingji.app.data.local.entity.WaterLog
 import com.qingji.app.data.local.entity.WeightLog
@@ -69,7 +71,12 @@ data class ParsedBackup(
     // ---------- v4 新增：自律模块 7 张表 ----------
     /** 备份 JSON 里是否真的写了 selfDiscipline 段（v3 及更老的文件没有）。 */
     val hasSelfDiscipline: Boolean = false,
-    val selfDiscipline: SelfDisciplineBackup? = null
+    val selfDiscipline: SelfDisciplineBackup? = null,
+    // ---------- v5 新增：用户自建外卖品牌 + 品牌菜品 ----------
+    /** 备份 JSON 里是否真的写了 userBrands 段（v4 及更老的文件没有）。 */
+    val hasUserBrands: Boolean = false,
+    val userBrands: List<UserBrand> = emptyList(),
+    val userBrandDishes: List<UserBrandDish> = emptyList()
 ) {
     /** 有没有真的读到业务数据。全是空的时候导入没意义，界面上该给个提示。 */
     val isEmpty: Boolean
@@ -77,7 +84,8 @@ data class ParsedBackup(
             waters.isEmpty() && diaries.isEmpty() && bodyMeasures.isEmpty() &&
             photos.isEmpty() && exercises.isEmpty() && fastings.isEmpty() &&
             (training == null || training.isEmpty()) &&
-            (selfDiscipline == null || selfDiscipline.isEmpty())
+            (selfDiscipline == null || selfDiscipline.isEmpty()) &&
+            userBrands.isEmpty() && userBrandDishes.isEmpty()
 }
 
 /**
@@ -127,7 +135,10 @@ fun parseBackup(text: String): Result<ParsedBackup> {
                 hasTraining = root.has("training"),
                 training = parseTraining(root.optJSONObject("training")),
                 hasSelfDiscipline = root.has("selfDiscipline"),
-                selfDiscipline = parseSelfDiscipline(root.optJSONObject("selfDiscipline"))
+                selfDiscipline = parseSelfDiscipline(root.optJSONObject("selfDiscipline")),
+                hasUserBrands = root.has("userBrands"),
+                userBrands = parseArray(root, "userBrands") { o -> parseUserBrand(o) },
+                userBrandDishes = parseArray(root, "userBrandDishes") { o -> parseUserBrandDish(o) }
             )
         )
     } catch (e: Exception) {
@@ -253,6 +264,50 @@ private fun parseUserFood(o: JSONObject): UserFood? {
         source = o.optString("source", "user").let { if (it == "preset") "user" else it },
         category = o.optString("category", "其他"),
         brand = o.optString("brand", ""),
+        favorite = o.optBoolean("favorite", false),
+        createdAt = o.optLong("createdAt", System.currentTimeMillis()),
+        // v1.5：老备份没有这两键，计量基准默认按「每100g」，备注默认空
+        nutritionBasis = cleanText(o.optString("nutritionBasis", "PER_100G")).ifBlank { "PER_100G" },
+        note = o.optString("note", "")
+    )
+}
+
+/** v5：用户自建外卖品牌。老备份没有这段，不会调用到这里。 */
+private fun parseUserBrand(o: JSONObject): UserBrand? {
+    val name = o.optString("name", "").trim()
+    if (name.isEmpty()) return null
+    return UserBrand(
+        id = o.optLong("id", 0L),
+        name = name,
+        icon = o.optString("icon", "🏪").ifBlank { "🏪" },
+        note = o.optString("note", ""),
+        sourceLabel = o.optString("sourceLabel", ""),
+        sortOrder = o.optInt("sortOrder", 0),
+        createdAt = o.optLong("createdAt", System.currentTimeMillis())
+    )
+}
+
+/** v5：品牌菜品。基准/来源非法值归一到默认值。 */
+private fun parseUserBrandDish(o: JSONObject): UserBrandDish? {
+    val name = o.optString("name", "").trim()
+    if (name.isEmpty()) return null
+    return UserBrandDish(
+        id = o.optLong("id", 0L),
+        brandId = o.optLong("brandId", 0L),
+        name = name,
+        category = o.optString("category", "其他").ifBlank { "其他" },
+        kcal = o.optDouble("kcal", 0.0).coerceAtLeast(0.0),
+        protein = o.optDouble("protein", 0.0).coerceAtLeast(0.0),
+        fat = o.optDouble("fat", 0.0).coerceAtLeast(0.0),
+        carb = o.optDouble("carb", 0.0).coerceAtLeast(0.0),
+        nutritionBasis = cleanText(o.optString("nutritionBasis", "PER_100G")).let {
+            if (it in com.qingji.app.domain.FoodNutritionCalculator.ALL_BASIS) it else "PER_100G"
+        },
+        servingGrams = o.optDouble("servingGrams", 100.0).takeIf { it.isFinite() && it > 0.0 } ?: 100.0,
+        source = cleanText(o.optString("source", "USER_BRAND")).let {
+            if (it in com.qingji.app.domain.FoodDataSource.ALL) it else "USER_BRAND"
+        },
+        note = o.optString("note", ""),
         favorite = o.optBoolean("favorite", false),
         createdAt = o.optLong("createdAt", System.currentTimeMillis())
     )

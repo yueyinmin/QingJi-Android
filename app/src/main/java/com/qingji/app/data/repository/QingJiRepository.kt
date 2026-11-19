@@ -63,6 +63,7 @@ class QingJiRepository(private val context: Context) {
     private val brandDao = catalog.brandCatalogDao()
     private val takeawayDao = catalog.takeawayDao()
     private val userFoodDao = db.userFoodDao()
+    private val userBrandDao = db.userBrandDao()
     private val favoriteDao = db.foodFavoriteDao()
 
     /** 标准库 id 从 100001 起，用户库 id 从 1 起，用这个数字区分来源，永不撞号。 */
@@ -248,11 +249,24 @@ class QingJiRepository(private val context: Context) {
         if (id < CATALOG_ID_START) userFoodDao.setFavorite(id, favorite)
     }
 
-    /** 把 AI 识别出来的食物存进用户库（source = user，绝不写只读标准库）。 */
-    suspend fun addUserFood(name: String, kcalPer100g: Double, protein: Double, carb: Double, fat: Double) {
-        if (name.isBlank()) return
+    /**
+     * 把 AI 识别出来的食物存进用户库（source = user，绝不写只读标准库）。
+     * 2026-11-18 修复：原来和标准库同名就直接静默跳过，但 AI 识别的餐名
+     * 基本都来自标准库，导致「存进我的食物库」永远存不进去；
+     * 现在改成允许与标准库同名（这是主人这一餐自己的折算值，跟标准库是两回事），
+     * 只和自定义库自己重名的才去重。
+     * @return true = 真的写进去了；false = 自定义库已有同名，跳过
+     */
+    suspend fun addUserFood(
+        name: String,
+        kcalPer100g: Double,
+        protein: Double,
+        carb: Double,
+        fat: Double
+    ): Boolean {
+        if (name.isBlank()) return false
         val trimmed = name.trim()
-        if (catalogDao.findByName(trimmed) != null || userFoodDao.findByName(trimmed) != null) return
+        if (userFoodDao.findByName(trimmed) != null) return false
         userFoodDao.insert(
             UserFood(
                 name = trimmed,
@@ -262,6 +276,233 @@ class QingJiRepository(private val context: Context) {
                 fatPer100g = fat,
                 source = "user",
                 category = com.qingji.app.domain.FoodCategory.guess(trimmed)
+            )
+        )
+        return true
+    }
+
+    /**
+     * v1.5 阶段二：从「新增/编辑自定义食物」表单整条保存。
+     * @param id 0 = 新增；>0 = 编辑已有自定义食物（标准库 id 一律拒绝）
+     * @return 保存后的记录 id；名字为空返回 -1；编辑标准库返回 -2
+     */
+    suspend fun saveCustomFood(
+        id: Long = 0,
+        name: String,
+        brand: String = "",
+        kcalPerBasis: Double,
+        protein: Double,
+        carb: Double,
+        fat: Double,
+        fiber: Double? = null,
+        sodiumMg: Double? = null,
+        basis: String = com.qingji.app.domain.FoodNutritionCalculator.PER_100G,
+        servingGrams: Double = 100.0,
+        barcode: String? = null,
+        category: String = "其他",
+        note: String = ""
+    ): Long {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return -1L
+        if (id >= CATALOG_ID_START) return -2L
+        val safeBasis = com.qingji.app.domain.FoodNutritionCalculator.normalizeBasis(basis)
+        return if (id > 0) {
+            val old = userFoodDao.findById(id) ?: return -1L
+            val updated = old.copy(
+                name = trimmed,
+                brand = brand.trim(),
+                kcalPer100g = kcalPerBasis.coerceAtLeast(0.0),
+                proteinPer100g = protein.coerceAtLeast(0.0),
+                carbPer100g = carb.coerceAtLeast(0.0),
+                fatPer100g = fat.coerceAtLeast(0.0),
+                fiberPer100g = fiber?.takeIf { it >= 0.0 },
+                sodiumMgPer100g = sodiumMg?.takeIf { it >= 0.0 },
+                defaultGrams = if (servingGrams > 0) servingGrams else old.defaultGrams,
+                nutritionBasis = safeBasis,
+                barcode = barcode?.trim()?.takeIf { it.isNotEmpty() },
+                category = category,
+                note = note.trim(),
+                source = "user"
+            )
+            userFoodDao.update(updated)
+            id
+        } else {
+            userFoodDao.insert(
+                UserFood(
+                    name = trimmed,
+                    brand = brand.trim(),
+                    kcalPer100g = kcalPerBasis.coerceAtLeast(0.0),
+                    proteinPer100g = protein.coerceAtLeast(0.0),
+                    carbPer100g = carb.coerceAtLeast(0.0),
+                    fatPer100g = fat.coerceAtLeast(0.0),
+                    fiberPer100g = fiber?.takeIf { it >= 0.0 },
+                    sodiumMgPer100g = sodiumMg?.takeIf { it >= 0.0 },
+                    defaultGrams = if (servingGrams > 0) servingGrams else 100.0,
+                    nutritionBasis = safeBasis,
+                    barcode = barcode?.trim()?.takeIf { it.isNotEmpty() },
+                    category = category,
+                    note = note.trim(),
+                    source = "user"
+                )
+            )
+        }
+    }
+
+    /** v1.5：按 id 取一条自定义食物（编辑页回填用），标准库 id 返回 null。 */
+    suspend fun findCustomFood(id: Long): com.qingji.app.data.local.entity.Food? {
+        if (id <= 0 || id >= CATALOG_ID_START) return null
+        return userFoodDao.findById(id)?.toFood()
+    }
+
+    // ---------- v1.5 阶段四：用户自建外卖品牌 + 品牌菜品 ----------
+
+    fun observeUserBrands(): Flow<List<com.qingji.app.data.local.entity.UserBrand>> =
+        userBrandDao.observeBrands()
+
+    suspend fun allUserBrands(): List<com.qingji.app.data.local.entity.UserBrand> =
+        userBrandDao.allBrands()
+
+    suspend fun findUserBrand(id: Long): com.qingji.app.data.local.entity.UserBrand? =
+        userBrandDao.brandById(id)
+
+    /** 新建品牌。重名返回 -1，界面提示「已有同名品牌」。 */
+    suspend fun createUserBrand(
+        name: String,
+        icon: String = "🏪",
+        note: String = "",
+        sourceLabel: String = ""
+    ): Long {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty() || userBrandDao.brandByName(trimmed) != null) return -1L
+        val order = userBrandDao.brandCount()
+        return userBrandDao.insertBrand(
+            com.qingji.app.data.local.entity.UserBrand(
+                name = trimmed,
+                icon = icon.ifBlank { "🏪" },
+                note = note.trim(),
+                sourceLabel = sourceLabel.trim(),
+                sortOrder = order
+            )
+        )
+    }
+
+    suspend fun updateUserBrand(brand: com.qingji.app.data.local.entity.UserBrand) =
+        userBrandDao.updateBrand(brand)
+
+    /** 删品牌：DAO 事务里先清菜品再删品牌，杜绝孤立菜品；food_log 是快照不受影响。 */
+    suspend fun deleteUserBrand(brandId: Long) = userBrandDao.deleteBrandCascading(brandId)
+
+    fun observeBrandDishes(brandId: Long): Flow<List<com.qingji.app.data.local.entity.UserBrandDish>> =
+        userBrandDao.observeDishes(brandId)
+
+    suspend fun findBrandDish(id: Long): com.qingji.app.data.local.entity.UserBrandDish? =
+        userBrandDao.dishById(id)
+
+    /** 保存菜品：id<=0 新建，否则整行更新。营养基准非法时回落 PER_100G。 */
+    suspend fun saveBrandDish(dish: com.qingji.app.data.local.entity.UserBrandDish): Long {
+        val safeBasis = com.qingji.app.domain.FoodNutritionCalculator.normalizeBasis(dish.nutritionBasis)
+        val safeSource = com.qingji.app.domain.FoodDataSource.normalize(dish.source)
+        val fixed = dish.copy(
+            name = dish.name.trim(),
+            nutritionBasis = safeBasis,
+            source = safeSource,
+            servingGrams = if (fixedServingValid(dish.servingGrams)) dish.servingGrams else 100.0,
+            kcal = dish.kcal.coerceAtLeast(0.0),
+            protein = dish.protein.coerceAtLeast(0.0),
+            fat = dish.fat.coerceAtLeast(0.0),
+            carb = dish.carb.coerceAtLeast(0.0)
+        )
+        return if (dish.id <= 0) userBrandDao.insertDish(fixed.copy(id = 0))
+        else { userBrandDao.updateDish(fixed); dish.id }
+    }
+
+    private fun fixedServingValid(v: Double) = v.isFinite() && v > 0.0
+
+    suspend fun deleteBrandDish(id: Long) = userBrandDao.deleteDishById(id)
+
+    suspend fun setBrandDishFavorite(id: Long, favorite: Boolean) =
+        userBrandDao.setDishFavorite(id, favorite)
+
+    /** 搜索页用：全局搜自建菜品。 */
+    suspend fun searchUserBrandDishes(keyword: String): List<com.qingji.app.data.local.entity.UserBrandDish> =
+        userBrandDao.searchDishes(keyword.trim())
+
+    /**
+     * v1.5 阶段四：全局搜索，一次覆盖标准食物/自定义/自建品牌/品牌菜品。
+     * @param scope 搜索范围（全部/家庭厨房/外卖快餐/自定义）
+     */
+    suspend fun searchAllFoods(
+        keyword: String,
+        scope: com.qingji.app.domain.FoodSearchResult.Scope
+    ): List<com.qingji.app.domain.FoodSearchResult> {
+        val key = keyword.trim()
+        if (key.isEmpty()) return emptyList()
+        val out = mutableListOf<com.qingji.app.domain.FoodSearchResult>()
+
+        // 标准 + 自定义食物（现有 searchFood 已支持中文/拼音/别名）
+        if (scope == com.qingji.app.domain.FoodSearchResult.Scope.ALL ||
+            scope == com.qingji.app.domain.FoodSearchResult.Scope.KITCHEN ||
+            scope == com.qingji.app.domain.FoodSearchResult.Scope.CUSTOM
+        ) {
+            val foods = searchFood(key)
+            foods.forEach { f ->
+                val isCustom = f.id > 0 && f.id < CATALOG_ID_START
+                val isTakeaway = f.brand.isNotBlank() || f.category == com.qingji.app.domain.FoodCategory.FAST_FOOD
+                val include = when (scope) {
+                    com.qingji.app.domain.FoodSearchResult.Scope.KITCHEN -> !isTakeaway
+                    com.qingji.app.domain.FoodSearchResult.Scope.CUSTOM -> isCustom
+                    else -> true
+                }
+                if (include) out.add(com.qingji.app.domain.FoodSearchResult.FoodItem(f))
+            }
+        }
+
+        // 自建品牌 + 品牌菜品
+        if (scope == com.qingji.app.domain.FoodSearchResult.Scope.ALL ||
+            scope == com.qingji.app.domain.FoodSearchResult.Scope.TAKEAWAY
+        ) {
+            val lower = key.lowercase()
+            val brands = userBrandDao.allBrands().filter { it.name.contains(key, true) || it.name.lowercase().contains(lower) }
+            brands.forEach { b -> out.add(com.qingji.app.domain.FoodSearchResult.BrandItem(b)) }
+            val brandNames = userBrandDao.allBrands().associateBy({ it.id }, { it.name })
+            userBrandDao.searchDishes(key).forEach { d ->
+                out.add(com.qingji.app.domain.FoodSearchResult.DishItem(d, brandNames[d.brandId] ?: ""))
+            }
+        }
+        return out
+    }
+
+    /**
+     * 自建菜品按实际食用量折算后写入饮食记录（快照式 food_log）。
+     * 热量/三宏量走统一折算工具，同一基准，历史记录不受菜品后续编辑影响。
+     * @return 写入的克数对应折算是否成功（份量非法时 ratio=0，仍写入 0 值记录）
+     */
+    suspend fun addBrandDishToMeal(
+        dish: com.qingji.app.data.local.entity.UserBrandDish,
+        grams: Double,
+        mealType: String,
+        dayOffset: Int = 0
+    ) {
+        val consumed = com.qingji.app.domain.FoodNutritionCalculator.compute(
+            kcalPerBasis = dish.kcal,
+            proteinPerBasis = dish.protein,
+            carbPerBasis = dish.carb,
+            fatPerBasis = dish.fat,
+            basis = dish.nutritionBasis,
+            servingGrams = dish.servingGrams,
+            grams = grams
+        )
+        addFoodLog(
+            com.qingji.app.data.local.entity.FoodLog(
+                date = AppClock.today().minusDays(dayOffset.toLong()),
+                mealType = mealType,
+                foodName = dish.name,
+                grams = grams,
+                kcal = consumed.kcal,
+                proteinG = consumed.proteinG,
+                carbG = consumed.carbG,
+                fatG = consumed.fatG,
+                source = "manual"
             )
         )
     }
@@ -548,13 +789,20 @@ class QingJiRepository(private val context: Context) {
         }
 
         val candidates = try {
-            allFoodsOnce().map {
-                it.name to Per100g(
+            // v1.3.10：候选表带上别名（split "|"），AI 叫别名时也能命中同名库条目。
+            allFoodsOnce().flatMap {
+                val per = Per100g(
                     kcal = it.kcalPer100g,
                     protein = it.proteinPer100g,
                     carb = it.carbPer100g,
                     fat = it.fatPer100g
                 )
+                val primary = it.name to per
+                val aliasList = it.aliases.split("|")
+                    .map { a -> a.trim() }
+                    .filter { a -> a.isNotEmpty() && a != it.name }
+                    .map { a -> a to per }
+                listOf(primary) + aliasList
             }
         } catch (e: Exception) {
             emptyList()
@@ -577,8 +825,32 @@ class QingJiRepository(private val context: Context) {
                 item.copy(grams = grams, kcal = NutritionMatch.saneKcal(item.kcal, grams))
             }
         }
+        // v1.3.10 兜底：命不中库（或命中的库条目本身宏量全 0）时，AI 偷懒只给热量，
+        // 蛋白/碳水/脂肪就会落成 0（用户吃了个 250 千卡的姜母鸭三大营养素全是 0）。
+        // 对这些条目按「精确名（含别名）」回查一次库，命中就用库宏量按克数折算；
+        // 查不到 / 库里本身是真实 0（白酒、无糖茶）就保持原样，不编数。
+        val backfilled = items.map { item ->
+            if (!(item.kcal > 0 && item.proteinG <= 0 && item.carbG <= 0 && item.fatG <= 0)) {
+                return@map item
+            }
+            val key = NutritionMatch.normalizeName(item.name)
+            val hasMacro: (Per100g) -> Boolean =
+                { per -> per.protein > 0 || per.carb > 0 || per.fat > 0 }
+            val exact = candidates.firstOrNull { (name, per) ->
+                NutritionMatch.normalizeName(name) == key && hasMacro(per)
+            } ?: candidates.firstOrNull { (name, per) ->
+                val n = NutritionMatch.normalizeName(name)
+                (n.contains(key) || key.contains(n)) && hasMacro(per)
+            }
+            if (exact == null) {
+                item
+            } else {
+                val per = NutritionMatch.compute(exact.second, item.grams)
+                item.copy(proteinG = per.protein, carbG = per.carb, fatG = per.fat)
+            }
+        }
         return auditNutritionConsistency(
-            renamed.copy(items = items, totalKcal = items.sumOf { it.kcal })
+            renamed.copy(items = backfilled, totalKcal = backfilled.sumOf { it.kcal })
         )
     }
 

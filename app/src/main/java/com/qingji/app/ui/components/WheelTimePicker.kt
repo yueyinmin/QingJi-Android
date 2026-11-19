@@ -19,7 +19,102 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.qingji.app.domain.AppClock
 import com.qingji.app.ui.theme.TextSecondary
+import java.time.LocalDate
+
+/**
+ * ============================================================
+ * 三列日期滚轮（年 / 月 / 日）—— 睡眠表单点日期弹出（2026-11-18）
+ * ------------------------------------------------------------
+ * · 第一列年（默认近 6 年）、第二列月（1~12）、第三列日（1~31），三列独立滚。
+ * · 复用 NumberWheelColumn 那套「中间高亮 + 松手吸附」，和时/分滚轮同一手感。
+ * · 日轮固定 1~31：三列是独立滚轮，月日组合可能拼出当月不存在的日期
+ *   （2 月 30 日）或超出调用方允许范围（比如只能记最近 30 天），
+ *   所以这里只回传年/月/日三个数，合法性由调用方校验 ——
+ *   跟 WheelTimePicker「只管滚、不管业务口径」的分工一致。
+ * · 每次滚动停下即回传（和 WheelTimePicker 相同），调用方对非法值不落库即可。
+ * ============================================================
+ */
+@Composable
+fun WheelDatePicker(
+    initialDate: LocalDate,
+    modifier: Modifier = Modifier,
+    /** 年轮的范围，默认最近 6 年（含今年）：记历史睡眠够用，滚起来也不费劲 */
+    yearRange: IntRange = IntRange(
+        AppClock.today().year - 5,
+        AppClock.today().year
+    ),
+    onSelected: (year: Int, month: Int, day: Int) -> Unit
+) {
+    var year by remember { mutableStateOf(initialDate.year.coerceIn(yearRange.first, yearRange.last)) }
+    var month by remember { mutableStateOf(initialDate.monthValue) }
+    var day by remember { mutableStateOf(initialDate.dayOfMonth) }
+    // 跳过首次组合的那次回传（同 WheelTimePicker）
+    var ready by remember { mutableStateOf(false) }
+
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        DateWheelColumn(
+            title = "年",
+            labels = yearRange.map { "${it}年" },
+            initialIndex = year - yearRange.first,
+            modifier = Modifier.weight(1f)
+        ) { year = yearRange.first + it }
+        DateWheelColumn(
+            title = "月",
+            labels = (1..12).map { "${it}月" },
+            initialIndex = month - 1,
+            modifier = Modifier.weight(1f)
+        ) { month = it + 1 }
+        DateWheelColumn(
+            title = "日",
+            labels = (1..31).map { "${it}日" },
+            initialIndex = day - 1,
+            modifier = Modifier.weight(1f)
+        ) { day = it + 1 }
+    }
+
+    LaunchedEffect(year, month, day) {
+        if (!ready) {
+            ready = true
+            return@LaunchedEffect
+        }
+        onSelected(year, month, day)
+    }
+}
+
+/** 一列滚轮 + 顶部的「年 / 月 / 日」标签，避免三列数字看不出哪个是哪个单位。 */
+@Composable
+private fun DateWheelColumn(
+    title: String,
+    labels: List<String>,
+    initialIndex: Int,
+    modifier: Modifier = Modifier,
+    onSelected: (Int) -> Unit
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = title,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            color = TextSecondary,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(4.dp))
+        NumberWheelColumn(
+            labels = labels,
+            initialIndex = initialIndex,
+            modifier = Modifier.fillMaxWidth(),
+            onSelected = onSelected
+        )
+    }
+}
 
 /**
  * ============================================================

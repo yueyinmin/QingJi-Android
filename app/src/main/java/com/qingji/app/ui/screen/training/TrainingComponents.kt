@@ -471,28 +471,92 @@ private fun NumberField(
     )
 }
 
-/** 进行中训练的计时条。存的是开始时间戳，暂停时长在草稿里累计。 */
+/**
+ * 进行中训练的计时条。存的是开始时间戳，暂停时长在草稿里累计。
+ * 2026-11-18：时长可以手动指定（点右边的「改时长」），补记模式下这条
+ * 变成「日期 + 指定时长」两行，计时器不跑。
+ */
 @Composable
 fun WorkoutTimerBar(
     elapsedSeconds: Long,
     paused: Boolean,
     editing: Boolean,
     onTogglePause: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** 手动指定的时长（分钟）。0 = 没指定，按计时走。 */
+    durationOverrideMin: Int = 0,
+    /** 点「改时长」弹滚轮。 */
+    onDurationClick: () -> Unit = {},
+    /** 点「恢复计时」清掉手动指定的时长。 */
+    onResetDuration: () -> Unit = {},
+    /** 非空 = 补记模式，显示补记日期，不显示计时。 */
+    backfillDate: String = "",
+    /** 补记模式下点日期行弹日期滚轮。 */
+    onDateClick: () -> Unit = {},
+    /** 编辑旧记录时的原始时长（分钟），大数字直接显示它而不是 misleading 的计时。 */
+    editingDurationMin: Int = 0
 ) {
     SectionCard(modifier = modifier, contentPadding = Dimens.CardPaddingCompact) {
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(if (editing) "修改这次训练" else "本次训练时长",
-                    fontSize = TextSizes.Caption, color = TextSecondary)
-                Text(
-                    text = if (editing) "时长保持原样" else TrainingMath.formatDuration(elapsedSeconds),
-                    fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TextPrimary
-                )
+        if (backfillDate.isNotBlank()) {
+            // 补记：日期行 + 时长行，没有计时器
+            val dateText = runCatching {
+                val d = java.time.LocalDate.parse(backfillDate)
+                "${d.year}年${d.monthValue}月${d.dayOfMonth}日"
+            }.getOrDefault(backfillDate)
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { onDateClick() },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("补记日期", fontSize = TextSizes.Caption, color = TextSecondary)
+                    Text(dateText, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                }
+                Text("改日期", fontSize = TextSizes.Body, color = QingJiGreen)
             }
-            if (!editing) {
-                OutlinedButton(onClick = onTogglePause) {
-                    Text(if (paused) "继续" else "暂停", fontSize = TextSizes.Body)
+            Spacer(Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { onDurationClick() },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("训练时长", fontSize = TextSizes.Caption, color = TextSecondary)
+                    Text("${durationOverrideMin.coerceAtLeast(1)} 分钟",
+                        fontSize = 20.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                }
+                Text("改时长", fontSize = TextSizes.Body, color = QingJiGreen)
+            }
+        } else {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(
+                    modifier = Modifier.weight(1f).clickable { onDurationClick() },
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(if (editing) "修改这次训练 · 时长" else "本次训练时长",
+                        fontSize = TextSizes.Caption, color = TextSecondary)
+                    // 大数字只放纯时长，不再缀「点这里可改」小尾巴；
+                    // 入口是右边的绿字「改时长」，整个大数字区域照样能点。
+                    Text(
+                        text = when {
+                            durationOverrideMin > 0 -> "${durationOverrideMin} 分钟"
+                            editing && editingDurationMin > 0 -> "${editingDurationMin} 分钟"
+                            else -> TrainingMath.formatDuration(elapsedSeconds)
+                        },
+                        fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TextPrimary
+                    )
+                }
+                Text(
+                    text = if (durationOverrideMin > 0) "恢复计时" else "改时长",
+                    fontSize = TextSizes.Body,
+                    color = QingJiGreen,
+                    modifier = Modifier.clickable {
+                        if (durationOverrideMin > 0) onResetDuration() else onDurationClick()
+                    }
+                )
+                if (!editing) {
+                    Spacer(Modifier.width(8.dp))
+                    OutlinedButton(onClick = onTogglePause) {
+                        Text(if (paused) "继续" else "暂停", fontSize = TextSizes.Body)
+                    }
                 }
             }
         }

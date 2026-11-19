@@ -75,6 +75,19 @@ class SleepViewModel(app: Application) : AndroidViewModel(app) {
         _editing.value = null
     }
 
+    /**
+     * 直接选中某一天（七天趋势卡点击某天调用，2026-11-19）。
+     * 边界口径和 [shiftSelectedDate] 完全一致：不允许未来、不早于 30 天前；
+     * 越界请求直接忽略（不改状态 → 页面不闪），并清掉编辑态。
+     */
+    fun selectDate(date: LocalDate) {
+        val today = AppClock.today()
+        if (date > today || date.isBefore(today.minusDays(29))) return
+        if (date == _selectedDate.value) return
+        _selectedDate.value = date
+        _editing.value = null
+    }
+
     /** 最近 30 天（趋势 + 历史列表），新到旧。 */
     val recent30: StateFlow<List<SleepRecordEntity>> =
         repo.observeRange(AppClock.today().minusDays(29), AppClock.today())

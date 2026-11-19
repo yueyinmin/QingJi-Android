@@ -61,6 +61,8 @@ fun TrainingDiaryContent(
     vm: TrainingViewModel,
     onStartTraining: () -> Unit,
     onEditSession: () -> Unit,
+    /** 2026-11-18：补记一次力量训练（先进补记模式再跳进行中页）。 */
+    onBackfill: () -> Unit = {},
     /** 饮食 30 天热力图的数据（从进展页搬过来的模块，口径保持一致） */
     foodLogs: List<com.qingji.app.data.local.entity.FoodLog> = emptyList(),
     dailyKcalGoal: Double = 2000.0,
@@ -133,6 +135,16 @@ fun TrainingDiaryContent(
 
             // 与心情日记共用同一套主按钮 / 三栏统计组件，位置尺寸字号完全一致
             DiaryPrimaryButton("开始训练", onStartTraining)
+            Spacer(Modifier.height(8.dp))
+            androidx.compose.material3.OutlinedButton(
+                onClick = {
+                    vm.startBackfill()
+                    onBackfill()
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("补记一次（昨天忘了记？点这里）", fontSize = TextSizes.Body)
+            }
             Spacer(Modifier.height(12.dp))
 
             // ---------- 本月总结：数字全部由明细累加，不手写 ----------
@@ -231,7 +243,7 @@ fun TrainingDiaryContent(
                 val allSets = items.flatMap { TrainingMath.decodeSets(it.setsJson) }
                 val volume = TrainingMath.sessionVolume(allSets)
                 Text(
-                    "总时长 ${session?.durationMinutes ?: 0} 分钟 · 总组数 ${allSets.size} 组 · 训练量 %.1f kg".format(volume),
+                    "总时长 ${session?.durationMinutes ?: 0} 分钟 · 总组数 ${allSets.size} 组 · 训练量 ${TrainingMath.formatVolume(volume)}",
                     fontSize = TextSizes.Caption, color = TextSecondary
                 )
                 Text("训练量是「重量 × 次数」的加总，估算值，仅供参考。",
@@ -281,7 +293,7 @@ private fun SessionRow(
                     fontWeight = FontWeight.SemiBold, color = TextPrimary)
                 Spacer(Modifier.height(3.dp))
                 Text(
-                    "${session.durationMinutes} 分钟 · ${exercises.size} 个动作 · ${allSets.size} 组 · 训练量 %.1f kg".format(volume),
+                    "${session.durationMinutes} 分钟 · ${exercises.size} 个动作 · ${allSets.size} 组 · 训练量 ${TrainingMath.formatVolume(volume)}",
                     fontSize = TextSizes.Tiny, color = TextSecondary
                 )
             }

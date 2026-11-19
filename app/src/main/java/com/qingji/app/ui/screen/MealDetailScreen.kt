@@ -319,11 +319,15 @@ fun MealDetailScreen(
                     MenuRow("把这一餐存进我的食物库") {
                         showMenu = false
                         scope.launch {
-                            val n = vm.saveToFoodLibrary()
+                            val (added, skipped, invalid) = vm.saveToFoodLibrary()
+                            val msg = when {
+                                added > 0 && skipped == 0 && invalid == 0 -> "已存 $added 条到自定义食物库"
+                                added > 0 -> "已存 $added 条；$skipped 条库里已有同名跳过，$invalid 条没记克数存不了"
+                                skipped > 0 -> "这餐的食物自定义库里都有了，没有新增"
+                                else -> "这一餐没有可存的食物"
+                            }
                             android.widget.Toast.makeText(
-                                context,
-                                if (n > 0) "已存 $n 条到自定义食物库" else "这一餐没有可存的食物",
-                                android.widget.Toast.LENGTH_SHORT
+                                context, msg, android.widget.Toast.LENGTH_SHORT
                             ).show()
                         }
                     }

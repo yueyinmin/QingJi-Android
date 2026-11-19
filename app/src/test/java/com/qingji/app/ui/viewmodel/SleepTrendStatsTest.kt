@@ -66,4 +66,52 @@ class SleepTrendStatsTest {
         assertEquals(0, stats.recordedCount)
         assertNull(stats.avgHours)
     }
+
+    // ========== 2026-11-19 睡眠 UI 重构回归补充（只锁数据口径，页面只画不改数） ==========
+
+    @Test
+    fun `达标天数口径 满7小时才算达标 不按平均值`() {
+        // 页面 WeeklyTrendCard 用 hours*60 >= 7*60 统计「已达标 N/7」。
+        // 这里锁住底层 7 天数据：5 条 >=7h、2 条 <7h，达标数应为 5。
+        val stats = SleepTrendStats.of(
+            listOf(
+                rec(today.minusDays(6), 420),  // 7h  达标
+                rec(today.minusDays(5), 450),  // 7.5h 达标
+                rec(today.minusDays(4), 480),  // 8h  达标
+                rec(today.minusDays(3), 430),  // 7.17h 达标
+                rec(today.minusDays(2), 440),  // 7.33h 达标
+                rec(today.minusDays(1), 350),  // 5.83h 未达标
+                rec(today, 390)               // 6.5h 未达标
+            ),
+            today, 7
+        )
+        val achieved = stats.days.mapNotNull { it.second }.count { it * 60 >= 7 * 60 }
+        assertEquals(5, achieved)
+        assertEquals(7, stats.recordedCount)
+    }
+
+    @Test
+    fun `选中日期为右端点时历史某晚的趋势跟着那晚走`() {
+        // 页面点击趋势某天后，SleepTrendStats.of(recent30, selectedDate, 7) 重算。
+        // selectedDate = 3 天前时，窗口应为 [9天前 … 3天前]，右端点 = 3天前。
+        val selected = today.minusDays(3)
+        val stats = SleepTrendStats.of(emptyList(), selected, 7)
+        assertEquals(selected, stats.days.last().first)
+        assertEquals(selected.minusDays(6), stats.days.first().first)
+    }
+
+    @Test
+    fun `跨天睡眠按起床日归属且时长不因跨午夜变负`() {
+        // Repository 口径：归属 = 起床日；时长 = (end-start)/60000；end 必须 > start。
+        // 23:30 入睡 → 次日 07:30 起床 = 480 分钟，归属次日。
+        val zone = java.time.ZoneId.of("Asia/Shanghai")
+        val start = java.time.LocalDateTime.of(2026, 11, 17, 23, 30)
+            .atZone(zone).toInstant().toEpochMilli()
+        val end = java.time.LocalDateTime.of(2026, 11, 18, 7, 30)
+            .atZone(zone).toInstant().toEpochMilli()
+        val minutes = ((end - start) / 60_000L).toInt()
+        val attributedDate = java.time.Instant.ofEpochMilli(end).atZone(zone).toLocalDate()
+        assertEquals(480, minutes)
+        assertEquals(java.time.LocalDate.of(2026, 11, 18), attributedDate)
+    }
 }

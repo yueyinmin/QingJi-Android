@@ -2,6 +2,7 @@ package com.qingji.app.ui.screen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.Description
@@ -43,6 +45,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.qingji.app.data.local.entity.Food
 import com.qingji.app.domain.AllergenRules
 import com.qingji.app.domain.FoodCategory
+import com.qingji.app.domain.NutritionMatch
 import com.qingji.app.domain.FoodIcon
 import com.qingji.app.domain.MealRules
 import com.qingji.app.ui.components.HintBox
@@ -60,6 +63,9 @@ import com.qingji.app.ui.theme.TextSecondary
 import com.qingji.app.ui.viewmodel.EatenFood
 import com.qingji.app.ui.viewmodel.FoodLibraryViewModel
 
+/** v1.5 阶段二：家庭厨房顶部「全部」分类的哨兵值（不与任何真实分类重名）。 */
+private const val ALL_CATEGORY = "__ALL__"
+
 /**
  * ============================================================
  * 食物库（v2.0）
@@ -76,6 +82,10 @@ import com.qingji.app.ui.viewmodel.FoodLibraryViewModel
 @Composable
 fun FoodLibraryScreen(
     onBack: () -> Unit,
+    onAddCustomFood: () -> Unit = {},
+    onEditCustomFood: (Long) -> Unit = {},
+    onManageBrands: () -> Unit = {},
+    onOpenSearch: () -> Unit = {},
     vm: FoodLibraryViewModel = viewModel()
 ) {
     val allFoods by vm.allFoods.collectAsState()
@@ -87,13 +97,23 @@ fun FoodLibraryScreen(
     val settings = com.qingji.app.ui.LocalAppSettings.current
     val allergens = settings.allergens.split(",").map { it.trim() }.filter { it.isNotBlank() }
 
-    var tab by remember { mutableStateOf(0) }
-    var kitchenTab by remember { mutableStateOf(0) }
-    var category by remember { mutableStateOf(FoodCategory.STAPLE) }
+    // v1.5 阶段四（工单 5.6）：来源/品牌/分类/收藏筛选改用 rememberSaveable，
+    // 旋转屏幕/进程回收后自动恢复；配合「独立搜索页」方案（退出只 pop 搜索页、
+    // 本页 Composable 一直在返回栈里没销毁），滚动位置与各筛选状态天然保留。
+    var tab by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(0) }
+    var kitchenTab by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(0) }
+    var category by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(ALL_CATEGORY) }
+    // 家庭厨房的横排细类（大类右上的那排小胶囊）。空串 = 全部。
+    var subCategory by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
     var pick by remember { mutableStateOf<Food?>(null) }
-    var showSearch by remember { mutableStateOf(false) }
-    var query by remember { mutableStateOf("") }
-    var showFavorites by remember { mutableStateOf(false) }
+    // v1.5 阶段四：搜索改为独立全屏页，食物库页内不再有搜索框/搜索词。
+    // query 保留空串仅供旧的家常菜"相关食物"逻辑读取（恒不触发），不影响分类。
+    val query = ""
+    var showFavorites by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    // 家庭厨房列表滚动位置：用 Saver 存进 savedState，退出搜索/旋转后回到原来的位置
+    val homeListState = androidx.compose.runtime.saveable.rememberSaveable(
+        saver = androidx.compose.foundation.lazy.LazyListState.Saver
+    ) { androidx.compose.foundation.lazy.LazyListState() }
 
     // 「我的收藏」当成第 4 个 tab：原来三页的内容一行都不用动
     val effectiveTab = if (showFavorites) 3 else tab
@@ -158,39 +178,14 @@ fun FoodLibraryScreen(
                 tint = QingJiGreen,
                 modifier = Modifier
                     .size(22.dp)
-                    .pressable { showSearch = !showSearch }
+                    .pressable { onOpenSearch() }
             )
         }
 
-        if (showSearch) {
-            androidx.compose.material3.OutlinedTextField(
-                value = query,
-                onValueChange = { query = it },
-                singleLine = true,
-                placeholder = { Text(text = s("搜食物名或拼音首字母（如 sp）"), fontSize = 12.sp, color = TextSecondary) },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Filled.Search,
-                        contentDescription = null,
-                        tint = QingJiGreen,
-                        modifier = Modifier.size(18.dp)
-                    )
-                },
-                shape = RoundedCornerShape(10.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 6.dp)
-            )
-        }
+        // v1.5 阶段四：搜索框已移到独立全屏页（点上面的放大镜进入），
+        // 本页不再条件插入输入框，页面结构/分类/底栏不再被搜索破坏。
 
-        // 免责：654 条营养值是初采估算（PRD 13.1 口径）
-        Text(
-            text = s("食物热量按常见值估算，日常记账够用，别当营养学依据"),
-            fontSize = 11.sp,
-            color = TextSecondary,
-            modifier = Modifier.padding(horizontal = 16.dp)
-        )
-        Spacer(Modifier.height(8.dp))
+        // 2026-11-18：去掉标题下那行免责小字（主人嫌它是多余的小黑字备注）
 
         // 内容区占满剩余高度，底栏才不会被列表挤出屏幕
         Column(modifier = Modifier.weight(1f)) {
@@ -200,79 +195,225 @@ fun FoodLibraryScreen(
                 Spacer(Modifier.height(8.dp))
 
                 if (kitchenTab == 0) {
-                    // 家庭厨房：左边分类，右边列表
+                    // v1.5 阶段二：家庭厨房改为「顶部横滑主分类 + 单列列表」
                     val homeFoods = allFoods.filter {
                         it.category != FoodCategory.FAST_FOOD && matchesFood(it)
                     }
                     val available = FoodCategory.ALL.filter { cat ->
                         homeFoods.any { it.category == cat }
                     }
-                    if (category !in available && available.isNotEmpty()) {
-                        category = available.first()
+                    // 选中分类若无数据则回落「全部」（而不是强选第一个）
+                    if (category != ALL_CATEGORY && category !in available && available.isNotEmpty()) {
+                        category = ALL_CATEGORY
                     }
 
-                    Row(modifier = Modifier.fillMaxWidth().weight(1f)) {
-                        Column(
-                            modifier = Modifier
-                                .width(88.dp)
-                                .background(CardWhite)
-                                .verticalScroll(rememberScrollState())
-                        ) {
-                            available.forEach { cat ->
-                                val selected = cat == category
-                                Row(
+                    // v1.3.10 搜索升级：搜索时不再被左侧分类卡住——
+                    // 命中跨全部分类显示；命中不足 3 条时自动补「相关食物」
+                    // （NutritionMatch 相似度 ≥45，如搜姜母鸭带出啤酒鸭/盐水鸭），
+                    // 解决「搜一道菜只出一条，看着少一大截」的问题。
+                    val searching = query.trim().isNotEmpty()
+                    val related = if (searching) {
+                        allFoods.filter {
+                            it.category != FoodCategory.FAST_FOOD &&
+                                !matchesFood(it) &&
+                                NutritionMatch.score(query.trim(), it.name) >= 45
+                        }.take(12)
+                    } else {
+                        emptyList()
+                    }
+
+                    // 2026-11-18：右上横排细类（照外卖快餐同款样式）。
+                    // 细类来自数据里的 subcategory 字段，按食物条数多的排前面；
+                    // 纯英文的值（staple/dish/fruit 这类录入痕迹）不上横栏，
+                    // 那些食物照样能在「全部」里翻到。
+                    val subs = homeFoods
+                        .filter { (category == ALL_CATEGORY || it.category == category) && it.subcategory.isNotBlank() }
+                        .groupingBy { it.subcategory }
+                        .eachCount()
+                        .entries
+                        .filter { (it.key.firstOrNull()?.code ?: 0) > 127 } // 只要中文细类
+                        .sortedByDescending { it.value }
+                        .map { it.key }
+                    val effectiveSub = if (subCategory in subs) subCategory else ""
+                    val allSubLabel = s("全部")
+
+                    Column(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                            // v1.5 阶段二：主分类从左侧竖栏改为顶部横滑胶囊（单列布局）。
+                            // 默认「全部」选中；切分类只刷新列表，不重建页面。
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState())
+                                    .padding(horizontal = 10.dp, vertical = 4.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // 「全部」胶囊
+                                val allSelected = category == ALL_CATEGORY
+                                Text(
+                                    text = s("全部"),
+                                    fontSize = 13.sp,
+                                    color = if (allSelected) Color.White else TextSecondary,
+                                    fontWeight = if (allSelected) FontWeight.SemiBold else FontWeight.Normal,
                                     modifier = Modifier
-                                        .fillMaxWidth()
-                                        .background(if (selected) QingJiGreenLight else Color.Transparent)
-                                        .clickable { category = cat }
-                                        .padding(vertical = 12.dp, horizontal = 10.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
+                                        .clip(RoundedCornerShape(999.dp))
+                                        .background(if (allSelected) QingJiGreen else CardWhite)
+                                        .clickable { category = ALL_CATEGORY; subCategory = "" }
+                                        .padding(horizontal = 16.dp, vertical = 7.dp)
+                                )
+                                available.forEach { cat ->
+                                    val selected = cat == category
                                     Text(
-                                        text = catEmoji(cat),
-                                        fontSize = 13.sp
-                                    )
-                                    Spacer(Modifier.width(6.dp))
-                                    Text(
-                                        text = cat,
-                                        fontSize = 12.sp,
-                                        color = if (selected) QingJiGreenDark else TextSecondary,
-                                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+                                        text = catEmoji(cat) + " " + cat,
+                                        fontSize = 13.sp,
+                                        color = if (selected) Color.White else TextSecondary,
+                                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(999.dp))
+                                            .background(if (selected) QingJiGreen else CardWhite)
+                                            .clickable {
+                                                category = cat
+                                                subCategory = "" // 换大类，细类回到「全部」
+                                            }
+                                            .padding(horizontal = 14.dp, vertical = 7.dp)
                                     )
                                 }
                             }
-                            Spacer(Modifier.height(60.dp))
-                        }
 
-                        // v1.4 性能专项（工单 11）：Column 全量组合 → LazyColumn 只组合可见行。
-                        // 家常菜 190 条、全库 1121 条时，旧写法每次进分类都要把整个列表
-                        // 的组件全部建出来，来回切换明显卡顿；LazyColumn 视口外不组合。
-                        val filtered = homeFoods.filter { it.category == category }
-                        androidx.compose.foundation.lazy.LazyColumn(
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(horizontal = 10.dp)
-                        ) {
-                            item { Spacer(Modifier.height(4.dp)) }
-                            items(
-                                count = filtered.size,
-                                key = { i -> filtered[i].id },
-                                contentType = { "food_row" }
-                            ) { i ->
-                                val food = filtered[i]
-                                LibraryFoodRow(
-                                    name = food.name,
-                                    kcalPer100g = food.kcalPer100g,
-                                    favorite = food.favorite,
-                                    risky = AllergenRules.isRisky(food.name, allergens),
-                                    onFavorite = { vm.toggleFavorite(food) },
-                                    onClick = { pick = food }
-                                )
+                            // 横排细类胶囊：和外卖快餐右上那排同款（搜索模式下隐藏）
+                            if (!searching && subs.isNotEmpty()) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .horizontalScroll(rememberScrollState())
+                                        .padding(horizontal = 10.dp, vertical = 2.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    listOf(allSubLabel).forEach { label ->
+                                        val selected = effectiveSub == ""
+                                        Text(
+                                            text = label,
+                                            fontSize = 12.sp,
+                                            color = if (selected) Color.White else TextSecondary,
+                                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(999.dp))
+                                                .background(if (selected) QingJiGreen else CardWhite)
+                                                .clickable { subCategory = "" }
+                                                .padding(horizontal = 14.dp, vertical = 6.dp)
+                                        )
+                                    }
+                                    subs.forEach { sub ->
+                                        val selected = sub == effectiveSub
+                                        Text(
+                                            text = sub,
+                                            fontSize = 12.sp,
+                                            color = if (selected) Color.White else TextSecondary,
+                                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(999.dp))
+                                                .background(if (selected) QingJiGreen else CardWhite)
+                                                .clickable { subCategory = sub }
+                                                .padding(horizontal = 14.dp, vertical = 6.dp)
+                                        )
+                                    }
+                                }
                             }
-                            item { Spacer(Modifier.height(80.dp)) }
-                        }
+
+                            // v1.4 性能专项（工单 11）：Column 全量组合 → LazyColumn 只组合可见行。
+                            // 家常菜 190 条、全库 1121 条时，旧写法每次进分类都要把整个列表
+                            // 的组件全部建出来，来回切换明显卡顿；LazyColumn 视口外不组合。
+                            // 2026-11-18：再叠加细类过滤。
+                            val filtered = if (searching) {
+                                homeFoods
+                            } else {
+                                homeFoods.filter {
+                                    (category == ALL_CATEGORY || it.category == category) &&
+                                        (effectiveSub == "" || it.subcategory == effectiveSub)
+                                }
+                            }
+                            androidx.compose.foundation.lazy.LazyColumn(
+                                state = homeListState,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(horizontal = 10.dp)
+                            ) {
+                                item { Spacer(Modifier.height(4.dp)) }
+                                if (searching) {
+                                    item {
+                                        Text(
+                                            text = s("匹配结果") + " · " + filtered.size,
+                                            fontSize = 11.sp,
+                                            color = TextSecondary,
+                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
+                                        )
+                                    }
+                                }
+                                if (filtered.isEmpty() && related.isEmpty()) {
+                                    item {
+                                        HintBox(text = s("这道分类下暂时没有菜品"))
+                                    }
+                                }
+                                items(
+                                    count = filtered.size,
+                                    key = { i -> filtered[i].id },
+                                    contentType = { "food_row" }
+                                ) { i ->
+                                    val food = filtered[i]
+                                    LibraryFoodRow(
+                                        name = if (searching) food.name + "（" + food.category + "）" else food.name,
+                                        kcalPer100g = food.kcalPer100g,
+                                        favorite = food.favorite,
+                                        risky = AllergenRules.isRisky(food.name, allergens),
+                                        onFavorite = { vm.toggleFavorite(food) },
+                                        onClick = { pick = food }
+                                    )
+                                }
+                                if (searching && related.isNotEmpty()) {
+                                    item {
+                                        Text(
+                                            text = s("相关食物") + " · " + related.size,
+                                            fontSize = 11.sp,
+                                            color = TextSecondary,
+                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 10.dp)
+                                        )
+                                    }
+                                }
+                                items(
+                                    count = related.size,
+                                    key = { i -> "rel_" + related[i].id },
+                                    contentType = { "food_row" }
+                                ) { i ->
+                                    val food = related[i]
+                                    LibraryFoodRow(
+                                        name = food.name + "（" + food.category + "）",
+                                        kcalPer100g = food.kcalPer100g,
+                                        favorite = food.favorite,
+                                        risky = AllergenRules.isRisky(food.name, allergens),
+                                        onFavorite = { vm.toggleFavorite(food) },
+                                        onClick = { pick = food }
+                                    )
+                                }
+                                item { Spacer(Modifier.height(80.dp)) }
+                            }
                     }
                 } else {
+                    // v1.5 阶段四：自建品牌入口（顶部紧凑按钮，接入品牌管理页）
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = Dimens.ScreenPadding, vertical = 4.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(QingJiGreen)
+                            .clickable { onManageBrands() }
+                            .padding(vertical = 10.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("+ 管理我的外卖品牌", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color.White)
+                    }
+                    Spacer(Modifier.height(8.dp))
                     // 外卖快餐（第六阶段）：品牌选择 → 品牌菜单 → 溯源详情。
                     // 品牌由数据库动态驱动；堂食菜当菜单；外卖商品空态如实提示。
                     // 家庭厨房分支、底栏、收藏、记录链路都不动。
@@ -293,23 +434,58 @@ fun FoodLibraryScreen(
                     .padding(horizontal = Dimens.ScreenPadding)
             ) {
                 Spacer(Modifier.height(4.dp))
-                HintBox(text = "你自己加的食物都在这里；AI 识别过的也能从「用餐详情 → 更多」存进来")
+                // v1.5：自定义食物的主要新增入口，视觉突出
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(Dimens.CardCorner))
+                        .background(QingJiGreen)
+                        .clickable { onAddCustomFood() }
+                        .padding(vertical = 14.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Filled.Add,
+                            contentDescription = "新增",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(text = "新增自定义食物", fontSize = 15.sp, color = Color.White, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                HintBox(text = "手动录入名称与营养；AI 识别过的也能从「用餐详情 → 更多」存进来。左滑删除，点右侧编辑。")
                 Spacer(Modifier.height(8.dp))
                 if (userFoods.isEmpty()) {
-                    Text(text = "还没有自定义食物，左滑可以删除", fontSize = 13.sp, color = TextSecondary)
+                    Text(text = "还没有自定义食物，点上面按钮新建", fontSize = 13.sp, color = TextSecondary)
                 } else {
                     userFoods.filter { matchesFood(it) }.forEach { food ->
                         com.qingji.app.ui.components.SwipeToRevealDelete(
                             onDelete = { vm.deleteCustomFood(food) }
                         ) {
-                            LibraryFoodRow(
-                                name = food.name,
-                                kcalPer100g = food.kcalPer100g,
-                                favorite = food.favorite,
-                                risky = AllergenRules.isRisky(food.name, allergens),
-                                onFavorite = { vm.toggleFavorite(food) },
-                                onClick = { pick = food }
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(Modifier.weight(1f)) {
+                                    LibraryFoodRow(
+                                        name = food.name,
+                                        kcalPer100g = food.kcalPer100g,
+                                        favorite = food.favorite,
+                                        risky = AllergenRules.isRisky(food.name, allergens),
+                                        onFavorite = { vm.toggleFavorite(food) },
+                                        onClick = { pick = food }
+                                    )
+                                }
+                                Icon(
+                                    imageVector = Icons.Outlined.EditNote,
+                                    contentDescription = "编辑",
+                                    tint = TextSecondary,
+                                    modifier = Modifier
+                                        .size(22.dp)
+                                        .clickable { onEditCustomFood(food.id) }
+                                        .padding(start = 4.dp)
+                                )
+                            }
                         }
                     }
                 }
@@ -391,7 +567,6 @@ fun FoodLibraryScreen(
             .background(if (showFavorites) QingJiGreenDark else QingJiGreen)
             .pressable {
                 showFavorites = !showFavorites
-                showSearch = false
             },
         contentAlignment = Alignment.Center
     ) {
@@ -419,7 +594,9 @@ fun FoodLibraryScreen(
                     dayOffset,
                     food.proteinPer100g,
                     food.carbPer100g,
-                    food.fatPer100g
+                    food.fatPer100g,
+                    food.nutritionBasis,
+                    food.defaultGrams
                 )
                 pick = null
             }

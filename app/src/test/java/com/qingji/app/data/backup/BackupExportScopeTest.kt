@@ -33,11 +33,12 @@ class BackupExportScopeTest {
                 listOf(
                     "app", "version", "exportedAt", "note", "profile", "foodLogs",
                     "weights", "water", "diaries", "bodyMeasures", "photos",
-                    "exercises", "fastings", "training", "selfDiscipline"
+                    "exercises", "fastings", "training", "selfDiscipline",
+                    "userBrands", "userBrandDishes"
                 )
             )
         )
-        assertEquals(4, root.getInt("version"))
+        assertEquals(5, root.getInt("version"))
 
         // note 文案不再说「全部数据」，改成「记录类数据」
         assertEquals("不含 API Key；导入会覆盖本机记录类数据", root.getString("note"))

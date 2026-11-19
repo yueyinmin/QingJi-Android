@@ -143,6 +143,8 @@ fun AppDialog(
     onConfirm: (() -> Unit)? = null,
     dismissText: String = "取消",
     danger: Boolean = false,
+    /** 2026-11-18：false 时确定按钮置灰不可点（如日期滚轮选了范围外/不存在的日期） */
+    confirmEnabled: Boolean = true,
     content: @Composable ColumnScope.() -> Unit
 ) {
     androidx.compose.material3.AlertDialog(
@@ -167,8 +169,14 @@ fun AppDialog(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(999.dp))
-                        .background(if (danger) DangerRed else QingJiGreen)
-                        .pressable {
+                        .background(
+                            when {
+                                !confirmEnabled -> DividerColor
+                                danger -> DangerRed
+                                else -> QingJiGreen
+                            }
+                        )
+                        .pressable(enabled = confirmEnabled) {
                             onConfirm()
                             onDismiss()
                         }

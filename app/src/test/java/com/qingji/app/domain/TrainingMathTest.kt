@@ -59,4 +59,12 @@ class TrainingMathTest {
         assertEquals("01:02:03", TrainingMath.formatDuration(3723))
         assertEquals("00:00", TrainingMath.formatDuration(-5))
     }
+
+    @Test
+    fun `训练量不到1吨显示kg 到1吨及以上显示吨`() {
+        assertEquals("950 kg", TrainingMath.formatVolume(950.0))
+        assertEquals("1.0 吨", TrainingMath.formatVolume(1000.0))
+        assertEquals("32.5 吨", TrainingMath.formatVolume(32500.0))
+        assertEquals("0 kg", TrainingMath.formatVolume(0.0))
+    }
 }

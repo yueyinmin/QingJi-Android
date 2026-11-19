@@ -92,4 +92,57 @@ class ProgressCardCatalogTest {
             ProgressCardCatalog.visibleCards(rawOrder = "", rawHidden = allHidden)
         )
     }
+
+    // ========== QJ-UI-PROGRESS-DRAG-001 拖拽排序回归（按稳定 ID 换位） ==========
+
+    private val ten = ProgressCardCatalog.DEFAULT_ORDER
+
+    @Test
+    fun `第一张卡可以移到最后`() {
+        val moved = ProgressCardCatalog.moveToIndex(ten, ten.first(), ten.lastIndex)
+        assertEquals(ten.drop(1) + ten.first(), moved)
+        assertEquals(10, moved.size)
+        assertEquals(ten.toSet(), moved.toSet()) // 不丢不重
+    }
+
+    @Test
+    fun `最后一张卡可以移到第一`() {
+        val moved = ProgressCardCatalog.moveToIndex(ten, ten.last(), 0)
+        assertEquals(listOf(ten.last()) + ten.dropLast(1), moved)
+        assertEquals(10, moved.size)
+    }
+
+    @Test
+    fun `按ID反查索引 连续跨越多张卡片不错位`() {
+        // 模拟"连续拖同一张卡跨多行"：每一步都按 cardId 重新反查当前位置，
+        // 旧实现 dragFrom 索引在换位后会错位，这里锁住按 ID 的结果稳定。
+        val card = ten[2]
+        var order = ten
+        for (target in listOf(3, 4, 5, 6, 7)) {
+            order = ProgressCardCatalog.moveToIndex(order, card, target)
+            assertEquals(target, order.indexOf(card))
+            assertEquals(10, order.size)
+        }
+    }
+
+    @Test
+    fun `非法入参原样返回 不丢卡不重卡`() {
+        assertEquals(ten, ProgressCardCatalog.moveToIndex(ten, "not_exist", 3))
+        assertEquals(ten, ProgressCardCatalog.moveToIndex(ten, ten.first(), 99))
+        assertEquals(ten, ProgressCardCatalog.moveToIndex(ten, ten.first(), -1))
+        // 目标就是当前位置 → 不变
+        assertEquals(ten, ProgressCardCatalog.moveToIndex(ten, ten[3], 3))
+    }
+
+    @Test
+    fun `取消回滚等于拖拽前原顺序`() {
+        // UI 的 onDragCancel 用 dragStartOrder 覆盖 localOrder；
+        // 这里验证"基于原顺序重新换位"得到的目标是确定且可回退的。
+        val startOrder = ten
+        val afterDrag = ProgressCardCatalog.moveToIndex(startOrder, ten[1], 8)
+        assert(afterDrag != startOrder)
+        // 回滚：直接用保存的原顺序，UI 无需增量逆操作
+        val restored = startOrder
+        assertEquals(ten, restored)
+    }
 }

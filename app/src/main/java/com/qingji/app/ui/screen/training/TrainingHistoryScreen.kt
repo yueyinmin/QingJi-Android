@@ -20,6 +20,8 @@ fun TrainingHistoryScreen(
     onBack: () -> Unit,
     onStartTraining: () -> Unit,
     onEditSession: () -> Unit,
+    /** 2026-11-18：补记入口，同样跳进行中页（补记模式）。 */
+    onBackfill: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxSize().background(PageBackground)) {
@@ -28,6 +30,7 @@ fun TrainingHistoryScreen(
             vm = vm,
             onStartTraining = onStartTraining,
             onEditSession = onEditSession,
+            onBackfill = onBackfill,
             modifier = Modifier.weight(1f)
         )
     }

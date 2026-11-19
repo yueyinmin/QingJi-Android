@@ -123,51 +123,79 @@ fun BrandMenuScreen(
             )
         }
 
-        Row(modifier = Modifier.fillMaxSize()) {
-            // ---------- 左竖排：品牌（替代原来的顶部横胶囊） ----------
-            Column(
+        Column(modifier = Modifier.fillMaxSize()) {
+            // v1.5 阶段三：品牌从左侧竖栏改到顶部横滑选择器（单列布局），
+            // 左栏不再挤压内容区。
+            Row(
                 modifier = Modifier
-                    .width(88.dp)
-                    .background(CardWhite)
-                    .verticalScroll(rememberScrollState())
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 brands.forEach { brand ->
                     val selected = brand.brandId == selectedBrandId
-                    Row(
+                    Text(
+                        text = "🏪 " + brand.name,
+                        fontSize = 13.sp,
+                        color = if (selected) Color.White else TextSecondary,
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .background(if (selected) QingJiGreenLight else Color.Transparent)
+                            .clip(RoundedCornerShape(Dimens.PillCorner))
+                            .background(if (selected) QingJiGreen else CardWhite)
                             .clickable {
                                 vm.selectBrand(brand.brandId)
                                 selectedCategory = ""
                             }
-                            .padding(vertical = 12.dp, horizontal = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(text = "🏪", fontSize = 13.sp)
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = brand.name,
-                            fontSize = 12.sp,
-                            color = if (selected) QingJiGreenDark else TextSecondary,
-                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                            maxLines = 2
-                        )
-                    }
+                            .padding(horizontal = 14.dp, vertical = 7.dp)
+                    )
                 }
-                Spacer(Modifier.height(60.dp))
             }
 
-            // ---------- 右侧：顶部横排细类 + 菜列表 ----------
-            Column(modifier = Modifier.weight(1f)) {
-                // 空态提示：外卖商品没有公开数据，别误当成堂食菜单
+            // v1.5 阶段三：品牌说明从常驻大段文字收进轻量 Info 入口，
+            // 只留一行简短状态提示，不再长期占据主页面。
+            var showBrandInfo by remember { mutableStateOf(false) }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 10.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
-                    text = selectedBrand.name + " " +
-                        s("外卖商品暂无公开数据；下面展示堂食菜品，来自菜品溯源报告 2.0"),
+                    text = s("堂食菜品"),
                     fontSize = 11.sp,
                     color = TextSecondary,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                    modifier = Modifier.weight(1f)
                 )
+                androidx.compose.material3.IconButton(onClick = { showBrandInfo = true }) {
+                    androidx.compose.material3.Icon(
+                        androidx.compose.material.icons.Icons.Filled.Info,
+                        contentDescription = "品牌说明",
+                        tint = TextSecondary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+            if (showBrandInfo) {
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { showBrandInfo = false },
+                    title = { Text(selectedBrand.name) },
+                    text = {
+                        Text(
+                            "数据来源：菜品溯源报告 2.0（公开数据）。\n" +
+                                "适用范围：本品牌堂食菜品；外卖商品暂无公开数据。\n" +
+                                "没有可靠营养数据的菜品显示「暂无营养数据」，不作估算。"
+                        )
+                    },
+                    confirmButton = {
+                        androidx.compose.material3.TextButton(onClick = { showBrandInfo = false }) { Text("知道了") }
+                    }
+                )
+            }
+
+            // ---------- 横排细类 + 菜列表（单列，占满宽度） ----------
+            Column(modifier = Modifier.weight(1f)) {
                 // 横排细类胶囊（可横向滑动），跟家庭厨房「面条/包点/馄饨」那排一个样式
                 Row(
                     modifier = Modifier

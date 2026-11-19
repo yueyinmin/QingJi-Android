@@ -353,6 +353,12 @@ private val EN: Map<String, String> = mapOf(
         "Strength sessions are counted above. See details in Training.",
     "纯饮食剩" to "Food only",
     "运动 +" to "Exercise +",
+
+    // ---------- 2026-11-18：睡眠表单日期三列滚轮（年/月/日） ----------
+    "选择入睡日期" to "Pick bedtime date",
+    "选择起床日期" to "Pick wake-up date",
+    "超出可记录范围" to "Out of recordable range",
+    "起床日期不能早于入睡日期" to "Wake-up date can't be before bedtime date",
 )
 
 

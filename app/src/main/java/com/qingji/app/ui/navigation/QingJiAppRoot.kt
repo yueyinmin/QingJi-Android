@@ -62,6 +62,9 @@ import com.qingji.app.ui.screen.ExerciseConfirmScreen
 import com.qingji.app.ui.screen.ExercisePickerScreen
 import com.qingji.app.ui.screen.FastingScreen
 import com.qingji.app.ui.screen.FoodLibraryScreen
+import com.qingji.app.ui.screen.CustomFoodEditScreen
+import com.qingji.app.ui.screen.UserBrandManageScreen
+import com.qingji.app.ui.screen.FoodLibrarySearchScreen
 import com.qingji.app.ui.screen.WidgetSettingsScreen
 import com.qingji.app.ui.screen.FoodPreferenceScreen
 import com.qingji.app.ui.screen.OnboardingScreen
@@ -621,7 +624,34 @@ fun QingJiAppRoot(
                         WidgetSettingsScreen(onBack = { navController.popBackStack() })
                     }
                     composable(QingJiRoutes.FoodLibrary) {
-                        FoodLibraryScreen(onBack = { navController.popBackStack() })
+                        FoodLibraryScreen(
+                            onBack = { navController.popBackStack() },
+                            onAddCustomFood = { navController.navigate(QingJiRoutes.customFoodEdit(0L)) },
+                            onEditCustomFood = { id -> navController.navigate(QingJiRoutes.customFoodEdit(id)) },
+                            onManageBrands = { navController.navigate(QingJiRoutes.UserBrandManage) },
+                            onOpenSearch = { navController.navigate(QingJiRoutes.FoodLibrarySearch) }
+                        )
+                    }
+                    composable(QingJiRoutes.UserBrandManage) {
+                        UserBrandManageScreen(onBack = { navController.popBackStack() })
+                    }
+                    composable(QingJiRoutes.FoodLibrarySearch) {
+                        FoodLibrarySearchScreen(
+                            onBack = { navController.popBackStack() },
+                            onAddCustomFood = { navController.navigate(QingJiRoutes.customFoodEdit(0L)) },
+                            onManageBrands = { navController.navigate(QingJiRoutes.UserBrandManage) }
+                        )
+                    }
+                    composable(
+                        route = QingJiRoutes.CustomFoodEdit,
+                        arguments = listOf(navArgument("editFoodId") {
+                            type = NavType.LongType; defaultValue = 0L
+                        })
+                    ) { entry ->
+                        CustomFoodEditScreen(
+                            editId = entry.arguments?.getLong("editFoodId") ?: 0L,
+                            onBack = { navController.popBackStack() }
+                        )
                     }
                     composable(QingJiRoutes.FoodPreference) {
                         FoodPreferenceScreen(onBack = { navController.popBackStack() })
@@ -654,7 +684,9 @@ fun QingJiAppRoot(
                                     popUpTo(QingJiRoutes.ExercisePicker) { inclusive = false }
                                     launchSingleTop = true
                                 }
-                            }
+                            },
+                            // 2026-11-18：记力量 → 跳训练中心的开始训练页
+                            onOpenStrengthTraining = { navController.navigate(QingJiRoutes.TrainingActive) }
                         )
                     }
                     composable(
@@ -684,7 +716,8 @@ fun QingJiAppRoot(
                             vm = trainingVm,
                             onBack = { navController.popBackStack() },
                             onStartTraining = { navController.navigate(QingJiRoutes.TrainingActive) },
-                            onEditSession = { navController.navigate(QingJiRoutes.TrainingActive) }
+                            onEditSession = { navController.navigate(QingJiRoutes.TrainingActive) },
+                            onBackfill = { navController.navigate(QingJiRoutes.TrainingActive) }
                         )
                     }
                     // ---------- 训练中心 P1 ----------

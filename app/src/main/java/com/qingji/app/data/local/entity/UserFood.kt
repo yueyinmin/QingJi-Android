@@ -48,7 +48,19 @@ data class UserFood(
     val category: String = "其他",
     val brand: String = "",
     val favorite: Boolean = false,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    /**
+     * v1.5 食物创建体系重构：营养数据的计量基准。
+     *   PER_100G    每 100 克（默认值，老数据迁移后一律是这个）
+     *   PER_100ML   每 100 毫升
+     *   PER_SERVING 每份（每份克数看 defaultGrams）
+     * 字符串常量定义在 domain.FoodNutritionCalculator，这里只存值，避免 data 层反向依赖 domain。
+     */
+    @androidx.room.ColumnInfo(defaultValue = "PER_100G")
+    val nutritionBasis: String = "PER_100G",
+    /** v1.5：用户备注（选填）。 */
+    @androidx.room.ColumnInfo(defaultValue = "")
+    val note: String = ""
 )
 
 /**
@@ -94,7 +106,9 @@ fun UserFood.toFood(favorite: Boolean = this.favorite): Food =
         brand = brand,
         favorite = favorite,
         createdAt = createdAt,
-        catalogVersion = ""
+        catalogVersion = "",
+        nutritionBasis = nutritionBasis,
+        note = note
     )
 
 /** 界面层的 Food 写回用户库（备份导入、扫码缓存用）。 */
@@ -121,5 +135,7 @@ fun Food.toUserFood(): UserFood =
         category = category,
         brand = brand,
         favorite = favorite,
-        createdAt = if (createdAt == 0L) System.currentTimeMillis() else createdAt
+        createdAt = if (createdAt == 0L) System.currentTimeMillis() else createdAt,
+        nutritionBasis = nutritionBasis.ifBlank { "PER_100G" },
+        note = note
     )

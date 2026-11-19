@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Update
 import com.qingji.app.data.local.entity.FoodFavorite
 import com.qingji.app.data.local.entity.FoodSearchHistory
 import com.qingji.app.data.local.entity.UserFood
@@ -58,6 +59,10 @@ interface UserFoodDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(item: UserFood): Long
+
+    /** v1.5：编辑自定义食物——按主键整行更新（含备注/计量基准）。 */
+    @Update
+    suspend fun update(item: UserFood)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(items: List<UserFood>)

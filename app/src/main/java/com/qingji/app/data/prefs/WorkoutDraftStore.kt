@@ -33,7 +33,14 @@ data class WorkoutDraft(
     val fixedStartedAt: Long = 0L,
     val fixedEndedAt: Long = 0L,
     val fixedDurationMinutes: Int = 0,
-    val fixedCreatedAt: Long = 0L
+    val fixedCreatedAt: Long = 0L,
+    /**
+     * 2026-11-18：手动指定的训练时长（分钟）。0 = 没指定，按计时算。
+     * 补记过去的训练必须用它（计时器对过去没意义）；正常练也可以点时长条改。
+     */
+    val durationOverrideMin: Int = 0,
+    /** 非空 = 补记模式：这场训练算这一天的（ISO 格式 yyyy-MM-dd），计时器不跑。 */
+    val backfillDate: String = ""
 ) {
     /** 当前已练了多久（秒）。暂停时冻结在暂停那一刻。 */
     fun elapsedSeconds(now: Long): Long {
@@ -99,7 +106,9 @@ class WorkoutDraftStore(context: Context) {
                 fixedStartedAt = o.optLong("fixedStartedAt", 0L),
                 fixedEndedAt = o.optLong("fixedEndedAt", 0L),
                 fixedDurationMinutes = o.optInt("fixedDurationMinutes", 0),
-                fixedCreatedAt = o.optLong("fixedCreatedAt", 0L)
+                fixedCreatedAt = o.optLong("fixedCreatedAt", 0L),
+                durationOverrideMin = o.optInt("durationOverrideMin", 0),
+                backfillDate = o.optString("backfillDate", "")
             )
         }.getOrNull()?.takeIf { it.sessionUuid.isNotBlank() && it.startedAt > 0L }
     }
@@ -117,6 +126,8 @@ class WorkoutDraftStore(context: Context) {
             put("fixedEndedAt", draft.fixedEndedAt)
             put("fixedDurationMinutes", draft.fixedDurationMinutes)
             put("fixedCreatedAt", draft.fixedCreatedAt)
+            put("durationOverrideMin", draft.durationOverrideMin)
+            put("backfillDate", draft.backfillDate)
             put("exercises", JSONArray().apply {
                 draft.exercises.forEach { e ->
                     put(JSONObject().apply {

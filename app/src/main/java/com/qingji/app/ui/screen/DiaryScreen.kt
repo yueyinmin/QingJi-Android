@@ -197,6 +197,7 @@ fun DiaryScreen(
                     vm = trainingVm,
                     onStartTraining = onStartTraining,
                     onEditSession = onEditTraining,
+                    onBackfill = onStartTraining,
                     foodLogs = foodMonth,
                     dailyKcalGoal = profile?.dailyKcalGoal?.takeIf { it > 0 }?.toDouble() ?: 2000.0,
                     month = diaryMonth,

@@ -235,7 +235,13 @@ object SettingsStore {
                     proteinPct = p[SettingsKeys.PROTEIN_PCT] ?: 25,
                     carbPct = p[SettingsKeys.CARB_PCT] ?: 50,
                     fatPct = p[SettingsKeys.FAT_PCT] ?: 25,
-                    exerciseCompensation = p[SettingsKeys.EXERCISE_COMPENSATION] ?: false,
+                    // 2026-11-18 修复：补偿开关以比例为唯一真源（比例 >0 即开启，
+                    // 0% = 关闭）。旧逻辑只读布尔键，而设置页从来没有开关 UI，
+                    // 只能调比例——导致布尔键永远是 false，补偿永远不加回额度，
+                    // 主人「开了补偿但今日剩余纹丝不动」就是这里。
+                    exerciseCompensation =
+                        (p[SettingsKeys.EXERCISE_COMPENSATION] ?: false) ||
+                            (p[SettingsKeys.EXERCISE_COMPENSATION_PCT] ?: 50) > 0,
                     exerciseCompensationPct = p[SettingsKeys.EXERCISE_COMPENSATION_PCT] ?: 50,
                     dietPreference = p[SettingsKeys.DIET_PREFERENCE] ?: "",
                     autoMeal = p[SettingsKeys.AUTO_MEAL] ?: true,

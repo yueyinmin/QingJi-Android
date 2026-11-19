@@ -105,17 +105,26 @@ class SearchFoodViewModel(app: Application) : AndroidViewModel(app) {
         mealType: String,
         date: LocalDate
     ) {
-        val ratio = grams / 100.0
+        // v1.5：统一折算工具，支持计量基准，热量+三宏量同一倍率
+        val c = com.qingji.app.domain.FoodNutritionCalculator.compute(
+            kcalPerBasis = food.kcalPer100g,
+            proteinPerBasis = food.proteinPer100g,
+            carbPerBasis = food.carbPer100g,
+            fatPerBasis = food.fatPer100g,
+            basis = com.qingji.app.domain.FoodNutritionCalculator.normalizeBasis(food.nutritionBasis),
+            servingGrams = food.defaultGrams,
+            grams = grams
+        )
         repo.addFoodLog(
             FoodLog(
                 date = date,
                 mealType = mealType,
                 foodName = food.name,
                 grams = grams,
-                kcal = food.kcalPer100g * ratio,
-                proteinG = food.proteinPer100g * ratio,
-                carbG = food.carbPer100g * ratio,
-                fatG = food.fatPer100g * ratio,
+                kcal = c.kcal,
+                proteinG = c.proteinG,
+                carbG = c.carbG,
+                fatG = c.fatG,
                 source = "manual"
             )
         )

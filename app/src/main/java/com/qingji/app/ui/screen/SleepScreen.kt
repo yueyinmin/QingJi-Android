@@ -9,9 +9,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -19,11 +21,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -49,9 +48,9 @@ import com.qingji.app.data.local.entity.SleepRecordEntity
 import com.qingji.app.domain.AppClock
 import com.qingji.app.domain.SleepScoreCalculator
 import com.qingji.app.ui.components.AppDialog
-import com.qingji.app.ui.components.HintBox
 import com.qingji.app.ui.components.PageTopBar
 import com.qingji.app.ui.components.SectionCard
+import com.qingji.app.ui.components.WheelDatePicker
 import com.qingji.app.ui.components.WheelTimePicker
 import com.qingji.app.ui.i18n.s
 import com.qingji.app.ui.theme.CardWhite
@@ -75,21 +74,19 @@ import java.time.format.DateTimeFormatter
 
 /**
  * ============================================================
- * 健康体系 V1.1 · 睡眠页重设计（工单 · 2026-11-18 P0）
+ * 健康体系 V1.1 · 睡眠页（2026-11-19 UI 全面重构 · 工单 P1）
  * ------------------------------------------------------------
- * 从「表单思维」改成「结果思维」，对齐参考图的信息层级：
- *   日期导航 → 评分环 → 每日睡眠分析(含7天柱图) → 时长+时间轴
- *   → 小睡 → 睡眠指标 → 备注；录入表单收进右上角「记录」按钮弹出的底部弹层。
+ * 本次是**纯表现层重构**，数据结构、评分算法、趋势统计、跨天口径一行没动：
+ * · 主页面从「7 张卡纵向堆叠」改为「4 张卡的紧凑仪表盘」：
+ *   ① 今日睡眠核心卡（评分 + 时长合并，小环替代 150dp 大环）
+ *   ② 七天趋势卡（压缩柱高、平均值/达标前置、点击某天切日期）
+ *   ③ 睡眠时段卡（突出时间轴，不重复放大时长/入睡/起床）
+ *   ④ 其他分析卡（指标 + 免责 + 备注合并）
+ * · 录入弹层重排：时间区统一成一块、胶囊分组统一层级、备注缩小、
+ *   保存按钮底部固定（内容区 weight 滚动 + imePadding + 防重复提交）。
  *
- * 铁律（工单红线 3/15）：
- * · 深睡 / REM / 鼾声分期、清醒时长都没有数据来源 → **不画、不渲染**；
- *   指标卡底部一行小字说明设备数据的事，不摆灰态假入口。
- * · 无记录：环置灰显示 --、正文「睡完一觉后来记一笔」，绝不显示 0 分；
- * · 评分是「根据你的记录估算」的自评合成分，环下方明确标注；
- * · 时间轴上的夜醒刻度位置是「示意」，轴下注明，不冒充真实时刻。
- *
- * 评分、趋势、规律性全部走 domain 纯函数（SleepScoreCalculator / SleepTrendStats），
- * 页面只负责画，不再自己算分。
+ * 铁律保持不变：深睡/REM/鼾声无数据来源 → 不画；无记录 → 空态不显示 0 分；
+ * 评分是「根据你的记录估算」的自评合成分；全部计算走 domain 纯函数，页面只画。
  * ============================================================
  */
 @Composable
@@ -190,65 +187,37 @@ fun SleepScreen(
                 Spacer(Modifier.height(8.dp))
             }
 
-            // ---------- 2. 评分环卡 ----------
-            SectionCard(contentPadding = Dimens.CardPaddingCompact) {
-                if (night == null || score == null) {
-                    ScoreRing(score = null, rating = null)
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        text = s("睡完一觉后来记一笔"),
-                        fontSize = TextSizes.Body, color = TextSecondary,
-                        modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center
-                    )
-                    Spacer(Modifier.height(10.dp))
-                    Button(onClick = { openNew() }, modifier = Modifier.fillMaxWidth()) {
-                        Text(s("✏ 记录昨晚睡眠"), fontSize = TextSizes.Body)
-                    }
-                } else {
-                    Box(modifier = Modifier.fillMaxWidth().clickable { showScoreDetail = true }) {
-                        ScoreRing(score = score.score, rating = s(score.rating))
-                    }
-                    Text(
-                        text = s("根据你的记录估算 · 长按看分数明细"),
-                        fontSize = 10.sp, color = TextSecondary,
-                        modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center
-                    )
-                }
-            }
+            // ---------- 2. 今日睡眠核心卡（评分 + 时长合并） ----------
+            CoreSleepDashboard(
+                night = night,
+                score = score,
+                isToday = isToday,
+                selectedDate = selectedDate,
+                onNew = { openNew() },
+                onShowDetail = { showScoreDetail = true }
+            )
             Spacer(Modifier.height(Dimens.Gap))
 
-            // ---------- 3. 每日睡眠分析卡 ----------
-            DailyAnalysisCard(trend = trend, targetMinutes = SleepScoreCalculator.DEFAULT_TARGET_MINUTES)
+            // ---------- 3. 七天趋势卡（压缩 + 点击切日期） ----------
+            WeeklyTrendCard(
+                trend = trend,
+                targetMinutes = SleepScoreCalculator.DEFAULT_TARGET_MINUTES,
+                selectedDate = selectedDate,
+                onPickDate = { vm.selectDate(it) }
+            )
             Spacer(Modifier.height(Dimens.Gap))
 
-            // ---------- 4. 睡眠时长 + 时间轴卡 ----------
+            // ---------- 4. 睡眠时段卡（时间轴，不重复放大时长） ----------
             SleepDurationCard(night = night, onEdit = { n -> openEdit(n) })
             Spacer(Modifier.height(Dimens.Gap))
 
-            // ---------- 5. 小睡卡 ----------
-            NapCard(night = night)
-            Spacer(Modifier.height(Dimens.Gap))
-
-            // ---------- 6. 睡眠指标卡 ----------
-            SleepMetricsCard(night = night, score = score)
-            Spacer(Modifier.height(Dimens.Gap))
-
-            // ---------- 7. 备注（有才显示） ----------
-            if (!night?.note.isNullOrBlank()) {
-                SectionCard(contentPadding = Dimens.CardPaddingCompact) {
-                    Text(s("备注"), fontSize = TextSizes.CardTitle,
-                        fontWeight = FontWeight.SemiBold, color = TextPrimary)
-                    Spacer(Modifier.height(6.dp))
-                    Text(night!!.note, fontSize = TextSizes.Body, color = TextSecondary)
-                }
-                Spacer(Modifier.height(Dimens.Gap))
-            }
-
+            // ---------- 5. 其他分析卡（指标 + 免责 + 备注合并） ----------
+            OtherAnalysisCard(night = night, score = score)
             Spacer(Modifier.height(80.dp))
         }
     }
 
-    // ---------- 弹层：评分明细（长按分数环） ----------
+    // ---------- 弹层：评分明细（点核心卡分数区） ----------
     if (showScoreDetail && score != null) {
         AppDialog(
             title = s("分数怎么来的"),
@@ -280,7 +249,7 @@ fun SleepScreen(
         }
     }
 
-    // ---------- 录入表单（底部弹层，字段不变，入口下沉） ----------
+    // ---------- 录入表单（底部弹层） ----------
     if (showForm) {
         SleepFormSheet(
             vm = vm,
@@ -305,234 +274,273 @@ fun SleepScreen(
     }
 }
 
-/** 评分环：0~100 的分数 + 评级档，颜色随评级渐变。无记录传 null 画灰环 --。 */
+/**
+ * 今日睡眠核心卡：评分（小环）+ 实际睡眠时长同卡展示，入睡/起床为次级信息。
+ * 无记录时整卡显示空态与记录入口，绝不显示虚假评分。
+ */
 @Composable
-private fun ScoreRing(score: Int?, rating: String?) {
-    val ringColor = when {
-        score == null -> DividerColor
-        score >= 90 -> NormalGreen
-        score >= 75 -> QingJiGreen
-        score >= 60 -> WarnOrange
-        else -> DangerRed
-    }
-    Box(modifier = Modifier.size(150.dp), contentAlignment = Alignment.Center) {
-        Canvas(modifier = Modifier.size(150.dp)) {
-            val stroke = Stroke(width = 13.dp.toPx(), cap = StrokeCap.Round)
-            drawArc(DividerColor, -90f, 360f, false, style = stroke)
-            if (score != null) {
-                drawArc(ringColor, -90f, 360f * score / 100f, false, style = stroke)
-            }
-        }
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+private fun CoreSleepDashboard(
+    night: SleepRecordEntity?,
+    score: SleepScoreCalculator.Result?,
+    isToday: Boolean,
+    selectedDate: LocalDate,
+    onNew: () -> Unit,
+    onShowDetail: () -> Unit
+) {
+    SectionCard(contentPadding = Dimens.CardPaddingCompact) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = score?.toString() ?: "--",
-                fontSize = 42.sp, fontWeight = FontWeight.ExtraBold, color = TextPrimary
+                text = if (isToday) s("今日睡眠") else s("当日睡眠"),
+                fontSize = TextSizes.CardTitle, fontWeight = FontWeight.SemiBold, color = TextPrimary
             )
-            if (rating != null) {
-                Text(text = rating, fontSize = TextSizes.Caption,
-                    color = ringColor, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.weight(1f))
+            if (score != null) {
+                Text(
+                    s("分数怎么算") + " ›", fontSize = TextSizes.Caption, color = QingJiGreen,
+                    modifier = Modifier.clickable { onShowDetail() }.padding(vertical = 4.dp)
+                )
             }
         }
+
+        if (night == null || score == null) {
+            // 空态：不显示 0 分 / 0 小时
+            Spacer(Modifier.height(14.dp))
+            Text(
+                s("睡完一觉后来记一笔"),
+                fontSize = TextSizes.Body, color = TextSecondary,
+                modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center
+            )
+            Spacer(Modifier.height(10.dp))
+            Button(onClick = onNew, modifier = Modifier.fillMaxWidth()) {
+                Text(s("✏ 记录昨晚睡眠"), fontSize = TextSizes.Body)
+            }
+            return@SectionCard
+        }
+
+        Spacer(Modifier.height(12.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            // 小评分环 + 评级
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                CompactScoreRing(score = score.score)
+                Spacer(Modifier.height(4.dp))
+                Text(s(score.rating), fontSize = TextSizes.Caption,
+                    color = scoreColor(score.score), fontWeight = FontWeight.SemiBold)
+            }
+            Spacer(Modifier.width(18.dp))
+            Box(Modifier.width(1.dp).height(62.dp).background(DividerColor))
+            Spacer(Modifier.width(18.dp))
+            // 实际睡眠时长（足够视觉权重）
+            Column(modifier = Modifier.weight(1f)) {
+                val h = night.durationMinutes / 60
+                val m = night.durationMinutes % 60
+                Text("%d小时%d分".format(h, m), fontSize = 28.sp,
+                    fontWeight = FontWeight.ExtraBold, color = TextPrimary)
+                Spacer(Modifier.height(2.dp))
+                Text(s("实际睡眠时长"), fontSize = TextSizes.Caption, color = TextSecondary)
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+        // 入睡 / 起床作为次级信息
+        Row(
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(Dimens.TinyCorner))
+                .background(PageBackground).padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text("${s("入睡")} ${formatMillis(night.startTime)}",
+                fontSize = TextSizes.Caption, color = TextPrimary)
+            Text("${s("起床")} ${formatMillis(night.endTime)}",
+                fontSize = TextSizes.Caption, color = TextPrimary)
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            s("根据记录估算的睡眠质量 · 非设备监测结果"),
+            fontSize = 10.sp, color = TextSecondary
+        )
     }
 }
 
-/** 每日睡眠分析：标题 + 达标徽章 + 本地规则文案 + 7 天柱状图（无数据空柱）。 */
+/** 评分颜色：与评分档一致。 */
+private fun scoreColor(score: Int): Color = when {
+    score >= 90 -> NormalGreen
+    score >= 75 -> QingJiGreen
+    score >= 60 -> WarnOrange
+    else -> DangerRed
+}
+
+/** 小型评分环（74dp），替代原 150dp 大环；分数数字仍清晰。 */
 @Composable
-private fun DailyAnalysisCard(trend: SleepTrendStats, targetMinutes: Int) {
+private fun CompactScoreRing(score: Int) {
+    val ring = scoreColor(score)
+    val size = 74.dp
+    Box(modifier = Modifier.size(size), contentAlignment = Alignment.Center) {
+        Canvas(modifier = Modifier.size(size)) {
+            val stroke = Stroke(width = 7.dp.toPx(), cap = StrokeCap.Round)
+            drawArc(DividerColor, -90f, 360f, false, style = stroke)
+            drawArc(ring, -90f, 360f * score / 100f, false, style = stroke)
+        }
+        Text(score.toString(), fontSize = 26.sp,
+            fontWeight = FontWeight.ExtraBold, color = TextPrimary)
+    }
+}
+
+/**
+ * 七天趋势卡：标题 + 达标徽章、平均时长前置醒目、压缩柱图（40dp）、
+ * 点某一天切换日期；无数据日期空柱 + "—"，绝不填 0。
+ */
+@Composable
+private fun WeeklyTrendCard(
+    trend: SleepTrendStats,
+    targetMinutes: Int,
+    selectedDate: LocalDate,
+    onPickDate: (LocalDate) -> Unit
+) {
     val recordedHours = trend.days.mapNotNull { it.second }
     val achieved = recordedHours.count { it * 60 >= 7 * 60 }
     SectionCard(contentPadding = Dimens.CardPaddingCompact) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(s("每日睡眠分析"), fontSize = TextSizes.CardTitle,
                 fontWeight = FontWeight.SemiBold, color = TextPrimary)
+            Spacer(Modifier.weight(1f))
             Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(QingJiGreenLight)
-                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                modifier = Modifier.clip(RoundedCornerShape(999.dp))
+                    .background(QingJiGreenLight).padding(horizontal = 8.dp, vertical = 3.dp)
             ) {
                 Text("✓ ${s("已达标")} $achieved/7 ${s("天")}",
                     fontSize = 10.sp, color = QingJiGreen, fontWeight = FontWeight.SemiBold)
             }
         }
         Spacer(Modifier.height(8.dp))
-        Text(
-            text = buildAnalysis(trend, targetMinutes),
-            fontSize = TextSizes.Caption, color = TextSecondary, lineHeight = 19.sp
-        )
-        Spacer(Modifier.height(12.dp))
+        // 平均睡眠时长前置醒目（原来埋在长文案里）
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(s("最近七天平均睡眠"), fontSize = TextSizes.Caption, color = TextSecondary)
+            Spacer(Modifier.width(8.dp))
+            if (trend.avgHours == null) {
+                Text("--", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextSecondary)
+            } else {
+                val avgH = trend.avgHours!!.toInt()
+                val avgM = ((trend.avgHours!! - avgH) * 60).toInt()
+                Text("%d小时%d分".format(avgH, avgM), fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold, color = QingJiGreen)
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        // 压缩后的 7 天柱状图
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.Bottom
         ) {
             trend.days.forEach { (date, hours) ->
-                SleepDayBar(date = date, hours = hours, targetMinutes = targetMinutes,
-                    modifier = Modifier.weight(1f))
+                SleepDayBar(
+                    date = date, hours = hours, targetMinutes = targetMinutes,
+                    isSelected = date == selectedDate,
+                    onClick = { onPickDate(date) },
+                    modifier = Modifier.weight(1f)
+                )
             }
         }
     }
 }
 
-/**
- * 分析文案：纯本地规则模板，不接 AI、不联网。
- * 规则优先级：平均时长 → 连续达标 → 连续缺觉 → 夜醒多 → 入睡偏晚。
- * 只陈述有数据支撑的事实，不推断设备指标。
- */
-private fun buildAnalysis(trend: SleepTrendStats, targetMinutes: Int): String {
-    val sentences = mutableListOf<String>()
-    val hours = trend.days.mapNotNull { it.second }
-    if (hours.isEmpty()) return "还没有睡眠数据，记下第一晚，这里会给出属于你的分析。"
-    val avg = hours.sum() / hours.size
-    val avgH = avg.toInt()
-    val avgM = ((avg - avgH) * 60).toInt()
-    val targetH = targetMinutes / 60
-    sentences += if (avg * 60 >= targetMinutes) {
-        "最近记录平均睡眠 ${avgH}小时${avgM}分，达到 ${targetH} 小时目标。"
-    } else {
-        "最近记录平均睡眠 ${avgH}小时${avgM}分，离 ${targetH} 小时目标还差一点。"
-    }
-    val tail = trend.days.takeLast(3).mapNotNull { it.second }
-    if (tail.size >= 3 && tail.all { it >= 7.0 }) {
-        sentences += "连续 3 晚超过 7 小时，状态很稳，继续保持。"
-    }
-    val last2 = trend.days.takeLast(2).mapNotNull { it.second }
-    if (last2.size >= 2 && last2.all { it < 6.0 }) {
-        sentences += "连续两晚不足 6 小时，今晚尽量早点休息。"
-    }
-    return sentences.joinToString("")
-}
-
-/** 7 天柱图的单日柱：目标线用浅色底衬；无数据画浅灰空柱，绝不画 0 高度。 */
+/** 7 天柱图单日柱：40dp 高、无数据画浅灰空柱、当天高亮、可点击切日期。 */
 @Composable
-private fun SleepDayBar(date: LocalDate, hours: Double?, targetMinutes: Int, modifier: Modifier) {
-    val maxHours = 8.0
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier) {
+private fun SleepDayBar(
+    date: LocalDate,
+    hours: Double?,
+    targetMinutes: Int,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier
+) {
+    val maxHours = 10.0
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier.clip(RoundedCornerShape(8.dp))
+            .background(if (isSelected) QingJiGreenLight else Color.Transparent)
+            .clickable { onClick() }
+            .padding(vertical = 4.dp, horizontal = 2.dp)
+    ) {
         val fraction = ((hours ?: 0.0) / maxHours).coerceIn(0.06, 1.0).toFloat()
         Box(
-            modifier = Modifier.fillMaxWidth().height(72.dp),
+            modifier = Modifier.fillMaxWidth().height(40.dp),
             contentAlignment = Alignment.BottomCenter
         ) {
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(72.dp * fraction)
+                modifier = Modifier.fillMaxWidth().height(40.dp * fraction)
                     .clip(RoundedCornerShape(4.dp))
                     .background(if (hours != null) QingJiGreen else DividerColor)
             )
         }
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(3.dp))
         Text(date.format(DateTimeFormatter.ofPattern("EEE").withLocale(java.util.Locale.CHINA)),
-            fontSize = 9.sp, color = TextSecondary)
+            fontSize = 9.sp, color = if (isSelected) QingJiGreen else TextSecondary)
         Text(hours?.let { "%.1f".format(it) } ?: "—",
             fontSize = 8.sp, color = if (hours != null) QingJiGreen else TextSecondary)
     }
 }
 
-/** 睡眠时长 + 时间轴：主条(入睡→起床) + 夜醒刻度(示意位置) + 午睡短条；不画分期。 */
+/**
+ * 睡眠时段卡：核心卡已给时长/入睡/起床，这里只突出时间轴（轻量渐变条 +
+ * 夜醒示意点 + 两端时刻），不再用 14dp 高渐变条与 22dp 大刻度重复放大。
+ */
 @Composable
 private fun SleepDurationCard(night: SleepRecordEntity?, onEdit: (SleepRecordEntity) -> Unit) {
     SectionCard(contentPadding = Dimens.CardPaddingCompact) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(s("睡眠时长"), fontSize = TextSizes.CardTitle,
+            Text(s("睡眠时段"), fontSize = TextSizes.CardTitle,
                 fontWeight = FontWeight.SemiBold, color = TextPrimary)
             if (night != null) {
+                Spacer(Modifier.weight(1f))
                 Text(s("✏ 编辑"), fontSize = TextSizes.Caption, color = QingJiGreen,
-                    modifier = Modifier
-                        .clickable { onEdit(night) }
-                        .padding(start = 8.dp))
+                    modifier = Modifier.clickable { onEdit(night) })
             }
         }
         if (night == null) {
             Spacer(Modifier.height(8.dp))
             Text(s("尚未记录"), fontSize = TextSizes.Body, color = TextSecondary)
         } else {
-            Spacer(Modifier.height(8.dp))
-            val h = night.durationMinutes / 60
-            val m = night.durationMinutes % 60
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text("%d:%02d".format(h, m), fontSize = 32.sp,
-                    fontWeight = FontWeight.ExtraBold, color = TextPrimary)
-                Spacer(Modifier.width(10.dp))
-                Text("${s("入睡")} ${formatMillis(night.startTime)} · ${s("起床")} ${formatMillis(night.endTime)}",
-                    fontSize = TextSizes.Caption, color = TextSecondary,
-                    modifier = Modifier.padding(bottom = 6.dp))
-            }
-            Spacer(Modifier.height(16.dp))
-            // 主睡眠条
+            Spacer(Modifier.height(14.dp))
+            // 轻量时间轴：8dp 渐变条，夜醒用小圆点示意（位置非真实时刻）
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(14.dp)
-                    .clip(RoundedCornerShape(7.dp))
-                    .background(
-                        Brush.horizontalGradient(listOf(QingJiGreenLight, QingJiGreen))
-                    )
+                modifier = Modifier.fillMaxWidth().height(8.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(Brush.horizontalGradient(listOf(QingJiGreenLight, QingJiGreen)))
             ) {
-                // 夜醒次数：均匀示意刻度位置，不冒充真实时刻
                 if (night.wakeCount > 0) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         repeat(night.wakeCount) {
                             Spacer(Modifier.weight(1f))
-                            Box(Modifier.size(width = 3.dp, height = 22.dp)
-                                .clip(RoundedCornerShape(2.dp)).background(QingJiGreenDark))
+                            Box(Modifier.size(8.dp).clip(RoundedCornerShape(4.dp))
+                                .background(QingJiGreenDark))
                         }
                         Spacer(Modifier.weight(1f))
                     }
                 }
             }
-            Spacer(Modifier.height(5.dp))
+            Spacer(Modifier.height(6.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(formatMillis(night.startTime), fontSize = 10.sp, color = TextSecondary)
-                Text(formatMillis(night.endTime), fontSize = 10.sp, color = TextSecondary)
+                Text(formatMillis(night.startTime), fontSize = 11.sp, color = TextSecondary)
+                Text(formatMillis(night.endTime), fontSize = 11.sp, color = TextSecondary)
             }
             if (night.wakeCount > 0) {
+                Spacer(Modifier.height(4.dp))
                 Text("${s("夜醒")} ${night.wakeCount} ${s("次（示意位置）")}",
                     fontSize = 10.sp, color = TextSecondary)
             }
-            // 午睡短条（有午睡才画）
+            // 午睡并入时段卡，不再单独占一张卡
             if (night.napMinutes > 0) {
                 Spacer(Modifier.height(8.dp))
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth((night.napMinutes / 180f).coerceIn(0.08f, 0.5f))
-                        .height(8.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(
-                            Brush.horizontalGradient(listOf(QingJiGreenLight, QingJiGreen))
-                        )
-                )
                 Text("${s("午睡")} ${night.napMinutes} ${s("分钟")}",
-                    fontSize = 10.sp, color = TextSecondary)
+                    fontSize = TextSizes.Caption, color = QingJiGreen, fontWeight = FontWeight.SemiBold)
             }
         }
     }
 }
 
-/** 小睡卡：无午睡显示「没午睡」，不显示 0 分钟。 */
+/** 其他睡眠分析卡：有真值的指标行 + 免责说明 + 备注，三块合并为一张卡。 */
 @Composable
-private fun NapCard(night: SleepRecordEntity?) {
-    SectionCard(contentPadding = Dimens.CardPaddingCompact) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(s("小睡"), fontSize = TextSizes.CardTitle,
-                    fontWeight = FontWeight.SemiBold, color = TextPrimary)
-                Spacer(Modifier.height(4.dp))
-                val nap = night?.napMinutes ?: 0
-                Text(if (nap > 0) "${nap} ${s("分钟")}" else s("没午睡"),
-                    fontSize = TextSizes.Caption, color = TextSecondary)
-            }
-            Text("›", fontSize = 22.sp, color = TextSecondary)
-        }
-    }
-}
-
-/** 睡眠指标卡：只渲染有真值的四项；深睡/REM/鼾声整块不渲染，底部一行说明。 */
-@Composable
-private fun SleepMetricsCard(night: SleepRecordEntity?, score: SleepScoreCalculator.Result?) {
+private fun OtherAnalysisCard(night: SleepRecordEntity?, score: SleepScoreCalculator.Result?) {
     SectionCard(contentPadding = Dimens.CardPaddingCompact) {
         Text(s("睡眠指标"), fontSize = TextSizes.CardTitle,
             fontWeight = FontWeight.SemiBold, color = TextPrimary)
@@ -540,10 +548,7 @@ private fun SleepMetricsCard(night: SleepRecordEntity?, score: SleepScoreCalcula
             Spacer(Modifier.height(8.dp))
             Text(s("暂无记录"), fontSize = TextSizes.Body, color = TextSecondary)
         } else {
-            val durationH = night.durationMinutes / 60
-            val durationM = night.durationMinutes % 60
-            MetricRow("🌙", s("睡眠时长"), "%d:%02d".format(durationH, durationM), s(score.rating))
-            // 规律性：直接取 Calculator 的近 7 晚入睡偏移结论，口径与评分一致、可回溯。
+            // 规律性（口径与评分一致）
             val reg = score.regularity
             if (reg == null) {
                 MetricRow("🌗", s("睡眠规律性"), "--", s("数据不足"))
@@ -561,15 +566,21 @@ private fun SleepMetricsCard(night: SleepRecordEntity?, score: SleepScoreCalcula
                 SleepRecordEntity.feelingLabel(night.morningFeeling),
                 SleepRecordEntity.feelingLabel(night.morningFeeling))
         }
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(8.dp))
         Text(
             text = s("深睡 / 快速眼动期 / 鼾声监测需手环等设备数据，当前手动记录不含此项，不显示估算值。"),
-            fontSize = 10.sp, color = TextSecondary, lineHeight = 15.sp,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp)
-                .clip(RoundedCornerShape(8.dp))
+            fontSize = 10.sp, color = TextSecondary, lineHeight = 15.sp
         )
+        // 备注并入本卡（有才显示）
+        if (!night?.note.isNullOrBlank()) {
+            Spacer(Modifier.height(10.dp))
+            Box(Modifier.fillMaxWidth().height(1.dp).background(DividerColor))
+            Spacer(Modifier.height(10.dp))
+            Text(s("备注"), fontSize = TextSizes.Caption,
+                fontWeight = FontWeight.SemiBold, color = TextSecondary)
+            Spacer(Modifier.height(4.dp))
+            Text(night!!.note, fontSize = TextSizes.Body, color = TextPrimary)
+        }
     }
 }
 
@@ -578,8 +589,7 @@ private fun SleepMetricsCard(night: SleepRecordEntity?, score: SleepScoreCalcula
 private fun MetricRow(icon: String, name: String, value: String, tag: String) {
     Spacer(Modifier.height(8.dp))
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
+        modifier = Modifier.fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(PageBackground)
             .padding(10.dp),
@@ -592,8 +602,7 @@ private fun MetricRow(icon: String, name: String, value: String, tag: String) {
         Text(value, fontSize = TextSizes.Body, color = TextPrimary, fontWeight = FontWeight.Bold)
         Spacer(Modifier.width(6.dp))
         Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(8.dp))
+            modifier = Modifier.clip(RoundedCornerShape(8.dp))
                 .background(QingJiGreenLight)
                 .padding(horizontal = 7.dp, vertical = 2.dp)
         ) { Text(tag, fontSize = 10.sp, color = QingJiGreen, fontWeight = FontWeight.SemiBold) }
@@ -601,9 +610,13 @@ private fun MetricRow(icon: String, name: String, value: String, tag: String) {
 }
 
 /**
- * 录入表单（底部弹层）。字段和工单 9 完全一致：
- * 入睡/起床(日期+时刻)、质量5档、精神4档、夜醒、午睡、备注。
- * 入口从页面主体下沉到这里；「午睡时长」标签改横排，不再竖排折行。
+ * 录入表单（底部弹层）。
+ * 本次重排（工单阶段五）：
+ * · 时间选择区统一成一块灰底盒（入睡/起床同款布局 + 睡眠时长醒目结果）；
+ * · 质量/精神/夜醒/午睡四组用统一的 ChoiceGroup（标签 + 横排胶囊），层级一致；
+ * · 备注说明缩成一行小字；
+ * · 内容区 weight(1f) 滚动，保存栏底部固定，imePadding 适配键盘，防重复提交。
+ * 字段、校验、跨天口径、滚轮日期与原来完全一致。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -617,38 +630,38 @@ private fun SleepFormSheet(
     val today = AppClock.today()
     val startFromEdit = editing?.let {
         java.time.Instant.ofEpochMilli(it.startTime)
-            .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+            .atZone(AppClock.zone).toLocalDate()
     }
     val endFromEdit = editing?.let {
         java.time.Instant.ofEpochMilli(it.endTime)
-            .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+            .atZone(AppClock.zone).toLocalDate()
     }
     // 新增时默认入睡 = 选中日期前一天 23:30，起床 = 选中日期 07:30
-    var sleepDate by remember(editing?.id) {
-        mutableStateOf(startFromEdit ?: defaultDate.minusDays(1))
-    }
-    var wakeDate by remember(editing?.id) {
-        mutableStateOf(endFromEdit ?: defaultDate)
-    }
+    val initialSleepDate = startFromEdit ?: defaultDate.minusDays(1)
+    var sleepDate by remember(editing?.id) { mutableStateOf(initialSleepDate) }
+    var wakeDate by remember(editing?.id) { mutableStateOf(endFromEdit ?: defaultDate) }
     var sleepTime by remember(editing?.id) {
         mutableStateOf(editing?.let {
-            java.time.Instant.ofEpochMilli(it.startTime)
-                .atZone(java.time.ZoneId.systemDefault()).toLocalTime()
+            java.time.Instant.ofEpochMilli(it.startTime).atZone(AppClock.zone).toLocalTime()
         } ?: LocalTime.of(23, 30))
     }
     var wakeTime by remember(editing?.id) {
         mutableStateOf(editing?.let {
-            java.time.Instant.ofEpochMilli(it.endTime)
-                .atZone(java.time.ZoneId.systemDefault()).toLocalTime()
+            java.time.Instant.ofEpochMilli(it.endTime).atZone(AppClock.zone).toLocalTime()
         } ?: LocalTime.of(7, 30))
     }
     var showSleepPicker by remember { mutableStateOf(false) }
     var showWakePicker by remember { mutableStateOf(false) }
+    var showSleepDatePicker by remember { mutableStateOf(false) }
+    var showWakeDatePicker by remember { mutableStateOf(false) }
+    val minSleepDate = minOf(today.minusDays(30), initialSleepDate)
     var quality by remember(editing?.id) { mutableStateOf(editing?.quality ?: 3) }
     var feeling by remember(editing?.id) { mutableStateOf(editing?.morningFeeling ?: 3) }
     var wakeCount by remember(editing?.id) { mutableStateOf(editing?.wakeCount ?: 0) }
     var napMinutes by remember(editing?.id) { mutableStateOf(editing?.napMinutes ?: 0) }
     var note by remember(editing?.id) { mutableStateOf(editing?.note.orEmpty()) }
+    // 防重复提交：一次点击置 true，保存触发即关闭弹层，杜绝连点多次入库
+    var saving by remember { mutableStateOf(false) }
 
     val formMinutes = java.time.Duration.between(
         sleepDate.atTime(sleepTime), wakeDate.atTime(wakeTime)
@@ -658,123 +671,121 @@ private fun SleepFormSheet(
         onDismissRequest = onDismiss,
         containerColor = CardWhite
     ) {
+        // 固定高度比例（0.9 屏）：内容区可滚动 + 保存栏固定，手势下拉关闭仍由 ModalBottomSheet 提供
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = Dimens.ScreenPadding)
-                .padding(bottom = 28.dp)
+            modifier = Modifier.fillMaxWidth().fillMaxHeight(0.9f).imePadding()
         ) {
-            Text(
-                if (editing == null) s("记一笔昨晚睡眠") else s("编辑这条睡眠"),
-                fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary
-            )
-            Spacer(Modifier.height(12.dp))
-
-            DateTimeRow(s("入睡"), sleepDate, sleepTime,
-                { sleepDate = it }, { showSleepPicker = true }, today)
-            Spacer(Modifier.height(6.dp))
-            DateTimeRow(s("起床"), wakeDate, wakeTime,
-                { wakeDate = it }, { showWakePicker = true }, today)
-            Spacer(Modifier.height(8.dp))
-
-            if (formMinutes <= 0) {
-                Text(s("起床时间必须晚于入睡时间"), fontSize = TextSizes.Caption,
-                    color = DangerRed)
-            } else {
-                Text("${s("睡眠时长")}：%d小时%d分".format(formMinutes / 60, formMinutes % 60),
-                    fontSize = TextSizes.Body, color = QingJiGreen, fontWeight = FontWeight.SemiBold)
-            }
-            Spacer(Modifier.height(14.dp))
-
-            Text(s("睡眠质量"), fontSize = TextSizes.Caption, color = TextSecondary)
-            Spacer(Modifier.height(6.dp))
-            Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                (1..5).forEach { q ->
-                    ChoicePill(SleepRecordEntity.qualityLabel(q), quality == q) { quality = q }
-                    Spacer(Modifier.width(6.dp))
-                }
-            }
-            Spacer(Modifier.height(12.dp))
-
-            Text(s("起床精神状态"), fontSize = TextSizes.Caption, color = TextSecondary)
-            Spacer(Modifier.height(6.dp))
-            Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                (1..4).forEach { f ->
-                    ChoicePill(SleepRecordEntity.feelingLabel(f), feeling == f) { feeling = f }
-                    Spacer(Modifier.width(6.dp))
-                }
-            }
-            Spacer(Modifier.height(12.dp))
-
-            // 夜醒：标签独占一行，胶囊横排在下一行（不再和标签挤一行导致竖排折行）
-            Text(s("夜间醒来"), fontSize = TextSizes.Caption, color = TextSecondary)
-            Spacer(Modifier.height(6.dp))
-            Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                listOf(0, 1, 2, 3).forEach { n ->
-                    ChoicePill(if (n == 0) s("没醒") else "${n}${s("次")}", wakeCount == n) { wakeCount = n }
-                    Spacer(Modifier.width(6.dp))
-                }
-            }
-            Spacer(Modifier.height(12.dp))
-
-            // 午睡：同样标签独占一行，胶囊横排（工单 9.9 修复竖排折行）
-            Text(s("午睡"), fontSize = TextSizes.Caption, color = TextSecondary)
-            Spacer(Modifier.height(6.dp))
-            Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                listOf(0, 20, 30, 60, 90).forEach { m ->
-                    ChoicePill(if (m == 0) s("没午睡") else "${m}${s("分钟")}", napMinutes == m) { napMinutes = m }
-                    Spacer(Modifier.width(6.dp))
-                }
-            }
-            Spacer(Modifier.height(12.dp))
-
-            HintBox(text = s("备注可不填：睡前的特殊情况（咖啡、运动、加班）写在这里，回看时能对上状态。"))
-            Spacer(Modifier.height(8.dp))
-            BasicTextField(
-                value = note,
-                onValueChange = { note = it },
-                textStyle = TextStyle(fontSize = TextSizes.Body, color = TextPrimary),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(Dimens.TinyCorner))
-                    .background(DividerColor.copy(alpha = 0.45f))
-                    .padding(10.dp),
-                decorationBox = { inner ->
-                    Box {
-                        if (note.isEmpty()) Text(s("备注（可选）"), fontSize = TextSizes.Caption, color = TextSecondary)
-                        inner()
-                    }
-                }
-            )
-            Spacer(Modifier.height(14.dp))
-
-            Button(
-                onClick = {
-                    vm.save(
-                        sleepDate = sleepDate,
-                        sleepHour = sleepTime.hour, sleepMinute = sleepTime.minute,
-                        wakeDate = wakeDate,
-                        wakeHour = wakeTime.hour, wakeMinute = wakeTime.minute,
-                        quality = quality, morningFeeling = feeling,
-                        wakeCount = wakeCount, napMinutes = napMinutes, note = note
-                    )
-                    onDismiss()
-                },
-                enabled = formMinutes > 0,
+            // ---------- 顶部标题（固定） ----------
+            Row(
                 modifier = Modifier.fillMaxWidth()
+                    .padding(horizontal = Dimens.ScreenPadding, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(if (editing == null) s("保存睡眠记录") else s("保存修改"), fontSize = TextSizes.Body)
+                Text(
+                    if (editing == null) s("记录睡眠") else s("编辑这条睡眠"),
+                    fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary,
+                    modifier = Modifier.weight(1f)
+                )
+                Text("✕", fontSize = 18.sp, color = TextSecondary,
+                    modifier = Modifier.clickable { onDismiss() }.padding(8.dp))
             }
-            if (editing != null) {
-                TextButton(onClick = { onRequestDelete(editing) },
-                    modifier = Modifier.align(Alignment.CenterHorizontally)) {
-                    Text("${s("删除")}${s("这条睡眠记录？")}", fontSize = TextSizes.Caption, color = DangerRed)
+
+            // ---------- 内容区（滚动） ----------
+            Column(
+                modifier = Modifier.fillMaxWidth().weight(1f)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = Dimens.ScreenPadding)
+            ) {
+                Spacer(Modifier.height(8.dp))
+                // 时间选择区：入睡/起床统一成一块
+                DateTimeBlock(
+                    sleepDate = sleepDate, sleepTime = sleepTime,
+                    wakeDate = wakeDate, wakeTime = wakeTime,
+                    formMinutes = formMinutes, today = today,
+                    onSleepDate = { sleepDate = it },
+                    onSleepDateClick = { showSleepDatePicker = true },
+                    onSleepTimeClick = { showSleepPicker = true },
+                    onWakeDate = { wakeDate = it },
+                    onWakeDateClick = { showWakeDatePicker = true },
+                    onWakeTimeClick = { showWakePicker = true }
+                )
+                Spacer(Modifier.height(14.dp))
+
+                // 四组胶囊统一组件与间距
+                ChoiceGroup(s("睡眠质量"),
+                    (1..5).map { SleepRecordEntity.qualityLabel(it) to it },
+                    quality) { quality = it }
+                ChoiceGroup(s("起床精神状态"),
+                    (1..4).map { SleepRecordEntity.feelingLabel(it) to it },
+                    feeling) { feeling = it }
+                ChoiceGroup(s("夜间醒来"),
+                    listOf(s("没醒") to 0, "${1}${s("次")}" to 1,
+                        "${2}${s("次")}" to 2, "${3}${s("次")}" to 3),
+                    wakeCount) { wakeCount = it }
+                ChoiceGroup(s("午睡"),
+                    listOf(s("没午睡") to 0, "20${s("分钟")}" to 20, "30${s("分钟")}" to 30,
+                        "60${s("分钟")}" to 60, "90${s("分钟")}" to 90),
+                    napMinutes) { napMinutes = it }
+
+                // 备注：小型辅助说明 + 简洁输入框
+                Text(s("备注（选填）"), fontSize = TextSizes.Caption, color = TextSecondary)
+                Spacer(Modifier.height(6.dp))
+                BasicTextField(
+                    value = note,
+                    onValueChange = { note = it },
+                    textStyle = TextStyle(fontSize = TextSizes.Body, color = TextPrimary),
+                    modifier = Modifier.fillMaxWidth()
+                        .clip(RoundedCornerShape(Dimens.TinyCorner))
+                        .background(DividerColor.copy(alpha = 0.45f))
+                        .padding(10.dp),
+                    decorationBox = { inner ->
+                        Box {
+                            if (note.isEmpty()) Text(s("睡前特殊情况可写这里"),
+                                fontSize = TextSizes.Caption, color = TextSecondary)
+                            inner()
+                        }
+                    }
+                )
+                Spacer(Modifier.height(14.dp))
+            }
+
+            // ---------- 底部固定保存栏 ----------
+            Column(
+                modifier = Modifier.fillMaxWidth()
+                    .background(CardWhite)
+                    .padding(horizontal = Dimens.ScreenPadding, vertical = 10.dp)
+            ) {
+                Button(
+                    onClick = {
+                        if (saving) return@Button
+                        saving = true
+                        vm.save(
+                            sleepDate = sleepDate,
+                            sleepHour = sleepTime.hour, sleepMinute = sleepTime.minute,
+                            wakeDate = wakeDate,
+                            wakeHour = wakeTime.hour, wakeMinute = wakeTime.minute,
+                            quality = quality, morningFeeling = feeling,
+                            wakeCount = wakeCount, napMinutes = napMinutes, note = note
+                        )
+                        onDismiss()
+                    },
+                    enabled = formMinutes > 0 && !saving,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(if (editing == null) s("保存睡眠记录") else s("保存修改"),
+                        fontSize = TextSizes.Body)
+                }
+                if (editing != null) {
+                    TextButton(onClick = { onRequestDelete(editing) },
+                        modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                        Text(s("删除这条睡眠记录？"), fontSize = TextSizes.Caption, color = DangerRed)
+                    }
                 }
             }
         }
     }
 
+    // 时间滚轮
     if (showSleepPicker) {
         AppDialog(title = s("选择入睡时间"), confirmText = s("确定"),
             onConfirm = { showSleepPicker = false }, onDismiss = { showSleepPicker = false }) {
@@ -789,38 +800,116 @@ private fun SleepFormSheet(
                 onSelected = { h, m -> wakeTime = LocalTime.of(h, m) })
         }
     }
+
+    // 日期滚轮（年/月/日三列）：非法日期确定置灰，不写回表单
+    if (showSleepDatePicker) {
+        var picked by remember {
+            mutableStateOf(Triple(sleepDate.year, sleepDate.monthValue, sleepDate.dayOfMonth))
+        }
+        val pickedDate = runCatching { LocalDate.of(picked.first, picked.second, picked.third) }.getOrNull()
+        val valid = pickedDate != null &&
+            !pickedDate.isBefore(minSleepDate) && !pickedDate.isAfter(today)
+        AppDialog(title = s("选择入睡日期"), confirmEnabled = valid,
+            onConfirm = {}, onDismiss = { showSleepDatePicker = false }) {
+            WheelDatePicker(initialDate = sleepDate) { y, m, d ->
+                picked = Triple(y, m, d)
+                val parsed = runCatching { LocalDate.of(y, m, d) }.getOrNull()
+                if (parsed != null && !parsed.isBefore(minSleepDate) && !parsed.isAfter(today)) {
+                    sleepDate = parsed
+                }
+            }
+            if (!valid) {
+                Spacer(Modifier.height(8.dp))
+                Text(s("超出可记录范围") + "：${minSleepDate.format(DATE_CN)} ~ ${today.format(DATE_CN)}",
+                    fontSize = TextSizes.Caption, color = DangerRed)
+            }
+        }
+    }
+    if (showWakeDatePicker) {
+        var picked by remember {
+            mutableStateOf(Triple(wakeDate.year, wakeDate.monthValue, wakeDate.dayOfMonth))
+        }
+        val pickedDate = runCatching { LocalDate.of(picked.first, picked.second, picked.third) }.getOrNull()
+        val valid = pickedDate != null &&
+            !pickedDate.isBefore(sleepDate) && !pickedDate.isAfter(today)
+        AppDialog(title = s("选择起床日期"), confirmEnabled = valid,
+            onConfirm = {}, onDismiss = { showWakeDatePicker = false }) {
+            WheelDatePicker(initialDate = wakeDate) { y, m, d ->
+                picked = Triple(y, m, d)
+                val parsed = runCatching { LocalDate.of(y, m, d) }.getOrNull()
+                if (parsed != null && !parsed.isBefore(sleepDate) && !parsed.isAfter(today)) {
+                    wakeDate = parsed
+                }
+            }
+            if (!valid) {
+                Spacer(Modifier.height(8.dp))
+                Text(s("起床日期不能早于入睡日期"),
+                    fontSize = TextSizes.Caption, color = DangerRed)
+            }
+        }
+    }
 }
 
-/** 表单里的日期 + 时刻行：日期左右调（最长回退 30 天），时刻点开轮盘。 */
+/**
+ * 时间选择区：入睡/起床两块同款布局，包在一块浅底盒里，减少箭头/日期/时间的视觉割裂；
+ * 下方睡眠时长作为醒目结果，非法时间红字提示（跨天/负数在 Repository 也有兜底）。
+ */
+@Composable
+private fun DateTimeBlock(
+    sleepDate: LocalDate, sleepTime: LocalTime,
+    wakeDate: LocalDate, wakeTime: LocalTime,
+    formMinutes: Long, today: LocalDate,
+    onSleepDate: (LocalDate) -> Unit, onSleepDateClick: () -> Unit, onSleepTimeClick: () -> Unit,
+    onWakeDate: (LocalDate) -> Unit, onWakeDateClick: () -> Unit, onWakeTimeClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
+            .background(PageBackground).padding(horizontal = 12.dp, vertical = 12.dp)
+    ) {
+        DateTimeRow(s("入睡"), sleepDate, sleepTime, onSleepDate, onSleepDateClick, onSleepTimeClick, today)
+        Spacer(Modifier.height(8.dp))
+        Box(Modifier.fillMaxWidth().height(1.dp).background(DividerColor))
+        Spacer(Modifier.height(8.dp))
+        DateTimeRow(s("起床"), wakeDate, wakeTime, onWakeDate, onWakeDateClick, onWakeTimeClick, today)
+        Spacer(Modifier.height(10.dp))
+        if (formMinutes <= 0) {
+            Text(s("起床时间必须晚于入睡时间"), fontSize = TextSizes.Caption, color = DangerRed)
+        } else {
+            Text("${s("睡眠时长")}：%d小时%d分".format(formMinutes / 60, formMinutes % 60),
+                fontSize = TextSizes.Body, color = QingJiGreen, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
+/** 表单里的时间行：‹ 日期 › + 时刻，两块布局完全一致。 */
 @Composable
 private fun DateTimeRow(
-    label: String,
-    date: LocalDate,
-    time: LocalTime,
-    onShiftDate: (LocalDate) -> Unit,
-    onClickTime: () -> Unit,
-    today: LocalDate
+    label: String, date: LocalDate, time: LocalTime,
+    onShiftDate: (LocalDate) -> Unit, onDateClick: () -> Unit,
+    onClickTime: () -> Unit, today: LocalDate
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(label, fontSize = TextSizes.Body, color = TextPrimary, modifier = Modifier.width(44.dp))
         Text("‹", fontSize = 20.sp, color = TextSecondary,
-            modifier = Modifier
-                .clickable {
-                    val prev = date.minusDays(1)
-                    if (!prev.isBefore(today.minusDays(30))) onShiftDate(prev)
-                }
-                .padding(horizontal = 8.dp))
-        Text(date.format(DATE_CN), fontSize = TextSizes.Caption, color = TextSecondary,
-            textAlign = TextAlign.Center, modifier = Modifier.width(64.dp))
+            modifier = Modifier.clickable {
+                val prev = date.minusDays(1)
+                if (!prev.isBefore(minOf(today.minusDays(30), date))) onShiftDate(prev)
+            }.padding(horizontal = 8.dp))
+        Box(
+            modifier = Modifier.clip(RoundedCornerShape(8.dp))
+                .background(DividerColor.copy(alpha = 0.45f))
+                .clickable { onDateClick() }
+                .padding(horizontal = 8.dp, vertical = 5.dp)
+        ) {
+            Text(date.format(DATE_CN), fontSize = TextSizes.Caption, color = TextPrimary)
+        }
         Text("›", fontSize = 20.sp,
             color = if (date.isBefore(today)) TextSecondary else DividerColor,
-            modifier = Modifier
-                .clickable(enabled = date.isBefore(today)) { onShiftDate(date.plusDays(1)) }
+            modifier = Modifier.clickable(enabled = date.isBefore(today)) { onShiftDate(date.plusDays(1)) }
                 .padding(horizontal = 8.dp))
-        Spacer(Modifier.width(10.dp))
+        Spacer(Modifier.weight(1f))
         Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(Dimens.PillCorner))
+            modifier = Modifier.clip(RoundedCornerShape(Dimens.PillCorner))
                 .background(QingJiGreenLight)
                 .clickable { onClickTime() }
                 .padding(horizontal = 14.dp, vertical = 6.dp)
@@ -831,12 +920,30 @@ private fun DateTimeRow(
     }
 }
 
-/** 单选胶囊。 */
+/** 统一的胶囊分组：标签 + 横排胶囊，四组选项共用，保证层级一致。 */
+@Composable
+private fun ChoiceGroup(
+    label: String,
+    options: List<Pair<String, Int>>,
+    selected: Int,
+    onSelect: (Int) -> Unit
+) {
+    Text(label, fontSize = TextSizes.Caption, color = TextSecondary)
+    Spacer(Modifier.height(6.dp))
+    Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
+        options.forEachIndexed { index, (text, value) ->
+            ChoicePill(text, selected == value) { onSelect(value) }
+            if (index != options.lastIndex) Spacer(Modifier.width(6.dp))
+        }
+    }
+    Spacer(Modifier.height(14.dp))
+}
+
+/** 单选胶囊：选中主绿白字，未选浅绿绿字，尺寸恒定（无放大动画）。 */
 @Composable
 private fun ChoicePill(label: String, selected: Boolean, onClick: () -> Unit) {
     Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(Dimens.PillCorner))
+        modifier = Modifier.clip(RoundedCornerShape(Dimens.PillCorner))
             .background(if (selected) QingJiGreen else QingJiGreenLight)
             .clickable { onClick() }
             .padding(horizontal = 10.dp, vertical = 5.dp)
@@ -845,10 +952,11 @@ private fun ChoicePill(label: String, selected: Boolean, onClick: () -> Unit) {
     }
 }
 
+/** 日期展示格式「11月19日」。 */
+private val DATE_CN: DateTimeFormatter = DateTimeFormatter.ofPattern("M月d日")
+
 /** epoch 毫秒 → HH:mm。 */
 private fun formatMillis(millis: Long): String =
     java.time.Instant.ofEpochMilli(millis)
         .atZone(AppClock.zone)
         .format(DateTimeFormatter.ofPattern("HH:mm"))
-
-private val DATE_CN: DateTimeFormatter = DateTimeFormatter.ofPattern("M月d日")

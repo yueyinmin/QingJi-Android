@@ -108,7 +108,11 @@ data class Food(
     val brand: String = "",
     /** 收藏：心形按钮 */
     val favorite: Boolean = false,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    /** v1.5：营养数据的计量基准 PER_100G / PER_100ML / PER_SERVING（标准库恒为 PER_100G） */
+    val nutritionBasis: String = "PER_100G",
+    /** v1.5：用户备注（选填，标准库恒为空） */
+    val note: String = ""
 )
 
 /**

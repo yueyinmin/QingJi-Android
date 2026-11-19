@@ -120,25 +120,37 @@ class MealDetailViewModel(app: Application) : AndroidViewModel(app) {
         _mealType.value = mealType
     }
 
-    /** 菜单里的「存进我的食物库」：把这一餐每条按每 100g 折算后存成自定义食物。 */
-    suspend fun saveToFoodLibrary(): Int {
+    /** 菜单里的「存进我的食物库」：把这一餐每条按每 100g 折算后存成自定义食物。
+     *  返回 Triple(存了几条, 跳过几条(库里已有同名), 没法存几条(没有克数))。 */
+    suspend fun saveToFoodLibrary(): Triple<Int, Int, Int> {
         val logs = state.value.logs
-        if (logs.isEmpty()) return 0
+        if (logs.isEmpty()) return Triple(0, 0, 0)
         var added = 0
+        var skipped = 0
+        var invalid = 0
         logs.forEach { log ->
-            if (log.grams > 0) {
-                val ratio = 100.0 / log.grams
-                repo.addUserFood(
+            // v1.5：反向折算走统一工具，热量+三宏量同一倍率
+            val per = com.qingji.app.domain.FoodNutritionCalculator.toPerBasis(
+                consumedKcal = log.kcal,
+                consumedProtein = log.proteinG,
+                consumedCarb = log.carbG,
+                consumedFat = log.fatG,
+                grams = log.grams
+            )
+            if (per != null) {
+                val ok = repo.addUserFood(
                     name = log.foodName,
-                    kcalPer100g = log.kcal * ratio,
-                    protein = log.proteinG * ratio,
-                    carb = log.carbG * ratio,
-                    fat = log.fatG * ratio
+                    kcalPer100g = per.kcal,
+                    protein = per.protein,
+                    carb = per.carb,
+                    fat = per.fat
                 )
-                added++
+                if (ok) added++ else skipped++
+            } else {
+                invalid++
             }
         }
-        return added
+        return Triple(added, skipped, invalid)
     }
 
     /** 菜单里的「改时间 / 改餐次」：整餐挪过去。 */

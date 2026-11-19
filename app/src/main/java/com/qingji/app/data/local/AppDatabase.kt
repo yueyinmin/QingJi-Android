@@ -20,6 +20,7 @@ import com.qingji.app.data.local.dao.FoodSearchHistoryDao
 import com.qingji.app.data.local.dao.ProgressPhotoDao
 import com.qingji.app.data.local.dao.UsageStatDao
 import com.qingji.app.data.local.dao.UserFoodDao
+import com.qingji.app.data.local.dao.UserBrandDao
 import com.qingji.app.data.local.dao.UserProfileDao
 import com.qingji.app.data.local.dao.WaterLogDao
 import com.qingji.app.data.local.dao.WeightLogDao
@@ -53,6 +54,8 @@ import com.qingji.app.data.local.entity.FoodSearchHistory
 import com.qingji.app.data.local.entity.ProgressPhoto
 import com.qingji.app.data.local.entity.UsageStat
 import com.qingji.app.data.local.entity.UserFood
+import com.qingji.app.data.local.entity.UserBrand
+import com.qingji.app.data.local.entity.UserBrandDish
 import com.qingji.app.data.local.entity.UserProfile
 import com.qingji.app.data.local.entity.WaterLog
 import com.qingji.app.data.local.entity.WeightLog
@@ -144,9 +147,12 @@ class Converters {
         // v1.4 健康体系 V1.1（Room 14）：睡眠记录（工单 9），旧表一列不动
         SleepRecordEntity::class,
         // v1.4 健康体系 V1.1（Room 15）：每日健康汇总缓存（工单 10.2，可重建），旧表一列不动
-        DailyHealthSummaryEntity::class
+        DailyHealthSummaryEntity::class,
+        // v1.5 食物创建体系重构（Room 16→17）：用户自建外卖品牌 + 品牌菜品，旧表一列不动
+        UserBrand::class,
+        UserBrandDish::class
     ],
-    version = 15,
+    version = 17,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -165,6 +171,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun fastingLogDao(): FastingLogDao
     abstract fun exercisePresetDao(): ExercisePresetDao
     abstract fun userFoodDao(): UserFoodDao
+    abstract fun userBrandDao(): UserBrandDao
     abstract fun foodFavoriteDao(): FoodFavoriteDao
     abstract fun foodSearchHistoryDao(): FoodSearchHistoryDao
 
@@ -516,7 +523,8 @@ abstract class AppDatabase : RoomDatabase() {
                 MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
                 MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8,
                 MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12,
-                MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15
+                MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16,
+                MIGRATION_16_17
             )
         }
 
@@ -760,6 +768,62 @@ abstract class AppDatabase : RoomDatabase() {
                         "`lastCalculatedAt` INTEGER NOT NULL DEFAULT 0)"
                 )
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_daily_health_summary_date` ON `daily_health_summary` (`date`)")
+            }
+        }
+
+        /**
+         * v1.5 食物创建体系重构（Room 15 → 16）：user_food 加两列。
+         *   · nutritionBasis 营养计量基准，老数据统一按「每100g」看待（默认 PER_100G）
+         *   · note           用户备注（选填）
+         * 两条都是 ALTER TABLE ADD COLUMN + NOT NULL DEFAULT，一行旧数据都不动；
+         * 默认值与 UserFood 的 @ColumnInfo(defaultValue=...) 逐字一致（四件套纪律③）。
+         * 标准库 food_catalog.db 在另一个文件，这次完全不碰。
+         */
+        internal val MIGRATION_15_16 = object : Migration(15, 16) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `user_food` ADD COLUMN `nutritionBasis` TEXT NOT NULL DEFAULT 'PER_100G'")
+                db.execSQL("ALTER TABLE `user_food` ADD COLUMN `note` TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
+        /**
+         * v1.5 食物创建体系重构（Room 16 → 17）：用户自建外卖品牌 + 品牌菜品。
+         * 两张全新表 + 索引，旧表一列不碰、一行不动。
+         * 建在用户库而非只读标准库（标准库升级会删库重拷，自建数据会被冲掉）。
+         * 字段/默认值与 UserBrand、UserBrandDish 的 @ColumnInfo 逐字一致（四件套纪律）。
+         */
+        internal val MIGRATION_16_17 = object : Migration(16, 17) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `user_brand` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`name` TEXT NOT NULL, " +
+                        "`icon` TEXT NOT NULL DEFAULT '🏪', " +
+                        "`note` TEXT NOT NULL DEFAULT '', " +
+                        "`sourceLabel` TEXT NOT NULL DEFAULT '', " +
+                        "`sortOrder` INTEGER NOT NULL DEFAULT 0, " +
+                        "`createdAt` INTEGER NOT NULL DEFAULT 0)"
+                )
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_user_brand_name` ON `user_brand` (`name`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `user_brand_dish` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`brandId` INTEGER NOT NULL, " +
+                        "`name` TEXT NOT NULL, " +
+                        "`category` TEXT NOT NULL DEFAULT '其他', " +
+                        "`kcal` REAL NOT NULL DEFAULT 0.0, " +
+                        "`protein` REAL NOT NULL DEFAULT 0.0, " +
+                        "`fat` REAL NOT NULL DEFAULT 0.0, " +
+                        "`carb` REAL NOT NULL DEFAULT 0.0, " +
+                        "`nutritionBasis` TEXT NOT NULL DEFAULT 'PER_100G', " +
+                        "`servingGrams` REAL NOT NULL DEFAULT 100.0, " +
+                        "`source` TEXT NOT NULL DEFAULT 'USER_BRAND', " +
+                        "`note` TEXT NOT NULL DEFAULT '', " +
+                        "`favorite` INTEGER NOT NULL DEFAULT 0, " +
+                        "`createdAt` INTEGER NOT NULL DEFAULT 0)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_user_brand_dish_brandId` ON `user_brand_dish` (`brandId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_user_brand_dish_name` ON `user_brand_dish` (`name`)")
             }
         }
 

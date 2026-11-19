@@ -122,6 +122,9 @@ class BackupManager(private val context: Context) {
         // v1.0.4：只备份「用户自己的」食物。标准食物随 App 预置，不进备份文件，
         // 备份体积从几百条缩到几条，也不会因为换食物库版本把旧数据带回来。
         val foods = db.userFoodDao().findAll()
+        // v5：用户自建外卖品牌 + 菜品，换手机不丢
+        val userBrands = db.userBrandDao().allBrands()
+        val userBrandDishes = userBrands.flatMap { db.userBrandDao().dishesOfBrand(it.id) }
         val favorites = db.foodFavoriteDao().allNames()
         val foodLogs = db.foodLogDao().findAll()
         val waters = db.waterLogDao().findAll()
@@ -228,6 +231,48 @@ class BackupManager(private val context: Context) {
                         put("brand", f.brand)
                         put("favorite", f.favorite)
                         put("createdAt", f.createdAt)
+                        // v1.5：计量基准 + 备注，老备份缺这两键时导入端有默认值兜底
+                        put("nutritionBasis", f.nutritionBasis)
+                        put("note", f.note)
+                    })
+                }
+            }.toString()
+        ).append(",\n")
+
+        // v5：用户自建外卖品牌 + 品牌菜品整段导出
+        sb.append("  \"userBrands\": ").append(
+            JSONArray().apply {
+                userBrands.forEach { b ->
+                    put(JSONObject().apply {
+                        put("id", b.id)
+                        put("name", b.name)
+                        put("icon", b.icon)
+                        put("note", b.note)
+                        put("sourceLabel", b.sourceLabel)
+                        put("sortOrder", b.sortOrder)
+                        put("createdAt", b.createdAt)
+                    })
+                }
+            }.toString()
+        ).append(",\n")
+        sb.append("  \"userBrandDishes\": ").append(
+            JSONArray().apply {
+                userBrandDishes.forEach { d ->
+                    put(JSONObject().apply {
+                        put("id", d.id)
+                        put("brandId", d.brandId)
+                        put("name", d.name)
+                        put("category", d.category)
+                        put("kcal", d.kcal)
+                        put("protein", d.protein)
+                        put("fat", d.fat)
+                        put("carb", d.carb)
+                        put("nutritionBasis", d.nutritionBasis)
+                        put("servingGrams", d.servingGrams)
+                        put("source", d.source)
+                        put("note", d.note)
+                        put("favorite", d.favorite)
+                        put("createdAt", d.createdAt)
                     })
                 }
             }.toString()
@@ -470,6 +515,14 @@ class BackupManager(private val context: Context) {
         target.exercisePresetDao()
             .deleteByCategory(com.qingji.app.domain.ExerciseCalculator.CUSTOM_CATEGORY)
 
+        // v5 自建品牌段：只有 version>=5 的备份才整段覆盖，
+        // 老备份（那时还没有品牌功能）导入时不清本机品牌，避免误删。
+        if (p.version >= 5 && p.hasUserBrands) {
+            target.userBrandDao().clearAll()
+            if (p.userBrands.isNotEmpty()) target.userBrandDao().insertAllBrands(p.userBrands)
+            if (p.userBrandDishes.isNotEmpty()) target.userBrandDao().insertAllDishes(p.userBrandDishes)
+        }
+
         if (p.hasProfile) {
             val dao = target.userProfileDao()
             if (p.profile != null) dao.save(p.profile!!) else dao.clear()
@@ -596,6 +649,8 @@ class BackupManager(private val context: Context) {
                 sd.urgeLogs.size + sd.settings.size + sd.milestones.size + sd.interventions.size
             if (total > 0) parts.add("自律 $total 条")
         }
+        val brandTotal = p.userBrands.size + p.userBrandDishes.size
+        if (brandTotal > 0) parts.add("自建品牌 $brandTotal 条")
 
         val body = if (parts.isEmpty()) "这份备份里没有记录" else parts.joinToString("、")
         val photoNote = if (p.photos.isNotEmpty()) "照片文件本身不在备份里，需要从旧手机把图片拷过来。" else ""

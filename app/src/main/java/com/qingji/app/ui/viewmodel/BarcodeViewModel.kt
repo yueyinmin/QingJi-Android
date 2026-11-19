@@ -9,6 +9,7 @@ import com.qingji.app.data.local.entity.FoodLog
 import com.qingji.app.data.repository.QingJiRepository
 import com.qingji.app.domain.AppClock
 import com.qingji.app.domain.BarcodeRules
+import com.qingji.app.domain.FoodNutritionCalculator
 import java.time.LocalDate
 
 /** 条码（M3.4）。先本地后联网，查到就缓存进食物表，下次断网也能用。 */
@@ -41,32 +42,84 @@ class BarcodeViewModel(app: Application) : AndroidViewModel(app) {
         )
     }
 
-    /** 手动录入一条自定义食物，同样缓存进食物表。 */
-    suspend fun saveManual(name: String, kcal: Double, code: String): Food {
-        val food = Food(
+    /**
+     * v1.5 阶段三：手动录入改为完整营养表单（命中/未命中共用）。
+     * 条码保留并与食物关联（下次扫同条码优先命中本地）。
+     * 三大营养素独立可选，基准可选，数据缺失时不冒充 0（由 UI 显示「暂无营养数据」）。
+     */
+    suspend fun saveManual(
+        name: String,
+        kcal: Double,
+        code: String,
+        protein: Double = 0.0,
+        carb: Double = 0.0,
+        fat: Double = 0.0,
+        basis: String = FoodNutritionCalculator.PER_100G,
+        servingGrams: Double = 100.0,
+        category: String = com.qingji.app.domain.FoodCategory.OTHER,
+        note: String = ""
+    ): Food {
+        val id = repo.saveCustomFood(
+            id = 0L,
+            name = name,
+            kcalPerBasis = kcal,
+            protein = protein,
+            carb = carb,
+            fat = fat,
+            basis = basis,
+            servingGrams = servingGrams,
+            barcode = code,
+            category = category,
+            note = note
+        )
+        return repo.findCustomFood(id) ?: Food(
             name = name.trim(),
             barcode = BarcodeRules.normalize(code).ifBlank { null },
             kcalPer100g = kcal,
-            defaultGrams = 100.0,
             source = "user"
         )
-        repo.saveFood(food)
-        return food
     }
 
-    /** v3.5.0：日期可选（默认今天），其余行为不变。 */
+    /** v1.5 阶段三：扫码命中结果可编辑——把用户改过的营养写回该自定义食物。 */
+    suspend fun updateScannedFood(food: Food) {
+        if (food.id > 0 && food.id < QingJiRepository.CATALOG_ID_START) {
+            repo.saveCustomFood(
+                id = food.id,
+                name = food.name,
+                kcalPerBasis = food.kcalPer100g,
+                protein = food.proteinPer100g,
+                carb = food.carbPer100g,
+                fat = food.fatPer100g,
+                basis = FoodNutritionCalculator.normalizeBasis(food.nutritionBasis),
+                servingGrams = food.defaultGrams,
+                barcode = food.barcode ?: "",
+                category = food.category,
+                note = food.note
+            )
+        }
+    }
+
+    /** v1.5：加餐折算走统一工具，支持计量基准，热量+三宏量同一倍率。 */
     suspend fun add(food: Food, grams: Double, mealType: String, date: LocalDate = AppClock.today()) {
-        val ratio = grams / 100.0
+        val consumed = FoodNutritionCalculator.compute(
+            kcalPerBasis = food.kcalPer100g,
+            proteinPerBasis = food.proteinPer100g,
+            carbPerBasis = food.carbPer100g,
+            fatPerBasis = food.fatPer100g,
+            basis = FoodNutritionCalculator.normalizeBasis(food.nutritionBasis),
+            servingGrams = food.defaultGrams,
+            grams = grams
+        )
         repo.addFoodLog(
             FoodLog(
                 date = date,
                 mealType = mealType,
                 foodName = food.name,
                 grams = grams,
-                kcal = food.kcalPer100g * ratio,
-                proteinG = food.proteinPer100g * ratio,
-                carbG = food.carbPer100g * ratio,
-                fatG = food.fatPer100g * ratio,
+                kcal = consumed.kcal,
+                proteinG = consumed.proteinG,
+                carbG = consumed.carbG,
+                fatG = consumed.fatG,
                 source = "barcode"
             )
         )

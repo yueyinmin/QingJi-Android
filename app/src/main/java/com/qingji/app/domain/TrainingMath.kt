@@ -39,6 +39,14 @@ object TrainingMath {
     fun sessionVolume(sets: List<WorkoutSet>): Double =
         sets.sumOf { if (it.weightKg > 0.0) it.weightKg * it.reps else 0.0 }
 
+    /**
+     * 训练量显示单位（2026-11-18）：1000 千克（1 吨）往上直接用「吨」，
+     * 不然一练就是「3 万千克」，数字长到没眼看。不到 1 吨照旧显示 kg。
+     */
+    fun formatVolume(volumeKg: Double): String =
+        if (volumeKg >= 1000.0) "%.1f 吨".format(volumeKg / 1000.0)
+        else "%.0f kg".format(volumeKg)
+
     fun kgToLb(kg: Double): Double = kg * 2.20462
     fun lbToKg(lb: Double): Double = lb / 2.20462
 

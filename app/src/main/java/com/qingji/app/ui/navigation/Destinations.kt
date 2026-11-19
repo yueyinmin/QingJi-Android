@@ -46,6 +46,16 @@ object QingJiRoutes {
     /** 食物库 */
     const val FoodLibrary = "food_library"
 
+    /** v1.5 新增/编辑自定义食物：editFoodId=0 新建，>0 编辑 */
+    const val CustomFoodEdit = "custom_food_edit/{editFoodId}"
+    fun customFoodEdit(editFoodId: Long = 0L) = "custom_food_edit/$editFoodId"
+
+    /** v1.5 阶段四：用户自建外卖品牌管理 */
+    const val UserBrandManage = "user_brand_manage"
+
+    /** v1.5 阶段四：食物库独立全局搜索 */
+    const val FoodLibrarySearch = "food_library_search"
+
     /** 饮食偏好与忌口 */
     const val FoodPreference = "food_preference"
 
@@ -105,7 +115,8 @@ object QingJiRoutes {
     val fullScreenRoutes = setOf(
         Settings, SearchFood, TextAi, Weight, AiConfig, Profile,
         ImageRecord, VoiceRecord, Barcode, AiAnalysis, Backup, DiaryEdit, MealDetail,
-        Fasting, FoodPreference, FoodLibrary, WidgetSettings, ExercisePicker, ExerciseConfirm,
+        Fasting, FoodPreference, FoodLibrary, CustomFoodEdit, UserBrandManage, FoodLibrarySearch,
+        WidgetSettings, ExercisePicker, ExerciseConfirm,
         TrainingActive, TrainingHistory,
         ExerciseLibrary, ExerciseFavorites, ExerciseDetail, TrainingPlan, PersonalBest,
         Sleep,

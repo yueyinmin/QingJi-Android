@@ -73,6 +73,9 @@ fun TrainingActiveScreen(
     var showPicker by remember { mutableStateOf(false) }
     var showDiscard by remember { mutableStateOf(false) }
     var noteText by remember { mutableStateOf("") }
+    // 2026-11-18：改时长 / 改补记日期的滚轮弹层
+    var showDurationWheel by remember { mutableStateOf(false) }
+    var showDateWheel by remember { mutableStateOf(false) }
 
     // 进页面：没有草稿就开一次新训练；每秒刷一次计时显示
     LaunchedEffect(Unit) {
@@ -117,7 +120,14 @@ fun TrainingActiveScreen(
     }
 
     Column(modifier = modifier.fillMaxSize().background(PageBackground)) {
-        PageTopBar(title = if (d?.editingUuid.isNullOrEmpty()) "开始训练" else "修改训练", onBack = onBack)
+        PageTopBar(
+            title = when {
+                d != null && d.backfillDate.isNotBlank() -> "补记训练"
+                d?.editingUuid?.isNotEmpty() == true -> "修改训练"
+                else -> "开始训练"
+            },
+            onBack = onBack
+        )
 
         Column(
             modifier = Modifier
@@ -144,7 +154,13 @@ fun TrainingActiveScreen(
                     elapsedSeconds = d.elapsedSeconds(now),
                     paused = paused,
                     editing = d.editingUuid.isNotEmpty(),
-                    onTogglePause = { vm.togglePause() }
+                    onTogglePause = { vm.togglePause() },
+                    durationOverrideMin = d.durationOverrideMin,
+                    onDurationClick = { showDurationWheel = true },
+                    onResetDuration = { vm.setDurationOverride(0) },
+                    backfillDate = d.backfillDate,
+                    onDateClick = { showDateWheel = true },
+                    editingDurationMin = d.fixedDurationMinutes
                 )
                 // v1.4 健康体系：组间休息倒计时条（勾选「完成此组」自动开始）
                 if (restTimer.totalMs > 0L) {
@@ -243,7 +259,7 @@ fun TrainingActiveScreen(
                         SessionCalorieCalculator.PreviewEntry(met.first, met.second, met.third, e.sets)
                     }
                     val previewKcal = SessionCalorieCalculator.previewSessionTotalKcal(previewEntries, settleWeight)
-                    Text("${d.exercises.size} 个动作 · ${allSets.size} 组 · 训练量 %.1f kg".format(volume),
+                    Text("${d.exercises.size} 个动作 · ${allSets.size} 组 · 训练量 ${TrainingMath.formatVolume(volume)}",
                         fontSize = TextSizes.Body, color = TextPrimary)
                     if (allSets.any { it.reps > 0 || it.weightKg > 0.0 }) {
                         Spacer(Modifier.height(2.dp))
@@ -286,6 +302,30 @@ fun TrainingActiveScreen(
             onPick = { vm.addExercise(it) },
             onAddCustom = { name, category -> vm.addCustomExercise(name, category) },
             onDismiss = { showPicker = false }
+        )
+    }
+
+    // 2026-11-18：改训练时长（5~300 分钟，步进 5）
+    if (showDurationWheel) {
+        com.qingji.app.ui.components.ExerciseNumberWheelSheet(
+            values = (5..300 step 5).toList(),
+            initialValue = (d?.durationOverrideMin ?: 60).coerceIn(5, 300),
+            unitLabel = "分钟",
+            onConfirm = { vm.setDurationOverride(it) },
+            onDismiss = { showDurationWheel = false }
+        )
+    }
+
+    // 2026-11-18：补记模式下改训练日期（最多往回翻 90 天）
+    if (showDateWheel && d != null && d.backfillDate.isNotBlank()) {
+        val initialDate = runCatching { java.time.LocalDate.parse(d.backfillDate) }
+            .getOrDefault(java.time.LocalDate.now())
+        com.qingji.app.ui.components.ExerciseDateTimeWheelSheet(
+            initial = initialDate.atTime(12, 0),
+            pastDays = 90,
+            title = "补记到哪一天？",
+            onConfirm = { dt -> vm.setBackfillDate(dt.toLocalDate()) },
+            onDismiss = { showDateWheel = false }
         )
     }
 
