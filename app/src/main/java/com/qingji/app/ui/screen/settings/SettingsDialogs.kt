@@ -79,7 +79,7 @@ fun ConfirmDialog(
  * 刻意另起一套组件，不改动老组件 —— 二级页 / 小组件页还在用老的那两个。
  */
 @Composable
-private fun SettingIconBadge(icon: ImageVector, color: Color) {
+internal fun SettingIconBadge(icon: ImageVector, color: Color) {
     // UI 统一工单：34dp 实心圆 + 白图标 → 38dp 圆角方形 + 浅色底 + 同色系图标。
     // 形状统一、线条统一、配色统一，设置页和「我的」页共用这一套。
     Box(

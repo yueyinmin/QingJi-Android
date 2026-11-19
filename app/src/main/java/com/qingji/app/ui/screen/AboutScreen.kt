@@ -76,8 +76,8 @@ private const val GITHUB_REPO_URL = "https://github.com/yueyinmin/QingJi-Android
 private const val GITHUB_PROFILE_URL = "https://github.com/yueyinmin"
 private const val GITHUB_HANDLE = "@yueyinmin"
 
-/** 关于页内部的三层，详情页用本地状态切换，不新增 NavHost 路由、不动导航栈。 */
-private enum class AboutPage { MAIN, CALIBER, LICENSES }
+/** 关于页内部的页面，详情页用本地状态切换，不新增 NavHost 路由、不动导航栈。 */
+private enum class AboutPage { MAIN, VERSION, CHANGELOG, CALIBER, LICENSES }
 
 @Composable
 fun AboutScreen(onBack: () -> Unit, useSheet: Boolean = false) {
@@ -86,6 +86,8 @@ fun AboutScreen(onBack: () -> Unit, useSheet: Boolean = false) {
 
     val title = when (page) {
         AboutPage.MAIN -> s("关于我们")
+        AboutPage.VERSION -> s("版本信息")
+        AboutPage.CHANGELOG -> s("更新记录")
         AboutPage.CALIBER -> s("数据与算法口径")
         AboutPage.LICENSES -> s("开源许可")
     }
@@ -103,6 +105,8 @@ fun AboutScreen(onBack: () -> Unit, useSheet: Boolean = false) {
         }
         when (page) {
             AboutPage.MAIN -> AboutMainContent(onOpen = { page = it })
+            AboutPage.VERSION -> VersionContent()
+            AboutPage.CHANGELOG -> ChangeLogContent()
             AboutPage.CALIBER -> CaliberContent()
             AboutPage.LICENSES -> OpenSourceLicensesContent(
                 onOpenUrl = { openUrl(context, it) }
@@ -215,6 +219,18 @@ private fun AboutMainContent(onOpen: (AboutPage) -> Unit) {
     }
 
     Spacer(Modifier.height(24.dp))
+
+    // ---------- 版本与更新（v1.4.2：原独立「版本信息」入口并入这里） ----------
+    GroupLabel(s("版本与更新"))
+    Spacer(Modifier.height(8.dp))
+    AboutMenuCard(
+        listOf(
+            AboutMenuItem(s("版本信息"), "版本号、构建号、技术信息", onClick = { onOpen(AboutPage.VERSION) }),
+            AboutMenuItem(s("更新记录"), onClick = { onOpen(AboutPage.CHANGELOG) })
+        )
+    )
+
+    Spacer(Modifier.height(20.dp))
 
     // ---------- AI 能力说明 ----------
     GroupLabel(s("智能能力说明"))
@@ -376,6 +392,65 @@ private fun GroupLabel(text: String) {
         color = TextSecondary.copy(alpha = 0.8f),
         modifier = Modifier.padding(start = 4.dp)
     )
+}
+
+// ------------------------------------------------------------
+// 详情页：版本信息（原设置主页「版本信息」独立弹层并入这里）
+// 品牌图标/应用名/版本号已在主页面顶部集中展示，这里只放技术信息。
+// ------------------------------------------------------------
+@Composable
+private fun VersionContent() {
+    Spacer(Modifier.height(12.dp))
+    SectionCard {
+        CaliberRow(title = "版本号", body = "v${BuildConfig.VERSION_NAME}（versionCode ${BuildConfig.VERSION_CODE}）")
+        CaliberRow(title = "系统要求", body = "最低支持 Android 8.0，目标 Android 15")
+        CaliberRow(title = "本地存储", body = "Room 本地数据库 + DataStore 偏好设置，数据只存在你的手机里")
+        CaliberRow(title = "AI 能力", body = "OpenAI 兼容协议，由你配置的 Key 直连服务商，轻记不经手不留存")
+        CaliberRow(title = "桌面小组件", body = "Jetpack Glance 1.1.1")
+    }
+    Spacer(Modifier.height(8.dp))
+    Text(
+        text = "轻记没有服务器、没有账号，也不做云端更新检查。" +
+            "如需更新，请到项目的 GitHub 发布页查看；App 内不会显示未经检查的「已是最新」提示。",
+        fontSize = 11.sp,
+        color = TextSecondary,
+        lineHeight = 17.sp,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)
+    )
+}
+
+// ------------------------------------------------------------
+// 详情页：更新记录（唯一数据源 AppChangeLog，原 VERSION 弹层内一并迁来）
+// ------------------------------------------------------------
+@Composable
+private fun ChangeLogContent() {
+    Spacer(Modifier.height(12.dp))
+    com.qingji.app.domain.AppChangeLog.releases.forEach { release ->
+        SectionCard {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "v${release.versionName}",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = QingJiGreenDark
+                )
+                Spacer(Modifier.weight(1f))
+                Text(text = release.date, fontSize = 11.sp, color = TextSecondary)
+            }
+            Spacer(Modifier.height(8.dp))
+            release.items.forEach { item ->
+                Text(
+                    text = "· $item",
+                    fontSize = 12.sp,
+                    color = TextPrimary,
+                    lineHeight = 18.sp,
+                    modifier = Modifier.padding(vertical = 2.dp)
+                )
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+    }
 }
 
 // ------------------------------------------------------------

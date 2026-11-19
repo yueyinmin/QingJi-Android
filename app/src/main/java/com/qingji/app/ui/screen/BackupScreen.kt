@@ -116,6 +116,45 @@ fun BackupScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
+            // ---------- 换机与数据迁移（v1.4.2：从设置主页「关于」并进来） ----------
+            // 原「设置 → 关于 → 换机与数据迁移」独立入口已删除，说明统一放这里。
+            SectionCard {
+                Text(
+                    text = "换机与数据迁移",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextPrimary
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "轻记的数据全部存在本机，不上云、不需要账号。换手机两步：\n" +
+                        "1. 旧手机：用下面的「导出记录类 JSON」→ 系统分享发到微信 / 网盘；\n" +
+                        "2. 新手机：装好轻记 → 用下面的「导入」→ 选中那个 JSON 文件。",
+                    fontSize = 12.sp,
+                    color = TextPrimary,
+                    lineHeight = 19.sp
+                )
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    text = "备份文件实际包含什么",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = QingJiGreenDark
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "✅ 包含：个人档案、饮食记录、体重、饮水、日记、围度、运动、断食、训练、自律等记录类数据，以及照片条目。\n" +
+                        "❌ 不包含：68 个设置项、食物搜索历史、照片文件本身（只存路径）、AI Key（单独加密存在系统 Keystore）。\n\n" +
+                        "所以备份不是「完整克隆设备」：换机后设置要重新调一遍，照片文件要单独拷贝 files/images 与 files/progress 目录，" +
+                        "AI Key 要重新填一次。JSON 里没有的数据不会被恢复。",
+                    fontSize = 11.sp,
+                    color = TextSecondary,
+                    lineHeight = 18.sp
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
             // ---------- 导出 ----------
             SectionCard {
                 Text(

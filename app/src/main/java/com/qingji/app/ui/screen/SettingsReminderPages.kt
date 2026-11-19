@@ -53,8 +53,13 @@ import kotlinx.coroutines.withContext
 
 
 // ============================================================
-// 「主题与显示」详情页：原来散在四个弹窗里的外观设置全部归到这里。
-// 顺序按「改得最频繁的放最上面」：主题色 > 模式 > 动效 > 首页模块。
+// ============================================================
+// 「主题与外观」二级分类（v1.4.2 设置整合）
+// ------------------------------------------------------------
+// 只保留外观本身：主题色 / 深浅模式 / 应用图标 / 自定义字体 / 水杯气泡量。
+// 原这里的「进度条动效 / 本周小结 / 每餐营养素比例 / 实时刷新率 / 首页模块」
+// 已按工单搬到「动效与性能」和「首页布局」，本页不再重复出现（P0-03）。
+// 应用图标点「进去」打开独立弹层，继续用原有 AppIconSettingsPage 实现。
 // ============================================================
 @Composable
 internal fun ThemeSettingsPage(
@@ -62,18 +67,12 @@ internal fun ThemeSettingsPage(
     onSetTheme: (String) -> Unit,
     onSetThemeColor: (String) -> Unit,
     onSetBubbles: (Int) -> Unit,
-    onSetMealMacro: (Boolean) -> Unit,
-    onSetAiAnalysis: (Boolean) -> Unit,
-    onSetWaterCard: (Boolean) -> Unit,
-    onSetQuickButtons: (Boolean) -> Unit,
-    onSetProgressAnimation: (Boolean) -> Unit,
-    onSetWeeklySummary: (Boolean) -> Unit,
-    onSetRefreshRate: (Boolean) -> Unit,
     onSetFont: (String) -> Unit,
+    onOpenIcon: () -> Unit,
     onBack: () -> Unit,
     useSheet: Boolean = false
 ) {
-    SettingsDetailScaffold(title = "主题与显示", onBack = onBack, useSheet = useSheet) {
+    SettingsDetailScaffold(title = "主题与外观", onBack = onBack, useSheet = useSheet) {
         // ---------- 主题色 ----------
         DetailGroupTitle("主题色")
         SectionCard {
@@ -116,7 +115,7 @@ internal fun ThemeSettingsPage(
 
         Spacer(Modifier.height(Dimens.Gap))
 
-        // ---------- 主题模式 ----------
+        // ---------- 深浅模式 ----------
         DetailGroupTitle("深浅模式")
         SectionCard {
             Row(
@@ -145,36 +144,31 @@ internal fun ThemeSettingsPage(
 
         Spacer(Modifier.height(Dimens.Gap))
 
-        // ---------- 动效与细节 ----------
-        DetailGroupTitle("动效与细节")
-        SectionCard(contentPadding = 0.dp) {
-            SwitchRow(
-                title = "进度条动效",
-                subtitle = "关掉可以省一点点电",
-                checked = settings.progressAnimation
-            ) { onSetProgressAnimation(it) }
-            RowDivider()
-            SwitchRow(
-                title = "本周小结",
-                subtitle = "进展页显示近 7 天的一句话小结（纯本地计算，不调 AI）",
-                checked = settings.showWeeklySummary
-            ) { onSetWeeklySummary(it) }
-            RowDivider()
-            SwitchRow(
-                title = "每餐营养素比例",
-                subtitle = "餐次卡片底部显示蛋白·碳水·脂肪比例条",
-                checked = settings.showMealMacro
-            ) { onSetMealMacro(it) }
-            RowDivider()
-            // 水杯气泡量
+        // ---------- 应用图标（保留原有 AppIconSettingsPage 实现） ----------
+        DetailGroupTitle("应用图标")
+        SectionCard {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onOpenIcon() }
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("桌面图标样式", fontSize = 15.sp, color = TextPrimary)
+                    Spacer(Modifier.height(2.dp))
+                    Text("薄荷绿 / 森林绿 / 暖阳奶油，切换不影响数据", fontSize = 11.sp, color = TextSecondary)
+                }
+                Text("›", fontSize = 20.sp, color = TextSecondary.copy(alpha = 0.6f))
+            }
+        }
+
+        Spacer(Modifier.height(Dimens.Gap))
+
+        // ---------- 水杯气泡量 ----------
+        DetailGroupTitle("水杯气泡量")
+        SectionCard {
             Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
-                Text(
-                    text = "水杯气泡量",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = TextPrimary
-                )
-                Spacer(Modifier.height(2.dp))
                 Text(text = "气泡越少越省电，关掉只剩水位", fontSize = 11.sp, color = TextSecondary)
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -193,18 +187,12 @@ internal fun ThemeSettingsPage(
                     }
                 }
             }
-            RowDivider()
-            SwitchRow(
-                title = "显示实时刷新率",
-                subtitle = "首页右上角浮一个小徽章显示实测 FPS，平时关掉",
-                checked = settings.showRefreshRate
-            ) { onSetRefreshRate(it) }
         }
 
         Spacer(Modifier.height(Dimens.Gap))
 
-        // ---------- 字体 ----------
-        DetailGroupTitle("字体")
+        // ---------- 自定义字体 ----------
+        DetailGroupTitle("自定义字体")
         SectionCard {
             val fontCtx = androidx.compose.ui.platform.LocalContext.current
             val fontScope = rememberCoroutineScope()
@@ -242,17 +230,13 @@ internal fun ThemeSettingsPage(
                     Text(
                         text = if (settings.customFontPath.isBlank()) {
                             "支持导入 ttf / otf 字体文件，整个 App 换字"
-                        } else {
-                            "已启用自定义字体"
-                        },
-                        fontSize = 11.sp,
-                        color = TextSecondary
+                        } else "已启用自定义字体",
+                        fontSize = 11.sp, color = TextSecondary
                     )
                 }
                 Text(
                     text = if (settings.customFontPath.isBlank()) "去设置" else "已启用",
-                    fontSize = 13.sp,
-                    color = QingJiGreenDark
+                    fontSize = 13.sp, color = QingJiGreenDark
                 )
             }
 
@@ -279,10 +263,7 @@ internal fun ThemeSettingsPage(
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(Dimens.ItemCorner))
                             .background(PageBackground)
-                            .pressable {
-                                onSetFont("")
-                                showFontSheet = false
-                            }
+                            .pressable { onSetFont(""); showFontSheet = false }
                             .padding(vertical = 13.dp),
                         contentAlignment = Alignment.Center
                     ) {
@@ -291,31 +272,6 @@ internal fun ThemeSettingsPage(
                 }
             }
         }
-
-        Spacer(Modifier.height(Dimens.Gap))
-
-        // ---------- 首页模块 ----------
-        DetailGroupTitle("首页模块")
-        SectionCard(contentPadding = 0.dp) {
-            SwitchRow(
-                title = "AI 分析按钮",
-                subtitle = "不配 AI 可以关掉",
-                checked = settings.showAiAnalysis
-            ) { onSetAiAnalysis(it) }
-            RowDivider()
-            SwitchRow(
-                title = "饮水卡",
-                subtitle = "不记喝水可以关掉",
-                checked = settings.showWaterCard
-            ) { onSetWaterCard(it) }
-            RowDivider()
-            SwitchRow(
-                title = "悬浮快捷按钮",
-                subtitle = "首页右下角三个圆按钮（喝水/体重/拍照）",
-                checked = settings.showQuickButtons
-            ) { onSetQuickButtons(it) }
-        }
-
     }
 }
 
