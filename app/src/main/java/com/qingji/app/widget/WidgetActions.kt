@@ -7,40 +7,52 @@ import androidx.glance.action.ActionParameters
 import androidx.glance.appwidget.action.ActionCallback
 import com.qingji.app.data.repository.QingJiRepository
 import com.qingji.app.domain.AppClock
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /**
  * ============================================================
  * 小组件的公共动作
  * ------------------------------------------------------------
- * 1. TARGET_KEY：点小组件按钮时，把「要去哪个页面」塞进 Intent extra，
+ * 1. TARGET_KEY：点小组件按钮时把「去哪个页面」塞进 Intent extra，
  *    MainActivity 读出来直接导航（key 字面值 qingji_target 未变）。
- * 2. AddWaterAction：点「喝水」不打开 App，直接往 Room 写 +200ml。
+ * 2. AddWaterAction：点「喝水」直接往 Room 写 +200ml。
  *
- * 阶段 0：WidgetRefresher / TARGET_* / WidgetTarget 已拆到独立文件，
- *   本文件只留 Action，调用方无需改动（同包）。
- * 阶段 2：防抖状态从实例字段改为【进程级 @Volatile】——Glance 每次点击可能
- *   重建 ActionCallback 实例，实例字段防抖会失效；进程级字段跨实例仍有效。
- *   防误触合并：600ms 内连点只记一次。去掉原来的 refreshNow，避免与
- *   QingJiRepository.addWater 内部的 refresh(OVERVIEW) 形成双重刷新。
+ * W-04：显式 inFlight + lastSuccessAt 状态机（进程级，跨 ActionCallback 重建有效），
+ * 写失败释放执行权且不消耗成功窗口 → 用户可立即重试；成功后 600ms 防误触合并。
+ * 唯一刷新责任方仍是 QingJiRepository.addWater（内部 refresh OVERVIEW），Action 不重复刷新。
  * ============================================================
  */
 
 /** ActionParameters 的 name 会原样变成 Intent extra 的 key。 */
 val TARGET_KEY = ActionParameters.Key<String>("qingji_target")
 
-/** 喝水防误触合并的纯判定（可单测）：距上次不足窗口则拒绝，首次（last=0）放行。 */
-internal object WaterDebounce {
-    fun shouldAllow(now: Long, last: Long, windowMs: Long): Boolean =
-        last == 0L || now - last >= windowMs
+/**
+ * 喝水防误触状态机（W-04，纯逻辑可单测）。
+ * @param inFlight 是否正在执行一次写入
+ * @param lastSuccessAt 最近一次【成功】写入时间（elapsedRealtime）
+ */
+internal data class WaterGuardState(
+    val inFlight: Boolean = false,
+    val lastSuccessAt: Long = 0L
+)
 
-    /**
-     * 写库结果出来后的新时间戳：成功→now（开始 600ms 窗口）；
-     * 失败→清零（清除窗口，用户可立即重试，不必等上次成功后的 600ms）。
-     * 纯函数便于单测。
-     */
-    fun nextAfterWrite(success: Boolean, previous: Long, now: Long): Long =
-        if (success) now else 0L
+internal object WaterGuard {
+    const val WINDOW_MS = 600L
+
+    /** 是否可以发起一次写入：正在写入 → 拒绝；距上次成功不足窗口 → 拒绝。 */
+    fun canStart(state: WaterGuardState, now: Long): Boolean =
+        !state.inFlight && (state.lastSuccessAt == 0L || now - state.lastSuccessAt >= WINDOW_MS)
+
+    /** 占用执行权（canStart 通过后调用）。 */
+    fun onStart(state: WaterGuardState): WaterGuardState = state.copy(inFlight = true)
+
+    /** 写成功：释放执行权 + 推进成功时间（开始 600ms 窗口）。 */
+    fun onSuccess(now: Long): WaterGuardState = WaterGuardState(false, now)
+
+    /** 写失败：释放执行权，成功时间不变 → 用户可立即重试。 */
+    fun onFailure(state: WaterGuardState): WaterGuardState =
+        state.copy(inFlight = false)
 }
 
 /** 点「喝水」直接记账，不打开界面。 */
@@ -51,33 +63,26 @@ class AddWaterAction : ActionCallback {
         glanceId: GlanceId,
         parameters: ActionParameters
     ) {
-        // 整个「检查→写库→置位」都放在 Mutex 里串行：
-        // ① 同一操作的重复投递（并发/快速连点）只落库一次；
-        // ② 只在写成功后置位，写失败回滚 —— 用户可立即重试（审查点2）；
-        // ③ 不依赖 ActionCallback 实例字段（进程级），跨回调重建仍有效。
-        DEBOUNCE_MUTEX.withLock {
+        // Mutex 保证「检查→占用→写库→释放」原子串行：并发点击不会同时通过检查。
+        STATE_MUTEX.withLock {
             val now = SystemClock.elapsedRealtime()
-            val previous = lastClickAt
-            if (!WaterDebounce.shouldAllow(now, previous, DEBOUNCE_MS)) return@withLock
-            try {
-                // addWater 内部已写库并触发 WidgetRefresher.refresh(OVERVIEW)，
-                // 这里不再 refreshNow，避免同一次点击双重刷新、也统一走 250ms 合并。
+            if (!WaterGuard.canStart(STATE, now)) return@withLock
+            STATE = WaterGuard.onStart(STATE)
+            val succeeded = try {
+                // addWater 内部已写库并 refresh(OVERVIEW)，这里不再 refreshNow，避免双重刷新。
                 QingJiRepository(context).addWater(200, AppClock.today())
-                lastClickAt = WaterDebounce.nextAfterWrite(true, previous, now)
+                true
             } catch (e: Exception) {
-                // 写库失败：时间戳保持旧值，用户可立即重试；不刷新、不假装成功。
-                lastClickAt = WaterDebounce.nextAfterWrite(false, previous, now)
-                return@withLock
+                // 写失败：不刷新、不假装成功
+                false
             }
+            STATE = if (succeeded) WaterGuard.onSuccess(now) else WaterGuard.onFailure(STATE)
         }
     }
 
     private companion object {
-        /** 防误触合并：600ms 内的连点视为同一次。 */
-        const val DEBOUNCE_MS = 600L
-        val DEBOUNCE_MUTEX = kotlinx.coroutines.sync.Mutex()
-
-        /** 进程级时间戳（替代原实例字段，跨 ActionCallback 重建仍有效）。仅在上述 Mutex 内读写。 */
-        var lastClickAt: Long = 0L
+        val STATE_MUTEX = Mutex()
+        /** 进程级状态（跨 ActionCallback 重建有效），仅在上述 Mutex 内读写。 */
+        var STATE = WaterGuardState()
     }
 }
