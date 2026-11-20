@@ -226,7 +226,14 @@ fun AiConfigScreen(
                                     fontSize = 11.sp, color = TextSecondary)
                                 if (test != null) {
                                     Spacer(Modifier.height(2.dp))
-                                    Text("最近测试：$test", fontSize = 11.sp, color = TextSecondary)
+                                    val time = java.time.Instant.ofEpochMilli(test.atMillis)
+                                        .atZone(java.time.ZoneId.systemDefault())
+                                        .format(java.time.format.DateTimeFormatter.ofPattern("MM-dd HH:mm"))
+                                    Text(
+                                        "最近测试（$time）：${test.label}${if (test.detail.isNotBlank()) " · ${test.detail.take(40)}" else ""}",
+                                        fontSize = 11.sp,
+                                        color = if (test.ok) QingJiGreen else TextSecondary
+                                    )
                                 }
                                 Spacer(Modifier.height(6.dp))
                                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {

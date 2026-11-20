@@ -35,9 +35,16 @@ class AiConfigViewModel(app: Application) : AndroidViewModel(app) {
         list.associate { it.id to repo.hasApiKey(it.id) }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
-    /** 最近一次测试结果（按配置 id），仅在本次页面生命周期内保留。 */
-    private val _testResults = MutableStateFlow<Map<Int, String>>(emptyMap())
-    val testResults: StateFlow<Map<Int, String>> = _testResults.asStateFlow()
+    /** 最近一次测试结果（按配置 id）：分类 + 文案 + 测试时间戳。 */
+    data class TestRecord(
+        val label: String,
+        val detail: String,
+        val atMillis: Long,
+        val ok: Boolean
+    )
+
+    private val _testResults = MutableStateFlow<Map<Int, TestRecord>>(emptyMap())
+    val testResults: StateFlow<Map<Int, TestRecord>> = _testResults.asStateFlow()
 
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message.asStateFlow()
@@ -85,9 +92,11 @@ class AiConfigViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun test(config: AiConfig, keyInput: String): Result<String> {
         val key = effectiveKey(config.id, keyInput)
         val result = repo.testConnection(config, key)
-        result.onSuccess {
-            _testResults.value = _testResults.value + (config.id to it)
-        }
+        val message = result.getOrNull() ?: result.exceptionOrNull()?.message.orEmpty()
+        val category = com.qingji.app.domain.AiTestResultClassifier.classify(result.isSuccess, message)
+        _testResults.value = _testResults.value + (
+            config.id to TestRecord(category.label, message, System.currentTimeMillis(), result.isSuccess)
+        )
         return result
     }
 }

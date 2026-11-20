@@ -226,8 +226,17 @@ class AiClient {
 
     private fun errorMessage(code: Int, body: String): String = when (code) {
         401, 403 -> "Key 无效或已过期，去设置里检查（$code）"
-        429 -> "触发限流，稍等 10 秒再试一次（429）"
+        // 429 不一律当限流：读服务端实际错误文本区分「额度/余额不足」与「频率限流」
+        429 -> if (body.contains("quota", true) || body.contains("balance", true) ||
+            body.contains("insufficient", true) || body.contains("余额", true) ||
+            body.contains("额度", true)
+        ) {
+            "额度不足或余额已用完，去服务商充值（429）"
+        } else {
+            "触发限流，稍等 10 秒再试一次（429）"
+        }
         402 -> "账户余额不足，去服务商充值页看看（402）"
+        404 -> "模型不存在或接口地址不对（404），检查模型名和 Base URL"
         in 500..599 -> "服务商暂时不可用（$code），稍后重试"
         else -> "请求失败（$code）：${body.take(120)}"
     }
