@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  4×1 体重闪记小组件：当前体重 + 「记录」按钮。
+  按钮点开的是 App 里的体重记录页（那里有数字键盘和 ±5kg 防误输校验），
+  不在小组件里直接弹键盘 —— 小组件里做输入框体验很差，也容易输错。
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="250dp"
+    android:minHeight="40dp"
+    android:targetCellWidth="4"
+    android:targetCellHeight="1"
+    android:updatePeriodMillis="1800000"
+    android:initialLayout="@layout/glance_default_loading_layout"
+    android:resizeMode="horizontal"
+    android:widgetCategory="home_screen" />

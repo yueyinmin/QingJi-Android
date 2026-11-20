@@ -1,0 +1,132 @@
+package com.qingji.app.ui.viewmodel
+
+import android.app.Application
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.qingji.app.data.local.entity.Food
+import com.qingji.app.data.local.entity.FoodLog
+import com.qingji.app.data.repository.QingJiRepository
+import com.qingji.app.domain.FoodRanking
+import com.qingji.app.domain.OmniFoodDetail
+import java.time.LocalDate
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+
+class SearchFoodViewModel(app: Application) : AndroidViewModel(app) {
+
+    private val repo = QingJiRepository(app)
+
+    private val _keyword = MutableStateFlow("")
+    val keyword: StateFlow<String> = _keyword.asStateFlow()
+
+    /**
+     * 关键词 / 「最近 30 天吃过什么」/ **食物库条数** 任一变化，都会重新查库并重排。
+     * 空关键词会列出前 50 条，正好当默认列表。
+     *
+     * v1.0.4：标准食物库是随 APK 预置的独立数据库，Room 首次打开时自动拷出来，
+     * 这里仍然订阅条数，是为了兼容「首次开库稍慢」和用户自己新增食物的实时刷新。
+     */
+    val results: StateFlow<List<Food>> = combine(
+        _keyword,
+        repo.observeRecentFoodNames(),
+        repo.observeFoodCount()
+    ) { keyword, recentNames, _ -> keyword to recentNames }
+        .mapLatest { (keyword, recentNames) ->
+            val base = repo.searchFood(keyword.trim())
+            FoodRanking.rank(base, { it.name }, FoodRanking.countRecent(recentNames))
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /**
+     * 食物库里现在有多少条。-1 表示「还没查到」。
+     * 界面用它区分三种状态：还在载入 / 一条都没有 / 有数据但没搜到。
+     */
+    val foodCount: StateFlow<Int> = repo.observeFoodCount()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), -1)
+
+    /** 最近搜过的词，搜索框下面一排快捷入口。 */
+    val searchHistory: StateFlow<List<String>> = repo.observeSearchHistory()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /**
+     * 标准食物库现在是随 APK 走的只读库，不需要「补数据」。
+     * 按钮保留只是给「库没读出来」的情况一个手动重试的机会，返回当前能读到的条数。
+     */
+    suspend fun restorePresetFoods(): Int = repo.ensurePresetFoods()
+
+    // 点中的那一条食物；非空就弹出「填份量」对话框（状态在 SearchFoodScreen 里）
+    // OmniFood8K 细账：点中的食物来自 OmniFood8K 时，弹窗里多一块「组成明细」。
+    // 用 mutableStateOf 而不是 StateFlow，因为它的生命周期跟着「弹窗开关」走，
+    // 不需要跨页面订阅，关弹窗就清空。
+    private val _omniDetail = MutableStateFlow<OmniFoodDetail?>(null)
+    val omniDetail: StateFlow<OmniFoodDetail?> = _omniDetail.asStateFlow()
+
+    /**
+     * 弹窗打开时拉一次细账。查不到（旧库 / 非 OmniFood8K）就保持 null，
+     * 界面对 null 的处理是「不显示这一块」，不会闪出空白卡片。
+     */
+    fun loadOmniDetail(food: Food) {
+        viewModelScope.launch {
+            _omniDetail.value = runCatching { repo.omniFoodDetail(food) }.getOrNull()
+        }
+    }
+
+    /** 关弹窗时清掉，下次换一条食物重新拉，避免串数据。 */
+    fun clearOmniDetail() {
+        _omniDetail.value = null
+    }
+
+    /** 点中一条结果时，把这次搜的词记进历史；下次打开搜索页一点就能用。 */
+    fun rememberSearch() {
+        val key = _keyword.value.trim()
+        if (key.isBlank()) return
+        viewModelScope.launch { repo.rememberSearch(key) }
+    }
+
+    fun onKeywordChange(value: String) {
+        _keyword.value = value
+    }
+
+    /**
+     * 把食物库的一条换算成一条饮食记录。
+     * 表里存的是「每 100 克」的营养，所以要乘 克数/100。
+     */
+    suspend fun addFood(
+        food: Food,
+        grams: Double,
+        mealType: String,
+        date: LocalDate
+    ) {
+        // v1.5：统一折算工具，支持计量基准，热量+三宏量同一倍率
+        val c = com.qingji.app.domain.FoodNutritionCalculator.compute(
+            kcalPerBasis = food.kcalPer100g,
+            proteinPerBasis = food.proteinPer100g,
+            carbPerBasis = food.carbPer100g,
+            fatPerBasis = food.fatPer100g,
+            basis = com.qingji.app.domain.FoodNutritionCalculator.normalizeBasis(food.nutritionBasis),
+            servingGrams = food.defaultGrams,
+            grams = grams
+        )
+        repo.addFoodLog(
+            FoodLog(
+                date = date,
+                mealType = mealType,
+                foodName = food.name,
+                grams = grams,
+                kcal = c.kcal,
+                proteinG = c.proteinG,
+                carbG = c.carbG,
+                fatG = c.fatG,
+                source = "manual"
+            )
+        )
+    }
+}

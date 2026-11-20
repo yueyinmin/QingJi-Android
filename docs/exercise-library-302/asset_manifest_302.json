@@ -1,0 +1,5064 @@
+{
+  "ex-chest-02": {
+    "slug": "bench-press",
+    "category": "chest",
+    "frames": [
+      "exercises/chest/bench-press/frame-1.svg",
+      "exercises/chest/bench-press/frame-2.svg",
+      "exercises/chest/bench-press/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0042-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:incline-bench-press": {
+    "slug": "incline-bench-press",
+    "category": "chest",
+    "frames": [
+      "exercises/chest/incline-bench-press/frame-1.svg",
+      "exercises/chest/incline-bench-press/frame-2.svg",
+      "exercises/chest/incline-bench-press/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0043-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "ex-chest-04": {
+    "slug": "incline-dumbbell-press",
+    "category": "chest",
+    "frames": [
+      "exercises/chest/incline-dumbbell-press/frame-1.svg",
+      "exercises/chest/incline-dumbbell-press/frame-2.svg",
+      "exercises/chest/incline-dumbbell-press/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0061-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "ex-chest-01": {
+    "slug": "dumbbell-bench-press",
+    "category": "chest",
+    "frames": [
+      "exercises/chest/dumbbell-bench-press/frame-1.svg",
+      "exercises/chest/dumbbell-bench-press/frame-2.svg",
+      "exercises/chest/dumbbell-bench-press/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0055-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:decline-bench-press": {
+    "slug": "decline-bench-press",
+    "category": "chest",
+    "frames": [
+      "exercises/chest/decline-bench-press/frame-1.svg",
+      "exercises/chest/decline-bench-press/frame-2.svg",
+      "exercises/chest/decline-bench-press/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0051-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "ex-chest-05": {
+    "slug": "machine-chest-press",
+    "category": "chest",
+    "frames": [
+      "exercises/chest/machine-chest-press/frame-1.svg",
+      "exercises/chest/machine-chest-press/frame-2.svg",
+      "exercises/chest/machine-chest-press/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0066-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:pec-deck": {
+    "slug": "pec-deck",
+    "category": "chest",
+    "frames": [
+      "exercises/chest/pec-deck/frame-1.svg",
+      "exercises/chest/pec-deck/frame-2.svg",
+      "exercises/chest/pec-deck/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:cable-fly": {
+    "slug": "cable-fly",
+    "category": "chest",
+    "frames": [
+      "exercises/chest/cable-fly/frame-1.svg",
+      "exercises/chest/cable-fly/frame-2.svg",
+      "exercises/chest/cable-fly/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0048-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "ex-chest-03": {
+    "slug": "push-up",
+    "category": "chest",
+    "frames": [
+      "exercises/chest/push-up/frame-1.svg",
+      "exercises/chest/push-up/frame-2.svg",
+      "exercises/chest/push-up/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0077-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:weighted-push-up": {
+    "slug": "weighted-push-up",
+    "category": "chest",
+    "frames": [
+      "exercises/chest/weighted-push-up/frame-1.svg",
+      "exercises/chest/weighted-push-up/frame-2.svg",
+      "exercises/chest/weighted-push-up/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:overhead-press": {
+    "slug": "overhead-press",
+    "category": "shoulders",
+    "frames": [
+      "exercises/shoulders/overhead-press/frame-1.svg",
+      "exercises/shoulders/overhead-press/frame-2.svg",
+      "exercises/shoulders/overhead-press/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "ex-shoulder-01": {
+    "slug": "seated-dumbbell-press",
+    "category": "shoulders",
+    "frames": [
+      "exercises/shoulders/seated-dumbbell-press/frame-1.svg",
+      "exercises/shoulders/seated-dumbbell-press/frame-2.svg",
+      "exercises/shoulders/seated-dumbbell-press/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "ex-shoulder-04": {
+    "slug": "arnold-press",
+    "category": "shoulders",
+    "frames": [
+      "exercises/shoulders/arnold-press/frame-1.svg",
+      "exercises/shoulders/arnold-press/frame-2.svg",
+      "exercises/shoulders/arnold-press/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "ex-shoulder-02": {
+    "slug": "lateral-raise",
+    "category": "shoulders",
+    "frames": [
+      "exercises/shoulders/lateral-raise/frame-1.svg",
+      "exercises/shoulders/lateral-raise/frame-2.svg",
+      "exercises/shoulders/lateral-raise/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0018-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:cable-lateral-raise": {
+    "slug": "cable-lateral-raise",
+    "category": "shoulders",
+    "frames": [
+      "exercises/shoulders/cable-lateral-raise/frame-1.svg",
+      "exercises/shoulders/cable-lateral-raise/frame-2.svg",
+      "exercises/shoulders/cable-lateral-raise/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:front-raise": {
+    "slug": "front-raise",
+    "category": "shoulders",
+    "frames": [
+      "exercises/shoulders/front-raise/frame-1.svg",
+      "exercises/shoulders/front-raise/frame-2.svg",
+      "exercises/shoulders/front-raise/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0033-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:rear-delt-fly": {
+    "slug": "rear-delt-fly",
+    "category": "shoulders",
+    "frames": [
+      "exercises/shoulders/rear-delt-fly/frame-1.svg",
+      "exercises/shoulders/rear-delt-fly/frame-2.svg",
+      "exercises/shoulders/rear-delt-fly/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:reverse-pec-deck": {
+    "slug": "reverse-pec-deck",
+    "category": "shoulders",
+    "frames": [
+      "exercises/shoulders/reverse-pec-deck/frame-1.svg",
+      "exercises/shoulders/reverse-pec-deck/frame-2.svg",
+      "exercises/shoulders/reverse-pec-deck/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "ex-shoulder-03": {
+    "slug": "face-pull",
+    "category": "back",
+    "frames": [
+      "exercises/back/face-pull/frame-1.svg",
+      "exercises/back/face-pull/frame-2.svg",
+      "exercises/back/face-pull/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:upright-row": {
+    "slug": "upright-row",
+    "category": "shoulders",
+    "frames": [
+      "exercises/shoulders/upright-row/frame-1.svg",
+      "exercises/shoulders/upright-row/frame-2.svg",
+      "exercises/shoulders/upright-row/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0014-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "ex-back-06": {
+    "slug": "deadlift",
+    "category": "core",
+    "frames": [
+      "exercises/core/deadlift/frame-1.svg",
+      "exercises/core/deadlift/frame-2.svg",
+      "exercises/core/deadlift/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0099-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:romanian-deadlift": {
+    "slug": "romanian-deadlift",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/romanian-deadlift/frame-1.svg",
+      "exercises/legs/romanian-deadlift/frame-2.svg",
+      "exercises/legs/romanian-deadlift/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0118-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "ex-back-05": {
+    "slug": "barbell-row",
+    "category": "back",
+    "frames": [
+      "exercises/back/barbell-row/frame-1.svg",
+      "exercises/back/barbell-row/frame-2.svg",
+      "exercises/back/barbell-row/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0026-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:t-bar-row": {
+    "slug": "t-bar-row",
+    "category": "back",
+    "frames": [
+      "exercises/back/t-bar-row/frame-1.svg",
+      "exercises/back/t-bar-row/frame-2.svg",
+      "exercises/back/t-bar-row/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0029-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:dumbbell-bent-over-row": {
+    "slug": "dumbbell-bent-over-row",
+    "category": "back",
+    "frames": [
+      "exercises/back/dumbbell-bent-over-row/frame-1.svg",
+      "exercises/back/dumbbell-bent-over-row/frame-2.svg",
+      "exercises/back/dumbbell-bent-over-row/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "ex-back-04": {
+    "slug": "one-arm-dumbbell-row",
+    "category": "back",
+    "frames": [
+      "exercises/back/one-arm-dumbbell-row/frame-1.svg",
+      "exercises/back/one-arm-dumbbell-row/frame-2.svg",
+      "exercises/back/one-arm-dumbbell-row/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:chest-supported-row": {
+    "slug": "chest-supported-row",
+    "category": "back",
+    "frames": [
+      "exercises/back/chest-supported-row/frame-1.svg",
+      "exercises/back/chest-supported-row/frame-2.svg",
+      "exercises/back/chest-supported-row/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "ex-back-03": {
+    "slug": "seated-row",
+    "category": "back",
+    "frames": [
+      "exercises/back/seated-row/frame-1.svg",
+      "exercises/back/seated-row/frame-2.svg",
+      "exercises/back/seated-row/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0025-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:machine-row": {
+    "slug": "machine-row",
+    "category": "back",
+    "frames": [
+      "exercises/back/machine-row/frame-1.svg",
+      "exercises/back/machine-row/frame-2.svg",
+      "exercises/back/machine-row/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "ex-back-02": {
+    "slug": "lat-pulldown",
+    "category": "back",
+    "frames": [
+      "exercises/back/lat-pulldown/frame-1.svg",
+      "exercises/back/lat-pulldown/frame-2.svg",
+      "exercises/back/lat-pulldown/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0093-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:close-grip-lat-pulldown": {
+    "slug": "close-grip-lat-pulldown",
+    "category": "back",
+    "frames": [
+      "exercises/back/close-grip-lat-pulldown/frame-1.svg",
+      "exercises/back/close-grip-lat-pulldown/frame-2.svg",
+      "exercises/back/close-grip-lat-pulldown/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0096-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:straight-arm-pulldown": {
+    "slug": "straight-arm-pulldown",
+    "category": "back",
+    "frames": [
+      "exercises/back/straight-arm-pulldown/frame-1.svg",
+      "exercises/back/straight-arm-pulldown/frame-2.svg",
+      "exercises/back/straight-arm-pulldown/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0092-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "ex-back-01": {
+    "slug": "pull-up",
+    "category": "back",
+    "frames": [
+      "exercises/back/pull-up/frame-1.svg",
+      "exercises/back/pull-up/frame-2.svg",
+      "exercises/back/pull-up/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0087-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:assisted-pull-up": {
+    "slug": "assisted-pull-up",
+    "category": "back",
+    "frames": [
+      "exercises/back/assisted-pull-up/frame-1.svg",
+      "exercises/back/assisted-pull-up/frame-2.svg",
+      "exercises/back/assisted-pull-up/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:weighted-pull-up": {
+    "slug": "weighted-pull-up",
+    "category": "back",
+    "frames": [
+      "exercises/back/weighted-pull-up/frame-1.svg",
+      "exercises/back/weighted-pull-up/frame-2.svg",
+      "exercises/back/weighted-pull-up/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:chin-up": {
+    "slug": "chin-up",
+    "category": "arms",
+    "frames": [
+      "exercises/arms/chin-up/frame-1.svg",
+      "exercises/arms/chin-up/frame-2.svg",
+      "exercises/arms/chin-up/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0090-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:shrug": {
+    "slug": "shrug",
+    "category": "back",
+    "frames": [
+      "exercises/back/shrug/frame-1.svg",
+      "exercises/back/shrug/frame-2.svg",
+      "exercises/back/shrug/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "ex-leg-01": {
+    "slug": "squat",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/squat/frame-1.svg",
+      "exercises/legs/squat/frame-2.svg",
+      "exercises/legs/squat/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0122-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:front-squat": {
+    "slug": "front-squat",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/front-squat/frame-1.svg",
+      "exercises/legs/front-squat/frame-2.svg",
+      "exercises/legs/front-squat/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0138-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:hack-squat": {
+    "slug": "hack-squat",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/hack-squat/frame-1.svg",
+      "exercises/legs/hack-squat/frame-2.svg",
+      "exercises/legs/hack-squat/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0123-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "ex-leg-04": {
+    "slug": "leg-press",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/leg-press/frame-1.svg",
+      "exercises/legs/leg-press/frame-2.svg",
+      "exercises/legs/leg-press/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0127-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:bulgarian-split-squat": {
+    "slug": "bulgarian-split-squat",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/bulgarian-split-squat/frame-1.svg",
+      "exercises/legs/bulgarian-split-squat/frame-2.svg",
+      "exercises/legs/bulgarian-split-squat/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:walking-lunge": {
+    "slug": "walking-lunge",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/walking-lunge/frame-1.svg",
+      "exercises/legs/walking-lunge/frame-2.svg",
+      "exercises/legs/walking-lunge/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0121-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:step-up": {
+    "slug": "step-up",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/step-up/frame-1.svg",
+      "exercises/legs/step-up/frame-2.svg",
+      "exercises/legs/step-up/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0137-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:leg-extension": {
+    "slug": "leg-extension",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/leg-extension/frame-1.svg",
+      "exercises/legs/leg-extension/frame-2.svg",
+      "exercises/legs/leg-extension/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0142-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:leg-curl": {
+    "slug": "leg-curl",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/leg-curl/frame-1.svg",
+      "exercises/legs/leg-curl/frame-2.svg",
+      "exercises/legs/leg-curl/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0117-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:seated-leg-curl": {
+    "slug": "seated-leg-curl",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/seated-leg-curl/frame-1.svg",
+      "exercises/legs/seated-leg-curl/frame-2.svg",
+      "exercises/legs/seated-leg-curl/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0119-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:hip-thrust": {
+    "slug": "hip-thrust",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/hip-thrust/frame-1.svg",
+      "exercises/legs/hip-thrust/frame-2.svg",
+      "exercises/legs/hip-thrust/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:glute-bridge": {
+    "slug": "glute-bridge",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/glute-bridge/frame-1.svg",
+      "exercises/legs/glute-bridge/frame-2.svg",
+      "exercises/legs/glute-bridge/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0109-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:good-morning": {
+    "slug": "good-morning",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/good-morning/frame-1.svg",
+      "exercises/legs/good-morning/frame-2.svg",
+      "exercises/legs/good-morning/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0101-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:standing-calf-raise": {
+    "slug": "standing-calf-raise",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/standing-calf-raise/frame-1.svg",
+      "exercises/legs/standing-calf-raise/frame-2.svg",
+      "exercises/legs/standing-calf-raise/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0282-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:seated-calf-raise": {
+    "slug": "seated-calf-raise",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/seated-calf-raise/frame-1.svg",
+      "exercises/legs/seated-calf-raise/frame-2.svg",
+      "exercises/legs/seated-calf-raise/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0279-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "ex-arm-02": {
+    "slug": "bicep-curl",
+    "category": "arms",
+    "frames": [
+      "exercises/arms/bicep-curl/frame-1.svg",
+      "exercises/arms/bicep-curl/frame-2.svg",
+      "exercises/arms/bicep-curl/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0224-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "ex-arm-05": {
+    "slug": "hammer-curl",
+    "category": "arms",
+    "frames": [
+      "exercises/arms/hammer-curl/frame-1.svg",
+      "exercises/arms/hammer-curl/frame-2.svg",
+      "exercises/arms/hammer-curl/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0227-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:preacher-curl": {
+    "slug": "preacher-curl",
+    "category": "arms",
+    "frames": [
+      "exercises/arms/preacher-curl/frame-1.svg",
+      "exercises/arms/preacher-curl/frame-2.svg",
+      "exercises/arms/preacher-curl/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0236-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:cable-curl": {
+    "slug": "cable-curl",
+    "category": "arms",
+    "frames": [
+      "exercises/arms/cable-curl/frame-1.svg",
+      "exercises/arms/cable-curl/frame-2.svg",
+      "exercises/arms/cable-curl/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0212-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:reverse-curl": {
+    "slug": "reverse-curl",
+    "category": "arms",
+    "frames": [
+      "exercises/arms/reverse-curl/frame-1.svg",
+      "exercises/arms/reverse-curl/frame-2.svg",
+      "exercises/arms/reverse-curl/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:wrist-curl": {
+    "slug": "wrist-curl",
+    "category": "arms",
+    "frames": [
+      "exercises/arms/wrist-curl/frame-1.svg",
+      "exercises/arms/wrist-curl/frame-2.svg",
+      "exercises/arms/wrist-curl/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "ex-arm-03": {
+    "slug": "tricep-pushdown",
+    "category": "arms",
+    "frames": [
+      "exercises/arms/tricep-pushdown/frame-1.svg",
+      "exercises/arms/tricep-pushdown/frame-2.svg",
+      "exercises/arms/tricep-pushdown/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0205-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:overhead-tricep-extension": {
+    "slug": "overhead-tricep-extension",
+    "category": "arms",
+    "frames": [
+      "exercises/arms/overhead-tricep-extension/frame-1.svg",
+      "exercises/arms/overhead-tricep-extension/frame-2.svg",
+      "exercises/arms/overhead-tricep-extension/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:skull-crusher": {
+    "slug": "skull-crusher",
+    "category": "arms",
+    "frames": [
+      "exercises/arms/skull-crusher/frame-1.svg",
+      "exercises/arms/skull-crusher/frame-2.svg",
+      "exercises/arms/skull-crusher/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0183-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:close-grip-bench-press": {
+    "slug": "close-grip-bench-press",
+    "category": "arms",
+    "frames": [
+      "exercises/arms/close-grip-bench-press/frame-1.svg",
+      "exercises/arms/close-grip-bench-press/frame-2.svg",
+      "exercises/arms/close-grip-bench-press/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0049-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:dip": {
+    "slug": "dip",
+    "category": "arms",
+    "frames": [
+      "exercises/arms/dip/frame-1.svg",
+      "exercises/arms/dip/frame-2.svg",
+      "exercises/arms/dip/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0172-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:assisted-dip": {
+    "slug": "assisted-dip",
+    "category": "arms",
+    "frames": [
+      "exercises/arms/assisted-dip/frame-1.svg",
+      "exercises/arms/assisted-dip/frame-2.svg",
+      "exercises/arms/assisted-dip/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0171-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "ex-core-01": {
+    "slug": "plank",
+    "category": "core",
+    "frames": [
+      "exercises/core/plank/frame-1.svg",
+      "exercises/core/plank/frame-2.svg",
+      "exercises/core/plank/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:side-plank": {
+    "slug": "side-plank",
+    "category": "core",
+    "frames": [
+      "exercises/core/side-plank/frame-1.svg",
+      "exercises/core/side-plank/frame-2.svg",
+      "exercises/core/side-plank/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0113-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "ex-core-05": {
+    "slug": "hanging-leg-raise",
+    "category": "core",
+    "frames": [
+      "exercises/core/hanging-leg-raise/frame-1.svg",
+      "exercises/core/hanging-leg-raise/frame-2.svg",
+      "exercises/core/hanging-leg-raise/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:cable-crunch": {
+    "slug": "cable-crunch",
+    "category": "core",
+    "frames": [
+      "exercises/core/cable-crunch/frame-1.svg",
+      "exercises/core/cable-crunch/frame-2.svg",
+      "exercises/core/cable-crunch/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0288-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:ab-wheel": {
+    "slug": "ab-wheel",
+    "category": "core",
+    "frames": [
+      "exercises/core/ab-wheel/frame-1.svg",
+      "exercises/core/ab-wheel/frame-2.svg",
+      "exercises/core/ab-wheel/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0285-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:running": {
+    "slug": "running",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/running/frame-1.svg",
+      "exercises/legs/running/frame-2.svg",
+      "exercises/legs/running/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:walking": {
+    "slug": "walking",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/walking/frame-1.svg",
+      "exercises/legs/walking/frame-2.svg",
+      "exercises/legs/walking/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:cycling": {
+    "slug": "cycling",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/cycling/frame-1.svg",
+      "exercises/legs/cycling/frame-2.svg",
+      "exercises/legs/cycling/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:rowing": {
+    "slug": "rowing",
+    "category": "back",
+    "frames": [
+      "exercises/back/rowing/frame-1.svg",
+      "exercises/back/rowing/frame-2.svg",
+      "exercises/back/rowing/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:stair-climber": {
+    "slug": "stair-climber",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/stair-climber/frame-1.svg",
+      "exercises/legs/stair-climber/frame-2.svg",
+      "exercises/legs/stair-climber/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "ex-chest-06": {
+    "slug": "dumbbell-fly",
+    "category": "chest",
+    "frames": [
+      "exercises/chest/dumbbell-fly/frame-1.svg",
+      "exercises/chest/dumbbell-fly/frame-2.svg",
+      "exercises/chest/dumbbell-fly/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0056-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:incline-cable-fly": {
+    "slug": "incline-cable-fly",
+    "category": "chest",
+    "frames": [
+      "exercises/chest/incline-cable-fly/frame-1.svg",
+      "exercises/chest/incline-cable-fly/frame-2.svg",
+      "exercises/chest/incline-cable-fly/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0060-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:decline-dumbbell-press": {
+    "slug": "decline-dumbbell-press",
+    "category": "chest",
+    "frames": [
+      "exercises/chest/decline-dumbbell-press/frame-1.svg",
+      "exercises/chest/decline-dumbbell-press/frame-2.svg",
+      "exercises/chest/decline-dumbbell-press/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0052-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:smith-machine-bench-press": {
+    "slug": "smith-machine-bench-press",
+    "category": "chest",
+    "frames": [
+      "exercises/chest/smith-machine-bench-press/frame-1.svg",
+      "exercises/chest/smith-machine-bench-press/frame-2.svg",
+      "exercises/chest/smith-machine-bench-press/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0078-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:landmine-press": {
+    "slug": "landmine-press",
+    "category": "shoulders",
+    "frames": [
+      "exercises/shoulders/landmine-press/frame-1.svg",
+      "exercises/shoulders/landmine-press/frame-2.svg",
+      "exercises/shoulders/landmine-press/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:chest-dip": {
+    "slug": "chest-dip",
+    "category": "chest",
+    "frames": [
+      "exercises/chest/chest-dip/frame-1.svg",
+      "exercises/chest/chest-dip/frame-2.svg",
+      "exercises/chest/chest-dip/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0054-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:weighted-dip": {
+    "slug": "weighted-dip",
+    "category": "arms",
+    "frames": [
+      "exercises/arms/weighted-dip/frame-1.svg",
+      "exercises/arms/weighted-dip/frame-2.svg",
+      "exercises/arms/weighted-dip/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:machine-shoulder-press": {
+    "slug": "machine-shoulder-press",
+    "category": "shoulders",
+    "frames": [
+      "exercises/shoulders/machine-shoulder-press/frame-1.svg",
+      "exercises/shoulders/machine-shoulder-press/frame-2.svg",
+      "exercises/shoulders/machine-shoulder-press/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:standing-dumbbell-press": {
+    "slug": "standing-dumbbell-press",
+    "category": "shoulders",
+    "frames": [
+      "exercises/shoulders/standing-dumbbell-press/frame-1.svg",
+      "exercises/shoulders/standing-dumbbell-press/frame-2.svg",
+      "exercises/shoulders/standing-dumbbell-press/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:push-press": {
+    "slug": "push-press",
+    "category": "shoulders",
+    "frames": [
+      "exercises/shoulders/push-press/frame-1.svg",
+      "exercises/shoulders/push-press/frame-2.svg",
+      "exercises/shoulders/push-press/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:machine-lateral-raise": {
+    "slug": "machine-lateral-raise",
+    "category": "shoulders",
+    "frames": [
+      "exercises/shoulders/machine-lateral-raise/frame-1.svg",
+      "exercises/shoulders/machine-lateral-raise/frame-2.svg",
+      "exercises/shoulders/machine-lateral-raise/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:cable-front-raise": {
+    "slug": "cable-front-raise",
+    "category": "shoulders",
+    "frames": [
+      "exercises/shoulders/cable-front-raise/frame-1.svg",
+      "exercises/shoulders/cable-front-raise/frame-2.svg",
+      "exercises/shoulders/cable-front-raise/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0008-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:plate-front-raise": {
+    "slug": "plate-front-raise",
+    "category": "shoulders",
+    "frames": [
+      "exercises/shoulders/plate-front-raise/frame-1.svg",
+      "exercises/shoulders/plate-front-raise/frame-2.svg",
+      "exercises/shoulders/plate-front-raise/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "ex-shoulder-05": {
+    "slug": "bent-over-rear-delt-raise",
+    "category": "shoulders",
+    "frames": [
+      "exercises/shoulders/bent-over-rear-delt-raise/frame-1.svg",
+      "exercises/shoulders/bent-over-rear-delt-raise/frame-2.svg",
+      "exercises/shoulders/bent-over-rear-delt-raise/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:cable-rear-delt-fly": {
+    "slug": "cable-rear-delt-fly",
+    "category": "shoulders",
+    "frames": [
+      "exercises/shoulders/cable-rear-delt-fly/frame-1.svg",
+      "exercises/shoulders/cable-rear-delt-fly/frame-2.svg",
+      "exercises/shoulders/cable-rear-delt-fly/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:pendlay-row": {
+    "slug": "pendlay-row",
+    "category": "back",
+    "frames": [
+      "exercises/back/pendlay-row/frame-1.svg",
+      "exercises/back/pendlay-row/frame-2.svg",
+      "exercises/back/pendlay-row/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:inverted-row": {
+    "slug": "inverted-row",
+    "category": "back",
+    "frames": [
+      "exercises/back/inverted-row/frame-1.svg",
+      "exercises/back/inverted-row/frame-2.svg",
+      "exercises/back/inverted-row/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0086-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:meadows-row": {
+    "slug": "meadows-row",
+    "category": "back",
+    "frames": [
+      "exercises/back/meadows-row/frame-1.svg",
+      "exercises/back/meadows-row/frame-2.svg",
+      "exercises/back/meadows-row/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:single-arm-cable-row": {
+    "slug": "single-arm-cable-row",
+    "category": "back",
+    "frames": [
+      "exercises/back/single-arm-cable-row/frame-1.svg",
+      "exercises/back/single-arm-cable-row/frame-2.svg",
+      "exercises/back/single-arm-cable-row/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:wide-grip-lat-pulldown": {
+    "slug": "wide-grip-lat-pulldown",
+    "category": "back",
+    "frames": [
+      "exercises/back/wide-grip-lat-pulldown/frame-1.svg",
+      "exercises/back/wide-grip-lat-pulldown/frame-2.svg",
+      "exercises/back/wide-grip-lat-pulldown/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:neutral-grip-pull-up": {
+    "slug": "neutral-grip-pull-up",
+    "category": "back",
+    "frames": [
+      "exercises/back/neutral-grip-pull-up/frame-1.svg",
+      "exercises/back/neutral-grip-pull-up/frame-2.svg",
+      "exercises/back/neutral-grip-pull-up/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0090-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:assisted-chin-up": {
+    "slug": "assisted-chin-up",
+    "category": "arms",
+    "frames": [
+      "exercises/arms/assisted-chin-up/frame-1.svg",
+      "exercises/arms/assisted-chin-up/frame-2.svg",
+      "exercises/arms/assisted-chin-up/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:weighted-chin-up": {
+    "slug": "weighted-chin-up",
+    "category": "arms",
+    "frames": [
+      "exercises/arms/weighted-chin-up/frame-1.svg",
+      "exercises/arms/weighted-chin-up/frame-2.svg",
+      "exercises/arms/weighted-chin-up/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:rack-pull": {
+    "slug": "rack-pull",
+    "category": "back",
+    "frames": [
+      "exercises/back/rack-pull/frame-1.svg",
+      "exercises/back/rack-pull/frame-2.svg",
+      "exercises/back/rack-pull/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:back-extension": {
+    "slug": "back-extension",
+    "category": "core",
+    "frames": [
+      "exercises/core/back-extension/frame-1.svg",
+      "exercises/core/back-extension/frame-2.svg",
+      "exercises/core/back-extension/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0103-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:dumbbell-shrug": {
+    "slug": "dumbbell-shrug",
+    "category": "back",
+    "frames": [
+      "exercises/back/dumbbell-shrug/frame-1.svg",
+      "exercises/back/dumbbell-shrug/frame-2.svg",
+      "exercises/back/dumbbell-shrug/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0005-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "ex-leg-02": {
+    "slug": "goblet-squat",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/goblet-squat/frame-1.svg",
+      "exercises/legs/goblet-squat/frame-2.svg",
+      "exercises/legs/goblet-squat/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:smith-machine-squat": {
+    "slug": "smith-machine-squat",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/smith-machine-squat/frame-1.svg",
+      "exercises/legs/smith-machine-squat/frame-2.svg",
+      "exercises/legs/smith-machine-squat/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0124-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:belt-squat": {
+    "slug": "belt-squat",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/belt-squat/frame-1.svg",
+      "exercises/legs/belt-squat/frame-2.svg",
+      "exercises/legs/belt-squat/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:sumo-deadlift": {
+    "slug": "sumo-deadlift",
+    "category": "core",
+    "frames": [
+      "exercises/core/sumo-deadlift/frame-1.svg",
+      "exercises/core/sumo-deadlift/frame-2.svg",
+      "exercises/core/sumo-deadlift/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:trap-bar-deadlift": {
+    "slug": "trap-bar-deadlift",
+    "category": "core",
+    "frames": [
+      "exercises/core/trap-bar-deadlift/frame-1.svg",
+      "exercises/core/trap-bar-deadlift/frame-2.svg",
+      "exercises/core/trap-bar-deadlift/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:lying-leg-curl": {
+    "slug": "lying-leg-curl",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/lying-leg-curl/frame-1.svg",
+      "exercises/legs/lying-leg-curl/frame-2.svg",
+      "exercises/legs/lying-leg-curl/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0117-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:nordic-hamstring-curl": {
+    "slug": "nordic-hamstring-curl",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/nordic-hamstring-curl/frame-1.svg",
+      "exercises/legs/nordic-hamstring-curl/frame-2.svg",
+      "exercises/legs/nordic-hamstring-curl/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:single-leg-romanian-deadlift": {
+    "slug": "single-leg-romanian-deadlift",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/single-leg-romanian-deadlift/frame-1.svg",
+      "exercises/legs/single-leg-romanian-deadlift/frame-2.svg",
+      "exercises/legs/single-leg-romanian-deadlift/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:reverse-lunge": {
+    "slug": "reverse-lunge",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/reverse-lunge/frame-1.svg",
+      "exercises/legs/reverse-lunge/frame-2.svg",
+      "exercises/legs/reverse-lunge/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0129-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:split-squat": {
+    "slug": "split-squat",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/split-squat/frame-1.svg",
+      "exercises/legs/split-squat/frame-2.svg",
+      "exercises/legs/split-squat/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:cable-kickback": {
+    "slug": "cable-kickback",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/cable-kickback/frame-1.svg",
+      "exercises/legs/cable-kickback/frame-2.svg",
+      "exercises/legs/cable-kickback/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0112-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:hip-abduction-machine": {
+    "slug": "hip-abduction-machine",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/hip-abduction-machine/frame-1.svg",
+      "exercises/legs/hip-abduction-machine/frame-2.svg",
+      "exercises/legs/hip-abduction-machine/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:single-leg-glute-bridge": {
+    "slug": "single-leg-glute-bridge",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/single-leg-glute-bridge/frame-1.svg",
+      "exercises/legs/single-leg-glute-bridge/frame-2.svg",
+      "exercises/legs/single-leg-glute-bridge/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:barbell-glute-bridge": {
+    "slug": "barbell-glute-bridge",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/barbell-glute-bridge/frame-1.svg",
+      "exercises/legs/barbell-glute-bridge/frame-2.svg",
+      "exercises/legs/barbell-glute-bridge/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:dumbbell-glute-bridge": {
+    "slug": "dumbbell-glute-bridge",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/dumbbell-glute-bridge/frame-1.svg",
+      "exercises/legs/dumbbell-glute-bridge/frame-2.svg",
+      "exercises/legs/dumbbell-glute-bridge/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:dumbbell-hip-thrust": {
+    "slug": "dumbbell-hip-thrust",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/dumbbell-hip-thrust/frame-1.svg",
+      "exercises/legs/dumbbell-hip-thrust/frame-2.svg",
+      "exercises/legs/dumbbell-hip-thrust/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:smith-machine-hip-thrust": {
+    "slug": "smith-machine-hip-thrust",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/smith-machine-hip-thrust/frame-1.svg",
+      "exercises/legs/smith-machine-hip-thrust/frame-2.svg",
+      "exercises/legs/smith-machine-hip-thrust/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:smith-machine-romanian-deadlift": {
+    "slug": "smith-machine-romanian-deadlift",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/smith-machine-romanian-deadlift/frame-1.svg",
+      "exercises/legs/smith-machine-romanian-deadlift/frame-2.svg",
+      "exercises/legs/smith-machine-romanian-deadlift/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "ex-leg-03": {
+    "slug": "dumbbell-romanian-deadlift",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/dumbbell-romanian-deadlift/frame-1.svg",
+      "exercises/legs/dumbbell-romanian-deadlift/frame-2.svg",
+      "exercises/legs/dumbbell-romanian-deadlift/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:kettlebell-romanian-deadlift": {
+    "slug": "kettlebell-romanian-deadlift",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/kettlebell-romanian-deadlift/frame-1.svg",
+      "exercises/legs/kettlebell-romanian-deadlift/frame-2.svg",
+      "exercises/legs/kettlebell-romanian-deadlift/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:cable-pull-through": {
+    "slug": "cable-pull-through",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/cable-pull-through/frame-1.svg",
+      "exercises/legs/cable-pull-through/frame-2.svg",
+      "exercises/legs/cable-pull-through/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:machine-glute-kickback": {
+    "slug": "machine-glute-kickback",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/machine-glute-kickback/frame-1.svg",
+      "exercises/legs/machine-glute-kickback/frame-2.svg",
+      "exercises/legs/machine-glute-kickback/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:cable-standing-hip-abduction": {
+    "slug": "cable-standing-hip-abduction",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/cable-standing-hip-abduction/frame-1.svg",
+      "exercises/legs/cable-standing-hip-abduction/frame-2.svg",
+      "exercises/legs/cable-standing-hip-abduction/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:cable-standing-hip-adduction": {
+    "slug": "cable-standing-hip-adduction",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/cable-standing-hip-adduction/frame-1.svg",
+      "exercises/legs/cable-standing-hip-adduction/frame-2.svg",
+      "exercises/legs/cable-standing-hip-adduction/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:hip-adduction-machine": {
+    "slug": "hip-adduction-machine",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/hip-adduction-machine/frame-1.svg",
+      "exercises/legs/hip-adduction-machine/frame-2.svg",
+      "exercises/legs/hip-adduction-machine/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:smith-machine-bulgarian-split-squat": {
+    "slug": "smith-machine-bulgarian-split-squat",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/smith-machine-bulgarian-split-squat/frame-1.svg",
+      "exercises/legs/smith-machine-bulgarian-split-squat/frame-2.svg",
+      "exercises/legs/smith-machine-bulgarian-split-squat/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:smith-machine-reverse-lunge": {
+    "slug": "smith-machine-reverse-lunge",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/smith-machine-reverse-lunge/frame-1.svg",
+      "exercises/legs/smith-machine-reverse-lunge/frame-2.svg",
+      "exercises/legs/smith-machine-reverse-lunge/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:smith-machine-split-squat": {
+    "slug": "smith-machine-split-squat",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/smith-machine-split-squat/frame-1.svg",
+      "exercises/legs/smith-machine-split-squat/frame-2.svg",
+      "exercises/legs/smith-machine-split-squat/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:heel-elevated-goblet-squat": {
+    "slug": "heel-elevated-goblet-squat",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/heel-elevated-goblet-squat/frame-1.svg",
+      "exercises/legs/heel-elevated-goblet-squat/frame-2.svg",
+      "exercises/legs/heel-elevated-goblet-squat/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:dumbbell-sumo-squat": {
+    "slug": "dumbbell-sumo-squat",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/dumbbell-sumo-squat/frame-1.svg",
+      "exercises/legs/dumbbell-sumo-squat/frame-2.svg",
+      "exercises/legs/dumbbell-sumo-squat/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:dumbbell-sumo-deadlift": {
+    "slug": "dumbbell-sumo-deadlift",
+    "category": "core",
+    "frames": [
+      "exercises/core/dumbbell-sumo-deadlift/frame-1.svg",
+      "exercises/core/dumbbell-sumo-deadlift/frame-2.svg",
+      "exercises/core/dumbbell-sumo-deadlift/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:front-foot-elevated-split-squat": {
+    "slug": "front-foot-elevated-split-squat",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/front-foot-elevated-split-squat/frame-1.svg",
+      "exercises/legs/front-foot-elevated-split-squat/frame-2.svg",
+      "exercises/legs/front-foot-elevated-split-squat/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:deficit-reverse-lunge": {
+    "slug": "deficit-reverse-lunge",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/deficit-reverse-lunge/frame-1.svg",
+      "exercises/legs/deficit-reverse-lunge/frame-2.svg",
+      "exercises/legs/deficit-reverse-lunge/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:dumbbell-lateral-lunge": {
+    "slug": "dumbbell-lateral-lunge",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/dumbbell-lateral-lunge/frame-1.svg",
+      "exercises/legs/dumbbell-lateral-lunge/frame-2.svg",
+      "exercises/legs/dumbbell-lateral-lunge/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:dumbbell-curtsy-lunge": {
+    "slug": "dumbbell-curtsy-lunge",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/dumbbell-curtsy-lunge/frame-1.svg",
+      "exercises/legs/dumbbell-curtsy-lunge/frame-2.svg",
+      "exercises/legs/dumbbell-curtsy-lunge/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:landmine-squat": {
+    "slug": "landmine-squat",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/landmine-squat/frame-1.svg",
+      "exercises/legs/landmine-squat/frame-2.svg",
+      "exercises/legs/landmine-squat/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:landmine-romanian-deadlift": {
+    "slug": "landmine-romanian-deadlift",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/landmine-romanian-deadlift/frame-1.svg",
+      "exercises/legs/landmine-romanian-deadlift/frame-2.svg",
+      "exercises/legs/landmine-romanian-deadlift/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:kettlebell-swing": {
+    "slug": "kettlebell-swing",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/kettlebell-swing/frame-1.svg",
+      "exercises/legs/kettlebell-swing/frame-2.svg",
+      "exercises/legs/kettlebell-swing/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:glute-focused-back-extension": {
+    "slug": "glute-focused-back-extension",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/glute-focused-back-extension/frame-1.svg",
+      "exercises/legs/glute-focused-back-extension/frame-2.svg",
+      "exercises/legs/glute-focused-back-extension/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:reverse-hyperextension": {
+    "slug": "reverse-hyperextension",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/reverse-hyperextension/frame-1.svg",
+      "exercises/legs/reverse-hyperextension/frame-2.svg",
+      "exercises/legs/reverse-hyperextension/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:donkey-calf-raise": {
+    "slug": "donkey-calf-raise",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/donkey-calf-raise/frame-1.svg",
+      "exercises/legs/donkey-calf-raise/frame-2.svg",
+      "exercises/legs/donkey-calf-raise/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0275-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:leg-press-calf-raise": {
+    "slug": "leg-press-calf-raise",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/leg-press-calf-raise/frame-1.svg",
+      "exercises/legs/leg-press-calf-raise/frame-2.svg",
+      "exercises/legs/leg-press-calf-raise/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0273-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:wall-sit": {
+    "slug": "wall-sit",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/wall-sit/frame-1.svg",
+      "exercises/legs/wall-sit/frame-2.svg",
+      "exercises/legs/wall-sit/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:jump-squat": {
+    "slug": "jump-squat",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/jump-squat/frame-1.svg",
+      "exercises/legs/jump-squat/frame-2.svg",
+      "exercises/legs/jump-squat/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:incline-dumbbell-curl": {
+    "slug": "incline-dumbbell-curl",
+    "category": "arms",
+    "frames": [
+      "exercises/arms/incline-dumbbell-curl/frame-1.svg",
+      "exercises/arms/incline-dumbbell-curl/frame-2.svg",
+      "exercises/arms/incline-dumbbell-curl/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0214-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:concentration-curl": {
+    "slug": "concentration-curl",
+    "category": "arms",
+    "frames": [
+      "exercises/arms/concentration-curl/frame-1.svg",
+      "exercises/arms/concentration-curl/frame-2.svg",
+      "exercises/arms/concentration-curl/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0220-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "ex-arm-01": {
+    "slug": "ez-bar-curl",
+    "category": "arms",
+    "frames": [
+      "exercises/arms/ez-bar-curl/frame-1.svg",
+      "exercises/arms/ez-bar-curl/frame-2.svg",
+      "exercises/arms/ez-bar-curl/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0226-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:spider-curl": {
+    "slug": "spider-curl",
+    "category": "arms",
+    "frames": [
+      "exercises/arms/spider-curl/frame-1.svg",
+      "exercises/arms/spider-curl/frame-2.svg",
+      "exercises/arms/spider-curl/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0245-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:rope-hammer-curl": {
+    "slug": "rope-hammer-curl",
+    "category": "arms",
+    "frames": [
+      "exercises/arms/rope-hammer-curl/frame-1.svg",
+      "exercises/arms/rope-hammer-curl/frame-2.svg",
+      "exercises/arms/rope-hammer-curl/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0216-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:drag-curl": {
+    "slug": "drag-curl",
+    "category": "arms",
+    "frames": [
+      "exercises/arms/drag-curl/frame-1.svg",
+      "exercises/arms/drag-curl/frame-2.svg",
+      "exercises/arms/drag-curl/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0222-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:rope-tricep-pushdown": {
+    "slug": "rope-tricep-pushdown",
+    "category": "arms",
+    "frames": [
+      "exercises/arms/rope-tricep-pushdown/frame-1.svg",
+      "exercises/arms/rope-tricep-pushdown/frame-2.svg",
+      "exercises/arms/rope-tricep-pushdown/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0206-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:dumbbell-skull-crusher": {
+    "slug": "dumbbell-skull-crusher",
+    "category": "arms",
+    "frames": [
+      "exercises/arms/dumbbell-skull-crusher/frame-1.svg",
+      "exercises/arms/dumbbell-skull-crusher/frame-2.svg",
+      "exercises/arms/dumbbell-skull-crusher/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0181-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:single-dumbbell-skullcrusher": {
+    "slug": "single-dumbbell-skullcrusher",
+    "category": "arms",
+    "frames": [
+      "exercises/arms/single-dumbbell-skullcrusher/frame-1.svg",
+      "exercises/arms/single-dumbbell-skullcrusher/frame-2.svg",
+      "exercises/arms/single-dumbbell-skullcrusher/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:dumbbell-overhead-tricep-extension": {
+    "slug": "dumbbell-overhead-tricep-extension",
+    "category": "arms",
+    "frames": [
+      "exercises/arms/dumbbell-overhead-tricep-extension/frame-1.svg",
+      "exercises/arms/dumbbell-overhead-tricep-extension/frame-2.svg",
+      "exercises/arms/dumbbell-overhead-tricep-extension/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0194-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:single-arm-dumbbell-tricep-extension": {
+    "slug": "single-arm-dumbbell-tricep-extension",
+    "category": "arms",
+    "frames": [
+      "exercises/arms/single-arm-dumbbell-tricep-extension/frame-1.svg",
+      "exercises/arms/single-arm-dumbbell-tricep-extension/frame-2.svg",
+      "exercises/arms/single-arm-dumbbell-tricep-extension/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:bench-dip": {
+    "slug": "bench-dip",
+    "category": "arms",
+    "frames": [
+      "exercises/arms/bench-dip/frame-1.svg",
+      "exercises/arms/bench-dip/frame-2.svg",
+      "exercises/arms/bench-dip/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0162-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:tricep-kickback": {
+    "slug": "tricep-kickback",
+    "category": "arms",
+    "frames": [
+      "exercises/arms/tricep-kickback/frame-1.svg",
+      "exercises/arms/tricep-kickback/frame-2.svg",
+      "exercises/arms/tricep-kickback/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0204-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:wrist-extension": {
+    "slug": "wrist-extension",
+    "category": "arms",
+    "frames": [
+      "exercises/arms/wrist-extension/frame-1.svg",
+      "exercises/arms/wrist-extension/frame-2.svg",
+      "exercises/arms/wrist-extension/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:farmer-carry": {
+    "slug": "farmer-carry",
+    "category": "arms",
+    "frames": [
+      "exercises/arms/farmer-carry/frame-1.svg",
+      "exercises/arms/farmer-carry/frame-2.svg",
+      "exercises/arms/farmer-carry/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "ex-core-02": {
+    "slug": "crunch",
+    "category": "core",
+    "frames": [
+      "exercises/core/crunch/frame-1.svg",
+      "exercises/core/crunch/frame-2.svg",
+      "exercises/core/crunch/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0291-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:reverse-crunch": {
+    "slug": "reverse-crunch",
+    "category": "core",
+    "frames": [
+      "exercises/core/reverse-crunch/frame-1.svg",
+      "exercises/core/reverse-crunch/frame-2.svg",
+      "exercises/core/reverse-crunch/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0287-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "ex-core-04": {
+    "slug": "russian-twist",
+    "category": "core",
+    "frames": [
+      "exercises/core/russian-twist/frame-1.svg",
+      "exercises/core/russian-twist/frame-2.svg",
+      "exercises/core/russian-twist/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:bicycle-crunch": {
+    "slug": "bicycle-crunch",
+    "category": "core",
+    "frames": [
+      "exercises/core/bicycle-crunch/frame-1.svg",
+      "exercises/core/bicycle-crunch/frame-2.svg",
+      "exercises/core/bicycle-crunch/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0284-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 × 512 canvas, recolored for monochrome display, and vector-traced."
+      }
+    }
+  },
+  "wg:mountain-climber": {
+    "slug": "mountain-climber",
+    "category": "core",
+    "frames": [
+      "exercises/core/mountain-climber/frame-1.svg",
+      "exercises/core/mountain-climber/frame-2.svg",
+      "exercises/core/mountain-climber/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "ex-core-03": {
+    "slug": "dead-bug",
+    "category": "core",
+    "frames": [
+      "exercises/core/dead-bug/frame-1.svg",
+      "exercises/core/dead-bug/frame-2.svg",
+      "exercises/core/dead-bug/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:bird-dog": {
+    "slug": "bird-dog",
+    "category": "core",
+    "frames": [
+      "exercises/core/bird-dog/frame-1.svg",
+      "exercises/core/bird-dog/frame-2.svg",
+      "exercises/core/bird-dog/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:pallof-press": {
+    "slug": "pallof-press",
+    "category": "core",
+    "frames": [
+      "exercises/core/pallof-press/frame-1.svg",
+      "exercises/core/pallof-press/frame-2.svg",
+      "exercises/core/pallof-press/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:cable-woodchop": {
+    "slug": "cable-woodchop",
+    "category": "core",
+    "frames": [
+      "exercises/core/cable-woodchop/frame-1.svg",
+      "exercises/core/cable-woodchop/frame-2.svg",
+      "exercises/core/cable-woodchop/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:half-kneeling-pallof-press": {
+    "slug": "half-kneeling-pallof-press",
+    "category": "core",
+    "frames": [
+      "exercises/core/half-kneeling-pallof-press/frame-1.svg",
+      "exercises/core/half-kneeling-pallof-press/frame-2.svg",
+      "exercises/core/half-kneeling-pallof-press/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:cable-pallof-hold": {
+    "slug": "cable-pallof-hold",
+    "category": "core",
+    "frames": [
+      "exercises/core/cable-pallof-hold/frame-1.svg",
+      "exercises/core/cable-pallof-hold/frame-2.svg",
+      "exercises/core/cable-pallof-hold/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:hanging-knee-raise": {
+    "slug": "hanging-knee-raise",
+    "category": "core",
+    "frames": [
+      "exercises/core/hanging-knee-raise/frame-1.svg",
+      "exercises/core/hanging-knee-raise/frame-2.svg",
+      "exercises/core/hanging-knee-raise/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:captains-chair-knee-raise": {
+    "slug": "captains-chair-knee-raise",
+    "category": "core",
+    "frames": [
+      "exercises/core/captains-chair-knee-raise/frame-1.svg",
+      "exercises/core/captains-chair-knee-raise/frame-2.svg",
+      "exercises/core/captains-chair-knee-raise/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:decline-sit-up": {
+    "slug": "decline-sit-up",
+    "category": "core",
+    "frames": [
+      "exercises/core/decline-sit-up/frame-1.svg",
+      "exercises/core/decline-sit-up/frame-2.svg",
+      "exercises/core/decline-sit-up/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:weighted-crunch": {
+    "slug": "weighted-crunch",
+    "category": "core",
+    "frames": [
+      "exercises/core/weighted-crunch/frame-1.svg",
+      "exercises/core/weighted-crunch/frame-2.svg",
+      "exercises/core/weighted-crunch/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:weighted-russian-twist": {
+    "slug": "weighted-russian-twist",
+    "category": "core",
+    "frames": [
+      "exercises/core/weighted-russian-twist/frame-1.svg",
+      "exercises/core/weighted-russian-twist/frame-2.svg",
+      "exercises/core/weighted-russian-twist/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:dumbbell-side-bend": {
+    "slug": "dumbbell-side-bend",
+    "category": "core",
+    "frames": [
+      "exercises/core/dumbbell-side-bend/frame-1.svg",
+      "exercises/core/dumbbell-side-bend/frame-2.svg",
+      "exercises/core/dumbbell-side-bend/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:elliptical": {
+    "slug": "elliptical",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/elliptical/frame-1.svg",
+      "exercises/legs/elliptical/frame-2.svg",
+      "exercises/legs/elliptical/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:swimming": {
+    "slug": "swimming",
+    "category": "back",
+    "frames": [
+      "exercises/back/swimming/frame-1.svg",
+      "exercises/back/swimming/frame-2.svg",
+      "exercises/back/swimming/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:jump-rope": {
+    "slug": "jump-rope",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/jump-rope/frame-1.svg",
+      "exercises/legs/jump-rope/frame-2.svg",
+      "exercises/legs/jump-rope/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:assault-bike": {
+    "slug": "assault-bike",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/assault-bike/frame-1.svg",
+      "exercises/legs/assault-bike/frame-2.svg",
+      "exercises/legs/assault-bike/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:skierg": {
+    "slug": "skierg",
+    "category": "back",
+    "frames": [
+      "exercises/back/skierg/frame-1.svg",
+      "exercises/back/skierg/frame-2.svg",
+      "exercises/back/skierg/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:hiking": {
+    "slug": "hiking",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/hiking/frame-1.svg",
+      "exercises/legs/hiking/frame-2.svg",
+      "exercises/legs/hiking/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:treadmill-incline-walk": {
+    "slug": "treadmill-incline-walk",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/treadmill-incline-walk/frame-1.svg",
+      "exercises/legs/treadmill-incline-walk/frame-2.svg",
+      "exercises/legs/treadmill-incline-walk/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:battle-ropes": {
+    "slug": "battle-ropes",
+    "category": "shoulders",
+    "frames": [
+      "exercises/shoulders/battle-ropes/frame-1.svg",
+      "exercises/shoulders/battle-ropes/frame-2.svg",
+      "exercises/shoulders/battle-ropes/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:incline-push-up": {
+    "slug": "incline-push-up",
+    "category": "chest",
+    "frames": [
+      "exercises/chest/incline-push-up/frame-1.svg",
+      "exercises/chest/incline-push-up/frame-2.svg",
+      "exercises/chest/incline-push-up/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:knee-push-up": {
+    "slug": "knee-push-up",
+    "category": "chest",
+    "frames": [
+      "exercises/chest/knee-push-up/frame-1.svg",
+      "exercises/chest/knee-push-up/frame-2.svg",
+      "exercises/chest/knee-push-up/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:wide-push-up": {
+    "slug": "wide-push-up",
+    "category": "chest",
+    "frames": [
+      "exercises/chest/wide-push-up/frame-1.svg",
+      "exercises/chest/wide-push-up/frame-2.svg",
+      "exercises/chest/wide-push-up/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "ex-arm-04": {
+    "slug": "diamond-push-up",
+    "category": "arms",
+    "frames": [
+      "exercises/arms/diamond-push-up/frame-1.svg",
+      "exercises/arms/diamond-push-up/frame-2.svg",
+      "exercises/arms/diamond-push-up/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:decline-push-up": {
+    "slug": "decline-push-up",
+    "category": "chest",
+    "frames": [
+      "exercises/chest/decline-push-up/frame-1.svg",
+      "exercises/chest/decline-push-up/frame-2.svg",
+      "exercises/chest/decline-push-up/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:pike-push-up": {
+    "slug": "pike-push-up",
+    "category": "shoulders",
+    "frames": [
+      "exercises/shoulders/pike-push-up/frame-1.svg",
+      "exercises/shoulders/pike-push-up/frame-2.svg",
+      "exercises/shoulders/pike-push-up/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:feet-elevated-pike-push-up": {
+    "slug": "feet-elevated-pike-push-up",
+    "category": "shoulders",
+    "frames": [
+      "exercises/shoulders/feet-elevated-pike-push-up/frame-1.svg",
+      "exercises/shoulders/feet-elevated-pike-push-up/frame-2.svg",
+      "exercises/shoulders/feet-elevated-pike-push-up/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:archer-push-up": {
+    "slug": "archer-push-up",
+    "category": "chest",
+    "frames": [
+      "exercises/chest/archer-push-up/frame-1.svg",
+      "exercises/chest/archer-push-up/frame-2.svg",
+      "exercises/chest/archer-push-up/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:typewriter-push-up": {
+    "slug": "typewriter-push-up",
+    "category": "chest",
+    "frames": [
+      "exercises/chest/typewriter-push-up/frame-1.svg",
+      "exercises/chest/typewriter-push-up/frame-2.svg",
+      "exercises/chest/typewriter-push-up/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:explosive-push-up": {
+    "slug": "explosive-push-up",
+    "category": "chest",
+    "frames": [
+      "exercises/chest/explosive-push-up/frame-1.svg",
+      "exercises/chest/explosive-push-up/frame-2.svg",
+      "exercises/chest/explosive-push-up/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:hindu-push-up": {
+    "slug": "hindu-push-up",
+    "category": "chest",
+    "frames": [
+      "exercises/chest/hindu-push-up/frame-1.svg",
+      "exercises/chest/hindu-push-up/frame-2.svg",
+      "exercises/chest/hindu-push-up/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:scapular-push-up": {
+    "slug": "scapular-push-up",
+    "category": "back",
+    "frames": [
+      "exercises/back/scapular-push-up/frame-1.svg",
+      "exercises/back/scapular-push-up/frame-2.svg",
+      "exercises/back/scapular-push-up/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:push-up-shoulder-tap": {
+    "slug": "push-up-shoulder-tap",
+    "category": "core",
+    "frames": [
+      "exercises/core/push-up-shoulder-tap/frame-1.svg",
+      "exercises/core/push-up-shoulder-tap/frame-2.svg",
+      "exercises/core/push-up-shoulder-tap/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:wall-push-up": {
+    "slug": "wall-push-up",
+    "category": "chest",
+    "frames": [
+      "exercises/chest/wall-push-up/frame-1.svg",
+      "exercises/chest/wall-push-up/frame-2.svg",
+      "exercises/chest/wall-push-up/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:wall-walk": {
+    "slug": "wall-walk",
+    "category": "shoulders",
+    "frames": [
+      "exercises/shoulders/wall-walk/frame-1.svg",
+      "exercises/shoulders/wall-walk/frame-2.svg",
+      "exercises/shoulders/wall-walk/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:wall-handstand-push-up": {
+    "slug": "wall-handstand-push-up",
+    "category": "shoulders",
+    "frames": [
+      "exercises/shoulders/wall-handstand-push-up/frame-1.svg",
+      "exercises/shoulders/wall-handstand-push-up/frame-2.svg",
+      "exercises/shoulders/wall-handstand-push-up/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:handstand-push-up": {
+    "slug": "handstand-push-up",
+    "category": "shoulders",
+    "frames": [
+      "exercises/shoulders/handstand-push-up/frame-1.svg",
+      "exercises/shoulders/handstand-push-up/frame-2.svg",
+      "exercises/shoulders/handstand-push-up/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:chair-dip": {
+    "slug": "chair-dip",
+    "category": "arms",
+    "frames": [
+      "exercises/arms/chair-dip/frame-1.svg",
+      "exercises/arms/chair-dip/frame-2.svg",
+      "exercises/arms/chair-dip/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:doorway-row": {
+    "slug": "doorway-row",
+    "category": "back",
+    "frames": [
+      "exercises/back/doorway-row/frame-1.svg",
+      "exercises/back/doorway-row/frame-2.svg",
+      "exercises/back/doorway-row/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:towel-row": {
+    "slug": "towel-row",
+    "category": "back",
+    "frames": [
+      "exercises/back/towel-row/frame-1.svg",
+      "exercises/back/towel-row/frame-2.svg",
+      "exercises/back/towel-row/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:prone-y-raise": {
+    "slug": "prone-y-raise",
+    "category": "back",
+    "frames": [
+      "exercises/back/prone-y-raise/frame-1.svg",
+      "exercises/back/prone-y-raise/frame-2.svg",
+      "exercises/back/prone-y-raise/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:prone-t-raise": {
+    "slug": "prone-t-raise",
+    "category": "back",
+    "frames": [
+      "exercises/back/prone-t-raise/frame-1.svg",
+      "exercises/back/prone-t-raise/frame-2.svg",
+      "exercises/back/prone-t-raise/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:superman": {
+    "slug": "superman",
+    "category": "core",
+    "frames": [
+      "exercises/core/superman/frame-1.svg",
+      "exercises/core/superman/frame-2.svg",
+      "exercises/core/superman/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:superman-hold": {
+    "slug": "superman-hold",
+    "category": "core",
+    "frames": [
+      "exercises/core/superman-hold/frame-1.svg",
+      "exercises/core/superman-hold/frame-2.svg",
+      "exercises/core/superman-hold/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:reverse-snow-angel": {
+    "slug": "reverse-snow-angel",
+    "category": "back",
+    "frames": [
+      "exercises/back/reverse-snow-angel/frame-1.svg",
+      "exercises/back/reverse-snow-angel/frame-2.svg",
+      "exercises/back/reverse-snow-angel/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:dead-hang": {
+    "slug": "dead-hang",
+    "category": "arms",
+    "frames": [
+      "exercises/arms/dead-hang/frame-1.svg",
+      "exercises/arms/dead-hang/frame-2.svg",
+      "exercises/arms/dead-hang/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:active-hang": {
+    "slug": "active-hang",
+    "category": "back",
+    "frames": [
+      "exercises/back/active-hang/frame-1.svg",
+      "exercises/back/active-hang/frame-2.svg",
+      "exercises/back/active-hang/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:scapular-pull-up": {
+    "slug": "scapular-pull-up",
+    "category": "back",
+    "frames": [
+      "exercises/back/scapular-pull-up/frame-1.svg",
+      "exercises/back/scapular-pull-up/frame-2.svg",
+      "exercises/back/scapular-pull-up/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:negative-pull-up": {
+    "slug": "negative-pull-up",
+    "category": "back",
+    "frames": [
+      "exercises/back/negative-pull-up/frame-1.svg",
+      "exercises/back/negative-pull-up/frame-2.svg",
+      "exercises/back/negative-pull-up/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:commando-pull-up": {
+    "slug": "commando-pull-up",
+    "category": "back",
+    "frames": [
+      "exercises/back/commando-pull-up/frame-1.svg",
+      "exercises/back/commando-pull-up/frame-2.svg",
+      "exercises/back/commando-pull-up/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:l-sit-pull-up": {
+    "slug": "l-sit-pull-up",
+    "category": "back",
+    "frames": [
+      "exercises/back/l-sit-pull-up/frame-1.svg",
+      "exercises/back/l-sit-pull-up/frame-2.svg",
+      "exercises/back/l-sit-pull-up/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:towel-pull-up": {
+    "slug": "towel-pull-up",
+    "category": "back",
+    "frames": [
+      "exercises/back/towel-pull-up/frame-1.svg",
+      "exercises/back/towel-pull-up/frame-2.svg",
+      "exercises/back/towel-pull-up/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:bodyweight-squat": {
+    "slug": "bodyweight-squat",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/bodyweight-squat/frame-1.svg",
+      "exercises/legs/bodyweight-squat/frame-2.svg",
+      "exercises/legs/bodyweight-squat/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:pistol-squat": {
+    "slug": "pistol-squat",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/pistol-squat/frame-1.svg",
+      "exercises/legs/pistol-squat/frame-2.svg",
+      "exercises/legs/pistol-squat/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:assisted-pistol-squat": {
+    "slug": "assisted-pistol-squat",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/assisted-pistol-squat/frame-1.svg",
+      "exercises/legs/assisted-pistol-squat/frame-2.svg",
+      "exercises/legs/assisted-pistol-squat/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:shrimp-squat": {
+    "slug": "shrimp-squat",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/shrimp-squat/frame-1.svg",
+      "exercises/legs/shrimp-squat/frame-2.svg",
+      "exercises/legs/shrimp-squat/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:cossack-squat": {
+    "slug": "cossack-squat",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/cossack-squat/frame-1.svg",
+      "exercises/legs/cossack-squat/frame-2.svg",
+      "exercises/legs/cossack-squat/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:sissy-squat": {
+    "slug": "sissy-squat",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/sissy-squat/frame-1.svg",
+      "exercises/legs/sissy-squat/frame-2.svg",
+      "exercises/legs/sissy-squat/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "ex-leg-05": {
+    "slug": "forward-lunge",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/forward-lunge/frame-1.svg",
+      "exercises/legs/forward-lunge/frame-2.svg",
+      "exercises/legs/forward-lunge/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:lateral-lunge": {
+    "slug": "lateral-lunge",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/lateral-lunge/frame-1.svg",
+      "exercises/legs/lateral-lunge/frame-2.svg",
+      "exercises/legs/lateral-lunge/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:curtsy-lunge": {
+    "slug": "curtsy-lunge",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/curtsy-lunge/frame-1.svg",
+      "exercises/legs/curtsy-lunge/frame-2.svg",
+      "exercises/legs/curtsy-lunge/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:skater-squat": {
+    "slug": "skater-squat",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/skater-squat/frame-1.svg",
+      "exercises/legs/skater-squat/frame-2.svg",
+      "exercises/legs/skater-squat/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:single-leg-box-squat": {
+    "slug": "single-leg-box-squat",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/single-leg-box-squat/frame-1.svg",
+      "exercises/legs/single-leg-box-squat/frame-2.svg",
+      "exercises/legs/single-leg-box-squat/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:step-down": {
+    "slug": "step-down",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/step-down/frame-1.svg",
+      "exercises/legs/step-down/frame-2.svg",
+      "exercises/legs/step-down/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "ex-leg-06": {
+    "slug": "calf-raise",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/calf-raise/frame-1.svg",
+      "exercises/legs/calf-raise/frame-2.svg",
+      "exercises/legs/calf-raise/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:single-leg-calf-raise": {
+    "slug": "single-leg-calf-raise",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/single-leg-calf-raise/frame-1.svg",
+      "exercises/legs/single-leg-calf-raise/frame-2.svg",
+      "exercises/legs/single-leg-calf-raise/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:glute-bridge-march": {
+    "slug": "glute-bridge-march",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/glute-bridge-march/frame-1.svg",
+      "exercises/legs/glute-bridge-march/frame-2.svg",
+      "exercises/legs/glute-bridge-march/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:frog-pump": {
+    "slug": "frog-pump",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/frog-pump/frame-1.svg",
+      "exercises/legs/frog-pump/frame-2.svg",
+      "exercises/legs/frog-pump/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:donkey-kick": {
+    "slug": "donkey-kick",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/donkey-kick/frame-1.svg",
+      "exercises/legs/donkey-kick/frame-2.svg",
+      "exercises/legs/donkey-kick/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:fire-hydrant": {
+    "slug": "fire-hydrant",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/fire-hydrant/frame-1.svg",
+      "exercises/legs/fire-hydrant/frame-2.svg",
+      "exercises/legs/fire-hydrant/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:clamshell": {
+    "slug": "clamshell",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/clamshell/frame-1.svg",
+      "exercises/legs/clamshell/frame-2.svg",
+      "exercises/legs/clamshell/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:hip-airplane": {
+    "slug": "hip-airplane",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/hip-airplane/frame-1.svg",
+      "exercises/legs/hip-airplane/frame-2.svg",
+      "exercises/legs/hip-airplane/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:side-lying-hip-abduction": {
+    "slug": "side-lying-hip-abduction",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/side-lying-hip-abduction/frame-1.svg",
+      "exercises/legs/side-lying-hip-abduction/frame-2.svg",
+      "exercises/legs/side-lying-hip-abduction/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:side-lying-leg-raise": {
+    "slug": "side-lying-leg-raise",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/side-lying-leg-raise/frame-1.svg",
+      "exercises/legs/side-lying-leg-raise/frame-2.svg",
+      "exercises/legs/side-lying-leg-raise/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:lying-hamstring-walkout": {
+    "slug": "lying-hamstring-walkout",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/lying-hamstring-walkout/frame-1.svg",
+      "exercises/legs/lying-hamstring-walkout/frame-2.svg",
+      "exercises/legs/lying-hamstring-walkout/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:towel-hamstring-curl": {
+    "slug": "towel-hamstring-curl",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/towel-hamstring-curl/frame-1.svg",
+      "exercises/legs/towel-hamstring-curl/frame-2.svg",
+      "exercises/legs/towel-hamstring-curl/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:stability-ball-hamstring-curl": {
+    "slug": "stability-ball-hamstring-curl",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/stability-ball-hamstring-curl/frame-1.svg",
+      "exercises/legs/stability-ball-hamstring-curl/frame-2.svg",
+      "exercises/legs/stability-ball-hamstring-curl/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:banded-glute-bridge": {
+    "slug": "banded-glute-bridge",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/banded-glute-bridge/frame-1.svg",
+      "exercises/legs/banded-glute-bridge/frame-2.svg",
+      "exercises/legs/banded-glute-bridge/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:banded-hip-thrust": {
+    "slug": "banded-hip-thrust",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/banded-hip-thrust/frame-1.svg",
+      "exercises/legs/banded-hip-thrust/frame-2.svg",
+      "exercises/legs/banded-hip-thrust/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:banded-frog-pump": {
+    "slug": "banded-frog-pump",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/banded-frog-pump/frame-1.svg",
+      "exercises/legs/banded-frog-pump/frame-2.svg",
+      "exercises/legs/banded-frog-pump/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:banded-clamshell": {
+    "slug": "banded-clamshell",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/banded-clamshell/frame-1.svg",
+      "exercises/legs/banded-clamshell/frame-2.svg",
+      "exercises/legs/banded-clamshell/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:banded-lateral-walk": {
+    "slug": "banded-lateral-walk",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/banded-lateral-walk/frame-1.svg",
+      "exercises/legs/banded-lateral-walk/frame-2.svg",
+      "exercises/legs/banded-lateral-walk/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:banded-monster-walk": {
+    "slug": "banded-monster-walk",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/banded-monster-walk/frame-1.svg",
+      "exercises/legs/banded-monster-walk/frame-2.svg",
+      "exercises/legs/banded-monster-walk/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:banded-squat": {
+    "slug": "banded-squat",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/banded-squat/frame-1.svg",
+      "exercises/legs/banded-squat/frame-2.svg",
+      "exercises/legs/banded-squat/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:banded-donkey-kick": {
+    "slug": "banded-donkey-kick",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/banded-donkey-kick/frame-1.svg",
+      "exercises/legs/banded-donkey-kick/frame-2.svg",
+      "exercises/legs/banded-donkey-kick/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:banded-fire-hydrant": {
+    "slug": "banded-fire-hydrant",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/banded-fire-hydrant/frame-1.svg",
+      "exercises/legs/banded-fire-hydrant/frame-2.svg",
+      "exercises/legs/banded-fire-hydrant/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:banded-kickback": {
+    "slug": "banded-kickback",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/banded-kickback/frame-1.svg",
+      "exercises/legs/banded-kickback/frame-2.svg",
+      "exercises/legs/banded-kickback/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:banded-standing-hip-abduction": {
+    "slug": "banded-standing-hip-abduction",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/banded-standing-hip-abduction/frame-1.svg",
+      "exercises/legs/banded-standing-hip-abduction/frame-2.svg",
+      "exercises/legs/banded-standing-hip-abduction/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:banded-seated-hip-abduction": {
+    "slug": "banded-seated-hip-abduction",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/banded-seated-hip-abduction/frame-1.svg",
+      "exercises/legs/banded-seated-hip-abduction/frame-2.svg",
+      "exercises/legs/banded-seated-hip-abduction/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:band-pull-apart": {
+    "slug": "band-pull-apart",
+    "category": "back",
+    "frames": [
+      "exercises/back/band-pull-apart/frame-1.svg",
+      "exercises/back/band-pull-apart/frame-2.svg",
+      "exercises/back/band-pull-apart/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:banded-face-pull": {
+    "slug": "banded-face-pull",
+    "category": "back",
+    "frames": [
+      "exercises/back/banded-face-pull/frame-1.svg",
+      "exercises/back/banded-face-pull/frame-2.svg",
+      "exercises/back/banded-face-pull/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:banded-row": {
+    "slug": "banded-row",
+    "category": "back",
+    "frames": [
+      "exercises/back/banded-row/frame-1.svg",
+      "exercises/back/banded-row/frame-2.svg",
+      "exercises/back/banded-row/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:banded-lat-pulldown": {
+    "slug": "banded-lat-pulldown",
+    "category": "back",
+    "frames": [
+      "exercises/back/banded-lat-pulldown/frame-1.svg",
+      "exercises/back/banded-lat-pulldown/frame-2.svg",
+      "exercises/back/banded-lat-pulldown/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:banded-pallof-press": {
+    "slug": "banded-pallof-press",
+    "category": "core",
+    "frames": [
+      "exercises/core/banded-pallof-press/frame-1.svg",
+      "exercises/core/banded-pallof-press/frame-2.svg",
+      "exercises/core/banded-pallof-press/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:banded-woodchop": {
+    "slug": "banded-woodchop",
+    "category": "core",
+    "frames": [
+      "exercises/core/banded-woodchop/frame-1.svg",
+      "exercises/core/banded-woodchop/frame-2.svg",
+      "exercises/core/banded-woodchop/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:banded-dead-bug": {
+    "slug": "banded-dead-bug",
+    "category": "core",
+    "frames": [
+      "exercises/core/banded-dead-bug/frame-1.svg",
+      "exercises/core/banded-dead-bug/frame-2.svg",
+      "exercises/core/banded-dead-bug/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:hollow-body-hold": {
+    "slug": "hollow-body-hold",
+    "category": "core",
+    "frames": [
+      "exercises/core/hollow-body-hold/frame-1.svg",
+      "exercises/core/hollow-body-hold/frame-2.svg",
+      "exercises/core/hollow-body-hold/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:hollow-rock": {
+    "slug": "hollow-rock",
+    "category": "core",
+    "frames": [
+      "exercises/core/hollow-rock/frame-1.svg",
+      "exercises/core/hollow-rock/frame-2.svg",
+      "exercises/core/hollow-rock/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:v-up": {
+    "slug": "v-up",
+    "category": "core",
+    "frames": [
+      "exercises/core/v-up/frame-1.svg",
+      "exercises/core/v-up/frame-2.svg",
+      "exercises/core/v-up/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:flutter-kick": {
+    "slug": "flutter-kick",
+    "category": "core",
+    "frames": [
+      "exercises/core/flutter-kick/frame-1.svg",
+      "exercises/core/flutter-kick/frame-2.svg",
+      "exercises/core/flutter-kick/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:lying-leg-raise": {
+    "slug": "lying-leg-raise",
+    "category": "core",
+    "frames": [
+      "exercises/core/lying-leg-raise/frame-1.svg",
+      "exercises/core/lying-leg-raise/frame-2.svg",
+      "exercises/core/lying-leg-raise/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:toe-touch": {
+    "slug": "toe-touch",
+    "category": "core",
+    "frames": [
+      "exercises/core/toe-touch/frame-1.svg",
+      "exercises/core/toe-touch/frame-2.svg",
+      "exercises/core/toe-touch/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:heel-tap": {
+    "slug": "heel-tap",
+    "category": "core",
+    "frames": [
+      "exercises/core/heel-tap/frame-1.svg",
+      "exercises/core/heel-tap/frame-2.svg",
+      "exercises/core/heel-tap/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:plank-shoulder-tap": {
+    "slug": "plank-shoulder-tap",
+    "category": "core",
+    "frames": [
+      "exercises/core/plank-shoulder-tap/frame-1.svg",
+      "exercises/core/plank-shoulder-tap/frame-2.svg",
+      "exercises/core/plank-shoulder-tap/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:plank-jack": {
+    "slug": "plank-jack",
+    "category": "core",
+    "frames": [
+      "exercises/core/plank-jack/frame-1.svg",
+      "exercises/core/plank-jack/frame-2.svg",
+      "exercises/core/plank-jack/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:bear-plank": {
+    "slug": "bear-plank",
+    "category": "core",
+    "frames": [
+      "exercises/core/bear-plank/frame-1.svg",
+      "exercises/core/bear-plank/frame-2.svg",
+      "exercises/core/bear-plank/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:bear-crawl": {
+    "slug": "bear-crawl",
+    "category": "core",
+    "frames": [
+      "exercises/core/bear-crawl/frame-1.svg",
+      "exercises/core/bear-crawl/frame-2.svg",
+      "exercises/core/bear-crawl/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:crab-walk": {
+    "slug": "crab-walk",
+    "category": "arms",
+    "frames": [
+      "exercises/arms/crab-walk/frame-1.svg",
+      "exercises/arms/crab-walk/frame-2.svg",
+      "exercises/arms/crab-walk/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:inchworm": {
+    "slug": "inchworm",
+    "category": "core",
+    "frames": [
+      "exercises/core/inchworm/frame-1.svg",
+      "exercises/core/inchworm/frame-2.svg",
+      "exercises/core/inchworm/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:l-sit-hold": {
+    "slug": "l-sit-hold",
+    "category": "core",
+    "frames": [
+      "exercises/core/l-sit-hold/frame-1.svg",
+      "exercises/core/l-sit-hold/frame-2.svg",
+      "exercises/core/l-sit-hold/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:seated-knee-tuck": {
+    "slug": "seated-knee-tuck",
+    "category": "core",
+    "frames": [
+      "exercises/core/seated-knee-tuck/frame-1.svg",
+      "exercises/core/seated-knee-tuck/frame-2.svg",
+      "exercises/core/seated-knee-tuck/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:side-plank-hip-dip": {
+    "slug": "side-plank-hip-dip",
+    "category": "core",
+    "frames": [
+      "exercises/core/side-plank-hip-dip/frame-1.svg",
+      "exercises/core/side-plank-hip-dip/frame-2.svg",
+      "exercises/core/side-plank-hip-dip/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:copenhagen-plank": {
+    "slug": "copenhagen-plank",
+    "category": "core",
+    "frames": [
+      "exercises/core/copenhagen-plank/frame-1.svg",
+      "exercises/core/copenhagen-plank/frame-2.svg",
+      "exercises/core/copenhagen-plank/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:dragon-flag": {
+    "slug": "dragon-flag",
+    "category": "core",
+    "frames": [
+      "exercises/core/dragon-flag/frame-1.svg",
+      "exercises/core/dragon-flag/frame-2.svg",
+      "exercises/core/dragon-flag/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:burpee": {
+    "slug": "burpee",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/burpee/frame-1.svg",
+      "exercises/legs/burpee/frame-2.svg",
+      "exercises/legs/burpee/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:half-burpee": {
+    "slug": "half-burpee",
+    "category": "core",
+    "frames": [
+      "exercises/core/half-burpee/frame-1.svg",
+      "exercises/core/half-burpee/frame-2.svg",
+      "exercises/core/half-burpee/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:squat-thrust": {
+    "slug": "squat-thrust",
+    "category": "core",
+    "frames": [
+      "exercises/core/squat-thrust/frame-1.svg",
+      "exercises/core/squat-thrust/frame-2.svg",
+      "exercises/core/squat-thrust/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:high-knees": {
+    "slug": "high-knees",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/high-knees/frame-1.svg",
+      "exercises/legs/high-knees/frame-2.svg",
+      "exercises/legs/high-knees/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:jumping-jack": {
+    "slug": "jumping-jack",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/jumping-jack/frame-1.svg",
+      "exercises/legs/jumping-jack/frame-2.svg",
+      "exercises/legs/jumping-jack/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:skater-hop": {
+    "slug": "skater-hop",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/skater-hop/frame-1.svg",
+      "exercises/legs/skater-hop/frame-2.svg",
+      "exercises/legs/skater-hop/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:lateral-shuffle": {
+    "slug": "lateral-shuffle",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/lateral-shuffle/frame-1.svg",
+      "exercises/legs/lateral-shuffle/frame-2.svg",
+      "exercises/legs/lateral-shuffle/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:fast-feet": {
+    "slug": "fast-feet",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/fast-feet/frame-1.svg",
+      "exercises/legs/fast-feet/frame-2.svg",
+      "exercises/legs/fast-feet/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:sprawl": {
+    "slug": "sprawl",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/sprawl/frame-1.svg",
+      "exercises/legs/sprawl/frame-2.svg",
+      "exercises/legs/sprawl/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:seal-jack": {
+    "slug": "seal-jack",
+    "category": "chest",
+    "frames": [
+      "exercises/chest/seal-jack/frame-1.svg",
+      "exercises/chest/seal-jack/frame-2.svg",
+      "exercises/chest/seal-jack/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:cat-cow-stretch": {
+    "slug": "cat-cow-stretch",
+    "category": "mobility",
+    "frames": [
+      "exercises/mobility/cat-cow-stretch/frame-1.svg",
+      "exercises/mobility/cat-cow-stretch/frame-2.svg",
+      "exercises/mobility/cat-cow-stretch/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:arm-circles": {
+    "slug": "arm-circles",
+    "category": "shoulders",
+    "frames": [
+      "exercises/shoulders/arm-circles/frame-1.svg",
+      "exercises/shoulders/arm-circles/frame-2.svg",
+      "exercises/shoulders/arm-circles/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:worlds-greatest-stretch": {
+    "slug": "worlds-greatest-stretch",
+    "category": "mobility",
+    "frames": [
+      "exercises/mobility/worlds-greatest-stretch/frame-1.svg",
+      "exercises/mobility/worlds-greatest-stretch/frame-2.svg",
+      "exercises/mobility/worlds-greatest-stretch/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:leg-swings-stretch": {
+    "slug": "leg-swings-stretch",
+    "category": "mobility",
+    "frames": [
+      "exercises/mobility/leg-swings-stretch/frame-1.svg",
+      "exercises/mobility/leg-swings-stretch/frame-2.svg",
+      "exercises/mobility/leg-swings-stretch/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:torso-twist-stretch": {
+    "slug": "torso-twist-stretch",
+    "category": "mobility",
+    "frames": [
+      "exercises/mobility/torso-twist-stretch/frame-1.svg",
+      "exercises/mobility/torso-twist-stretch/frame-2.svg",
+      "exercises/mobility/torso-twist-stretch/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "ex-stretch-01": {
+    "slug": "doorway-chest-stretch",
+    "category": "chest",
+    "frames": [
+      "exercises/chest/doorway-chest-stretch/frame-1.svg",
+      "exercises/chest/doorway-chest-stretch/frame-2.svg",
+      "exercises/chest/doorway-chest-stretch/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "ex-stretch-02": {
+    "slug": "childs-pose",
+    "category": "back",
+    "frames": [
+      "exercises/back/childs-pose/frame-1.svg",
+      "exercises/back/childs-pose/frame-2.svg",
+      "exercises/back/childs-pose/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "ex-stretch-05": {
+    "slug": "kneeling-hip-flexor-stretch",
+    "category": "core",
+    "frames": [
+      "exercises/core/kneeling-hip-flexor-stretch/frame-1.svg",
+      "exercises/core/kneeling-hip-flexor-stretch/frame-2.svg",
+      "exercises/core/kneeling-hip-flexor-stretch/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "ex-stretch-04": {
+    "slug": "hamstring-stretch",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/hamstring-stretch/frame-1.svg",
+      "exercises/legs/hamstring-stretch/frame-2.svg",
+      "exercises/legs/hamstring-stretch/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "ex-stretch-03": {
+    "slug": "standing-quad-stretch",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/standing-quad-stretch/frame-1.svg",
+      "exercises/legs/standing-quad-stretch/frame-2.svg",
+      "exercises/legs/standing-quad-stretch/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:seated-forward-fold-stretch": {
+    "slug": "seated-forward-fold-stretch",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/seated-forward-fold-stretch/frame-1.svg",
+      "exercises/legs/seated-forward-fold-stretch/frame-2.svg",
+      "exercises/legs/seated-forward-fold-stretch/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:cross-body-shoulder-stretch": {
+    "slug": "cross-body-shoulder-stretch",
+    "category": "shoulders",
+    "frames": [
+      "exercises/shoulders/cross-body-shoulder-stretch/frame-1.svg",
+      "exercises/shoulders/cross-body-shoulder-stretch/frame-2.svg",
+      "exercises/shoulders/cross-body-shoulder-stretch/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:wall-calf-stretch": {
+    "slug": "wall-calf-stretch",
+    "category": "legs",
+    "frames": [
+      "exercises/legs/wall-calf-stretch/frame-1.svg",
+      "exercises/legs/wall-calf-stretch/frame-2.svg",
+      "exercises/legs/wall-calf-stretch/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  "wg:butterfly-stretch": {
+    "slug": "butterfly-stretch",
+    "category": "core",
+    "frames": [
+      "exercises/core/butterfly-stretch/frame-1.svg",
+      "exercises/core/butterfly-stretch/frame-2.svg",
+      "exercises/core/butterfly-stretch/frame-3.svg"
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  }
+}

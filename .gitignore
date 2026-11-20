@@ -1,0 +1,17 @@
+*.iml
+.gradle/
+.kotlin/
+local.properties
+.idea/
+.DS_Store
+build/
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.broken-backup
+
+# 2026-11-16：本机重装构建状态备份目录，不进仓库
+.gradle_old_1116/
+app/src/main/assets/exercises/

@@ -1,0 +1,401 @@
+package com.qingji.app.ui.viewmodel
+
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.qingji.app.data.local.entity.UserProfile
+import com.qingji.app.data.prefs.QingJiSettings
+import com.qingji.app.data.prefs.SettingsKeys
+import com.qingji.app.data.prefs.SettingsStore
+import com.qingji.app.data.repository.QingJiRepository
+import com.qingji.app.domain.AppClock
+import com.qingji.app.notify.Reminders
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import com.qingji.app.domain.TimeFormat
+import com.qingji.app.domain.NutritionCalculator
+
+/**
+ * ============================================================
+ * 设置页的数据管家（M7）
+ * ------------------------------------------------------------
+ * 每一行设置背后都是「存进 DataStore → 界面立刻变」这一条路。
+ * 这里额外做两件容易漏的事：
+ * 1. 改营养素比例时，顺手把档案里的蛋白质/碳水/脂肪克数重算一遍
+ *    （不然设置里改了比例，首页数字纹丝不动，用户会以为坏了）；
+ * 2. 改提醒相关的任何一项，都把系统闹钟整体重排一次。
+ * ============================================================
+ */
+class SettingsViewModel(app: Application) : AndroidViewModel(app) {
+
+    private val context = app.applicationContext
+    private val repo = QingJiRepository(context)
+
+    val settings: StateFlow<QingJiSettings> = SettingsStore.observe(context)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), QingJiSettings())
+
+    val profile: StateFlow<UserProfile?> = repo.observeProfile()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** 一次性操作的结果提示（保存成功、清除完成之类）。 */
+    private val _message = MutableStateFlow<String?>(null)
+    val message: StateFlow<String?> = _message.asStateFlow()
+
+    fun consumeMessage() {
+        _message.value = null
+    }
+
+    private fun toast(text: String) {
+        _message.value = text
+    }
+
+    // ---------- 通用 ----------
+
+    fun setTheme(mode: String) = put(SettingsKeys.THEME_MODE, mode)
+
+    fun setUnit(unit: String) = put(SettingsKeys.UNIT, unit)
+
+    fun setTimezone(zoneId: String) {
+        viewModelScope.launch {
+            SettingsStore.set(context, SettingsKeys.TIME_ZONE, zoneId)
+            // 全局时钟立刻生效，页面里的「今天」不用等重启
+            AppClock.setZone(zoneId)
+        }
+    }
+
+    /** 饮水目标：设置和档案各存一份（首页读设置，小组件读档案）。 */
+    fun setWaterGoal(ml: Int) {
+        viewModelScope.launch {
+            val safe = ml.coerceIn(500, 6000)
+            SettingsStore.set(context, SettingsKeys.WATER_GOAL, safe)
+            profile.value?.let { repo.saveProfile(it.copy(waterGoalMl = safe)) }
+            toast("饮水目标已改为 $safe ml")
+        }
+    }
+
+    /**
+     * 三大营养素比例。
+     * 克数按「热量 ÷ 每克热量」算：蛋白 4 千卡/g、碳水 4 千卡/g、脂肪 9 千卡/g。
+     * 比例之和不等于 100 时，界面会提示，但这里照存 —— 用户可能故意这么配。
+     */
+    fun setMacroRatio(proteinPct: Int, carbPct: Int, fatPct: Int) {
+        viewModelScope.launch {
+            val p = proteinPct.coerceIn(0, 100)
+            val c = carbPct.coerceIn(0, 100)
+            val f = fatPct.coerceIn(0, 100)
+            SettingsStore.set(context, SettingsKeys.PROTEIN_PCT, p)
+            SettingsStore.set(context, SettingsKeys.CARB_PCT, c)
+            SettingsStore.set(context, SettingsKeys.FAT_PCT, f)
+
+            val current = profile.value
+            if (current != null) {
+                val kcal = if (current.dailyKcalGoal > 0) current.dailyKcalGoal else 2000
+                repo.saveProfile(
+                    current.copy(
+                        proteinGoalG = NutritionCalculator.gramsFromKcal(
+                            kcal.toDouble(), p.toDouble(), NutritionCalculator.KCAL_PER_G_PROTEIN
+                        ),
+                        carbGoalG = NutritionCalculator.gramsFromKcal(
+                            kcal.toDouble(), c.toDouble(), NutritionCalculator.KCAL_PER_G_CARB
+                        ),
+                        fatGoalG = NutritionCalculator.gramsFromKcal(
+                            kcal.toDouble(), f.toDouble(), NutritionCalculator.KCAL_PER_G_FAT
+                        )
+                    )
+                )
+            }
+            toast("已按 $p% / $c% / $f% 重新计算每日目标")
+        }
+    }
+
+    /** v3.5.0：膳食纤维 / 钠 / 钙三个每日目标，存档案表（Room version 5 加的列）。 */
+    fun setNutrientGoals(fiberGoalG: Int, sodiumGoalMg: Int, calciumGoalMg: Int) {
+        viewModelScope.launch {
+            val current = profile.value ?: return@launch
+            repo.saveProfile(
+                current.copy(
+                    fiberGoalG = fiberGoalG.coerceIn(0, 200),
+                    sodiumGoalMg = sodiumGoalMg.coerceIn(0, 10000),
+                    calciumGoalMg = calciumGoalMg.coerceIn(0, 5000)
+                )
+            )
+            toast("膳食纤维 / 钠 / 钙目标已保存")
+        }
+    }
+
+    fun setExerciseCompensation(enabled: Boolean) =
+        put(SettingsKeys.EXERCISE_COMPENSATION, enabled)
+
+    /** 补偿比例 0-100；0 等于关闭。滑杆四段（0/25/50/75/100）。
+     *  2026-11-18：比例是唯一开关，选 0% 就等于关闭，同步写布尔键保持一致。 */
+    fun setExerciseCompensationPct(pct: Int) {
+        val v = pct.coerceIn(0, 100)
+        put(SettingsKeys.EXERCISE_COMPENSATION_PCT, v)
+        put(SettingsKeys.EXERCISE_COMPENSATION, v > 0)
+    }
+
+    fun setDietPreference(text: String) = put(SettingsKeys.DIET_PREFERENCE, text)
+
+    fun setAutoMeal(enabled: Boolean) = put(SettingsKeys.AUTO_MEAL, enabled)
+
+    fun setConservativeEstimate(enabled: Boolean) =
+        put(SettingsKeys.CONSERVATIVE_ESTIMATE, enabled)
+
+    fun setProgressAnimation(enabled: Boolean) = put(SettingsKeys.PROGRESS_ANIMATION, enabled)
+    fun setSwipeNavigate(enabled: Boolean) = put(SettingsKeys.SWIPE_NAVIGATE, enabled)
+    fun setPageTransition(enabled: Boolean) = put(SettingsKeys.PAGE_TRANSITION, enabled)
+    fun setFloatingBottomBar(enabled: Boolean) = put(SettingsKeys.FLOATING_BOTTOM_BAR, enabled)
+    /** v12：进展页卡片管理——顺序与显隐分开存 */
+    fun setProgressCardOrder(value: String) = put(SettingsKeys.PROGRESS_CARD_ORDER, value)
+    fun setProgressCardHidden(value: String) = put(SettingsKeys.PROGRESS_CARD_HIDDEN, value)
+
+    fun setShowAiAnalysis(show: Boolean) = put(SettingsKeys.SHOW_AI_ANALYSIS, show)
+
+    fun setShowWaterCard(show: Boolean) = put(SettingsKeys.SHOW_WATER_CARD, show)
+
+    /** 水杯气泡量：0 关 / 1 少 / 2 标准 / 3 多 */
+    fun setWaterBubbles(level: Int) = put(SettingsKeys.WATER_BUBBLES, level.coerceIn(0, 3))
+
+    /** 自定义字体文件路径（空串 = 恢复默认字体） */
+    fun setCustomFontPath(path: String) = put(SettingsKeys.CUSTOM_FONT_PATH, path)
+
+    /**
+     * 禁用所有通知（总开关）。
+     * v1.1.0 修复：之前只存开关状态，闹钟照排、到点在 Receiver 里拦一下，
+     * 白白唤醒设备。现在关闭时把六类闹钟全部真正取消；
+     * 重新打开时按各类提醒各自的开关 + 时间重新排好。
+     * 各提醒独立开关的原始设置不动，恢复后原样生效。
+     */
+    fun setAllNotificationsDisabled(disabled: Boolean) {
+        viewModelScope.launch {
+            SettingsStore.set(context, SettingsKeys.ALL_NOTIFICATIONS_DISABLED, disabled)
+            val latest = SettingsStore.observe(context).first()
+            if (disabled) {
+                Reminders.cancel(context, Reminders.TYPE_WEIGH)
+                Reminders.cancel(context, Reminders.TYPE_FASTING)
+                Reminders.cancel(context, Reminders.TYPE_KCAL)
+                Reminders.cancel(context, Reminders.TYPE_WATER)
+                Reminders.cancel(context, Reminders.TYPE_FASTING_EAT)
+                Reminders.cancel(context, Reminders.TYPE_FASTING_FAST)
+                toast("已禁用所有提醒，闹钟已全部取消")
+            } else {
+                Reminders.apply(context, latest)
+                toast("提醒已恢复，按各类提醒各自的开关重新排好")
+            }
+        }
+    }
+
+    /** v1.1.0：应用图标真实切换（activity-alias，见 AppIconManager）。 */
+    fun setIconVariant(variant: String) {
+        viewModelScope.launch {
+            SettingsStore.set(context, SettingsKeys.ICON_VARIANT, variant)
+            com.qingji.app.domain.AppIconManager.apply(context, variant)
+            toast("已切换为「${com.qingji.app.domain.AppIconManager.label(variant)}」图标，桌面可能延迟几秒刷新")
+        }
+    }
+
+    /** AI 返回语言：zh 强制中文 / auto 跟随输入 */
+    fun setAiLanguage(lang: String) = put(SettingsKeys.AI_LANGUAGE, lang)
+
+    /** v3.5.0：界面语言 zh / en。切换即时重组生效，无需重启。 */
+    fun setUiLanguage(lang: String) = put(SettingsKeys.UI_LANGUAGE, if (lang == "en") "en" else "zh")
+
+    /** 首页是否显示实时刷新率 */
+    fun setShowRefreshRate(show: Boolean) = put(SettingsKeys.SHOW_REFRESH_RATE, show)
+
+    /** 过敏原（逗号分隔） */
+    fun setAllergens(value: String) = put(SettingsKeys.ALLERGENS, value)
+
+    /** 忌口食物（逗号分隔） */
+    fun setAvoidFoods(value: String) = put(SettingsKeys.AVOID_FOODS, value)
+
+    /** 最长烹饪时长（分钟），0 = 不限 */
+    fun setMaxCookMinutes(minutes: Int) = put(SettingsKeys.MAX_COOK_MINUTES, minutes)
+
+    /** 偏好菜系（逗号分隔） */
+    fun setCuisines(value: String) = put(SettingsKeys.CUISINES, value)
+
+    /** 主题色：green / blue / purple / orange / pink */
+    fun setThemeColor(key: String) = put(SettingsKeys.THEME_COLOR, key)
+
+    /** 首页每餐卡片是否显示营养素比例条 */
+    fun setShowMealMacro(show: Boolean) = put(SettingsKeys.SHOW_MEAL_MACRO, show)
+
+    /** v3.4.0：首页底部「本周小结」显隐 */
+    fun setShowWeeklySummary(show: Boolean) = put(SettingsKeys.SHOW_WEEKLY_SUMMARY, show)
+
+    fun setShowQuickButtons(show: Boolean) = put(SettingsKeys.SHOW_QUICK_BUTTONS, show)
+
+    /** 底部导航显隐：首页不能关（关了就没地方可去了）。 */
+    fun setTabVisible(tab: String, visible: Boolean) {
+        when (tab) {
+            "progress" -> put(SettingsKeys.SHOW_PROGRESS_TAB, visible)
+            "diary" -> put(SettingsKeys.SHOW_DIARY_TAB, visible)
+            "mine" -> put(SettingsKeys.SHOW_MINE_TAB, visible)
+            else -> Unit
+        }
+    }
+
+    /** v1.5：昵称留空时随机生成「轻er~XXX」，不再统一叫木林。 */
+    fun setNickname(name: String) = put(
+        SettingsKeys.NICKNAME,
+        name.trim().ifBlank { "轻er~" + (100..999).random() }
+    )
+
+    fun setAvatarPath(path: String) = put(SettingsKeys.AVATAR_PATH, path)
+
+    // ---------- 提醒 ----------
+
+    /** 把小时 + 分钟拼成 08:30 这样的提示文字。 */
+    private fun hhmm(hour: Int, minute: Int) = TimeFormat.hourMinute(hour, minute)
+
+    fun setWeighReminder(
+        enabled: Boolean,
+        hour: Int = settings.value.reminderHour,
+        minute: Int = settings.value.reminderMinute
+    ) {
+        viewModelScope.launch {
+            SettingsStore.set(context, SettingsKeys.WEIGH_REMINDER, enabled)
+            SettingsStore.set(context, SettingsKeys.REMINDER_HOUR, hour.coerceIn(0, 23))
+            SettingsStore.set(context, SettingsKeys.REMINDER_MINUTE, minute.coerceIn(0, 59))
+            applyReminders()
+            toast(if (enabled) "称重提醒已开启（${hhmm(hour, minute)}）" else "称重提醒已关闭")
+        }
+    }
+
+    fun setWeighWeekday(
+        weekday: Int,
+        hour: Int = settings.value.reminderHour,
+        minute: Int = settings.value.reminderMinute
+    ) {
+        viewModelScope.launch {
+            SettingsStore.set(context, SettingsKeys.WEIGH_WEEKDAY, weekday.coerceIn(1, 7))
+            SettingsStore.set(context, SettingsKeys.REMINDER_HOUR, hour.coerceIn(0, 23))
+            SettingsStore.set(context, SettingsKeys.REMINDER_MINUTE, minute.coerceIn(0, 59))
+            applyReminders()
+        }
+    }
+
+    fun setFastingReminder(
+        enabled: Boolean,
+        hour: Int = settings.value.fastStartHour,
+        minute: Int = settings.value.fastStartMinute,
+        showToast: Boolean = true
+    ) {
+        viewModelScope.launch {
+            SettingsStore.set(context, SettingsKeys.FASTING_REMINDER, enabled)
+            SettingsStore.set(context, SettingsKeys.FAST_START_HOUR, hour.coerceIn(0, 23))
+            SettingsStore.set(context, SettingsKeys.FAST_START_MINUTE, minute.coerceIn(0, 59))
+            applyReminders()
+            // 滚轮每松一次手都会调这里，反复弹提示会刷屏；只有开关切换才提示
+            if (showToast) {
+                toast(if (enabled) "断食提醒已开启（每天 ${hhmm(hour, minute)}）" else "断食提醒已关闭")
+            }
+        }
+    }
+
+    fun setKcalReminder(
+        enabled: Boolean,
+        hour: Int = settings.value.kcalReminderHour,
+        minute: Int = settings.value.kcalReminderMinute,
+        showToast: Boolean = true
+    ) {
+        viewModelScope.launch {
+            SettingsStore.set(context, SettingsKeys.KCAL_REMINDER, enabled)
+            SettingsStore.set(context, SettingsKeys.KCAL_REMINDER_HOUR, hour.coerceIn(0, 23))
+            SettingsStore.set(context, SettingsKeys.KCAL_REMINDER_MINUTE, minute.coerceIn(0, 59))
+            applyReminders()
+            if (showToast) {
+                toast(if (enabled) "热量提醒已开启（每天 ${hhmm(hour, minute)}，当天没记录才提醒）" else "热量提醒已关闭")
+            }
+        }
+    }
+
+    /** v3.4.0：第四类喝水提醒，当天喝够就不响。 */
+    fun setWaterReminder(
+        enabled: Boolean,
+        hour: Int = settings.value.waterReminderHour,
+        minute: Int = settings.value.waterReminderMinute,
+        showToast: Boolean = true
+    ) {
+        viewModelScope.launch {
+            SettingsStore.set(context, SettingsKeys.WATER_REMINDER, enabled)
+            SettingsStore.set(context, SettingsKeys.WATER_REMINDER_HOUR, hour.coerceIn(0, 23))
+            SettingsStore.set(context, SettingsKeys.WATER_REMINDER_MINUTE, minute.coerceIn(0, 59))
+            applyReminders()
+            if (showToast) {
+                toast(if (enabled) "喝水提醒已开启（每天 ${hhmm(hour, minute)}，喝够就不提醒）" else "喝水提醒已关闭")
+            }
+        }
+    }
+
+    /** 任何提醒项一改，就把四个闹钟整体重排（开着的重设、关掉的取消）。 */
+    private suspend fun applyReminders() {
+        val latest = SettingsStore.observe(context).first()
+        Reminders.apply(context, latest)
+    }
+
+    // ---------- 桌面小组件外观（v3.4.0） ----------
+
+    /**
+     * 改完必须主动刷新一次桌面；小组件是另一个进程，读不到 App 内存。
+     * Int / Boolean 分开写两个名字：泛型擦除后两个同名函数签名会撞车。
+     */
+    private fun putIntAndRefreshWidget(key: androidx.datastore.preferences.core.Preferences.Key<Int>, value: Int) {
+        viewModelScope.launch {
+            SettingsStore.set(context, key, value)
+            com.qingji.app.widget.WidgetRefresher.refresh(context)
+        }
+    }
+
+    private fun putBoolAndRefreshWidget(key: androidx.datastore.preferences.core.Preferences.Key<Boolean>, value: Boolean) {
+        viewModelScope.launch {
+            SettingsStore.set(context, key, value)
+            com.qingji.app.widget.WidgetRefresher.refresh(context)
+        }
+    }
+
+    fun setWidgetAlpha(percent: Int) =
+        putIntAndRefreshWidget(SettingsKeys.WIDGET_ALPHA, percent.coerceIn(30, 100))
+
+    fun setWidgetShowWater(show: Boolean) = putBoolAndRefreshWidget(SettingsKeys.WIDGET_SHOW_WATER, show)
+
+    fun setWidgetShowMacro(show: Boolean) = putBoolAndRefreshWidget(SettingsKeys.WIDGET_SHOW_MACRO, show)
+
+    fun setWidgetShowWeight(show: Boolean) = putBoolAndRefreshWidget(SettingsKeys.WIDGET_SHOW_WEIGHT, show)
+
+    // ---------- 危险操作（v1.0.6 拆成两档） ----------
+
+    /**
+     * 清除记录：饮食/体重/饮水/日记/围度/照片/运动/断食/统计/搜索历史。
+     * 档案、目标、AI 配置、自建食物、收藏、所有设置都留着。
+     */
+    fun clearRecords(onDone: () -> Unit = {}) {
+        viewModelScope.launch {
+            repo.clearRecords()
+            toast("记录已清空（档案、目标和自建食物保留）")
+            onDone()
+        }
+    }
+
+    /**
+     * 恢复出厂：全部清空。清完之后引导标记也变成 false，
+     * 界面会自动切回引导页，所以这里只提示一句、不手动导航。
+     */
+    fun factoryReset(onDone: () -> Unit = {}) {
+        viewModelScope.launch {
+            repo.factoryReset()
+            toast("已恢复出厂设置，重新填一次资料就能用")
+            onDone()
+        }
+    }
+
+    private fun <T> put(key: androidx.datastore.preferences.core.Preferences.Key<T>, value: T) {
+        viewModelScope.launch { SettingsStore.set(context, key, value) }
+    }
+}

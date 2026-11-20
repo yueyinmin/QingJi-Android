@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  FileProvider 暴露的目录白名单（只开放这几个，别的一概不给）。
+  1. files/images  ：日记、饮食记录里保存的照片
+  2. cache/images  ：拍照时的临时文件（交给系统相机写）
+  3. external-files/backup ：导出的 JSON / CSV 备份，用系统分享面板发出去
+-->
+<paths>
+    <files-path name="app_images" path="images/" />
+    <cache-path name="camera_cache" path="images/" />
+    <external-files-path name="backup" path="backup/" />
+</paths>

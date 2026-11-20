@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">轻记</string>
+
+    <!-- 三个桌面小组件在「添加小组件」列表里显示的名字（M8） -->
+    <string name="widget_quick_record">轻记 · 快捷记录</string>
+    <string name="widget_overview">轻记 · 今日概览</string>
+    <string name="widget_weight">轻记 · 体重闪记</string>
+</resources>

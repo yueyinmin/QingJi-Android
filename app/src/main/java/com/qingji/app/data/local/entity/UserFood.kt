@@ -1,0 +1,141 @@
+package com.qingji.app.data.local.entity
+
+import androidx.room.Entity
+import androidx.room.Index
+import androidx.room.PrimaryKey
+
+/**
+ * ============================================================
+ * 用户库里和「食物」有关的三张表（v1.0.4 拆库后新增）
+ * ------------------------------------------------------------
+ * 标准食物全部搬去了只读的 food_catalog.db，这里只留用户自己的东西：
+ *   ① user_food            用户手录 / AI 新增 / 扫码查到的食物
+ *   ② food_favorite        收藏（按名字记，标准库和用户库通用）
+ *   ③ food_search_history  最近搜过的词，用来做搜索页的快捷入口
+ *
+ * user_food 的字段刻意和旧版 food 表一模一样，MIGRATION_5_6 可以整行搬，
+ * 不会丢任何一条用户自建数据。
+ * ============================================================
+ */
+@Entity(
+    tableName = "user_food",
+    indices = [Index("name"), Index("barcode")]
+)
+data class UserFood(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val pinyin: String = "",
+    val barcode: String? = null,
+    val kcalPer100g: Double,
+    val proteinPer100g: Double = 0.0,
+    val carbPer100g: Double = 0.0,
+    val fatPer100g: Double = 0.0,
+    /**
+     * 四列微量营养素：与只读标准库 food_catalog 对齐成「可空」语义。
+     *   NULL = 未收录（界面显示「—」）／0.0 = 确实测得为 0。
+     * 迁移 8 以前这三列是 NOT NULL DEFAULT 0.0，可表单从来没有录入入口，
+     * 于是「不知道」被伪装成「0」，和标准库那半边对不上。
+     * 刻意不写 @ColumnInfo(defaultValue)：标准库的可空列也不写，
+     * 迁移 SQL 同样不写 DEFAULT，Room schema 校验两边天然逐字一致。
+     */
+    val fiberPer100g: Double? = null,
+    val sodiumMgPer100g: Double? = null,
+    val sugarPer100g: Double? = null,
+    val calciumMgPer100g: Double? = null,
+    val defaultGrams: Double = 100.0,
+    /** user / api / openfoodfacts；不允许写成 preset，preset 只存在于只读标准库 */
+    val source: String = "user",
+    val category: String = "其他",
+    val brand: String = "",
+    val favorite: Boolean = false,
+    val createdAt: Long = System.currentTimeMillis(),
+    /**
+     * v1.5 食物创建体系重构：营养数据的计量基准。
+     *   PER_100G    每 100 克（默认值，老数据迁移后一律是这个）
+     *   PER_100ML   每 100 毫升
+     *   PER_SERVING 每份（每份克数看 defaultGrams）
+     * 字符串常量定义在 domain.FoodNutritionCalculator，这里只存值，避免 data 层反向依赖 domain。
+     */
+    @androidx.room.ColumnInfo(defaultValue = "PER_100G")
+    val nutritionBasis: String = "PER_100G",
+    /** v1.5：用户备注（选填）。 */
+    @androidx.room.ColumnInfo(defaultValue = "")
+    val note: String = ""
+)
+
+/**
+ * 收藏表。主键用名字而不是 id：
+ * 标准库的 id 是随预置库一起发的，以后扩库会变；名字才稳定。
+ * 用户自建食物同名时也一起命中，符合「收藏的是这个食物」的直觉。
+ */
+@Entity(tableName = "food_favorite")
+data class FoodFavorite(
+    @PrimaryKey val name: String,
+    val createdAt: Long = System.currentTimeMillis()
+)
+
+/** 搜索历史。keyword 加唯一索引，重复搜同一个词只更新时间、不新增行。 */
+@Entity(
+    tableName = "food_search_history",
+    indices = [Index(value = ["keyword"], unique = true)]
+)
+data class FoodSearchHistory(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val keyword: String,
+    val lastUsedAt: Long = System.currentTimeMillis()
+)
+
+/** 转成界面层统一的 Food；favorite 会被 Repository 的收藏表结果再覆盖一次。 */
+fun UserFood.toFood(favorite: Boolean = this.favorite): Food =
+    Food(
+        id = id,
+        name = name,
+        pinyin = pinyin,
+        barcode = barcode,
+        kcalPer100g = kcalPer100g,
+        proteinPer100g = proteinPer100g,
+        carbPer100g = carbPer100g,
+        fatPer100g = fatPer100g,
+        fiberPer100g = fiberPer100g,
+        sodiumMgPer100g = sodiumMgPer100g,
+        sugarPer100g = sugarPer100g,
+        calciumMgPer100g = calciumMgPer100g,
+        defaultGrams = defaultGrams,
+        source = source,
+        category = category,
+        brand = brand,
+        favorite = favorite,
+        createdAt = createdAt,
+        catalogVersion = "",
+        nutritionBasis = nutritionBasis,
+        note = note
+    )
+
+/** 界面层的 Food 写回用户库（备份导入、扫码缓存用）。 */
+fun Food.toUserFood(): UserFood =
+    UserFood(
+        // 标准库的 id 从 100001 起，不能带进用户库；让它自增重新分配
+        id = if (id >= 100001L) 0 else id,
+        name = name,
+        pinyin = pinyin,
+        barcode = barcode,
+        kcalPer100g = kcalPer100g,
+        proteinPer100g = proteinPer100g,
+        carbPer100g = carbPer100g,
+        fatPer100g = fatPer100g,
+        // 可空语义原样带回用户库：标准库里「未收录」的 null 不再被降级成 0，
+        // 用户自己确实填过的 0.0 也保持 0.0，两者不再混在一起。
+        fiberPer100g = fiberPer100g,
+        sodiumMgPer100g = sodiumMgPer100g,
+        sugarPer100g = sugarPer100g,
+        calciumMgPer100g = calciumMgPer100g,
+        defaultGrams = defaultGrams,
+        // 标准库那条绝不能写进用户库；万一传进来也归为 user
+        source = if (source == "preset") "user" else source,
+        category = category,
+        brand = brand,
+        favorite = favorite,
+        createdAt = if (createdAt == 0L) System.currentTimeMillis() else createdAt,
+        nutritionBasis = nutritionBasis.ifBlank { "PER_100G" },
+        note = note
+    )

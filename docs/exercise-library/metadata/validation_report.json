@@ -1,0 +1,22 @@
+{
+  "actions": 200,
+  "uuid_unique": true,
+  "name_unique": true,
+  "category_counts": {
+    "胸部": 30,
+    "背部": 35,
+    "肩部": 25,
+    "手臂": 25,
+    "腿部": 40,
+    "核心": 25,
+    "拉伸": 20
+  },
+  "mapped_actions": 117,
+  "unmatched_actions": 83,
+  "direct_name_matches": 111,
+  "alias_candidates": 6,
+  "license_rows": 351,
+  "source_image_rows": 137,
+  "downloaded_svg_files": 0,
+  "note": "本次未从当前运行环境实际下载 SVG 二进制；下载脚本需在可访问 raw.githubusercontent.com 的开发环境运行。"
+}

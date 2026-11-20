@@ -1,0 +1,119 @@
+package com.qingji.app.data.local.dao
+
+import androidx.room.Dao
+import androidx.room.Query
+import com.qingji.app.data.local.entity.CatalogFood
+import kotlinx.coroutines.flow.Flow
+
+/**
+ * 标准食物库的查询入口。
+ *
+ * 这张表只读：整个文件里没有 @Insert / @Update / @Delete，
+ * 想加食物只能加到用户库的 user_food 表，标准库永远不会被写脏。
+ *
+ * 搜索覆盖四种输入：中文、别名、拼音首字母、拼音全拼。
+ * 排序把「完全命中」放最前，避免搜「米饭」时先蹦出一堆「××米饭××」。
+ */
+@Dao
+interface FoodCatalogDao {
+
+    @Query("SELECT * FROM food_catalog ORDER BY name")
+    fun observeAll(): Flow<List<CatalogFood>>
+
+    @Query("SELECT * FROM food_catalog ORDER BY name")
+    suspend fun findAll(): List<CatalogFood>
+
+    @Query("SELECT * FROM food_catalog WHERE food_id = :id LIMIT 1")
+    suspend fun findById(id: Long): CatalogFood?
+
+    /**
+     * 四种输入一次搜完，仍然只返回 50 条。
+     *
+     * `:keyword <> ''` 是空关键词守卫：空串会让 `LIKE '%%'` 命中全表，
+     * 白扫 654 行还把顺序打乱。空关键词的默认列表改走下面的 findTop()。
+     * 不引 FTS5 —— 预置库要能在老安卓上直接 createFromAsset，多一套虚拟表
+     * 就多一份兼容性风险，654 条数据用不上。
+     */
+    @Query(
+        """
+        SELECT * FROM food_catalog
+        WHERE :keyword <> ''
+          AND (
+            name LIKE '%' || :keyword || '%'
+            OR aliases LIKE '%' || :keyword || '%'
+            OR pinyin LIKE :keyword || '%'
+            OR pinyin_full LIKE :keyword || '%'
+          )
+        ORDER BY
+            CASE
+                WHEN name = :keyword THEN 0
+                WHEN pinyin_full = :keyword THEN 1
+                WHEN name LIKE :keyword || '%' THEN 2
+                WHEN pinyin LIKE :keyword THEN 3
+                ELSE 4
+            END,
+            name
+        LIMIT 50
+        """
+    )
+    suspend fun search(keyword: String): List<CatalogFood>
+
+    /** 默认列表：直接取前 N 条，不用把整个标准库读进内存再截断。 */
+    @Query("SELECT * FROM food_catalog ORDER BY name LIMIT :limit")
+    suspend fun findTop(limit: Int): List<CatalogFood>
+
+    @Query("SELECT * FROM food_catalog WHERE category = :category ORDER BY name")
+    fun observeByCategory(category: String): Flow<List<CatalogFood>>
+
+    /** 按名字精确取一条：AI 识别结果校正营养值、备份导入查重用。 */
+    @Query("SELECT * FROM food_catalog WHERE name = :name LIMIT 1")
+    suspend fun findByName(name: String): CatalogFood?
+
+    @Query("SELECT COUNT(*) FROM food_catalog")
+    suspend fun count(): Int
+
+    @Query("SELECT COUNT(*) FROM food_catalog")
+    fun observeCount(): Flow<Int>
+
+    // ---------- 品牌堂食菜（第六阶段 UI：外卖快餐 → 选品牌 → 堂食菜单）----------
+    // 堂食菜 source_id = brandId（如 laoxiangji），food_id >= 200001。
+    // 红线：这是「堂食菜当菜单」，不是外卖商品；外卖商品走 takeaway_* 独立表。
+
+    /** 某品牌的全部堂食菜（菜单数据源，含拼音供本地过滤）。 */
+    @Query("SELECT * FROM food_catalog WHERE source_id = :brandId ORDER BY category ASC, name ASC")
+    fun observeByBrand(brandId: String): Flow<List<CatalogFood>>
+
+    /** 某品牌 + 分类的堂食菜。category 传空串表示全部分类。 */
+    @Query(
+        "SELECT * FROM food_catalog WHERE source_id = :brandId " +
+            "AND (:category = '' OR category = :category) ORDER BY name ASC"
+    )
+    suspend fun byBrandAndCategory(brandId: String, category: String): List<CatalogFood>
+
+    /** 某品牌实际有菜的分类（无菜分类不展示）。 */
+    @Query("SELECT DISTINCT category FROM food_catalog WHERE source_id = :brandId ORDER BY category ASC")
+    suspend fun categoriesForBrand(brandId: String): List<String>
+
+    /** 品牌维度搜索：中文/别名/拼音首字母/全拼，只在本品牌堂食菜里搜。 */
+    @Query(
+        """
+        SELECT * FROM food_catalog
+        WHERE source_id = :brandId AND :keyword <> ''
+          AND (
+            name LIKE '%' || :keyword || '%'
+            OR aliases LIKE '%' || :keyword || '%'
+            OR pinyin LIKE :keyword || '%'
+            OR pinyin_full LIKE :keyword || '%'
+          )
+        ORDER BY
+            CASE
+                WHEN name = :keyword THEN 0
+                WHEN pinyin_full = :keyword THEN 1
+                WHEN name LIKE :keyword || '%' THEN 2
+                ELSE 3
+            END, name
+        LIMIT 100
+        """
+    )
+    suspend fun searchByBrand(brandId: String, keyword: String): List<CatalogFood>
+}

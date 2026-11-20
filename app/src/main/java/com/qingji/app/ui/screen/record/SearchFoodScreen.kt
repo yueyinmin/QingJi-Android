@@ -1,0 +1,408 @@
+package com.qingji.app.ui.screen.record
+
+import android.widget.Toast
+import com.qingji.app.domain.AppClock
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.qingji.app.data.local.entity.Food
+import com.qingji.app.domain.MealRules
+import com.qingji.app.ui.components.HintBox
+import com.qingji.app.ui.components.LabeledTextField
+import com.qingji.app.ui.components.MealSelector
+import com.qingji.app.ui.components.PageTopBar
+import com.qingji.app.ui.components.PrimaryButton
+import com.qingji.app.ui.components.SectionCard
+import com.qingji.app.ui.theme.DividerColor
+import com.qingji.app.ui.theme.NormalGreen
+import com.qingji.app.ui.theme.PageBackground
+import com.qingji.app.ui.theme.QingJiGreen
+import com.qingji.app.ui.theme.QingJiGreenDark
+import com.qingji.app.ui.theme.QingJiGreenLight
+import com.qingji.app.ui.theme.TextPrimary
+import com.qingji.app.ui.theme.TextSecondary
+import com.qingji.app.ui.theme.WarnOrange
+import com.qingji.app.ui.viewmodel.SearchFoodViewModel
+import kotlinx.coroutines.launch
+import java.time.LocalDate
+import com.qingji.app.ui.i18n.s
+
+/**
+ * ============================================================
+ * 手动搜索食物（M1 最稳的一条记录路径，不用联网、不用配 AI）
+ * ------------------------------------------------------------
+ * 流程：输关键词（支持中文名 / 拼音首字母，比如 mf → 米饭）
+ *      → 点结果 → 填克数、选餐次 → 确认
+ *      → 按「每 100 克」的营养值换算后写进 food_log → 回首页
+ *
+ * 保存成功直接返回首页，让使用者立刻看到仪表盘数字变了。
+ * ============================================================
+ */
+@Composable
+fun SearchFoodScreen(
+    onBack: () -> Unit,
+    vm: SearchFoodViewModel = viewModel()
+) {
+    val keyword by vm.keyword.collectAsState()
+    val results by vm.results.collectAsState()
+    val foodCount by vm.foodCount.collectAsState()
+    val history by vm.searchHistory.collectAsState()
+    // OmniFood8K 细账（组成明细 / 样本来源 / 异常提示）。点中的食物不是
+    // OmniFood8K 来源时它一直是 null，弹窗和旧版长得一模一样。
+    val omniDetail by vm.omniDetail.collectAsState()
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    // 点中的那一条食物；非空就弹出「填份量」对话框
+    var picked by remember { mutableStateOf<Food?>(null) }
+    var gramsText by remember { mutableStateOf("") }
+    // 记到哪一天：默认今天，可以改成昨天/前天，或者手填日期
+    var dateText by remember { mutableStateOf(AppClock.today().toString()) }
+    var mealType by remember { mutableStateOf(MealRules.guess()) }
+    var errorText by remember { mutableStateOf("") }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(PageBackground)
+    ) {
+        PageTopBar(title = "手动搜索食物", onBack = onBack)
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp)
+        ) {
+            Spacer(Modifier.height(14.dp))
+
+            LabeledTextField(
+                label = "搜索食物",
+                value = keyword,
+                onValueChange = vm::onKeywordChange,
+                hint = "输入名称、拼音首字母或全拼，如：米饭 / mf / mifan"
+            )
+
+            // 最近搜过的词：点一下直接回填搜索框，省得重打一遍
+            if (keyword.isBlank() && history.isNotEmpty()) {
+                Spacer(Modifier.height(10.dp))
+                Text(text = s("最近搜过"), fontSize = 12.sp, color = TextSecondary)
+                Spacer(Modifier.height(6.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    history.forEach { word ->
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(999.dp))
+                                .background(QingJiGreenLight)
+                                .clickable { vm.onKeywordChange(word) }
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Text(text = word, fontSize = 13.sp, color = QingJiGreenDark)
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
+            // 三种状态要分开说清楚，别让用户看到空列表就以为 App 坏了：
+            // 还在载入 / 一条食物都没有 / 有食物库但没搜到这个词
+            when {
+                foodCount < 0 -> HintBox(text = s("食物库正在载入，稍等一下下…"))
+                foodCount == 0 -> HintBox(
+                    text = s("标准食物库没读出来。点下面的按钮重新检查一次，还不行就重启 App 试试。"),
+                    isError = true
+                )
+                results.isEmpty() -> HintBox(
+                    text = "食物库有 ${foodCount} 条，但没找到「$keyword」。换个说法试试，比如「米饭」「鸡蛋」。"
+                )
+                else -> HintBox(text = "共 ${results.size} 条 · 点一条填份量")
+            }
+
+            // 标准库没读出来时的兜底出口：手动再开一次库，不用重装 App
+            if (foodCount == 0) {
+                Spacer(Modifier.height(10.dp))
+                PrimaryButton(
+                    text = s("重新检查食物库"),
+                    onClick = { scope.launch { vm.restorePresetFoods() } }
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+
+            SectionCard(contentPadding = 0.dp) {
+                results.forEachIndexed { index, food ->
+                    SearchResultRow(food = food, onClick = {
+                        vm.rememberSearch()
+                        picked = food
+                        gramsText = food.defaultGrams.toInt().toString()
+                        mealType = MealRules.guess()
+                        errorText = ""
+                        // 拉这条食物的 OmniFood8K 细账；不是 OmniFood8K 来源时查完就是 null
+                        vm.loadOmniDetail(food)
+                    })
+                    if (index != results.lastIndex) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 16.dp)
+                                .height(1.dp)
+                                .background(DividerColor)
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(24.dp))
+        }
+    }
+
+    // ---------- 填份量 + 选餐次的对话框 ----------
+    val food = picked
+    if (food != null) {
+        com.qingji.app.ui.components.AppBottomSheet(
+            title = food.name,
+            subtitle = "每 100 克约 ${food.kcalPer100g.toInt()} 千卡 · 蛋白 ${food.proteinPer100g.toInt()}g",
+            confirmText = "保存",
+            closeOnConfirm = false,
+            onConfirm = {
+                val grams = gramsText.toDoubleOrNull()
+                if (grams == null || grams <= 0) {
+                    errorText = "请填一个大于 0 的克数"
+                    return@AppBottomSheet
+                }
+                val targetDate = runCatching { java.time.LocalDate.parse(dateText.trim()) }.getOrNull()
+                if (targetDate == null) {
+                    errorText = "日期格式不对，要写成 2026-11-08 这样"
+                    return@AppBottomSheet
+                }
+                scope.launch {
+                    try {
+                        vm.addFood(food, grams, mealType, targetDate)
+                        picked = null
+                        Toast.makeText(context, "已记入${MealRules.label(mealType)}", Toast.LENGTH_SHORT).show()
+                        onBack()
+                    } catch (e: Exception) {
+                        errorText = "保存失败：${e.message ?: "未知原因"}，请再点一次"
+                    }
+                }
+            },
+            onDismiss = {
+                picked = null
+                vm.clearOmniDetail()
+            }
+        ) {
+            Column {
+                    Spacer(Modifier.height(4.dp))
+                    LabeledTextField(
+                        label = "吃了多少克",
+                        value = gramsText,
+                        onValueChange = { gramsText = it },
+                        hint = "例如 150",
+                        decimalOnly = true
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Text(text = s("记到哪一餐"), fontSize = 13.sp, color = TextSecondary)
+                    Spacer(Modifier.height(6.dp))
+                    MealSelector(selected = mealType, onSelect = { mealType = it })
+
+                    Spacer(Modifier.height(12.dp))
+                    Text(text = s("记到哪一天"), fontSize = 13.sp, color = TextSecondary)
+                    Spacer(Modifier.height(6.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf(0L to "今天", 1L to "昨天", 2L to "前天").forEach { (offset, label) ->
+                            val value = AppClock.today().minusDays(offset).toString()
+                            val selected = dateText == value
+                            Text(
+                                text = label,
+                                fontSize = 12.sp,
+                                color = if (selected) Color.White else TextSecondary,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (selected) QingJiGreen else PageBackground)
+                                    .clickable { dateText = value }
+                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    LabeledTextField(
+                        label = "或者自己填（2026-11-08）",
+                        value = dateText,
+                        onValueChange = { dateText = it },
+                        hint = "2026-11-08"
+                    )
+
+                    if (errorText.isNotBlank()) {
+                        Spacer(Modifier.height(10.dp))
+                        HintBox(text = errorText, isError = true)
+                    }
+
+                    // OmniFood8K 细账：组成明细 + 样本来源 + 异常提示。
+                    // 放在表单最后，主流程（填克数选餐次）不被挤走。
+                    omniDetail?.let { detail ->
+                        Spacer(Modifier.height(14.dp))
+                        OmniFoodDetailSection(detail = detail)
+                    }
+                }
+            }
+    }
+    }
+
+/**
+ * OmniFood8K 细账区：组成明细 + 样本来源 + 异常提示。
+ * 只在点中的食物来自 OmniFood8K（166 条命名食物）时出现，其他食物不显示。
+ * 界面不显示「人工已审核」之类的审核标记——审核状态只存在数据里，不给用户看。
+ */
+@Composable
+private fun OmniFoodDetailSection(detail: com.qingji.app.domain.OmniFoodDetail) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(PageBackground)
+            .padding(12.dp)
+    ) {
+        // —— 组成明细：这份样本由哪些配料组成 ——
+        Text(text = "组成明细", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+        detail.sample?.let { sample ->
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = "样本共 ${formatWeight(sample.totalWeightG)}g，营养值按样本实测换算成每 100g",
+                fontSize = 11.sp,
+                color = TextSecondary
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+        if (detail.composition.isEmpty()) {
+            Text(text = "这道食物没有单独的配料明细（如水果类），只有整份营养值。", fontSize = 12.sp, color = TextSecondary)
+        } else {
+            // 弹窗内容本身不能滚，明细行数不定，这里自己限高滚动，最多显示约 5 行
+            Column(
+                modifier = Modifier
+                    .heightIn(max = 170.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                val total = detail.sample?.totalWeightG?.takeIf { it > 0 }
+                detail.composition.forEach { c ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = c.ingredientName,
+                            fontSize = 12.sp,
+                            color = TextPrimary,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        Text(
+                            text = buildString {
+                                append(formatWeight(c.ingredientWeightG))
+                                append("g")
+                                total?.let {
+                                    append(" · ${(c.ingredientWeightG / it * 100).toInt()}%")
+                                }
+                            },
+                            fontSize = 11.sp,
+                            color = TextSecondary
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(10.dp))
+        Text(
+            text = "数据来源：OmniFood8K 公开数据集（CC BY-NC 4.0，非商业用途）",
+            fontSize = 11.sp,
+            color = TextSecondary
+        )
+
+        // —— 异常提示：机器校验标记过的问题，如实告诉用户「这是估算」 ——
+        if (detail.issueFlags.isNotEmpty()) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "⚠ 这份样本有 ${detail.issueFlags.size} 处数据异常（配料重量对不上等），热量仅供参考。",
+                fontSize = 11.sp,
+                color = WarnOrange
+            )
+        } else {
+            Spacer(Modifier.height(8.dp))
+            Text(text = "✓ 样本校验：未发现异常", fontSize = 11.sp, color = NormalGreen)
+        }
+    }
+}
+
+/** 重量展示：整数就别带小数点，301.0 → 301，301.6 → 301.6。 */
+private fun formatWeight(value: Double): String =
+    if (value == value.toLong().toDouble()) value.toLong().toString() else value.toString()
+
+/** 一条搜索结果：左边名称与拼音，右边每 100 克热量。 */
+@Composable
+private fun SearchResultRow(food: Food, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = food.name, fontSize = 15.sp, color = TextPrimary)
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = buildString {
+                    append("每 100g · 蛋白 ${food.proteinPer100g.toInt()}g")
+                    append(" · 碳水 ${food.carbPer100g.toInt()}g")
+                    append(" · 脂肪 ${food.fatPer100g.toInt()}g")
+                },
+                fontSize = 11.sp,
+                color = TextSecondary
+            )
+        }
+        Column(horizontalAlignment = Alignment.End) {
+            Text(
+                text = "${food.kcalPer100g.toInt()}",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = QingJiGreenDark
+            )
+            Text(text = s("千卡/100g"), fontSize = 10.sp, color = TextSecondary)
+        }
+    }
+}
