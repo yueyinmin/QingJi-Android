@@ -59,6 +59,9 @@ data class ParsedBackup(
     val aiConfig: AiConfig? = null,
     /** v1.1.0：备份 JSON 里是否真的写了 aiConfig 段。 */
     val hasAiConfig: Boolean = true,
+    /** v7：AI 多服务——全部配置数组（不含 Key）。老备份无此段时为空。 */
+    val aiConfigs: List<AiConfig> = emptyList(),
+    val hasAiConfigs: Boolean = false,
     // ---------- v2 新增的五段 ----------
     val bodyMeasures: List<BodyMeasure> = emptyList(),
     val photos: List<ProgressPhoto> = emptyList(),
@@ -135,6 +138,8 @@ fun parseBackup(text: String): Result<ParsedBackup> {
                 usage = parseArray(root, "usage") { o -> parseUsage(o) },
                 aiConfig = parseAiConfig(root.optJSONObject("aiConfig")),
                 hasAiConfig = root.has("aiConfig"),
+                aiConfigs = parseArray(root, "aiConfigs") { o -> parseAiConfig(o) },
+                hasAiConfigs = root.has("aiConfigs"),
                 bodyMeasures = parseArray(root, "bodyMeasures") { o -> parseBodyMeasure(o) },
                 photos = parseArray(root, "photos") { o -> parsePhoto(o) },
                 exercises = parseArray(root, "exercises") { o -> parseExercise(o) },
@@ -401,10 +406,13 @@ private fun parseUsage(o: JSONObject): UsageStat? {
     return UsageStat(date = date, type = type, count = o.optInt("count", 0))
 }
 
-private fun parseAiConfig(o: JSONObject?): AiConfig? {
-    if (o == null) return null
-    return AiConfig(
-        provider = o.optString("provider", "custom"),
+    private fun parseAiConfig(o: JSONObject?): AiConfig? {
+        if (o == null) return null
+        return AiConfig(
+            // v7 多服务：显式 id/displayName；老备份无这些字段时 id 回落 1（老单配置）、名称空
+            id = o.optInt("id", 1),
+            displayName = o.optString("displayName", ""),
+            provider = o.optString("provider", "custom"),
         baseUrl = o.optString("baseUrl", ""),
         textModel = o.optString("textModel", ""),
         visionModel = o.optString("visionModel", ""),

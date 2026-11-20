@@ -162,7 +162,7 @@ class Converters {
         // 统一训练体系（Room 19→20）：有氧项目明细，旧表一列不动
         WorkoutCardioDetail::class
     ],
-    version = 20,
+    version = 21,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -536,7 +536,8 @@ abstract class AppDatabase : RoomDatabase() {
                 MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8,
                 MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12,
                 MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16,
-                MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20
+                MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20,
+                MIGRATION_20_21
             )
         }
 
@@ -916,6 +917,19 @@ abstract class AppDatabase : RoomDatabase() {
                     "CREATE INDEX IF NOT EXISTS `index_workout_cardio_detail_sessionUuid` " +
                         "ON `workout_cardio_detail` (`sessionUuid`)"
                 )
+            }
+        }
+
+        /**
+         * AI 多服务（Room 20 → 21）：ai_config 增加 displayName 列。
+         * 非破坏性——只 ALTER TABLE 加一列，旧行 displayName=''，id 与全部字段原样保留。
+         * 老用户唯一的 id=1 配置照常可用，多服务由 Repository 分配新 id（max+1），
+         * 不改主键策略、不重建表、不碰任何其它表。
+         * defaultValue='' 与 AiConfig.displayName 的 @ColumnInfo 逐字一致（四件套纪律）。
+         */
+        internal val MIGRATION_20_21 = object : Migration(20, 21) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `ai_config` ADD COLUMN `displayName` TEXT NOT NULL DEFAULT ''")
             }
         }
 

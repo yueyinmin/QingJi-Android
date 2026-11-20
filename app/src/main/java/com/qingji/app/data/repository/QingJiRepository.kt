@@ -26,6 +26,7 @@ import com.qingji.app.data.local.entity.WaterLog
 import com.qingji.app.data.local.entity.WeightLog
 import com.qingji.app.data.prefs.ApiKeyStore
 import com.qingji.app.data.prefs.SettingsStore
+import com.qingji.app.data.prefs.SettingsKeys
 import com.qingji.app.data.remote.AiClient
 import com.qingji.app.data.remote.AiException
 import com.qingji.app.data.remote.AiRecognitionResult
@@ -37,6 +38,7 @@ import com.qingji.app.domain.Per100g
 import androidx.room.withTransaction
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
@@ -80,15 +82,73 @@ class QingJiRepository(private val context: Context) {
     fun observeProfile(): Flow<UserProfile?> = db.userProfileDao().observe()
     suspend fun saveProfile(profile: UserProfile) = db.userProfileDao().save(profile)
 
-    // ---------- AI 配置 ----------
-    fun observeAiConfig(): Flow<AiConfig?> = db.aiConfigDao().observe()
-    suspend fun getAiConfig(): AiConfig? = db.aiConfigDao().get()
-    suspend fun saveAiConfig(config: AiConfig) = db.aiConfigDao().save(config)
+    // ---------- AI 配置（多服务统一入口） ----------
+    /** 观察全部服务配置（配置页列表用）。 */
+    fun observeAiConfigs(): Flow<List<AiConfig>> = db.aiConfigDao().observeAll()
+    suspend fun getAiConfigs(): List<AiConfig> = db.aiConfigDao().getAll()
 
-    /** Key 单独走加密存储，不进数据库。 */
-    fun getApiKey(): String = ApiKeyStore.load(context).orEmpty()
-    fun saveApiKey(key: String) = ApiKeyStore.save(context, key)
-    fun hasApiKey(): Boolean = ApiKeyStore.isSet(context)
+    /**
+     * 当前激活配置。统一入口：所有 AI 业务经这里取配置，绝不各自读固定 id。
+     * 读取流程：Settings 里的激活 id → 命中则用它；id=0（老用户首次升级/未配置）
+     * 则取现有第一条配置并把它的 id 写回 Settings（迁移），以后就固定了。
+     */
+    suspend fun getActiveAiConfig(): AiConfig? {
+        val dao = db.aiConfigDao()
+        val savedId = SettingsStore.observe(context).first().aiActiveProviderId
+        if (savedId > 0) {
+            val hit = dao.getById(savedId)
+            if (hit != null) return hit
+        }
+        // 未设置或指向已删配置：回退到第一条现存配置并写回（删当前服务后自动选其它）
+        val fallback = dao.getAll().firstOrNull()
+        if (fallback != null) setActiveAiConfig(fallback.id)
+        return fallback
+    }
+
+    /** 当前激活配置的 API Key（按该配置 id 从加密存储读）。 */
+    suspend fun getActiveApiKey(): String =
+        getActiveAiConfig()?.let { ApiKeyStore.load(context, it.id).orEmpty() }.orEmpty()
+
+    /** 切换当前服务：只写激活 id，不碰任何配置行、不清 Key。 */
+    suspend fun setActiveAiConfig(id: Int) {
+        SettingsStore.set(context, SettingsKeys.AI_ACTIVE_PROVIDER_ID, id)
+    }
+
+    /**
+     * 新增或更新服务。id=0 = 新增，分配 max(id)+1 保证唯一且稳定；
+     * 编辑传入原 id 保留。改名/改地址都不动 id。
+     */
+    suspend fun saveAiConfig(config: AiConfig, key: String? = null): AiConfig {
+        val id = if (config.id > 0) config.id else (db.aiConfigDao().maxId() ?: 0) + 1
+        val saved = config.copy(id = id, updatedAt = System.currentTimeMillis())
+        db.aiConfigDao().save(saved)
+        // 传了 key 才覆盖该配置的 Key；null = 保持原 Key（编辑留空）
+        if (key != null) ApiKeyStore.save(context, id, key)
+        // 首次保存（还没有激活服务）自动激活第一条，避免用户存完还要手动切
+        if (getActiveAiConfig() == null) setActiveAiConfig(id)
+        return saved
+    }
+
+    /** 删除服务：只删指定 id 的行与 Key；若删的是当前激活，自动切到其余第一条，没有则置 0。 */
+    suspend fun deleteAiConfig(id: Int) {
+        db.aiConfigDao().deleteById(id)
+        ApiKeyStore.clear(context, id)
+        val active = SettingsStore.observe(context).first().aiActiveProviderId
+        if (active == id) {
+            val next = db.aiConfigDao().getAll().firstOrNull()?.id ?: 0
+            setActiveAiConfig(next)
+        }
+    }
+
+    suspend fun hasApiKey(id: Int): Boolean = ApiKeyStore.isSet(context, id)
+    /** 按指定 id 读 Key（编辑某配置时「留空保持原 Key」用）。 */
+    fun getApiKeyFor(id: Int): String = ApiKeyStore.load(context, id).orEmpty()
+
+    /** 观察当前激活配置（随切换实时刷新）。 */
+    fun observeAiConfig(): Flow<AiConfig?> =
+        SettingsStore.observe(context).map { it.aiActiveProviderId }
+            .flatMapLatest { id -> db.aiConfigDao().observeById(id) }
+    suspend fun getAiConfig(): AiConfig? = getActiveAiConfig()
 
     // ---------- 首页当天数据 ----------
     fun observeDailySummary(date: LocalDate): Flow<DailySummary?> = db.foodLogDao().observeDailySummary(date)
@@ -808,7 +868,7 @@ class QingJiRepository(private val context: Context) {
         }
 
         val rule = buildRecognitionRules() + "\n\n" + extraRule
-        val result = aiClient.recognizeText(config, getApiKey(), description, rule)
+        val result = aiClient.recognizeText(config, getApiKeyFor(config.id), description, rule)
         if (result.isSuccess) {
             db.usageStatDao().increment(date, "ai")
             return Result.success(correctWithLocalFood(result.getOrThrow()))
@@ -1004,7 +1064,7 @@ class QingJiRepository(private val context: Context) {
             )
         }
 
-        val result = aiClient.recognizeText(config, getApiKey(), input, buildRecognitionRules())
+        val result = aiClient.recognizeText(config, getApiKeyFor(config.id), input, buildRecognitionRules())
         if (result.isSuccess) {
             db.usageStatDao().increment(date, "ai")
             return Result.success(correctWithLocalFood(result.getOrThrow()))
@@ -1030,7 +1090,7 @@ class QingJiRepository(private val context: Context) {
     /** 图片识别（M3.2）。成功才计一次 AI 调用，失败不扣额度。 */
     suspend fun recognizeImage(base64Jpeg: String, date: LocalDate): Result<AiRecognitionResult> = try {
         val config = requireAi(date)
-        val result = aiClient.recognizeImage(config, getApiKey(), base64Jpeg, buildRecognitionRules())
+        val result = aiClient.recognizeImage(config, getApiKeyFor(config.id), base64Jpeg, buildRecognitionRules())
         if (result.isSuccess) {
             db.usageStatDao().increment(date, "ai")
             Result.success(correctWithLocalFood(result.getOrThrow()))
@@ -1083,7 +1143,7 @@ class QingJiRepository(private val context: Context) {
     /** AI 分析（M3.8）：facts 是仓库层聚合好的数字，prompt 里不许模型编数据。 */
     suspend fun analyze(facts: String, date: LocalDate): Result<String> = try {
         val config = requireAi(date)
-        val result = aiClient.analyze(config, getApiKey(), facts)
+        val result = aiClient.analyze(config, getApiKeyFor(config.id), facts)
         if (result.isSuccess) db.usageStatDao().increment(date, "ai")
         result
     } catch (e: AiException) {
@@ -1335,8 +1395,8 @@ class QingJiRepository(private val context: Context) {
         SettingsStore.clear(context)
         // 训练草稿与 kg/lb 偏好（SharedPreferences，跟 DataStore 不是一个地方）
         com.qingji.app.data.prefs.WorkoutDraftStore(context).clearAll()
-        // Key 在 AndroidKeyStore 加密存储里，跟 DataStore 是两个地方
-        ApiKeyStore.clear(context)
+        // Key 在 AndroidKeyStore 加密存储里，跟 DataStore 是两个地方（清全部服务 + 旧字段）
+        ApiKeyStore.clearAll(context)
 
         // 图片：头像、记录图、进度照片整目录重建（不删目录本身，省得后面要判空）。
         // 清单里补了 filesDir/progress（TASK-03）；备份目录 getExternalFilesDir/backup 不在清单里，保留。

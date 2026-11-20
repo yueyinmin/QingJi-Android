@@ -137,6 +137,11 @@ object SettingsKeys {
     val FASTING_FREE_START = longPreferencesKey("fasting_free_start")
     /** 界面语言：zh 简体中文（默认）/ en English。只影响核心页文案，未翻译条目回落中文 */
     val UI_LANGUAGE = stringPreferencesKey("ui_language")
+    /**
+     * AI 多服务：当前激活的 ai_config.id。默认 0 = 未配置/需迁移老 id=1。
+     * 只存 ID，配置本体在 Room、Key 在加密 SP——切换服务只改这个值，不碰其它数据。
+     */
+    val AI_ACTIVE_PROVIDER_ID = intPreferencesKey("ai_active_provider_id")
 }
 
 /** 一次性读出的完整设置快照，给界面和 ViewModel 用。 */
@@ -218,7 +223,9 @@ data class QingJiSettings(
     val fastingPhaseAlert: Boolean = false,
     /** 断食常驻通知开关（前台服务显示计时）；自由断食开始时刻（0 = 未进行） */
     val fastingOngoingNotification: Boolean = false,
-    val fastingFreeStart: Long = 0L
+    val fastingFreeStart: Long = 0L,
+    /** 当前激活的 AI 服务 ID（0 = 未配置/待迁移）。 */
+    val aiActiveProviderId: Int = 0
 )
 
 object SettingsStore {
@@ -302,7 +309,8 @@ object SettingsStore {
                     fastingDays = p[SettingsKeys.FASTING_DAYS] ?: "1,2,3,4,5,6,7",
                     fastingPhaseAlert = p[SettingsKeys.FASTING_PHASE_ALERT] ?: false,
                     fastingOngoingNotification = p[SettingsKeys.FASTING_ONGOING_NOTIFICATION] ?: false,
-                    fastingFreeStart = p[SettingsKeys.FASTING_FREE_START] ?: 0L
+                    fastingFreeStart = p[SettingsKeys.FASTING_FREE_START] ?: 0L,
+                    aiActiveProviderId = p[SettingsKeys.AI_ACTIVE_PROVIDER_ID] ?: 0
                 )
             }
 

@@ -234,17 +234,33 @@ interface DiaryDao {
     suspend fun clearAll()
 }
 
-/** AI 配置。 */
+/**
+ * AI 配置（多服务）。
+ * 老方法 observe()/get() 保留兼容：语义变为「按指定 id 取」，由 Repository 传当前激活 id。
+ * 不再有写死 id=1 的查询——切换服务只改激活 id，不动任何配置行。
+ */
 @Dao
 interface AiConfigDao {
-    @Query("SELECT * FROM ai_config WHERE id = 1")
-    fun observe(): Flow<AiConfig?>
+    @Query("SELECT * FROM ai_config ORDER BY id ASC")
+    fun observeAll(): Flow<List<AiConfig>>
 
-    @Query("SELECT * FROM ai_config WHERE id = 1")
-    suspend fun get(): AiConfig?
+    @Query("SELECT * FROM ai_config ORDER BY id ASC")
+    suspend fun getAll(): List<AiConfig>
+
+    @Query("SELECT * FROM ai_config WHERE id = :id LIMIT 1")
+    suspend fun getById(id: Int): AiConfig?
+
+    @Query("SELECT * FROM ai_config WHERE id = :id LIMIT 1")
+    fun observeById(id: Int): Flow<AiConfig?>
+
+    @Query("SELECT MAX(id) FROM ai_config")
+    suspend fun maxId(): Int?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun save(config: AiConfig)
+
+    @Query("DELETE FROM ai_config WHERE id = :id")
+    suspend fun deleteById(id: Int)
 
     @Query("DELETE FROM ai_config")
     suspend fun clearAll()

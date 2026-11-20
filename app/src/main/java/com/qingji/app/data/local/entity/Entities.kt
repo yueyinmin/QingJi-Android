@@ -174,7 +174,14 @@ data class Diary(
  */
 @Entity(tableName = "ai_config")
 data class AiConfig(
-    @PrimaryKey val id: Int = 1,
+    /**
+     * 稳定唯一 ID（多服务）。默认 0 = 新建占位，实际 ID 由 Repository 取 max(id)+1 分配，
+     * 编辑/切换都保留原 ID，绝不因改名或切换而改变。老用户的唯一一行仍是 id=1，迁移不动它。
+     * 不用 autoGenerate 是为了避免重建表（SQLite 不支持直接改主键）——新增列即可，零风险。
+     */
+    @PrimaryKey val id: Int = 0,
+    /** 用户自定义服务名（如「公益站 A」），与 provider 解耦：同一 provider 可存多条不同 Base URL。 */
+    @androidx.room.ColumnInfo(defaultValue = "") val displayName: String = "",
     val provider: String = "custom",     // deepseek / qwen / doubao / kimi / glm / siliconflow / openai / custom
     val baseUrl: String = "",            // 例如 https://api.deepseek.com/v1
     val textModel: String = "",          // 纯文字识别用的模型名

@@ -34,11 +34,21 @@ class BackupExportScopeTest {
                     "app", "version", "exportedAt", "note", "profile", "foodLogs",
                     "weights", "water", "diaries", "bodyMeasures", "photos",
                     "exercises", "fastings", "training", "selfDiscipline",
-                    "userBrands", "userBrandDishes", "userFoodGroups", "userFoodGroupItems"
+                    "userBrands", "userBrandDishes", "userFoodGroups", "userFoodGroupItems",
+                    "aiConfig", "aiConfigs" // v7：单条兼容段 + 多服务数组
                 )
             )
         )
-        assertEquals(6, root.getInt("version"))
+        assertEquals(7, root.getInt("version"))
+        // 多服务数组不含任何 Key 字段
+        val arr = root.getJSONArray("aiConfigs")
+        for (i in 0 until arr.length()) {
+            val c = arr.getJSONObject(i)
+            assertFalse(c.has("apiKey"))
+            assertFalse(c.has("key"))
+            assertFalse(c.has("cipherText"))
+            assertTrue(c.has("id") && c.has("displayName"))
+        }
 
         // note 文案不再说「全部数据」，改成「记录类数据」
         assertEquals("不含 API Key；导入会覆盖本机记录类数据", root.getString("note"))
