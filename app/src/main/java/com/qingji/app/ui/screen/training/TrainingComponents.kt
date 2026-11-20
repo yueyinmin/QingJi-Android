@@ -1,5 +1,9 @@
 package com.qingji.app.ui.screen.training
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -45,6 +49,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
@@ -222,6 +227,12 @@ fun TrainingCalendarCard(
      */
     dateColors: Map<LocalDate, Color>? = null,
     /**
+     * 训练日记传当前选中日期：格子显示主题色胶囊 + 高对比文字 + 轻微缩放动画。
+     * 默认 null = 不显示选中态——心情日记 / 自律历史页沿用原来的颜色表达，零影响。
+     * 工单要求「不改变布局结构」：只在既有 36dp 格子上加背景/缩放，不动行列排布。
+     */
+    selectedDate: LocalDate? = null,
+    /**
      * 右侧要给悬浮快捷按钮让出的宽度。
      * 训练日记 / 心情日记右侧有 4 颗 50dp 悬浮按钮，不留白的话
      * 周日那一列和「下个月」会被压住（360dp 小屏上尤其明显）。
@@ -271,46 +282,93 @@ fun TrainingCalendarCard(
                         val index = row * 7 + col
                         val dayNumber = index - leading + 1
                         val date = if (dayNumber in 1..days) month.atDay(dayNumber) else null
-                        val moodColor = if (dateColors != null && date != null) dateColors[date] else null
+                        CalendarDayCell(
+                            date = date,
+                            dayNumber = dayNumber,
+                            trainingDates = trainingDates,
+                            dateColors = dateColors,
+                            selectedDate = selectedDate,
+                            onSelectDate = onSelectDate,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 月历单个日期格子（从 TrainingCalendarCard 抽出，便于每格独立持有动画状态）。
+ *
+ * 选中态只在「训练日记模式」(dateColors == null) 且传入 selectedDate 时启用：
+ * animateColorAsState 背景浅绿胶囊 + 文字转主题深绿，animateFloatAsState 轻微放大，
+ * 180ms / FastOutSlowInEasing，与内容切换节奏一致。训练标记绿点独立绘制，
+ * 选中态不覆盖它。心情/自律历史传 dateColors，保持原颜色语义、无选中动画。
+ */
+@Composable
+private fun CalendarDayCell(
+    date: LocalDate?,
+    dayNumber: Int,
+    trainingDates: Set<LocalDate>,
+    dateColors: Map<LocalDate, Color>?,
+    selectedDate: LocalDate?,
+    onSelectDate: (LocalDate) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val isTrainingMode = dateColors == null
+    val isSelected = isTrainingMode && selectedDate != null && date == selectedDate
+    val moodColor = if (dateColors != null && date != null) dateColors[date] else null
+
+    val bgColor by animateColorAsState(
+        targetValue = when {
+            isSelected -> QingJiGreenLight
+            moodColor != null -> moodColor
+            else -> Color.Transparent
+        },
+        animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
+        label = "dayCellBg"
+    )
+    val cellScale by animateFloatAsState(
+        targetValue = if (isSelected) 1.08f else 1f,
+        animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
+        label = "dayCellScale"
+    )
+    val numberColor by animateColorAsState(
+        targetValue = when {
+            isSelected -> QingJiGreenDark
+            isTrainingMode && date != null && date in trainingDates -> QingJiGreen
+            else -> TextPrimary
+        },
+        animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
+        label = "dayCellText"
+    )
+
+    Box(
+        modifier = modifier
+            .height(36.dp)
+            .scale(cellScale)
+            .clip(RoundedCornerShape(8.dp))
+            .background(bgColor)
+            .clickable(enabled = date != null) { if (date != null) onSelectDate(date) },
+        contentAlignment = Alignment.Center
+    ) {
+        if (date != null) {
+            if (!isTrainingMode) {
+                // 心情 / 自律历史：颜色已铺在格子上，只留日期数字（原有行为不变）
+                Text(text = dayNumber.toString(), fontSize = TextSizes.Tiny, color = TextPrimary)
+            } else {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(text = dayNumber.toString(), fontSize = TextSizes.Tiny, color = numberColor)
+                    // 有训练的日期保留绿点；选中态下照常显示，不被背景覆盖
+                    if (date in trainingDates) {
                         Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(36.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(moodColor ?: Color.Transparent)
-                                .clickable(enabled = date != null) {
-                                    if (date != null) onSelectDate(date)
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (date != null) {
-                                if (dateColors != null) {
-                                    // 心情日记：颜色已经铺在格子上，只留日期数字
-                                    Text(
-                                        text = dayNumber.toString(),
-                                        fontSize = TextSizes.Tiny,
-                                        color = TextPrimary
-                                    )
-                                } else {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text(
-                                            text = dayNumber.toString(),
-                                            fontSize = TextSizes.Tiny,
-                                            color = if (date in trainingDates) QingJiGreen else TextPrimary
-                                        )
-                                        if (date in trainingDates) {
-                                            Box(
-                                                Modifier
-                                                    .padding(top = 2.dp)
-                                                    .size(5.dp)
-                                                    .clip(CircleShape)
-                                                    .background(QingJiGreen)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                            Modifier
+                                .padding(top = 2.dp)
+                                .size(5.dp)
+                                .clip(CircleShape)
+                                .background(QingJiGreen)
+                        )
                     }
                 }
             }

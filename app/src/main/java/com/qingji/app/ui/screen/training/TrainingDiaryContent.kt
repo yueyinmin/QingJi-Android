@@ -1,5 +1,7 @@
 package com.qingji.app.ui.screen.training
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -28,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -81,7 +84,14 @@ fun TrainingDiaryContent(
      */
     month: YearMonth = YearMonth.now(),
     onMonthChange: (YearMonth) -> Unit = {},
-    scrollState: ScrollState = rememberScrollState()
+    scrollState: ScrollState = rememberScrollState(),
+    /**
+     * 日期切换修复工单：selectedDate 也提到外层（与 month 同理，AnimatedContent 切
+     * Tab 会 dispose 重建，留在这里会在切心情日记再回来时重置为今天）。
+     * 默认 null = 本组件内部持有（全屏训练记录页走此路径，行为不变）。
+     */
+    selectedDate: java.time.LocalDate? = null,
+    onSelectedDateChange: (java.time.LocalDate) -> Unit = {}
 ) {
     val sessions by vm.sessions.collectAsState()
     val allExercises by vm.allWorkoutExercises.collectAsState()
@@ -98,17 +108,29 @@ fun TrainingDiaryContent(
     val healthRepo = remember(context) {
         com.qingji.app.data.repository.DailyHealthRepository(context)
     }
-    var selectedDate by remember { mutableStateOf(com.qingji.app.domain.AppClock.today()) }
+    // 受控/非受控双模：外层传了就用外层状态（切 Tab 保留），否则内部自持（全屏页）
+    var internalSelectedDate by remember { mutableStateOf(com.qingji.app.domain.AppClock.today()) }
+    val activeDate = selectedDate ?: internalSelectedDate
+    fun pickDate(date: java.time.LocalDate) {
+        if (selectedDate != null) onSelectedDateChange(date) else internalSelectedDate = date
+    }
     var daySummary by remember { mutableStateOf<com.qingji.app.data.local.entity.DailyHealthSummaryEntity?>(null) }
-    LaunchedEffect(selectedDate) {
-        daySummary = healthRepo.summaryFor(selectedDate)
+    val latestActiveDate = rememberUpdatedState(activeDate)
+    LaunchedEffect(activeDate) {
+        val target = activeDate
+        // 先清旧日期汇总（渲染端还有 date 校验），避免慢查询期间显示旧日期数据
+        daySummary = null
+        val result = healthRepo.summaryFor(target)
+        // 竞态防护：查询期间用户又切了日期，丢弃这次结果，绝不让旧查询覆盖新日期。
+        // 用 rememberUpdatedState 读「当前」日期，而不是闭包里被 key 固定的旧值。
+        if (target == latestActiveDate.value) daySummary = result
     }
 
     // 当天饮食明细：按「训练日记自己的选中日期」真实查询，不取进展页的 foodMonth（近 30 天）。
     // produceState 会在 selectedDate 变化时取消上一次收集并重新订阅，不会串日期、不重复建监听。
     val foodRepo = remember(context) { com.qingji.app.data.repository.QingJiRepository(context) }
-    val dayFoods by produceState(initialValue = emptyList<FoodLog>(), selectedDate, foodRepo) {
-        foodRepo.observeFoodLogs(selectedDate).collect { value = it }
+    val dayFoods by produceState(initialValue = emptyList<FoodLog>(), activeDate, foodRepo) {
+        foodRepo.observeFoodLogs(activeDate).collect { value = it }
     }
 
     val bySession = remember(allExercises) { allExercises.groupBy { it.sessionUuid } }
@@ -178,15 +200,16 @@ fun TrainingDiaryContent(
             TrainingCalendarCard(
                 month = month,
                 trainingDates = trainingDates,
+                selectedDate = activeDate,
                 onPrevMonth = { onMonthChange(month.minusMonths(1)) },
                 onNextMonth = { onMonthChange(month.plusMonths(1)) },
-                onSelectDate = { selectedDate = it }
+                onSelectDate = { pickDate(it) }
             )
             Spacer(Modifier.height(12.dp))
 
             // ---------- 每日健康汇总（健康体系 V1.1，工单 10.4：选日期看当天全部模块） ----------
             DailyHealthSummaryCard(
-                summary = daySummary?.takeIf { it.date == selectedDate }
+                summary = daySummary?.takeIf { it.date == activeDate }
             )
             Spacer(Modifier.height(12.dp))
 
@@ -202,44 +225,51 @@ fun TrainingDiaryContent(
                     modifier = Modifier.weight(1f))
                 Text("‹", fontSize = 20.sp, color = TextSecondary,
                     modifier = Modifier.clickable {
-                        selectedDate = selectedDate.minusDays(1)
-                        onMonthChange(YearMonth.from(selectedDate))
+                        val next = activeDate.minusDays(1)
+                        pickDate(next)
+                        onMonthChange(YearMonth.from(next))
                     }.padding(horizontal = 8.dp))
                 Text(
-                    text = if (selectedDate == com.qingji.app.domain.AppClock.today())
-                        "今天" else selectedDate.toString(),
+                    text = if (activeDate == com.qingji.app.domain.AppClock.today())
+                        "今天" else activeDate.toString(),
                     fontSize = TextSizes.Caption, color = com.qingji.app.ui.theme.QingJiGreen,
                     modifier = Modifier.clickable { showDatePicker = true }.padding(4.dp)
                 )
                 Text("›", fontSize = 20.sp,
-                    color = if (selectedDate >= com.qingji.app.domain.AppClock.today())
+                    color = if (activeDate >= com.qingji.app.domain.AppClock.today())
                         TextSecondary.copy(alpha = 0.4f) else TextSecondary,
-                    modifier = Modifier.clickable(enabled = selectedDate < com.qingji.app.domain.AppClock.today()) {
-                        selectedDate = selectedDate.plusDays(1)
-                        onMonthChange(YearMonth.from(selectedDate))
+                    modifier = Modifier.clickable(enabled = activeDate < com.qingji.app.domain.AppClock.today()) {
+                        val next = activeDate.plusDays(1)
+                        pickDate(next)
+                        onMonthChange(YearMonth.from(next))
                     }.padding(horizontal = 8.dp))
             }
             Spacer(Modifier.height(8.dp))
 
-            val daySessions = sessions.filter { it.date == selectedDate }
-            if (daySessions.isEmpty()) {
-                SectionCard {
-                    Text("这天没有训练记录。点上面的「开始训练」，记下第一组就行。",
-                        fontSize = TextSizes.Body, color = TextSecondary)
-                }
-            } else {
-                daySessions.forEach { s ->
-                    SessionRow(
-                        session = s,
-                        exercises = bySession[s.uuid].orEmpty(),
-                        unit = unit,
-                        onDetail = { detailUuid = s.uuid },
-                        onEdit = {
-                            vm.editSession(s.uuid) { onEditSession() }
-                        },
-                        onDelete = { pendingDelete = s.uuid }
-                    )
-                    Spacer(Modifier.height(8.dp))
+            // 局部日期切换动画：只对训练记录内容做淡出淡入，日历/汇总卡位置不动、
+            // 页面外层 verticalScroll 不动（不重置滚动位置、不重播日历入场动画）。
+            androidx.compose.animation.Crossfade(
+                targetState = activeDate,
+                animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
+                label = "diaryDaySessions"
+            ) { shownDate ->
+                val daySessions = sessions.filter { it.date == shownDate }
+                if (daySessions.isEmpty()) {
+                    SectionCard {
+                        Text("这一天还没有训练记录", fontSize = TextSizes.Body, color = TextSecondary)
+                    }
+                } else {
+                    daySessions.forEach { s ->
+                        SessionRow(
+                            session = s,
+                            exercises = bySession[s.uuid].orEmpty(),
+                            unit = unit,
+                            onDetail = { detailUuid = s.uuid },
+                            onEdit = { vm.editSession(s.uuid) { onEditSession() } },
+                            onDelete = { pendingDelete = s.uuid }
+                        )
+                        Spacer(Modifier.height(8.dp))
+                    }
                 }
             }
             Spacer(Modifier.height(12.dp))
@@ -352,9 +382,9 @@ fun TrainingDiaryContent(
     // QJ 日记日期查询：复用首页 MonthPickerSheet（只改本页选日期，不动外层月份/Tab）
     if (showDatePicker) {
         MonthPickerSheet(
-            selected = selectedDate,
+            selected = activeDate,
             onSelect = {
-                selectedDate = it
+                pickDate(it)
                 onMonthChange(YearMonth.from(it))
             },
             onDismiss = { showDatePicker = false }
