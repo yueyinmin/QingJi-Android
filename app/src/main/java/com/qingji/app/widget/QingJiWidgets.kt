@@ -32,8 +32,6 @@ import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.qingji.app.MainActivity
 import com.qingji.app.data.prefs.SettingsStore
-import com.qingji.app.data.repository.QingJiRepository
-import com.qingji.app.domain.AppClock
 import com.qingji.app.domain.WeightUnit
 import kotlinx.coroutines.flow.first
 
@@ -87,23 +85,11 @@ private fun openApp(context: Context, target: String): Intent =
         flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
     }
 
-/** 小组件要展示的数据，一次查完。 */
-private data class WidgetData(
-    val goalKcal: Int = 2000,
-    val eatenKcal: Int = 0,
-    val protein: Int = 0,
-    val proteinGoal: Int = 0,
-    val carb: Int = 0,
-    val carbGoal: Int = 0,
-    val fat: Int = 0,
-    val fatGoal: Int = 0,
-    val water: Int = 0,
-    val waterGoal: Int = 2000,
-    /** v1.1.0：读库失败时为 true —— 展示的是最近一次成功数据，不是真实 0。 */
-    val stale: Boolean = false,
-    val latestWeight: Double? = null,
-    val unit: String = "kg"
-)
+/**
+ * 小组件展示数据统一由 [WidgetSnapshotRepo] 读取（阶段 1）：
+ * 口径与首页一致、快照带业务日期/时区、失败有明确降级。
+ * 本文件不再自持数据类与进程内 lastGoodData。
+ */
 
 /** 小组件外观，和 Room 数据分开读，互不影响。 */
 private data class WidgetAppearance(
@@ -129,38 +115,8 @@ private suspend fun loadWidgetAppearance(context: Context): WidgetAppearance = t
     WidgetAppearance()
 }
 
-/** 从数据库现查，查不到就给默认值 —— 小组件绝不能因为读库失败而变空白。 */
-@Volatile
-private var lastGoodData: WidgetData? = null
-
-private suspend fun loadWidgetData(context: Context): WidgetData {
-    return try {
-        val repo = QingJiRepository(context)
-        val today = AppClock.today()
-        val profile = repo.observeProfile().first()
-        val summary = repo.observeDailySummary(today).first()
-        val water = repo.observeWaterMl(today).first() ?: 0
-        val latest = repo.latestWeight()?.weightKg
-        WidgetData(
-            goalKcal = profile?.dailyKcalGoal?.takeIf { it > 0 } ?: 2000,
-            eatenKcal = (summary?.totalKcal ?: 0.0).toInt(),
-            protein = (summary?.totalProtein ?: 0.0).toInt(),
-            proteinGoal = profile?.proteinGoalG ?: 0,
-            carb = (summary?.totalCarb ?: 0.0).toInt(),
-            carbGoal = profile?.carbGoalG ?: 0,
-            fat = (summary?.totalFat ?: 0.0).toInt(),
-            fatGoal = profile?.fatGoalG ?: 0,
-            water = water,
-            waterGoal = profile?.waterGoalMl?.takeIf { it > 0 } ?: 2000,
-            latestWeight = latest,
-            unit = profile?.unit ?: "kg"
-        ).also { lastGoodData = it }
-    } catch (e: Exception) {
-        // v1.1.0：读库失败绝不再伪装成「全 0」——用最近一次成功的数据 + stale 标记；
-        // 从来没成功过才给带 stale 标记的空数据（桌面显示「数据暂不可用」）。
-        (lastGoodData ?: WidgetData()).copy(stale = true)
-    }
-}
+/** 统一数据入口：现查 + 当天有效快照降级 + 明确空态（见 WidgetSnapshotRepo）。 */
+private suspend fun loadWidgetData(context: Context): WidgetData = WidgetSnapshotRepo.load(context)
 
 // ============================================================
 // 1. 快捷记录 2×2
@@ -304,16 +260,20 @@ class OverviewWidget : GlanceAppWidget() {
                     )
                     if (data.stale) {
                         Text(
-                            text = "数据暂不可用 · 显示最近一次成功数据",
+                            text = if (data.hasSnapshot) "数据暂不可用 · 显示今天最近一次成功数据"
+                                   else "数据暂不可用 · 打开 App 后再看",
                             style = TextStyle(color = textColor(W_SUB), fontSize = 9.sp)
                         )
                     }
                     Row(verticalAlignment = Alignment.Vertical.Bottom) {
                         Text(
-                            text = "${data.goalKcal - data.eatenKcal}",
+                            // 阶段 1：与首页 remainingWithBonus 同口径（含运动补偿）。
+                            // 首次失败无快照时 remainingKcal=默认值，但上面已明确标注不可用，
+                            // 不把它伪装成真实剩余额度。
+                            text = if (data.stale && !data.hasSnapshot) "--" else "${data.remainingKcal}",
                             style = TextStyle(
                                 color = textColor(
-                                    if (data.goalKcal - data.eatenKcal < 0) {
+                                    if (!data.stale && data.remainingKcal < 0) {
                                         Color(0xFFE5544B)
                                     } else {
                                         W_TEXT
@@ -440,13 +400,15 @@ class WeightWidget : GlanceAppWidget() {
                         )
                         if (data.stale) {
                             Text(
-                                text = "数据暂不可用",
+                                text = if (data.hasSnapshot) "数据暂不可用 · 今天的最近值" else "数据暂不可用",
                                 style = TextStyle(color = textColor(W_SUB), fontSize = 9.sp)
                             )
                         }
                         Text(
                             text = if (!appearance.showWeight) {
                                 "已隐藏"
+                            } else if (data.stale && !data.hasSnapshot) {
+                                "--"
                             } else {
                                 data.latestWeight?.let {
                                     WeightUnit.formatWithSymbol(it, data.unit)
