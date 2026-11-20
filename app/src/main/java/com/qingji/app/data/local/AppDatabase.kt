@@ -32,6 +32,7 @@ import com.qingji.app.data.local.dao.TrainingPlanDayDao
 import com.qingji.app.data.local.dao.PlanExerciseDao
 import com.qingji.app.data.local.dao.WorkoutSessionDao
 import com.qingji.app.data.local.dao.WorkoutExerciseDao
+import com.qingji.app.data.local.dao.WorkoutCardioDetailDao
 import com.qingji.app.data.local.dao.SelfDisciplineGoalDao
 import com.qingji.app.data.local.dao.SelfDisciplinePeriodDao
 import com.qingji.app.data.local.dao.SelfDisciplineCheckinDao
@@ -69,6 +70,7 @@ import com.qingji.app.data.local.entity.TrainingPlanDay
 import com.qingji.app.data.local.entity.PlanExercise
 import com.qingji.app.data.local.entity.WorkoutSession
 import com.qingji.app.data.local.entity.WorkoutExercise
+import com.qingji.app.data.local.entity.WorkoutCardioDetail
 import com.qingji.app.data.local.entity.SelfDisciplineGoalEntity
 import com.qingji.app.data.local.entity.SelfDisciplinePeriodEntity
 import com.qingji.app.data.local.entity.SelfDisciplineCheckinEntity
@@ -156,9 +158,11 @@ class Converters {
         UserBrandDish::class,
         // v1.6 食物库整体重构（Room 18→19）：自定义食物组 + 组食物关联，旧表一列不动
         UserFoodGroup::class,
-        UserFoodGroupItem::class
+        UserFoodGroupItem::class,
+        // 统一训练体系（Room 19→20）：有氧项目明细，旧表一列不动
+        WorkoutCardioDetail::class
     ],
-    version = 19,
+    version = 20,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -189,6 +193,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun planExerciseDao(): PlanExerciseDao
     abstract fun workoutSessionDao(): WorkoutSessionDao
     abstract fun workoutExerciseDao(): WorkoutExerciseDao
+    abstract fun workoutCardioDetailDao(): WorkoutCardioDetailDao
     abstract fun libraryMetaDao(): LibraryMetaDao
 
     // ---------- 自律管理模块（Room 11） ----------
@@ -531,7 +536,7 @@ abstract class AppDatabase : RoomDatabase() {
                 MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8,
                 MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12,
                 MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16,
-                MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19
+                MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20
             )
         }
 
@@ -874,6 +879,43 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_user_food_group_item_groupId_foodId` ON `user_food_group_item` (`groupId`, `foodId`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_user_food_group_item_foodId` ON `user_food_group_item` (`foodId`)")
+            }
+        }
+
+        /**
+         * 统一训练体系（Room 19 → 20）：有氧项目明细表 workout_cardio_detail。
+         * 一张全新表 + 一个 sessionUuid 索引，旧表一列不碰、一行不动（非破坏性）。
+         *
+         * 列/默认值/可空性与 WorkoutCardioDetail 的 @ColumnInfo 逐字一致（四件套纪律③）：
+         *   - 非空列都有 DEFAULT，且字面量与 Entity 一致（'' / 0 / 0.0）；
+         *   - distanceMeters、weightSnapshot 是可空列（Entity 用 Double? 且无 defaultValue），
+         *     这里对应写 `REAL`（可空、不写 DEFAULT），不能写 NOT NULL 否则 schema 校验失败。
+         *
+         * 只建 sessionUuid 普通索引，不建 (sessionUuid, exerciseUuid) 唯一索引——
+         * 一场训练允许同一动作重复出现（热身跑 + 间歇跑），工单 §3.2 明确禁止该唯一约束。
+         */
+        internal val MIGRATION_19_20 = object : Migration(19, 20) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `workout_cardio_detail` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`sessionUuid` TEXT NOT NULL DEFAULT '', " +
+                        "`exerciseUuid` TEXT NOT NULL DEFAULT '', " +
+                        "`exerciseNameSnapshot` TEXT NOT NULL DEFAULT '', " +
+                        "`orderInSession` INTEGER NOT NULL DEFAULT 0, " +
+                        "`durationSeconds` INTEGER NOT NULL DEFAULT 0, " +
+                        "`distanceMeters` REAL, " +
+                        "`calculatedKcal` REAL NOT NULL DEFAULT 0.0, " +
+                        "`calculationMethod` TEXT NOT NULL DEFAULT '', " +
+                        "`calculationVersion` TEXT NOT NULL DEFAULT '', " +
+                        "`weightSnapshot` REAL, " +
+                        "`rawInputJson` TEXT NOT NULL DEFAULT '', " +
+                        "`createdAt` INTEGER NOT NULL DEFAULT 0)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_workout_cardio_detail_sessionUuid` " +
+                        "ON `workout_cardio_detail` (`sessionUuid`)"
+                )
             }
         }
 

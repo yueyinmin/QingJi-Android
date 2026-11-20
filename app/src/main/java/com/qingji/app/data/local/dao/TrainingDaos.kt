@@ -10,6 +10,7 @@ import com.qingji.app.data.local.entity.LibraryMeta
 import com.qingji.app.data.local.entity.PlanExercise
 import com.qingji.app.data.local.entity.TrainingPlan
 import com.qingji.app.data.local.entity.TrainingPlanDay
+import com.qingji.app.data.local.entity.WorkoutCardioDetail
 import com.qingji.app.data.local.entity.WorkoutExercise
 import com.qingji.app.data.local.entity.WorkoutSession
 import kotlinx.coroutines.flow.Flow
@@ -251,6 +252,35 @@ interface WorkoutExerciseDao {
         """
     )
     suspend fun findLatestSets(exerciseUuid: String, nameSnapshot: String): String?
+}
+
+/**
+ * 统一训练体系（Room 20）：有氧项目明细的读写入口。
+ * 与 WorkoutExerciseDao 对称——力量明细写 workout_exercise，有氧明细写本表，
+ * 两者都挂同一个 sessionUuid。按会话读取、整包替换，和无力量明细同一套事务纪律。
+ */
+@Dao
+interface WorkoutCardioDetailDao {
+    @Query("SELECT * FROM workout_cardio_detail WHERE sessionUuid = :sessionUuid ORDER BY orderInSession ASC, id ASC")
+    fun observeBySession(sessionUuid: String): Flow<List<WorkoutCardioDetail>>
+
+    @Query("SELECT * FROM workout_cardio_detail WHERE sessionUuid = :sessionUuid ORDER BY orderInSession ASC, id ASC")
+    suspend fun findBySession(sessionUuid: String): List<WorkoutCardioDetail>
+
+    @Query("SELECT * FROM workout_cardio_detail ORDER BY id ASC")
+    suspend fun findAll(): List<WorkoutCardioDetail>
+
+    @Query("SELECT * FROM workout_cardio_detail ORDER BY id ASC")
+    fun observeAll(): Flow<List<WorkoutCardioDetail>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(items: List<WorkoutCardioDetail>)
+
+    @Query("DELETE FROM workout_cardio_detail WHERE sessionUuid = :sessionUuid")
+    suspend fun deleteBySession(sessionUuid: String)
+
+    @Query("DELETE FROM workout_cardio_detail")
+    suspend fun clearAll()
 }
 
 /** 每日汇总：训练场次当日聚合（健康体系 V1.1）。 */
