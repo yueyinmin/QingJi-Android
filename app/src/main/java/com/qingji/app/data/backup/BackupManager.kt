@@ -687,6 +687,10 @@ class BackupManager(private val context: Context) {
             if (sd.interventions.isNotEmpty()) target.selfDisciplineInterventionDao().insertAll(sd.interventions)
             if (sd.settings.isNotEmpty()) target.selfDisciplineSettingDao().insertAll(sd.settings)
         }
+
+        // P1-01：备份恢复后清掉每日健康汇总缓存，否则下次查询仍读到恢复前的旧汇总。
+        // 仍在调用方的 db.withTransaction 内，整份恢复失败时连带回滚。
+        target.dailyHealthSummaryDao().clearAll()
     }
 
     /**

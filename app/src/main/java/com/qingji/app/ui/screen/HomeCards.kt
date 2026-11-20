@@ -359,14 +359,15 @@ internal fun TodaySummaryCard(
         val freeRunning = freeStart > 0L && freeStart <= statusNow
         val freeScheduled = freeStart > 0L && freeStart > statusNow
         val fasting = com.qingji.app.domain.FastingRules.status(
-            now = java.time.LocalTime.now(),
+            // P1-05：断食时段按业务时区，与 FastingService 同口径
+            now = com.qingji.app.domain.AppClock.now().toLocalTime(),
             planHours = fastingPlanHours,
             eatStartMinute = fastingEatStart,
             eatEndMinute = fastingEatEnd,
             enabled = fastingEnabled && freeStart <= 0L   // 自由断食优先，方案状态让位
         )
         val fastingDaySet = fastingDays.split(',').mapNotNull { it.trim().toIntOrNull() }.toSet()
-        val isFastingDay = java.time.LocalDate.now().dayOfWeek.value in fastingDaySet
+        val isFastingDay = com.qingji.app.domain.AppClock.today().dayOfWeek.value in fastingDaySet
 
         val freeClock = TimeFormat.clock((statusNow - freeStart) / 1000L)
         val streakState = when {

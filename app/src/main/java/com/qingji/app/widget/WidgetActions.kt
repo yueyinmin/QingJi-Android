@@ -7,6 +7,7 @@ import androidx.glance.action.ActionParameters
 import androidx.glance.appwidget.action.ActionCallback
 import com.qingji.app.data.repository.QingJiRepository
 import com.qingji.app.domain.AppClock
+import kotlinx.coroutines.sync.withLock
 
 /**
  * ============================================================
@@ -32,6 +33,14 @@ val TARGET_KEY = ActionParameters.Key<String>("qingji_target")
 internal object WaterDebounce {
     fun shouldAllow(now: Long, last: Long, windowMs: Long): Boolean =
         last == 0L || now - last >= windowMs
+
+    /**
+     * 写库结果出来后的新时间戳：成功→now（开始 600ms 窗口）；
+     * 失败→清零（清除窗口，用户可立即重试，不必等上次成功后的 600ms）。
+     * 纯函数便于单测。
+     */
+    fun nextAfterWrite(success: Boolean, previous: Long, now: Long): Long =
+        if (success) now else 0L
 }
 
 /** 点「喝水」直接记账，不打开界面。 */
@@ -42,30 +51,33 @@ class AddWaterAction : ActionCallback {
         glanceId: GlanceId,
         parameters: ActionParameters
     ) {
-        val now = SystemClock.elapsedRealtime()
-        // 进程级防抖：同步比较+置位，杜绝两个协程/两次点击同时通过检查
-        synchronized(LOCK) {
-            if (!WaterDebounce.shouldAllow(now, lastClickAt, DEBOUNCE_MS)) return
-            lastClickAt = now
-        }
-        try {
-            // addWater 内部已写库并触发 WidgetRefresher.refresh(OVERVIEW)，
-            // 这里不再 refreshNow，避免同一次点击双重刷新、也统一走 250ms 合并。
-            QingJiRepository(context).addWater(200, AppClock.today())
-        } catch (e: Exception) {
-            // 写库失败就到此为止：桌面不刷新，用户看到的仍是旧数字，
-            // 绝不出现「点了但没记上还以为记上了」。
-            return
+        // 整个「检查→写库→置位」都放在 Mutex 里串行：
+        // ① 同一操作的重复投递（并发/快速连点）只落库一次；
+        // ② 只在写成功后置位，写失败回滚 —— 用户可立即重试（审查点2）；
+        // ③ 不依赖 ActionCallback 实例字段（进程级），跨回调重建仍有效。
+        DEBOUNCE_MUTEX.withLock {
+            val now = SystemClock.elapsedRealtime()
+            val previous = lastClickAt
+            if (!WaterDebounce.shouldAllow(now, previous, DEBOUNCE_MS)) return@withLock
+            try {
+                // addWater 内部已写库并触发 WidgetRefresher.refresh(OVERVIEW)，
+                // 这里不再 refreshNow，避免同一次点击双重刷新、也统一走 250ms 合并。
+                QingJiRepository(context).addWater(200, AppClock.today())
+                lastClickAt = WaterDebounce.nextAfterWrite(true, previous, now)
+            } catch (e: Exception) {
+                // 写库失败：时间戳保持旧值，用户可立即重试；不刷新、不假装成功。
+                lastClickAt = WaterDebounce.nextAfterWrite(false, previous, now)
+                return@withLock
+            }
         }
     }
 
     private companion object {
         /** 防误触合并：600ms 内的连点视为同一次。 */
         const val DEBOUNCE_MS = 600L
-        val LOCK = Any()
+        val DEBOUNCE_MUTEX = kotlinx.coroutines.sync.Mutex()
 
-        /** 进程级时间戳（替代原实例字段，跨 ActionCallback 重建仍有效）。 */
-        @Volatile
+        /** 进程级时间戳（替代原实例字段，跨 ActionCallback 重建仍有效）。仅在上述 Mutex 内读写。 */
         var lastClickAt: Long = 0L
     }
 }

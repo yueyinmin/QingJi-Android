@@ -15,13 +15,14 @@ class DailyHealthAggregatorTest {
 
     private fun raw(
         foodCount: Int = 0, kcal: Double = 0.0, protein: Double = 0.0,
+        carb: Double = 0.0, fat: Double = 0.0,
         ledger: List<DailyHealthAggregator.LedgerRow> = emptyList(),
         workoutCount: Int = 0, workoutMinutes: Int = 0,
         sets: List<Pair<Double, Int>> = emptyList(),
         sleepCount: Int = 0, sleepMinutes: Int = 0
     ) = DailyHealthAggregator.RawDay(
         foodLogCount = foodCount, foodKcal = kcal, foodProteinG = protein,
-        foodCarbG = 0.0, foodFatG = 0.0,
+        foodCarbG = carb, foodFatG = fat,
         ledger = ledger,
         workoutCount = workoutCount, workoutDurationMinutes = workoutMinutes,
         workoutSets = sets,
@@ -105,5 +106,74 @@ class DailyHealthAggregatorTest {
         // 轻微数值抖动（0.05 以内四舍五入同值）不影响签名，避免无意义重建
         val s4 = DailyHealthAggregator.signatureOf(raw(kcal = 100.04))
         assertEquals(s1, s4)
+    }
+
+    // ---- QJ-GOV-2026-01 / P1-01：签名必须覆盖全部参与聚合的输入 ----
+
+    @Test
+    fun `单独改碳水签名变化`() {
+        assertTrue(DailyHealthAggregator.signatureOf(raw(carb = 10.0)) !=
+            DailyHealthAggregator.signatureOf(raw(carb = 20.0)))
+    }
+
+    @Test
+    fun `单独改脂肪签名变化`() {
+        assertTrue(DailyHealthAggregator.signatureOf(raw(fat = 10.0)) !=
+            DailyHealthAggregator.signatureOf(raw(fat = 20.0)))
+    }
+
+    @Test
+    fun `单独改训练时长签名变化`() {
+        assertTrue(DailyHealthAggregator.signatureOf(raw(workoutMinutes = 30)) !=
+            DailyHealthAggregator.signatureOf(raw(workoutMinutes = 45)))
+    }
+
+    @Test
+    fun `只改某组次数组数不变签名也变化`() {
+        val a = DailyHealthAggregator.signatureOf(raw(sets = listOf(20.0 to 10, 30.0 to 5)))
+        val b = DailyHealthAggregator.signatureOf(raw(sets = listOf(20.0 to 12, 30.0 to 5)))
+        assertTrue(a != b)
+    }
+
+    @Test
+    fun `账本总量不变但来源分类变化签名变化`() {
+        val a = DailyHealthAggregator.signatureOf(raw(ledger = listOf(
+            DailyHealthAggregator.LedgerRow("STRENGTH_TRAINING", 100.0)
+        )))
+        val b = DailyHealthAggregator.signatureOf(raw(ledger = listOf(
+            DailyHealthAggregator.LedgerRow("CARDIO", 100.0)
+        )))
+        assertTrue(a != b)
+    }
+
+    @Test
+    fun `明细条数相同内容不同签名变化`() {
+        val a = DailyHealthAggregator.signatureOf(raw(sets = listOf(10.0 to 2, 20.0 to 3)))
+        val b = DailyHealthAggregator.signatureOf(raw(sets = listOf(10.0 to 3, 20.0 to 2)))
+        assertTrue(a != b)
+    }
+
+    @Test
+    fun `同一输入重复计算签名稳定`() {
+        val r = raw(foodCount = 2, kcal = 300.0, carb = 40.0, fat = 10.0,
+            ledger = listOf(
+                DailyHealthAggregator.LedgerRow("CARDIO", 50.0),
+                DailyHealthAggregator.LedgerRow("STRENGTH_TRAINING", 60.0)
+            ), sets = listOf(20.0 to 10, 30.0 to 5))
+        assertEquals(DailyHealthAggregator.signatureOf(r), DailyHealthAggregator.signatureOf(r))
+        // 账本/组明细插入顺序不同 → 排序后签名一致
+        val shuffled = r.copy(
+            ledger = r.ledger.reversed(),
+            workoutSets = r.workoutSets.reversed()
+        )
+        assertEquals(DailyHealthAggregator.signatureOf(r), DailyHealthAggregator.signatureOf(shuffled))
+    }
+
+    @Test
+    fun `落表签名与签名函数一致`() {
+        val r = raw(kcal = 100.0, carb = 20.0, workoutMinutes = 30,
+            sets = listOf(20.0 to 10))
+        val row = DailyHealthAggregator.aggregate(date, r, now = 1L)
+        assertEquals(DailyHealthAggregator.signatureOf(r), row.signature)
     }
 }

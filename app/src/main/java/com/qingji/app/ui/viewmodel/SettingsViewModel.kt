@@ -65,6 +65,9 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
             SettingsStore.set(context, SettingsKeys.TIME_ZONE, zoneId)
             // 全局时钟立刻生效，页面里的「今天」不用等重启
             AppClock.setZone(zoneId)
+            // P1-05：时区变了，闹钟要按新时区重排，小组件也要重取业务日期
+            applyReminders()
+            com.qingji.app.widget.WidgetRefresher.refresh(context)
         }
     }
 

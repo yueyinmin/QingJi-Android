@@ -196,8 +196,9 @@ class QingJiRepository(private val context: Context) {
         // 不会出现「有运动记录没账本」的半成品（工单 §8 保存原子性）。
         db.withTransaction {
             val newId = db.exerciseLogDao().insert(log)
-            // v1.4 健康体系：同步镜像进统一运动消耗账本（幂等，唯一索引按 exlog:<id> 去重）
-            runCatching { healthRepository().mirrorExerciseLog(log.copy(id = newId)) }
+            // P1-04：账本镜像与源记录同事务、异常同回滚。移除原 runCatching 吞异常的写法，
+            // 镜像失败不再伪装成「运动记录保存成功但账本没有」。
+            healthRepository().mirrorExerciseLog(log.copy(id = newId))
             db.usageStatDao().increment(log.date, "body")
         }
     }
@@ -212,17 +213,19 @@ class QingJiRepository(private val context: Context) {
     suspend fun updateExercise(log: ExerciseLog) {
         db.withTransaction {
             db.exerciseLogDao().update(log)
-            runCatching {
-                healthRepository().deleteExerciseLogMirror(log.id)
-                healthRepository().mirrorExerciseLog(log)
-            }
+            // P1-04：先删旧镜像再重建，同事务、异常同回滚（不再 runCatching）
+            healthRepository().deleteExerciseLogMirror(log.id)
+            healthRepository().mirrorExerciseLog(log)
         }
     }
 
     suspend fun deleteExercise(id: Long) {
-        db.exerciseLogDao().deleteById(id)
-        // 账本镜像联动删除：删运动记录，消耗也跟着消失，不会残留旧数字
-        runCatching { healthRepository().deleteExerciseLogMirror(id) }
+        // P1-04：删源记录与删账本镜像放在同一事务，同时成功或同时回滚，
+        // 杜绝「源没了但账本残留孤儿行导致消耗多计」。
+        db.withTransaction {
+            db.exerciseLogDao().deleteById(id)
+            healthRepository().deleteExerciseLogMirror(id)
+        }
     }
 
     /** 统一运动消耗账本（健康体系 V1.0）。懒加载避免和 AppDatabase 初始化抢顺序。 */
@@ -1342,6 +1345,9 @@ class QingJiRepository(private val context: Context) {
         // 还没保存的「进行中训练」也算记录，一并作废
         com.qingji.app.data.prefs.WorkoutDraftStore(context).clear()
 
+        // P1-01：清记录后失效每日健康汇总缓存，避免首页/进展页读到旧汇总
+        com.qingji.app.data.repository.DailyHealthRepository(context).invalidateAll()
+
         // 断食/饮水的通知文案依赖记录，清完顺手刷一次桌面
         com.qingji.app.widget.WidgetRefresher.refresh(context)
     }
@@ -1411,6 +1417,9 @@ class QingJiRepository(private val context: Context) {
         runCatching {
             com.qingji.app.notify.Reminders.apply(context, com.qingji.app.data.prefs.QingJiSettings())
         }
+
+        // P1-01：恢复出厂一并清掉每日健康汇总缓存（否则空数据下仍显示旧汇总）
+        com.qingji.app.data.repository.DailyHealthRepository(context).invalidateAll()
 
         com.qingji.app.widget.WidgetRefresher.refresh(context)
     }

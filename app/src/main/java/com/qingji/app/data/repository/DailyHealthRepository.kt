@@ -44,22 +44,9 @@ class DailyHealthRepository(context: Context) {
             TrainingMath.decodeSets(json).map { it.weightKg to it.reps }
         }
         val ledgerRows = ledger.map { DailyHealthAggregator.LedgerRow(it.sourceType, it.kcalSum) }
-        val sig = listOf(
-            food?.count ?: 0,
-            round10(food?.kcalSum ?: 0.0),
-            round10(food?.proteinSum ?: 0.0),
-            ledger.sumOf { it.count },
-            round10(ledger.sumOf { it.kcalSum }),
-            session?.count ?: 0,
-            workoutSets.size,
-            sleep?.count ?: 0,
-            sleep?.minutesSum ?: 0
-        ).joinToString("|")
 
-        val cached = summaryDao.findByDate(date.toString())
-        if (cached != null && cached.signature == sig) return cached
-
-        // ---- 缓存失效或没有：用刚拿到的聚合值构造 + 落表 ----
+        // 唯一原始输入：先构造 raw，再用【同一个】signatureOf 做比对与落表。
+        // QJ-GOV-2026-01/P1-01：删掉原先 Repository 手写的第二套签名（口径与落表不一致）。
         val raw = DailyHealthAggregator.RawDay(
             foodLogCount = food?.count ?: 0,
             foodKcal = food?.kcalSum ?: 0.0,
@@ -73,6 +60,12 @@ class DailyHealthRepository(context: Context) {
             sleepRecordCount = sleep?.count ?: 0,
             sleepDurationMinutes = sleep?.minutesSum ?: 0
         )
+        val sig = DailyHealthAggregator.signatureOf(raw)
+
+        val cached = summaryDao.findByDate(date.toString())
+        if (cached != null && cached.signature == sig) return cached
+
+        // ---- 缓存失效或没有：用刚拿到的原始值构造 + 落表 ----
         val rebuilt = DailyHealthAggregator.aggregate(date, raw, System.currentTimeMillis())
         summaryDao.upsert(rebuilt)
         return rebuilt
@@ -89,8 +82,12 @@ class DailyHealthRepository(context: Context) {
         return out
     }
 
-    /** 手动清缓存（备份恢复 / 数据导入后调，下次查询自动重建）。 */
+    /**
+     * 手动清缓存（备份恢复 / 数据导入 / 清空记录 / 恢复出厂后调，下次查询自动重建）。
+     * P1-01：补上生产调用点，避免这些路径残留旧汇总。
+     */
     suspend fun invalidateAll() = summaryDao.clearAll()
 
-    private fun round10(v: Double): Double = kotlin.math.round(v * 10) / 10
+    /** 只失效指定日期（跨日期记录按既有归属规则只影响相关日期）。 */
+    suspend fun invalidateDate(date: LocalDate) = summaryDao.deleteByDate(date.toString())
 }

@@ -60,6 +60,8 @@ class FastingService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // P1-05：前台服务被系统/开机拉起时先恢复业务时区，断食状态依赖业务日期
+        com.qingji.app.domain.BusinessClock.restoreBlocking(this)
         if (intent?.action == ACTION_STOP) {
             shutdown()
             return START_NOT_STICKY
@@ -166,7 +168,8 @@ class FastingService : Service() {
             .toSet()
         val isFastingDay = AppClock.today().dayOfWeek.value in days
         val status = FastingRules.status(
-            now = LocalTime.now(),
+            // P1-05：断食时段按业务时区，不再用系统时区的 LocalTime.now()
+            now = com.qingji.app.domain.AppClock.now().toLocalTime(),
             planHours = settings.fastingPlanHours,
             eatStartMinute = settings.fastingEatStartMinute,
             eatEndMinute = settings.fastingEatEndMinute,
@@ -215,6 +218,8 @@ class FastingService : Service() {
 
         /** 设置里开关改了、或 App 回到前台时调：按当前设置启动或停掉。 */
         fun sync(context: Context) {
+            // P1-05：开机/后台拉起时先恢复业务时区
+            com.qingji.app.domain.BusinessClock.restoreBlocking(context)
             val settings = try {
                 runBlocking { SettingsStore.observe(context).first() }
             } catch (e: Exception) {

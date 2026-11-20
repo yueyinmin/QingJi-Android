@@ -103,13 +103,10 @@ object WidgetSnapshotRepo {
             ?: WidgetData(stale = true, hasSnapshot = false, dataDate = AppClock.today(), zoneId = AppClock.zone.id)
     }
 
-    /** 恢复记录时区：小组件独立进程不会执行 MainActivity 的 SideEffect。 */
+    /** 恢复记录时区：统一走 BusinessClock（小组件独立进程不执行 MainActivity）。 */
     private suspend fun restoreZone(context: Context) {
         try {
-            val zone = SettingsStore.observe(context).first().timeZone
-            if (zone.isBlank()) return
-            val zoneId = try { java.time.ZoneId.of(zone) } catch (e: Exception) { return }
-            if (AppClock.zone.id != zoneId.id) AppClock.setZone(zone)
+            com.qingji.app.domain.BusinessClock.restore(context)
         } catch (e: Exception) { /* 读设置失败：沿用当前 zone，不阻断读取 */ }
     }
 
