@@ -121,6 +121,22 @@ private suspend fun loadWidgetAppearance(context: Context): WidgetAppearance = t
 /** 统一数据入口：现查 + 当天有效快照降级 + 明确空态（见 WidgetSnapshotRepo）。 */
 private suspend fun loadWidgetData(context: Context): WidgetData = WidgetSnapshotRepo.load(context)
 
+/**
+ * W-03：stale 文案按新鲜度区分，并带上快照更新时间。
+ * - 无快照：明确空态，不提"最近成功"（因为根本没有）；
+ * - 当天快照：显示"最近成功 HH:mm"，超过阈值则标注"数据较旧"。
+ */
+private fun staleLabel(data: WidgetData): String {
+    if (!data.hasSnapshot) return "数据暂不可用 · 打开 App 后再看"
+    val time = java.time.Instant.ofEpochMilli(data.snapshotAt)
+        .atZone(java.time.ZoneId.systemDefault())
+        .format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+    return when (WidgetSnapshotRepo.freshnessOf(data)) {
+        WidgetSnapshotRepo.Freshness.STALE -> "数据较旧 · 最近成功 $time"
+        else -> "数据暂不可用 · 最近成功 $time"
+    }
+}
+
 // ============================================================
 // 1. 快捷记录 2×2
 // ============================================================
@@ -132,7 +148,7 @@ class QuickRecordWidget : GlanceAppWidget() {
                 modifier = GlanceModifier
                     .fillMaxSize()
                     .background(cardBg(appearance.alphaPercent))
-                    .cornerRadius(18.dp)
+                    .cornerRadius(WidgetSpec.CORNER_CARD_DP.dp)
                     .padding(10.dp)
             ) {
                 Column(modifier = GlanceModifier.fillMaxSize()) {
@@ -263,7 +279,7 @@ class OverviewWidget : GlanceAppWidget() {
                 modifier = GlanceModifier
                     .fillMaxSize()
                     .background(cardBg(appearance.alphaPercent))
-                    .cornerRadius(18.dp)
+                    .cornerRadius(WidgetSpec.CORNER_CARD_DP.dp)
                     .padding(14.dp)
                     .clickable(
                         actionStartActivity(
@@ -281,8 +297,8 @@ class OverviewWidget : GlanceAppWidget() {
                     )
                     if (data.stale) {
                         Text(
-                            text = if (data.hasSnapshot) WidgetSpec.LABEL_STALE_TODAY
-                                   else "数据暂不可用 · 打开 App 后再看",
+                            // W-03：旧快照必须标注更新时间，不能伪装成刚刷新
+                            text = staleLabel(data),
                             style = TextStyle(color = textColor(W_SUB), fontSize = 9.sp)
                         )
                     }
@@ -351,12 +367,15 @@ class OverviewWidget : GlanceAppWidget() {
                         )
                     }
 
-                    // 4×4：完整健康概览——训练 / 睡眠 / 体重，均来自统一数据层同口径
+                    // 4×4：完整健康概览。W-06 体重遵守 showWeight；W-07 训练/睡眠失败显示 --
                     if (density >= 3) {
                         Spacer(GlanceModifier.height(4.dp))
+                        val workoutText = if (data.workoutAvailable) "${data.workoutMinutes} 分" else "--"
+                        val sleepText = if (data.sleepAvailable) "${data.sleepMinutes} 分" else "--"
+                        val weightText = if (!appearance.showWeight) "" else
+                            (data.latestWeight?.let { " · 体重 ${WeightUnit.formatWithSymbol(it, data.unit)}" } ?: "")
                         Text(
-                            text = "训练 ${data.workoutMinutes} 分 · 睡眠 ${data.sleepMinutes} 分" +
-                                (data.latestWeight?.let { " · 体重 ${WeightUnit.formatWithSymbol(it, data.unit)}" } ?: ""),
+                            text = "训练 $workoutText · 睡眠 $sleepText$weightText",
                             style = TextStyle(color = textColor(W_SUB), fontSize = 9.sp)
                         )
                     }
@@ -389,7 +408,7 @@ private fun MacroBar(
         Box(
             modifier = GlanceModifier
                 .fillMaxWidth()
-                .height(5.dp)
+                .height(WidgetSpec.MACRO_BAR_HEIGHT_DP.dp)
                 .background(ColorProvider(color.copy(alpha = 0.25f)))
                 .cornerRadius(2.5.dp)
         ) {
@@ -397,7 +416,7 @@ private fun MacroBar(
                 Box(
                     modifier = GlanceModifier
                         .width(barWidth * progress)
-                        .height(5.dp)
+                        .height(WidgetSpec.MACRO_BAR_HEIGHT_DP.dp)
                         .background(ColorProvider(color))
                         .cornerRadius(2.5.dp)
                 ) {}
@@ -418,7 +437,7 @@ class WeightWidget : GlanceAppWidget() {
                 modifier = GlanceModifier
                     .fillMaxSize()
                     .background(cardBg(appearance.alphaPercent))
-                    .cornerRadius(18.dp)
+                    .cornerRadius(WidgetSpec.CORNER_CARD_DP.dp)
                     .padding(horizontal = 14.dp, vertical = 10.dp)
             ) {
                 Row(
@@ -432,7 +451,7 @@ class WeightWidget : GlanceAppWidget() {
                         )
                         if (data.stale) {
                             Text(
-                                text = if (data.hasSnapshot) WidgetSpec.LABEL_STALE_WEIGHT else WidgetSpec.LABEL_NO_DATA,
+                                text = staleLabel(data),
                                 style = TextStyle(color = textColor(W_SUB), fontSize = 9.sp)
                             )
                         }

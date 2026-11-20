@@ -2,10 +2,16 @@
 <!--
   4×2 今日概览小组件：剩余热量 + 三条营养素迷你条 + 饮水。
   同样 30 分钟兜底刷新，App 里记一笔会立即主动刷新。
+
+  W-05：minResizeWidth/Height=110dp 让 Android 12+ 可缩到 2×2，匹配 SizeMode.Responsive 最小档；
+  minWidth/minHeight 仍是初始添加尺寸(4×2)，targetCell/resizeMode/身份全部不变。
+  Android 11 及以下忽略 minResize*，2×2 仍不可达——真机验收需覆盖系统版本差异。
 -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:minWidth="250dp"
     android:minHeight="110dp"
+    android:minResizeWidth="110dp"
+    android:minResizeHeight="110dp"
     android:targetCellWidth="4"
     android:targetCellHeight="2"
     android:updatePeriodMillis="1800000"
