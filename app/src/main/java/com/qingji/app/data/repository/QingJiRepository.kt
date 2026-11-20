@@ -57,8 +57,13 @@ class QingJiRepository(private val context: Context) {
     private val db = AppDatabase.get(context)
     /** 标准食物库（只读，随 APK 预置） */
     private val catalog = FoodCatalogDatabase.get(context)
-    private val aiClient = AiClient()
-    private val foodApi = OpenFoodFactsClient()
+    /**
+     * QJ-GOV-2026-04 / P2-03：网络客户端延迟初始化。
+     * 本地只读场景（读档案/体重/历史）不再构造 OkHttp/AiClient，
+     * 首次真正调用 AI 或条码查询时才创建。数据库/标准库仍是进程单例，不重复创建。
+     */
+    private val aiClient: AiClient by lazy { AiClient() }
+    private val foodApi: OpenFoodFactsClient by lazy { OpenFoodFactsClient() }
 
     private val catalogDao = catalog.catalogDao()
     private val omniDao = catalog.omniFoodDao()
