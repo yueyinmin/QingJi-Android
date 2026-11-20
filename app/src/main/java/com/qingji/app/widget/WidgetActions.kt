@@ -28,6 +28,12 @@ import com.qingji.app.domain.AppClock
 /** ActionParameters 的 name 会原样变成 Intent extra 的 key。 */
 val TARGET_KEY = ActionParameters.Key<String>("qingji_target")
 
+/** 喝水防误触合并的纯判定（可单测）：距上次不足窗口则拒绝，首次（last=0）放行。 */
+internal object WaterDebounce {
+    fun shouldAllow(now: Long, last: Long, windowMs: Long): Boolean =
+        last == 0L || now - last >= windowMs
+}
+
 /** 点「喝水」直接记账，不打开界面。 */
 class AddWaterAction : ActionCallback {
 
@@ -39,7 +45,7 @@ class AddWaterAction : ActionCallback {
         val now = SystemClock.elapsedRealtime()
         // 进程级防抖：同步比较+置位，杜绝两个协程/两次点击同时通过检查
         synchronized(LOCK) {
-            if (now - lastClickAt < DEBOUNCE_MS) return
+            if (!WaterDebounce.shouldAllow(now, lastClickAt, DEBOUNCE_MS)) return
             lastClickAt = now
         }
         try {

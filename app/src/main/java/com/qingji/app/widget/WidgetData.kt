@@ -31,6 +31,9 @@ data class WidgetData(
     val hasSnapshot: Boolean = false,
     val latestWeight: Double? = null,
     val unit: String = "kg",
+    /** 4×4 专属指标：今日训练时长（分钟）/ 最近有效睡眠时长（分钟），来自 DailyHealthRepository 同一口径。 */
+    val workoutMinutes: Int = 0,
+    val sleepMinutes: Int = 0,
     /** 数据归属业务日期（AppClock 记录时区下的今天）。 */
     val dataDate: LocalDate? = null,
     /** 生成快照时的记录时区 ID（ZoneId.getId()）。 */

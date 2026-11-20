@@ -4,13 +4,16 @@ import android.content.Context
 import android.content.Intent
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
+import androidx.glance.LocalSize
 import androidx.glance.action.clickable
 import androidx.glance.action.actionParametersOf
 import androidx.glance.appwidget.GlanceAppWidget
+import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.cornerRadius
@@ -55,12 +58,12 @@ import kotlinx.coroutines.flow.first
  */
 
 // ---------- 小组件统一配色（写死，保证任何主题下都看得清） ----------
-private val W_CARD = Color(0xFFFFFFFF)
-private val W_TEXT = Color(0xFF1A1A1A)
-private val W_SUB = Color(0xFF8A8F98)
-private val W_GREEN = Color(0xFF1F8A70)
-private val W_GREEN_LIGHT = Color(0xFFE8F5EF)
-private val W_BLUE_LIGHT = Color(0xFFE8F4FB)
+private val W_CARD get() = WidgetSpec.CARD
+private val W_TEXT get() = WidgetSpec.TEXT
+private val W_SUB get() = WidgetSpec.SUB
+private val W_GREEN get() = WidgetSpec.GREEN
+private val W_GREEN_LIGHT get() = WidgetSpec.GREEN_LIGHT
+private val W_BLUE_LIGHT get() = WidgetSpec.BLUE_LIGHT
 
 /**
  * 三大营养素固定色（v3.5.1 与设置页预览对齐）。
@@ -68,9 +71,9 @@ private val W_BLUE_LIGHT = Color(0xFFE8F4FB)
  * 所以不能用 ui.theme 的 MacroProtein 等 getter，取默认主题（green）的三个值写死：
  * 蛋白蓝 / 碳水绿 / 脂肪橙黄——和「桌面小组件」页预览里那三条一个颜色。
  */
-private val W_MACRO_PROTEIN = Color(0xFF5B8DEF)
-private val W_MACRO_CARB = Color(0xFF1F8A70)
-private val W_MACRO_FAT = Color(0xFFF5A623)
+private val W_MACRO_PROTEIN get() = WidgetSpec.MACRO_PROTEIN
+private val W_MACRO_CARB get() = WidgetSpec.MACRO_CARB
+private val W_MACRO_FAT get() = WidgetSpec.MACRO_FAT
 
 /** 背景透明度：设置里存的是 30..100 的百分比，这里换成 Color 的 0..1 alpha。 */
 private fun cardBg(alphaPercent: Int = 100) =
@@ -134,7 +137,7 @@ class QuickRecordWidget : GlanceAppWidget() {
             ) {
                 Column(modifier = GlanceModifier.fillMaxSize()) {
                     Text(
-                        text = "记一笔",
+                        text = WidgetSpec.LABEL_QUICK_TITLE,
                         style = TextStyle(
                             color = textColor(W_SUB),
                             fontSize = 11.sp,
@@ -144,7 +147,7 @@ class QuickRecordWidget : GlanceAppWidget() {
                     Spacer(GlanceModifier.height(6.dp))
                     Row(modifier = GlanceModifier.fillMaxWidth()) {
                         WidgetQuickTile(
-                            label = "早餐",
+                            label = WidgetSpec.LABEL_BREAKFAST,
                             color = W_GREEN_LIGHT,
                             textColorValue = W_GREEN,
                             target = WidgetRefresher.TARGET_TEXT_AI,
@@ -153,7 +156,7 @@ class QuickRecordWidget : GlanceAppWidget() {
                         )
                         Spacer(GlanceModifier.width(6.dp))
                         WidgetQuickTile(
-                            label = "体重",
+                            label = WidgetSpec.LABEL_WEIGHT,
                             color = W_GREEN_LIGHT,
                             textColorValue = W_GREEN,
                             target = WidgetRefresher.TARGET_WEIGHT,
@@ -174,9 +177,9 @@ class QuickRecordWidget : GlanceAppWidget() {
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "喝水",
+                                text = WidgetSpec.LABEL_WATER,
                                 style = TextStyle(
-                                    color = textColor(Color(0xFF2A7FA8)),
+                                    color = textColor(WidgetSpec.WATER_TEXT),
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Medium
                                 )
@@ -184,7 +187,7 @@ class QuickRecordWidget : GlanceAppWidget() {
                         }
                         Spacer(GlanceModifier.width(6.dp))
                         WidgetQuickTile(
-                            label = "拍照",
+                            label = WidgetSpec.LABEL_PHOTO,
                             color = W_GREEN_LIGHT,
                             textColorValue = W_GREEN,
                             target = WidgetRefresher.TARGET_IMAGE,
@@ -234,10 +237,28 @@ private fun WidgetQuickTile(
 // 2. 今日概览 4×2
 // ============================================================
 class OverviewWidget : GlanceAppWidget() {
+    /**
+     * 阶段 3：响应启动器实际分配的空间，按 2×2 / 4×2 / 4×4 三档切换内容密度，
+     * 不把同一布局整体缩放（工单 §5）。Provider 身份与 targetCell 均不变。
+     */
+    override val sizeMode: SizeMode = SizeMode.Responsive(
+        setOf(
+            DpSize(110.dp, 110.dp),   // 2×2
+            DpSize(250.dp, 110.dp),   // 4×2
+            DpSize(250.dp, 250.dp)    // 4×4
+        )
+    )
+
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val data = loadWidgetData(context)
         val appearance = loadWidgetAppearance(context)
         provideContent {
+            val size = LocalSize.current
+            val density = when {
+                size.height >= 200.dp -> 3   // 4×4：完整概览
+                size.width >= 200.dp -> 2    // 4×2：营养+饮水
+                else -> 1                     // 2×2：只要关键数字
+            }
             Box(
                 modifier = GlanceModifier
                     .fillMaxSize()
@@ -255,12 +276,12 @@ class OverviewWidget : GlanceAppWidget() {
                 // 大数字 + 三个并排彩色营养短条 + 左下角饮水，去掉旧的右侧数字与全宽白条
                 Column(modifier = GlanceModifier.fillMaxSize()) {
                     Text(
-                        text = "今日剩余",
+                        text = WidgetSpec.LABEL_REMAINING,
                         style = TextStyle(color = textColor(W_SUB), fontSize = 11.sp)
                     )
                     if (data.stale) {
                         Text(
-                            text = if (data.hasSnapshot) "数据暂不可用 · 显示今天最近一次成功数据"
+                            text = if (data.hasSnapshot) WidgetSpec.LABEL_STALE_TODAY
                                    else "数据暂不可用 · 打开 App 后再看",
                             style = TextStyle(color = textColor(W_SUB), fontSize = 9.sp)
                         )
@@ -274,7 +295,7 @@ class OverviewWidget : GlanceAppWidget() {
                             style = TextStyle(
                                 color = textColor(
                                     if (!data.stale && data.remainingKcal < 0) {
-                                        Color(0xFFE5544B)
+                                        WidgetSpec.OVER_LIMIT
                                     } else {
                                         W_TEXT
                                     }
@@ -285,17 +306,18 @@ class OverviewWidget : GlanceAppWidget() {
                         )
                         Spacer(GlanceModifier.width(4.dp))
                         Text(
-                            text = "千卡",
+                            text = WidgetSpec.LABEL_KCAL_UNIT,
                             style = TextStyle(color = textColor(W_SUB), fontSize = 13.sp),
                             modifier = GlanceModifier.padding(bottom = 5.dp)
                         )
                     }
 
-                    if (appearance.showMacro) {
+                    // 2×2 只保留关键数字；4×2 起才显示营养与饮水
+                    if (density >= 2 && appearance.showMacro) {
                         Spacer(GlanceModifier.height(10.dp))
                         Row(modifier = GlanceModifier.fillMaxWidth()) {
                             MacroBar(
-                                label = "蛋白",
+                                label = WidgetSpec.LABEL_PROTEIN,
                                 current = data.protein,
                                 goal = data.proteinGoal,
                                 color = W_MACRO_PROTEIN,
@@ -303,7 +325,7 @@ class OverviewWidget : GlanceAppWidget() {
                             )
                             Spacer(GlanceModifier.width(8.dp))
                             MacroBar(
-                                label = "碳水",
+                                label = WidgetSpec.LABEL_CARB,
                                 current = data.carb,
                                 goal = data.carbGoal,
                                 color = W_MACRO_CARB,
@@ -311,7 +333,7 @@ class OverviewWidget : GlanceAppWidget() {
                             )
                             Spacer(GlanceModifier.width(8.dp))
                             MacroBar(
-                                label = "脂肪",
+                                label = WidgetSpec.LABEL_FAT,
                                 current = data.fat,
                                 goal = data.fatGoal,
                                 color = W_MACRO_FAT,
@@ -322,10 +344,20 @@ class OverviewWidget : GlanceAppWidget() {
 
                     Spacer(GlanceModifier.defaultWeight())
 
-                    if (appearance.showWater) {
+                    if (density >= 2 && appearance.showWater) {
                         Text(
-                            text = "饮水 ${data.water} / ${data.waterGoal} ml",
+                            text = "${WidgetSpec.LABEL_WATER_SHORT} ${data.water} / ${data.waterGoal} ml",
                             style = TextStyle(color = textColor(W_SUB), fontSize = 10.sp)
+                        )
+                    }
+
+                    // 4×4：完整健康概览——训练 / 睡眠 / 体重，均来自统一数据层同口径
+                    if (density >= 3) {
+                        Spacer(GlanceModifier.height(4.dp))
+                        Text(
+                            text = "训练 ${data.workoutMinutes} 分 · 睡眠 ${data.sleepMinutes} 分" +
+                                (data.latestWeight?.let { " · 体重 ${WeightUnit.formatWithSymbol(it, data.unit)}" } ?: ""),
+                            style = TextStyle(color = textColor(W_SUB), fontSize = 9.sp)
                         )
                     }
                 }
@@ -395,24 +427,24 @@ class WeightWidget : GlanceAppWidget() {
                 ) {
                     Column(modifier = GlanceModifier.defaultWeight()) {
                         Text(
-                            text = "当前体重",
+                            text = WidgetSpec.LABEL_CURRENT_WEIGHT,
                             style = TextStyle(color = textColor(W_SUB), fontSize = 11.sp)
                         )
                         if (data.stale) {
                             Text(
-                                text = if (data.hasSnapshot) "数据暂不可用 · 今天的最近值" else "数据暂不可用",
+                                text = if (data.hasSnapshot) WidgetSpec.LABEL_STALE_WEIGHT else WidgetSpec.LABEL_NO_DATA,
                                 style = TextStyle(color = textColor(W_SUB), fontSize = 9.sp)
                             )
                         }
                         Text(
                             text = if (!appearance.showWeight) {
-                                "已隐藏"
+                                WidgetSpec.LABEL_WEIGHT_HIDDEN
                             } else if (data.stale && !data.hasSnapshot) {
                                 "--"
                             } else {
                                 data.latestWeight?.let {
                                     WeightUnit.formatWithSymbol(it, data.unit)
-                                } ?: "还没有记录"
+                                } ?: WidgetSpec.LABEL_WEIGHT_EMPTY
                             },
                             style = TextStyle(
                                 color = textColor(W_TEXT),
@@ -436,7 +468,7 @@ class WeightWidget : GlanceAppWidget() {
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "记录",
+                            text = WidgetSpec.LABEL_RECORD,
                             style = TextStyle(
                                 color = textColor(Color.White),
                                 fontSize = 13.sp,

@@ -39,7 +39,12 @@ object WidgetSnapshotRepo {
         val summary = repo.observeDailySummary(today).first()
         val water = repo.observeWaterMl(today).first() ?: 0
         val latest = repo.latestWeight()?.weightKg
-        val exerciseKcal = HealthRepository(context).observeDailyExerciseCalories(today).first()
+        val healthRepo = HealthRepository(context)
+        val exerciseKcal = healthRepo.observeDailyExerciseCalories(today).first()
+        // 4×4 专属指标走 DailyHealthRepository 同一口径；读取失败不影响主数据
+        val daySummary = try {
+            com.qingji.app.data.repository.DailyHealthRepository(context).summaryFor(today)
+        } catch (e: Exception) { null }
 
         val goal = profile?.dailyKcalGoal?.takeIf { it > 0 } ?: 2000
         val eaten = (summary?.totalKcal ?: 0.0).toInt()
@@ -65,6 +70,8 @@ object WidgetSnapshotRepo {
             hasSnapshot = true,
             latestWeight = latest,
             unit = profile?.unit ?: "kg",
+            workoutMinutes = daySummary?.workoutDurationMinutes ?: 0,
+            sleepMinutes = daySummary?.sleepDurationMinutes ?: 0,
             dataDate = today,
             zoneId = AppClock.zone.id,
             snapshotAt = System.currentTimeMillis()
@@ -113,7 +120,7 @@ object WidgetSnapshotRepo {
         } catch (e: Exception) { /* 快照写失败不影响本次展示 */ }
     }
 
-    private fun toJson(d: WidgetData) = JSONObject().apply {
+    internal fun toJson(d: WidgetData) = JSONObject().apply {
         put("goalKcal", d.goalKcal); put("eatenKcal", d.eatenKcal); put("remainingKcal", d.remainingKcal)
         put("protein", d.protein); put("proteinGoal", d.proteinGoal)
         put("carb", d.carb); put("carbGoal", d.carbGoal)
@@ -121,11 +128,13 @@ object WidgetSnapshotRepo {
         put("water", d.water); put("waterGoal", d.waterGoal)
         put("latestWeight", d.latestWeight ?: JSONObject.NULL)
         put("unit", d.unit)
+        put("workoutMinutes", d.workoutMinutes)
+        put("sleepMinutes", d.sleepMinutes)
         put("dataDate", d.dataDate?.toString() ?: "")
         put("zoneId", d.zoneId); put("snapshotAt", d.snapshotAt)
     }
 
-    private fun fromJson(o: JSONObject) = WidgetData(
+    internal fun fromJson(o: JSONObject) = WidgetData(
         goalKcal = o.optInt("goalKcal", 2000),
         eatenKcal = o.optInt("eatenKcal", 0),
         remainingKcal = o.optInt("remainingKcal", 2000),
@@ -135,6 +144,8 @@ object WidgetSnapshotRepo {
         water = o.optInt("water"), waterGoal = o.optInt("waterGoal", 3200),
         latestWeight = if (o.isNull("latestWeight")) null else o.optDouble("latestWeight"),
         unit = o.optString("unit", "kg"),
+        workoutMinutes = o.optInt("workoutMinutes"),
+        sleepMinutes = o.optInt("sleepMinutes"),
         hasSnapshot = true,
         dataDate = o.optString("dataDate", "").takeIf { it.isNotBlank() }?.let {
             try { LocalDate.parse(it) } catch (e: Exception) { null }
