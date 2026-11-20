@@ -323,13 +323,15 @@ fun ExerciseConfirmScreen(
                 Text(text = "›", fontSize = 18.sp, color = DividerColor)
             }
             Spacer(Modifier.height(10.dp))
+            // 统一训练体系 §8：保存防重——保存中禁用按钮，杜绝双击创建两条运动记录/账本
+            val isSaving by vm.isSaving.collectAsState()
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp)
                     .clip(RoundedCornerShape(14.dp))
-                    .background(QingJiGreen)
-                    .pressable(enabled = preset != null) {
+                    .background(if (isSaving) QingJiGreen.copy(alpha = 0.6f) else QingJiGreen)
+                    .pressable(enabled = preset != null && !isSaving) {
                         val p = preset ?: return@pressable
                         val log = ExerciseLog(
                             // 修改时保留原 id / createdAt，账本镜像靠 id 对齐
@@ -350,7 +352,7 @@ fun ExerciseConfirmScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "保存",
+                    text = if (isSaving) "保存中…" else "保存",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = Color.White

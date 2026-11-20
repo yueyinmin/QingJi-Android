@@ -132,10 +132,14 @@ class QingJiRepository(private val context: Context) {
         db.exerciseLogDao().observeRange(from, to)
 
     suspend fun addExercise(log: ExerciseLog) {
-        val newId = db.exerciseLogDao().insert(log)
-        // v1.4 健康体系：同步镜像进统一运动消耗账本（幂等，唯一索引去重）
-        runCatching { healthRepository().mirrorExerciseLog(log.copy(id = newId)) }
-        db.usageStatDao().increment(log.date, "body")
+        // 统一训练体系：日志 + 账本镜像放在同一事务里，失败一起回滚，
+        // 不会出现「有运动记录没账本」的半成品（工单 §8 保存原子性）。
+        db.withTransaction {
+            val newId = db.exerciseLogDao().insert(log)
+            // v1.4 健康体系：同步镜像进统一运动消耗账本（幂等，唯一索引按 exlog:<id> 去重）
+            runCatching { healthRepository().mirrorExerciseLog(log.copy(id = newId)) }
+            db.usageStatDao().increment(log.date, "body")
+        }
     }
 
     /** v1.3.7：按 id 取一条有氧记录，给确认页回填「修改」。 */
@@ -146,10 +150,12 @@ class QingJiRepository(private val context: Context) {
      * 旧镜像残留（sourceId 虽然一样，但 sourceType 会随 type 变）。
      */
     suspend fun updateExercise(log: ExerciseLog) {
-        db.exerciseLogDao().update(log)
-        runCatching {
-            healthRepository().deleteExerciseLogMirror(log.id)
-            healthRepository().mirrorExerciseLog(log)
+        db.withTransaction {
+            db.exerciseLogDao().update(log)
+            runCatching {
+                healthRepository().deleteExerciseLogMirror(log.id)
+                healthRepository().mirrorExerciseLog(log)
+            }
         }
     }
 

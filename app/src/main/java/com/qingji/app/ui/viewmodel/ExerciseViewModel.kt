@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * ============================================================
@@ -55,11 +56,24 @@ class ExerciseViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * 保存防重（工单 §8）：同一表单连续点击只提交一次。
+     * 用 AtomicBoolean 在 launch 之前就置位——协程调度有窗口，光靠 StateFlow 或
+     * 按钮禁用挡不住「两次点击都进了 launch」的竞态。onDone 导航后释放，
+     * 失败也释放（runCatching），保证一次失败后仍可重试，不做全局时间窗口拦截。
+     */
+    private val saveGuard = AtomicBoolean(false)
+    private val _isSaving = kotlinx.coroutines.flow.MutableStateFlow(false)
+    val isSaving: StateFlow<Boolean> = _isSaving
+
     /** 保存一条运动记录；repo 里会顺手把「使用情况」的体型计数 +1。 */
     fun save(log: ExerciseLog, onDone: () -> Unit = {}) {
+        if (!saveGuard.compareAndSet(false, true)) return
+        _isSaving.value = true
         viewModelScope.launch {
-            repo.addExercise(log)
-            onDone()
+            runCatching { repo.addExercise(log) }
+                .onSuccess { onDone() }
+                .onFailure { saveGuard.set(false); _isSaving.value = false }
         }
     }
 
@@ -67,11 +81,14 @@ class ExerciseViewModel(app: Application) : AndroidViewModel(app) {
     /** 编辑前先把那条记录读出来，确认页拿它回填当时的输入方式和原始数字。 */
     suspend fun findForEdit(id: Long): ExerciseLog? = repo.findExercise(id)
 
-    /** 修改一条（保留原 id），账本镜像在 repo 里先删后重插。 */
+    /** 修改一条（保留原 id），账本镜像在 repo 里先删后重插。防重策略同 save。 */
     fun update(log: ExerciseLog, onDone: () -> Unit = {}) {
+        if (!saveGuard.compareAndSet(false, true)) return
+        _isSaving.value = true
         viewModelScope.launch {
-            repo.updateExercise(log)
-            onDone()
+            runCatching { repo.updateExercise(log) }
+                .onSuccess { onDone() }
+                .onFailure { saveGuard.set(false); _isSaving.value = false }
         }
     }
 
