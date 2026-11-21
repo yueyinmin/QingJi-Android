@@ -105,4 +105,46 @@ class UnifiedTrainingModelTest {
         assertTrue(parsed is WorkoutItem.Cardio)
         assertEquals(600L, (parsed as WorkoutItem.Cardio).durationSec)
     }
+    @Test
+    fun `INTERVAL模式不会被推断为HIIT类型`() {
+        // recordType 与 WorkoutMode 是不同维度：有氧+间歇 ≠ HIIT
+        val item = WorkoutItem.Cardio(
+            "i1", "wg:jump-rope", "跳绳", 0, mode = WorkoutMode.INTERVAL, durationSec = 600
+        )
+        val back = WorkoutItem.fromJson(WorkoutItem.toJson(item)) as WorkoutItem.Cardio
+        assertEquals(WorkoutMode.INTERVAL, back.mode)
+        assertEquals(ExerciseRecordType.CARDIO, back.recordType)
+        assertTrue("INTERVAL 不得推断 HIIT", back.recordType != ExerciseRecordType.HIIT)
+    }
+
+    @Test
+    fun `历史版本JSON与缺字段未知字段兼容`() {
+        // 无 schemaVersion 且缺 mode/note 的旧 JSON
+        val legacy = """{"id":"a","eu":"ex-chest-02","n":"卧推","t":"STRENGTH","o":0,"sets":"[{\"w\":40,\"r\":10}]","unknownField":"忽略"}"""
+        val parsed = WorkoutItem.fromJson(legacy)
+        assertTrue(parsed is WorkoutItem.Strength)
+        assertEquals(WorkoutMode.NORMAL, parsed!!.mode) // 缺 mode 降级
+        assertEquals("", parsed.note)
+        assertEquals(1, (parsed as WorkoutItem.Strength).sets.size)
+        assertEquals(40.0, parsed.sets[0].weightKg, 0.001)
+    }
+
+    @Test
+    fun `损坏JSON与空数组不导致草稿不可恢复`() {
+        assertNull(WorkoutItem.fromJson("{broken json"))
+        assertNull(WorkoutItem.fromJson("{\"t\":\"STRENGTH\"}")) // 无身份
+        assertNull(WorkoutItem.fromJson("{}"))
+    }
+
+    @Test
+    fun `重复itemId仍可区分不同项目实例`() {
+        // 即使上游误传相同 itemId，两个对象仍是独立实例，按 order 保留（不覆盖）
+        val a = WorkoutItem.Cardio("same-id", "wg:running", "跑步", 0, durationSec = 600)
+        val b = WorkoutItem.Cardio("same-id", "wg:running", "跑步", 1, durationSec = 900)
+        assertEquals(a.itemId, b.itemId)
+        assertEquals(600L, a.durationSec)
+        assertEquals(900L, b.durationSec)
+        assertTrue("order 不同即独立项目", a.order != b.order)
+    }
+
 }

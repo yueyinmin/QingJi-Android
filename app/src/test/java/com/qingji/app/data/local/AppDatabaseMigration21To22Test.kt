@@ -112,4 +112,31 @@ class AppDatabaseMigration21To22Test {
         c.close()
         db.close()
     }
+    @Test
+    fun `新字段写入后数据库关闭重开仍有效`() {
+        val db = openV21()
+        db.execSQL("INSERT INTO `exercise` (uuid,name,category) VALUES ('ex-core-01','平板支撑','core')")
+        db.execSQL("INSERT INTO `plan_exercise` (exerciseUuid,exerciseNameSnapshot,targetSets) VALUES ('ex-core-01','平板支撑',3)")
+        db.execSQL("INSERT INTO `workout_exercise` (sessionUuid,exerciseUuid,setsJson) VALUES ('s1','ex-core-01','[]')")
+        AppDatabase.MIGRATION_21_22.migrate(db)
+        // 写入用户修正与新字段值
+        db.execSQL("UPDATE `exercise` SET recordType='CARDIO' WHERE uuid='ex-core-01'")
+        db.execSQL("UPDATE `plan_exercise` SET recordType='FLEXIBILITY', targetConfigJson='{\"v\":1,\"t\":\"FLEXIBILITY\"}'")
+        db.execSQL("UPDATE `workout_exercise` SET itemMetaJson='{\"v\":1,\"t\":\"STRENGTH\"}'")
+        db.close()
+
+        // 重新打开：SQLite 文件持久化，值仍在
+        val reopened = openV21()
+        val c = reopened.query("SELECT recordType FROM `exercise` WHERE uuid='ex-core-01'")
+        assertTrue(c.moveToFirst()); assertEquals("CARDIO", c.getString(0)); c.close()
+        val p = reopened.query("SELECT recordType,targetConfigJson FROM `plan_exercise`")
+        assertTrue(p.moveToFirst())
+        assertEquals("FLEXIBILITY", p.getString(p.getColumnIndex("recordType")))
+        assertTrue(p.getString(p.getColumnIndex("targetConfigJson")).contains("FLEXIBILITY"))
+        p.close()
+        val w = reopened.query("SELECT itemMetaJson FROM `workout_exercise`")
+        assertTrue(w.moveToFirst()); assertTrue(w.getString(0).contains("STRENGTH")); w.close()
+        reopened.close()
+    }
+
 }

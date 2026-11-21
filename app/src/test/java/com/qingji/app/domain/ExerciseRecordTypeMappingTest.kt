@@ -2,6 +2,7 @@ package com.qingji.app.domain
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -100,4 +101,51 @@ class ExerciseRecordTypeMappingTest {
         assertEquals(WorkoutMode.NORMAL, WorkoutMode.fromKey("UNKNOWN"))
         assertEquals(WorkoutMode.INTERVAL, WorkoutMode.fromKey("INTERVAL"))
     }
+    @Test
+    fun `空串持久化值加已知UUID返回有效类型而非OTHER`() {
+        // 数据库空串=未人工修正，不是业务类型 OTHER
+        val r = TrainingTypeResolver.resolve("", "杠铃卧推", "Bench Press", "weight_reps", "chest", false, "ex-chest-02")
+        assertEquals(ExerciseRecordType.STRENGTH, r.type)
+        assertEquals("uuid-map", r.reason)
+    }
+
+    @Test
+    fun `空串加未知UUID降级OTHER并保留诊断`() {
+        val r = TrainingTypeResolver.resolve("", "自建怪动作", "Custom", "", "", false, "custom-999")
+        assertEquals(ExerciseRecordType.OTHER, r.type)
+        assertNotNull(r.diagnostic)
+    }
+
+    @Test
+    fun `用户修正优先于UUID映射且不被覆盖`() {
+        // 用户把平板支撑(默认OTHER)改为CARDIO
+        val r = TrainingTypeResolver.resolve("CARDIO", "平板支撑", "Plank", "duration", "core", false, "ex-core-01")
+        assertEquals(ExerciseRecordType.CARDIO, r.type)
+        assertEquals("persisted", r.reason)
+    }
+
+    @Test
+    fun `错误持久化值安全降级到UUID映射`() {
+        val r = TrainingTypeResolver.resolve("BOGUS_TYPE", "跑步", "Running", "distance_duration", "legs", false, "wg:running")
+        assertEquals(ExerciseRecordType.CARDIO, r.type) // 不崩溃，回退映射
+        assertEquals("uuid-map", r.reason)
+    }
+
+    @Test
+    fun `映射版本标识与正式SHA固定`() {
+        assertEquals("B1.1-2026-11-21", ExerciseRecordTypeMap.MAPPING_VERSION)
+        assertEquals(
+            "425893552b937fefd5b86d7ddd8c7299c735b02c8450adb10f288c6345878d8e",
+            ExerciseRecordTypeMap.MAPPING_DOC_SHA256
+        )
+    }
+
+    @Test
+    fun `未映射与重复ID检查`() {
+        val map = ExerciseRecordTypeMap.SEED_TYPES
+        assertEquals(302, map.size)
+        assertEquals(302, map.keys.distinct().size) // 无重复 UUID
+        assertTrue(map.values.all { it in ExerciseRecordType.entries }) // 无未知类型
+    }
+
 }

@@ -10,6 +10,15 @@ package com.qingji.app.domain
  * 修改本文件必须与《302条动作最终分类映射表-B1.1》同步。
  */
 object ExerciseRecordTypeMap {
+    /** 映射版本：B1.1 正式版（ChatGPT 审查后定稿）。禁止回退 OTHER=0 旧版。 */
+    const val MAPPING_VERSION = "B1.1-2026-11-21"
+
+    /**
+     * 正式映射表 Markdown 的 SHA-256（工单/轻记统一运动体系-302条动作最终分类映射表-B1.1-2026-11-21.md）。
+     * 用于证明 Kotlin 映射与正式文件同一版本；变更任一文件必须同步更新此值。
+     */
+    const val MAPPING_DOC_SHA256 = "425893552b937fefd5b86d7ddd8c7299c735b02c8450adb10f288c6345878d8e"
+
     /** 302 条种子精确映射。 */
     val SEED_TYPES: Map<String, ExerciseRecordType> = mapOf(
         "ex-chest-02" to ExerciseRecordType.STRENGTH, // 杠铃卧推

@@ -31,11 +31,19 @@ data class UnifiedExerciseRecord(
     companion object {
         /**
          * 从独立 ExerciseLog 构造。
-         * 【去重红线】带 sourceId 的日志是训练日记投影（TrainingRepository.upsertTrainingDiaryLog），
-         * 必须返回 null，避免一场训练在历史/统计里出现两次。
+         *
+         * 【去重语义，G2 复核修正】不只看 sourceId 是否为空，而是看它是否指向一个
+         * 真实存在的 WorkoutSession——只有"sourceId 非空 且 该 uuid 属于正式训练会话"
+         * 才是训练日记投影（TrainingRepository.upsertTrainingDiaryLog 写入），必须跳过。
+         * 这样历史导入/其他来源带 sourceId 但无对应 session 的独立运动不会被误删。
+         *
+         * @param sessionUuids 当前所有正式训练会话 uuid 集合（由调用方 Repository 提供）
          */
-        fun fromExerciseLog(log: ExerciseLog): UnifiedExerciseRecord? {
-            if (log.sourceId.isNotBlank()) return null // 日记投影，跳过
+        fun fromExerciseLog(
+            log: ExerciseLog,
+            sessionUuids: Set<String> = emptySet()
+        ): UnifiedExerciseRecord? {
+            if (log.sourceId.isNotBlank() && log.sourceId in sessionUuids) return null // 日记投影
             val type = TrainingTypeResolver.resolve(
                 persistedRecordType = null, name = log.type,
                 exerciseType = null, category = null
