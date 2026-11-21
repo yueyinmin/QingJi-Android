@@ -230,8 +230,11 @@ fun ProgressScreen(
             categoryColor = categoryColor,
             progress = progress,
             remain = remain,
-            recordCount = logs.size,
+            // 身体数据卡的记录次数也取全量，不随曲线范围变化
+            recordCount = allLogs.size,
             unit = unit,
+            bodyFat = latestBodyFat,
+            goalReached = goalReached,
             onClick = onOpenWeight
         )
 

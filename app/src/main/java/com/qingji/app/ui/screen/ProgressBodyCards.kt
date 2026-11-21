@@ -53,7 +53,10 @@ import com.qingji.app.ui.theme.WarnOrange
 import com.qingji.app.ui.theme.pressable
 
 
-/** 身体数据卡：当前体重、目标、BMI 分级、减重进度。 */
+/**
+ * 身体数据仪表盘（工单 P0）：一张大圆角卡整合体重 / 体脂率 / BMI / 减重进度。
+ * 数据全部来自外部（已按全量记录计算），本组件只负责展示，不含业务公式。
+ */
 @Composable
 internal fun BodyDataCard(
     profile: UserProfile?,
@@ -66,12 +69,13 @@ internal fun BodyDataCard(
     remain: Double,
     recordCount: Int,
     unit: String,
+    /** 最近一次有效体脂率（与当前体重可不同日） */
+    bodyFat: com.qingji.app.domain.BodyMetricsCalculator.BodyFatRecord? = null,
+    /** 目标是否已达成 */
+    goalReached: Boolean = false,
     /** 点卡片进记体重页 */
     onClick: () -> Unit = {}
 ) {
-    // 进场动画：进度条从 0 涨到真实百分比，右上角的数字跟着一起跑。
-    // 为什么要有：减肥进度是这个页面最该「有感觉」的地方，
-    // 静态一条进度条看不出「我又往前走了一点」。
     var entered by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { entered = true }
     val animProgress by animateFloatAsState(
@@ -80,132 +84,160 @@ internal fun BodyDataCard(
         label = "progressGrow"
     )
 
-    SectionCard(modifier = Modifier.clickable { onClick() }) {
+    SectionCard {
+        // 顶部：标题（点进详情） + 健康同步入口（未接入，不伪造同步状态）
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = s("身体数据"), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-            Text(text = s("记体重 ›"), fontSize = 11.sp, color = QingJiGreenDark)
+            Text(
+                text = s("身体数据"), fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
+                color = TextPrimary,
+                modifier = Modifier.clickable { onClick() }
+            )
+            HealthSyncEntry()
         }
 
         Spacer(Modifier.height(12.dp))
 
-        // 体重区：只放大字 + 目标，右上角不再放 BMI 数字
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(
-                text = if (currentWeight > 0) {
-                    com.qingji.app.domain.WeightUnit.format(currentWeight, unit)
-                } else {
-                    "--"
-                },
-                fontSize = 34.sp,
-                fontWeight = FontWeight.Bold,
-                color = TextPrimary
-            )
-            Text(
-                text = " ${com.qingji.app.domain.WeightUnit.symbol(unit)}",
-                fontSize = 13.sp,
-                color = TextSecondary,
-                modifier = Modifier.padding(bottom = 6.dp)
-            )
+        // 主体左右双栏：左体重/体脂，右 BMI 仪表盘
+        Row(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.weight(1f)) {
+                BodyWeightSummary(currentWeight, targetWeight, unit)
+                Spacer(Modifier.height(8.dp))
+                BodyFatSummary(bodyFat)
+            }
+            Spacer(Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                BodyBmiSummary(bmi, category, categoryColor, profile != null)
+            }
         }
-        Text(
-            text = "目标: ${
-                if (targetWeight > 0) {
-                    com.qingji.app.domain.WeightUnit.format(targetWeight, unit)
-                } else {
-                    "--"
-                }
-            } ${com.qingji.app.domain.WeightUnit.symbol(unit)}",
-            fontSize = 12.sp,
-            color = TextSecondary
-        )
 
-        // v3.2.4：BMI 小仪表盘放这块左下角，灰色细竖线隔开，右下角显示分级
         Spacer(Modifier.height(14.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                MiniBmiGauge(bmi = bmi, categoryColor = categoryColor)
-            }
-            // 灰色细线（竖）：把仪表盘和分级结论分开
-            Box(
-                modifier = Modifier
-                    .width(1.dp)
-                    .height(64.dp)
-                    .background(DividerColor)
-            )
-            Column(
-                modifier = Modifier.weight(1f),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(text = s("BMI 分级"), fontSize = 11.sp, color = TextSecondary)
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    text = if (bmi > 0) when (category) {
-                        "正常" -> "健康"
-                        "偏瘦" -> "偏瘦"
-                        "超重" -> "超重"
-                        "肥胖" -> "肥胖"
-                        else -> category
-                    } else "待记录",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = categoryColor,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(categoryColor.copy(alpha = 0.12f))
-                        .padding(horizontal = 12.dp, vertical = 3.dp)
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(text = s("中国标准"), fontSize = 10.sp, color = TextSecondary)
-            }
-        }
-
-        Spacer(Modifier.height(16.dp))
         Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(DividerColor))
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(12.dp))
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(text = s("减脂进展"), fontSize = 14.sp, color = TextPrimary)
-            Text(
-                text = "${(animProgress * 100).toInt()}%",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = QingJiGreen
-            )
-        }
-        Spacer(Modifier.height(8.dp))
-        ThinProgressBar(progress = animProgress, barHeight = 8.dp)
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = if (recordCount == 0) {
-                "还没有体重记录"
-            } else {
-                "还差 ${
-                    com.qingji.app.domain.WeightUnit.format(remain, unit)
-                } ${com.qingji.app.domain.WeightUnit.symbol(unit)} · 已记录 $recordCount 次"
-            },
-            fontSize = 12.sp,
-            color = TextSecondary
-        )
+        WeightLossProgressSection(animProgress, remain, unit, recordCount, goalReached)
         if (profile == null) {
             Spacer(Modifier.height(6.dp))
-            Text(
-                text = s("个人资料还没填完整，进度可能显示为 0"),
-                fontSize = 11.sp,
-                color = WarnOrange
-            )
+            Text(text = s("个人资料还没填完整，进度可能显示为 0"), fontSize = 11.sp, color = WarnOrange)
         }
     }
+}
+
+/** 健康同步入口：当前无 Health Connect SDK，仅占位，不展示可误导的同步成功态。 */
+@Composable
+private fun HealthSyncEntry() {
+    Text(
+        text = s("健康同步 · 暂未开放"),
+        fontSize = 11.sp,
+        color = TextSecondary,
+        modifier = Modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(QingJiGreenLight)
+            .padding(horizontal = 10.dp, vertical = 4.dp)
+    )
+}
+
+/** 左栏：当前体重（视觉主体）+ 目标体重 */
+@Composable
+private fun BodyWeightSummary(currentWeight: Double, targetWeight: Double, unit: String) {
+    Text(text = s("体重"), fontSize = 11.sp, color = TextSecondary)
+    Row(verticalAlignment = Alignment.Bottom) {
+        Text(
+            text = if (currentWeight > 0) com.qingji.app.domain.WeightUnit.format(currentWeight, unit) else "--",
+            fontSize = 32.sp, fontWeight = FontWeight.Bold, color = TextPrimary
+        )
+        Text(
+            text = " ${com.qingji.app.domain.WeightUnit.symbol(unit)}",
+            fontSize = 12.sp, color = TextSecondary, modifier = Modifier.padding(bottom = 5.dp)
+        )
+    }
+    Spacer(Modifier.height(2.dp))
+    Text(
+        text = "目标 ${
+            if (targetWeight > 0) com.qingji.app.domain.WeightUnit.format(targetWeight, unit) else "--"
+        } ${com.qingji.app.domain.WeightUnit.symbol(unit)}",
+        fontSize = 12.sp, color = TextSecondary
+    )
+}
+
+/** 左栏：最近一次有效体脂率（不推算、不伪装实测） */
+@Composable
+private fun BodyFatSummary(bodyFat: com.qingji.app.domain.BodyMetricsCalculator.BodyFatRecord?) {
+    Text(text = s("体脂率"), fontSize = 11.sp, color = TextSecondary)
+    if (bodyFat == null) {
+        Text(text = s("未记录"), fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = TextSecondary)
+    } else {
+        Text(
+            text = "${String.format("%.1f", bodyFat.value)}%",
+            fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary
+        )
+        Text(
+            text = "${bodyFat.date} 记录",
+            fontSize = 10.sp, color = TextSecondary
+        )
+    }
+}
+
+/** 右栏：BMI 数值 + 放大仪表盘 + 中国标准分级 */
+@Composable
+private fun BodyBmiSummary(bmi: Double, category: String, categoryColor: Color, profileReady: Boolean) {
+    Text(text = "BMI", fontSize = 11.sp, color = TextSecondary)
+    if (!profileReady || bmi <= 0) {
+        Text(text = "--", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = TextSecondary)
+        Spacer(Modifier.height(4.dp))
+        Text(text = s("补全身高体重后显示"), fontSize = 10.sp, color = TextSecondary)
+        return
+    }
+    Text(
+        text = String.format("%.1f", bmi),
+        fontSize = 32.sp, fontWeight = FontWeight.Bold, color = TextPrimary
+    )
+    // BMI 仪表盘放大：120×62dp（原 88×48），刻度映射与指针算法保持不变
+    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        MiniBmiGauge(bmi = bmi, categoryColor = categoryColor, width = 120.dp, height = 62.dp)
+    }
+    Text(
+        text = when (category) {
+            "正常" -> "健康"
+            else -> category
+        },
+        fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = categoryColor,
+        modifier = Modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(categoryColor.copy(alpha = 0.12f))
+            .padding(horizontal = 10.dp, vertical = 2.dp)
+    )
+    Text(text = s("中国标准"), fontSize = 10.sp, color = TextSecondary)
+}
+
+/** 底部：减重进度（百分比 / 进度条 / 还差多少） */
+@Composable
+private fun WeightLossProgressSection(
+    progress: Float, remain: Double, unit: String, recordCount: Int, goalReached: Boolean
+) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(text = s("减重进度"), fontSize = 14.sp, color = TextPrimary)
+        Text(
+            text = "${(progress * 100).toInt()}%",
+            fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = QingJiGreen
+        )
+    }
+    Spacer(Modifier.height(8.dp))
+    ThinProgressBar(progress = progress.coerceIn(0f, 1f), barHeight = 8.dp)
+    Spacer(Modifier.height(8.dp))
+    Text(
+        text = when {
+            recordCount == 0 -> "还没有体重记录"
+            goalReached -> s("已达成目标") + " · 已记录 $recordCount 次"
+            else -> "还差 ${
+                com.qingji.app.domain.WeightUnit.format(remain, unit)
+            } ${com.qingji.app.domain.WeightUnit.symbol(unit)} · 已记录 $recordCount 次"
+        },
+        fontSize = 12.sp, color = TextSecondary
+    )
 }
 
 
@@ -218,7 +250,12 @@ internal fun BodyDataCard(
  * 所有会随主题变化的颜色必须先在 Composable 作用域取成局部变量再传进去。
  */
 @Composable
-internal fun MiniBmiGauge(bmi: Double, categoryColor: Color) {
+internal fun MiniBmiGauge(
+    bmi: Double,
+    categoryColor: Color,
+    width: androidx.compose.ui.unit.Dp = 88.dp,
+    height: androidx.compose.ui.unit.Dp = 48.dp
+) {
     val hasData = bmi > 0
     val sweep = if (hasData) {
         ((bmi.coerceIn(15.0, 35.0) - 15.0) / 20.0).toFloat()
@@ -232,7 +269,7 @@ internal fun MiniBmiGauge(bmi: Double, categoryColor: Color) {
     val track = DividerColor
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Canvas(modifier = Modifier.size(width = 88.dp, height = 48.dp)) {
+        Canvas(modifier = Modifier.size(width = width, height = height)) {
             val stroke = 8.dp.toPx()
             val inset = stroke / 2
             val arcSize = Size(
