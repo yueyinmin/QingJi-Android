@@ -468,7 +468,7 @@ class WeightWidget : GlanceAppWidget() {
                     .fillMaxSize()
                     .background(cardBg(appearance.alphaPercent))
                     .cornerRadius(WidgetSpec.CORNER_CARD_DP.dp)
-                    .padding(horizontal = 14.dp, vertical = 10.dp)
+                    .padding(horizontal = 14.dp, vertical = 6.dp)
             ) {
                 Row(
                     modifier = GlanceModifier.fillMaxSize(),
@@ -497,17 +497,20 @@ class WeightWidget : GlanceAppWidget() {
                             },
                             style = TextStyle(
                                 color = textColor(W_TEXT),
-                                fontSize = 20.sp,
+                                fontSize = 24.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         )
                     }
+                    Spacer(GlanceModifier.width(8.dp))
+                    // V2 阶段3：按钮缩窄、弱化底色，体重数字成为视觉主体；
+                    // 40dp 高保持可点击面积（4×1 卡片高度受限，不再压缩到更小）。
                     Box(
                         modifier = GlanceModifier
-                            .height(36.dp)
-                            .width(88.dp)
-                            .background(ColorProvider(W_GREEN))
-                            .cornerRadius(12.dp)
+                            .height(40.dp)
+                            .width(60.dp)
+                            .background(ColorProvider(W_GREEN_LIGHT))
+                            .cornerRadius(10.dp)
                             .clickable(
                                 actionStartActivity(
                                     openApp(context, WidgetRefresher.TARGET_WEIGHT),
@@ -519,8 +522,8 @@ class WeightWidget : GlanceAppWidget() {
                         Text(
                             text = WidgetSpec.LABEL_RECORD,
                             style = TextStyle(
-                                color = textColor(Color.White),
-                                fontSize = 13.sp,
+                                color = textColor(W_GREEN),
+                                fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium
                             )
                         )
