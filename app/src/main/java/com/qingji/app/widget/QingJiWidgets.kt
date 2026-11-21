@@ -81,7 +81,9 @@ private val W_MACRO_FAT get() = WidgetSpec.MACRO_FAT
 
 /** 背景透明度：设置里存的是 30..100 的百分比，这里换成 Color 的 0..1 alpha。 */
 private fun cardBg(alphaPercent: Int = 100) =
-    ColorProvider(W_CARD.copy(alpha = (alphaPercent.coerceIn(30, 100) / 100f)))
+    ColorProvider(W_CARD.copy(alpha = (alphaPercent.coerceIn(
+        WidgetSpec.ALPHA_MIN, WidgetSpec.ALPHA_MAX
+    ) / WidgetSpec.ALPHA_MAX.toFloat())))
 
 private fun textColor(color: Color = W_TEXT) = ColorProvider(color)
 
@@ -433,7 +435,7 @@ private fun MacroBar(
             modifier = GlanceModifier
                 .fillMaxWidth()
                 .height(WidgetSpec.MACRO_BAR_HEIGHT_DP.dp)
-                .background(ColorProvider(color.copy(alpha = 0.25f)))
+                .background(ColorProvider(color.copy(alpha = WidgetSpec.MACRO_TRACK_ALPHA)))
                 .cornerRadius(2.5.dp)
         ) {
             if (progress > 0f) {

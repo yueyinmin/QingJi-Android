@@ -51,4 +51,18 @@ object WidgetSpec {
     // ---- 尺寸规格（预览卡片按真实 targetCell 比例展示） ----
     const val CORNER_CARD_DP = 18
     const val MACRO_BAR_HEIGHT_DP = 5
+
+    // ---- V2 阶段5：预览与 Glance 共享的展示规则（避免两处硬编码漂移） ----
+    /** 背景不透明度范围（SettingsStore/ViewModel/Glance/预览四处共用）。 */
+    const val ALPHA_MIN = 30
+    const val ALPHA_MAX = 100
+    /** 营养条轨道色透明度。 */
+    const val MACRO_TRACK_ALPHA = 0.25f
+    /** 预览示例营养素进度（用示例 current/goal 计算，勿写死比例）。 */
+    const val SAMPLE_PROTEIN = 80
+    const val SAMPLE_PROTEIN_GOAL = 120
+    const val SAMPLE_CARB = 100
+    const val SAMPLE_CARB_GOAL = 200
+    const val SAMPLE_FAT = 30
+    const val SAMPLE_FAT_GOAL = 60
 }

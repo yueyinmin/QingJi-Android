@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -37,6 +38,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.qingji.app.R
 import com.qingji.app.ui.components.HintBox
 import com.qingji.app.ui.components.PageTopBar
 import com.qingji.app.ui.components.SectionCard
@@ -157,14 +159,15 @@ fun WidgetSettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = viewModel()
                 onAdd = { requestPin(context, QuickRecordWidgetReceiver::class.java) },
                 previewAlpha = settings.widgetAlpha / 100f
             ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    QuickCell(WidgetSpec.LABEL_BREAKFAST, WidgetSpec.GREEN)
-                    QuickCell(WidgetSpec.LABEL_WEIGHT, WidgetSpec.GREEN)
+                // V2 阶段5：预览与真实 Glance 同款「图标+短标签」轻量入口
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    QuickCell(WidgetSpec.LABEL_BREAKFAST, R.drawable.ic_widget_breakfast)
+                    QuickCell(WidgetSpec.LABEL_WEIGHT, R.drawable.ic_widget_weight)
                 }
-                Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    QuickCell(WidgetSpec.LABEL_WATER, WidgetSpec.WATER_TEXT)
-                    QuickCell(WidgetSpec.LABEL_PHOTO, WidgetSpec.GREEN.copy(alpha = 0.72f))
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    QuickCell(WidgetSpec.LABEL_WATER, R.drawable.ic_widget_water)
+                    QuickCell(WidgetSpec.LABEL_PHOTO, R.drawable.ic_widget_camera)
                 }
             }
 
@@ -188,9 +191,12 @@ fun WidgetSettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = viewModel()
                 if (settings.widgetShowMacro) {
                     Spacer(Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        MiniBar(WidgetSpec.LABEL_PROTEIN, WidgetSpec.MACRO_PROTEIN, Modifier.weight(1f))
-                        MiniBar(WidgetSpec.LABEL_CARB, WidgetSpec.MACRO_CARB, Modifier.weight(1f))
-                        MiniBar(WidgetSpec.LABEL_FAT, WidgetSpec.MACRO_FAT, Modifier.weight(1f))
+                        MiniBar(WidgetSpec.LABEL_PROTEIN, WidgetSpec.SAMPLE_PROTEIN, WidgetSpec.SAMPLE_PROTEIN_GOAL,
+                            WidgetSpec.MACRO_PROTEIN, Modifier.weight(1f))
+                        MiniBar(WidgetSpec.LABEL_CARB, WidgetSpec.SAMPLE_CARB, WidgetSpec.SAMPLE_CARB_GOAL,
+                            WidgetSpec.MACRO_CARB, Modifier.weight(1f))
+                        MiniBar(WidgetSpec.LABEL_FAT, WidgetSpec.SAMPLE_FAT, WidgetSpec.SAMPLE_FAT_GOAL,
+                            WidgetSpec.MACRO_FAT, Modifier.weight(1f))
                     }
                 }
                 Spacer(Modifier.height(8.dp))
@@ -217,20 +223,24 @@ fun WidgetSettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = viewModel()
                         Text(text = WidgetSpec.LABEL_CURRENT_WEIGHT, fontSize = 10.sp, color = TextSecondary)
                         Text(
                             // 阶段 3：示例值与「已隐藏」文案与真实 Glance 共用 WidgetSpec
-                            text = if (settings.widgetShowWeight) "${WidgetSpec.SAMPLE_WEIGHT} kg" else WidgetSpec.LABEL_WEIGHT_HIDDEN,
-                            fontSize = 20.sp,
+                            text = if (settings.widgetShowWeight)
+                                com.qingji.app.domain.WeightUnit.formatWithSymbol(
+                                    WidgetSpec.SAMPLE_WEIGHT.toDouble(), "kg"
+                                ) else WidgetSpec.LABEL_WEIGHT_HIDDEN,
+                            fontSize = 24.sp,
                             fontWeight = FontWeight.Bold,
                             color = TextPrimary
                         )
                     }
+                    Spacer(Modifier.width(8.dp))
                     Text(
                         text = WidgetSpec.LABEL_RECORD,
                         fontSize = 12.sp,
-                        color = Color.White,
+                        color = WidgetSpec.GREEN,
                         modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(QingJiGreen)
-                            .padding(horizontal = 12.dp, vertical = 7.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(WidgetSpec.GREEN_LIGHT)
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
                     )
                 }
             }
@@ -300,10 +310,12 @@ private fun WidgetCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(14.dp))
+                .clip(RoundedCornerShape(WidgetSpec.CORNER_CARD_DP.dp))
                 // 底下一层浅色当「壁纸」，上面盖半透明白卡片，拖动滑杆时能直观看到透明效果
                 .background(QingJiGreenLight.copy(alpha = 0.55f))
-                .background(CardWhite.copy(alpha = previewAlpha.coerceIn(0.3f, 1f)))
+                .background(CardWhite.copy(alpha = previewAlpha.coerceIn(
+                    WidgetSpec.ALPHA_MIN / WidgetSpec.ALPHA_MAX.toFloat(), 1f
+                )))
                 .padding(12.dp)
         ) {
             Text(
@@ -318,22 +330,37 @@ private fun WidgetCard(
     }
 }
 
+/** V2 阶段5：预览入口与真实 Glance 同款「图标+短标签」，图标资源也共用。 */
 @Composable
-private fun QuickCell(label: String, color: Color) {
+private fun QuickCell(label: String, iconRes: Int) {
     Column(
         modifier = Modifier
-            .size(width = 74.dp, height = 46.dp)
+            .size(width = 74.dp, height = 52.dp)
             .clip(RoundedCornerShape(10.dp))
-            .background(color.copy(alpha = 0.14f)),
+            .background(CardWhite.copy(alpha = 0.55f)),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text(text = label, fontSize = 12.sp, color = color, fontWeight = FontWeight.Medium)
+        androidx.compose.foundation.Image(
+            painter = androidx.compose.ui.res.painterResource(iconRes),
+            contentDescription = label,
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(text = label, fontSize = 10.sp, color = TextPrimary)
     }
 }
 
+/** V2 阶段5：进度按示例 current/goal 计算，与真实 MacroBar 同一算法，不再写死 45%。 */
 @Composable
-private fun MiniBar(label: String, color: Color, modifier: Modifier = Modifier) {
+private fun MiniBar(
+    label: String,
+    current: Int,
+    goal: Int,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    val progress = if (goal <= 0) 0f else (current.toFloat() / goal).coerceIn(0f, 1f)
     Column(modifier = modifier) {
         Text(text = label, fontSize = 9.sp, color = TextSecondary)
         Spacer(Modifier.height(3.dp))
@@ -342,17 +369,18 @@ private fun MiniBar(label: String, color: Color, modifier: Modifier = Modifier) 
                 .fillMaxWidth()
                 .height(WidgetSpec.MACRO_BAR_HEIGHT_DP.dp)
                 .clip(RoundedCornerShape(3.dp))
-                .background(color.copy(alpha = 0.25f)),
+                .background(color.copy(alpha = WidgetSpec.MACRO_TRACK_ALPHA)),
             contentAlignment = Alignment.CenterStart
         ) {
-            // 阶段 3：预览补上进度填充（示例 45%），与真实 Glance 的 MacroBar 一致
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(0.45f)
-                    .height(WidgetSpec.MACRO_BAR_HEIGHT_DP.dp)
-                    .clip(RoundedCornerShape(3.dp))
-                    .background(color)
-            )
+            if (progress > 0f) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(progress)
+                        .height(WidgetSpec.MACRO_BAR_HEIGHT_DP.dp)
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(color)
+                )
+            }
         }
     }
 }
