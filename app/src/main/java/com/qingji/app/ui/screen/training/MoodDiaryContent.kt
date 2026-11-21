@@ -2,10 +2,12 @@ package com.qingji.app.ui.screen.training
 
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,11 +26,13 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -61,6 +65,30 @@ import java.time.YearMonth
  * 「按 DiaryRules.level 的四档心情给格子着色」，规则仍在 domain 层，不重写。
  * ============================================================
  */
+/** 日期切换内容淡入：只改 alpha 不改测量，避免内容硬切闪烁。 */
+@Composable
+private fun DateFadeBox(date: java.time.LocalDate, content: @Composable () -> Unit) {
+    androidx.compose.runtime.key(date) {
+        var visible by remember { mutableStateOf(false) }
+        LaunchedEffect(date) { visible = true }
+        val alpha by animateFloatAsState(
+            targetValue = if (visible) 1f else 0f,
+            animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
+            label = "moodDateFade"
+        )
+        Box(modifier = Modifier.graphicsLayer { this.alpha = alpha }) { content() }
+    }
+}
+
+/** 无 ripple 点击：日期切换类小控件不要灰色涟漪，避免被误认为「灰色选中卡片」。 */
+@Composable
+private fun Modifier.dateClickable(enabled: Boolean = true, onClick: () -> Unit): Modifier = this.clickable(
+    enabled = enabled,
+    interactionSource = remember { MutableInteractionSource() },
+    indication = null,
+    onClick = onClick
+)
+
 @Composable
 fun MoodDiaryContent(
     diaries: List<Diary>,
@@ -153,7 +181,7 @@ fun MoodDiaryContent(
                     fontWeight = FontWeight.SemiBold, color = TextPrimary,
                     modifier = Modifier.weight(1f))
                 Text("‹", fontSize = 20.sp, color = TextSecondary,
-                    modifier = Modifier.clickable {
+                    modifier = Modifier.dateClickable {
                         queryDate = queryDate.minusDays(1)
                         onMonthChange(YearMonth.from(queryDate))
                     }.padding(horizontal = 8.dp))
@@ -161,12 +189,12 @@ fun MoodDiaryContent(
                     text = if (queryDate == com.qingji.app.domain.AppClock.today())
                         "今天" else queryDate.toString(),
                     fontSize = TextSizes.Caption, color = QingJiGreen,
-                    modifier = Modifier.clickable { showDatePicker = true }.padding(4.dp)
+                    modifier = Modifier.dateClickable { showDatePicker = true }.padding(4.dp)
                 )
                 Text("›", fontSize = 20.sp,
                     color = if (queryDate >= com.qingji.app.domain.AppClock.today())
                         TextSecondary.copy(alpha = 0.4f) else TextSecondary,
-                    modifier = Modifier.clickable(enabled = queryDate < com.qingji.app.domain.AppClock.today()) {
+                    modifier = Modifier.dateClickable(enabled = queryDate < com.qingji.app.domain.AppClock.today()) {
                         queryDate = queryDate.plusDays(1)
                         onMonthChange(YearMonth.from(queryDate))
                     }.padding(horizontal = 8.dp))
@@ -178,6 +206,7 @@ fun MoodDiaryContent(
             Box(modifier = Modifier.animateContentSize(animationSpec = tween(
                 durationMillis = 200, easing = FastOutSlowInEasing
             ))) {
+            DateFadeBox(queryDate) {
             val dayDiaries = diaries.filter { it.date == queryDate }
             if (dayDiaries.isEmpty()) {
                 SectionCard {
@@ -213,6 +242,7 @@ fun MoodDiaryContent(
                     Spacer(Modifier.height(8.dp))
                 }
             }
+            }   // DateFadeBox 结束
             }   // animateContentSize 包裹结束
             // v9：悬浮底栏会盖住页尾内容，滚动尾部让出 Dock 高度
             // TASK-05：统一从 LocalAppSettings 取，不再单独订阅 SettingsStore。

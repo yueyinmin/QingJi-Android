@@ -2,10 +2,12 @@ package com.qingji.app.ui.screen.training
 
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,6 +37,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -66,6 +69,33 @@ import java.time.YearMonth
  * 日记页「训练日记」胶囊和「我的 → 训练记录」全屏页共用这一块，
  * 全屏页把 showModeSwitch 关掉，避免顶上出现两个切换条。
  */
+/**
+ * 日期切换内容淡入：只改 alpha（graphicsLayer 不改测量），避免内容硬切「闪一下」。
+ * 与外层 animateContentSize 配合：高度平滑 + 内容淡入，日历与滚动位置不动。
+ */
+@Composable
+private fun DateFadeBox(date: java.time.LocalDate, content: @Composable () -> Unit) {
+    androidx.compose.runtime.key(date) {
+        var visible by remember { mutableStateOf(false) }
+        LaunchedEffect(date) { visible = true }
+        val alpha by animateFloatAsState(
+            targetValue = if (visible) 1f else 0f,
+            animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
+            label = "dateContentFade"
+        )
+        Box(modifier = Modifier.graphicsLayer { this.alpha = alpha }) { content() }
+    }
+}
+
+/** 无 ripple 点击：日期切换类小控件不要灰色涟漪，避免被误认为「灰色选中卡片」。 */
+@Composable
+private fun Modifier.dateClickable(enabled: Boolean = true, onClick: () -> Unit): Modifier = this.clickable(
+    enabled = enabled,
+    interactionSource = remember { MutableInteractionSource() },
+    indication = null,
+    onClick = onClick
+)
+
 @Composable
 fun TrainingDiaryContent(
     vm: TrainingViewModel,
@@ -214,9 +244,11 @@ fun TrainingDiaryContent(
             Box(modifier = Modifier.animateContentSize(animationSpec = tween(
                 durationMillis = 200, easing = FastOutSlowInEasing
             ))) {
-                DailyHealthSummaryCard(
-                    summary = daySummary?.takeIf { it.date == activeDate }
-                )
+                DateFadeBox(activeDate) {
+                    DailyHealthSummaryCard(
+                        summary = daySummary?.takeIf { it.date == activeDate }
+                    )
+                }
             }
             Spacer(Modifier.height(12.dp))
 
@@ -224,7 +256,7 @@ fun TrainingDiaryContent(
             Box(modifier = Modifier.animateContentSize(animationSpec = tween(
                 durationMillis = 200, easing = FastOutSlowInEasing
             ))) {
-                DayFoodDetailCard(foods = dayFoods)
+                DateFadeBox(activeDate) { DayFoodDetailCard(foods = dayFoods) }
             }
             Spacer(Modifier.height(12.dp))
 
@@ -235,7 +267,7 @@ fun TrainingDiaryContent(
                     fontWeight = FontWeight.SemiBold, color = TextPrimary,
                     modifier = Modifier.weight(1f))
                 Text("‹", fontSize = 20.sp, color = TextSecondary,
-                    modifier = Modifier.clickable {
+                    modifier = Modifier.dateClickable {
                         val next = activeDate.minusDays(1)
                         pickDate(next)
                         onMonthChange(YearMonth.from(next))
@@ -244,12 +276,12 @@ fun TrainingDiaryContent(
                     text = if (activeDate == com.qingji.app.domain.AppClock.today())
                         "今天" else activeDate.toString(),
                     fontSize = TextSizes.Caption, color = com.qingji.app.ui.theme.QingJiGreen,
-                    modifier = Modifier.clickable { showDatePicker = true }.padding(4.dp)
+                    modifier = Modifier.dateClickable { showDatePicker = true }.padding(4.dp)
                 )
                 Text("›", fontSize = 20.sp,
                     color = if (activeDate >= com.qingji.app.domain.AppClock.today())
                         TextSecondary.copy(alpha = 0.4f) else TextSecondary,
-                    modifier = Modifier.clickable(enabled = activeDate < com.qingji.app.domain.AppClock.today()) {
+                    modifier = Modifier.dateClickable(enabled = activeDate < com.qingji.app.domain.AppClock.today()) {
                         val next = activeDate.plusDays(1)
                         pickDate(next)
                         onMonthChange(YearMonth.from(next))
@@ -264,22 +296,24 @@ fun TrainingDiaryContent(
             Box(modifier = Modifier.animateContentSize(animationSpec = tween(
                 durationMillis = 200, easing = FastOutSlowInEasing
             ))) {
-                val daySessions = sessions.filter { it.date == activeDate }
-                if (daySessions.isEmpty()) {
-                    SectionCard {
-                        Text("这一天还没有训练记录", fontSize = TextSizes.Body, color = TextSecondary)
-                    }
-                } else {
-                    daySessions.forEach { s ->
-                        SessionRow(
-                            session = s,
-                            exercises = bySession[s.uuid].orEmpty(),
-                            unit = unit,
-                            onDetail = { detailUuid = s.uuid },
-                            onEdit = { vm.editSession(s.uuid) { onEditSession() } },
-                            onDelete = { pendingDelete = s.uuid }
-                        )
-                        Spacer(Modifier.height(8.dp))
+                DateFadeBox(activeDate) {
+                    val daySessions = sessions.filter { it.date == activeDate }
+                    if (daySessions.isEmpty()) {
+                        SectionCard {
+                            Text("这一天还没有训练记录", fontSize = TextSizes.Body, color = TextSecondary)
+                        }
+                    } else {
+                        daySessions.forEach { s ->
+                            SessionRow(
+                                session = s,
+                                exercises = bySession[s.uuid].orEmpty(),
+                                unit = unit,
+                                onDetail = { detailUuid = s.uuid },
+                                onEdit = { vm.editSession(s.uuid) { onEditSession() } },
+                                onDelete = { pendingDelete = s.uuid }
+                            )
+                            Spacer(Modifier.height(8.dp))
+                        }
                     }
                 }
             }
