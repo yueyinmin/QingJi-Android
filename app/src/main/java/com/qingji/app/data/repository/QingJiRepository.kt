@@ -40,6 +40,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
 
@@ -149,10 +150,20 @@ class QingJiRepository(private val context: Context) {
     /** 按指定 id 读 Key（编辑某配置时「留空保持原 Key」用）。 */
     fun getApiKeyFor(id: Int): String = ApiKeyStore.load(context, id).orEmpty()
 
-    /** 观察当前激活配置（随切换实时刷新）。 */
+    /**
+     * 观察当前激活配置（随切换实时刷新）。
+     * 与 getActiveAiConfig() 同样处理「active id 未设置（0）或指向已删配置」：
+     * 回退到第一条现存配置，避免配置页显示「无当前服务」而实际 AI 调用在用第一条。
+     * 注意 Flow 里不写 DataStore（getActiveAiConfig 会在首次调用时写回），这里只做只读回退。
+     */
     fun observeAiConfig(): Flow<AiConfig?> =
         SettingsStore.observe(context).map { it.aiActiveProviderId }
-            .flatMapLatest { id -> db.aiConfigDao().observeById(id) }
+            .flatMapLatest { id ->
+                db.aiConfigDao().observeById(id).flatMapLatest { hit ->
+                    if (hit != null) flowOf(hit)
+                    else db.aiConfigDao().observeAll().map { it.firstOrNull() }
+                }
+            }
     suspend fun getAiConfig(): AiConfig? = getActiveAiConfig()
 
     // ---------- 首页当天数据 ----------
