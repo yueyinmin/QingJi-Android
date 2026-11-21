@@ -1,6 +1,7 @@
 package com.qingji.app.ui.screen.training
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -163,6 +164,15 @@ fun TodayTrainingCard(
     arrangement: com.qingji.app.ui.viewmodel.TodayArrangement? = null,
     modifier: Modifier = Modifier
 ) {
+    // 折叠状态纯 UI 本地：展开/收起不触发任何 ViewModel/数据库重查。
+    // 无计划且无记录时不提供展开（空态不展开空白）。
+    var expanded by remember { mutableStateOf(false) }
+    val hasContent = arrangement != null || todaySessions.isNotEmpty()
+    val arrowRotation by animateFloatAsState(
+        targetValue = if (expanded) 90f else 0f,
+        animationSpec = tween(180),
+        label = "training_expand_arrow"
+    )
     val status = when {
         draft != null -> if (draft.editingUuid.isNotEmpty()) "正在修改一次训练" else "训练进行中 · 点这里继续"
         arrangement != null -> if (arrangement.isRest) {
@@ -170,18 +180,61 @@ fun TodayTrainingCard(
         } else {
             "${arrangement.title} · ${arrangement.exercises.size} 个动作（${arrangement.planName}）"
         }
-        todaySessions.isNotEmpty() -> {
-            val minutes = todaySessions.sumOf { it.durationMinutes }
-            "今天已练 ${todaySessions.size} 次 · $minutes 分钟"
-        }
+        todaySessions.isNotEmpty() -> "点这里记录下一次训练"
         else -> "还没开始，点这里记录第一次训练"
     }
-    SectionCard(modifier = modifier.clickable { onClick() }) {
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("今日训练", fontSize = TextSizes.CardTitle, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-                Spacer(Modifier.height(4.dp))
-                Text(status, fontSize = TextSizes.Caption, color = TextSecondary)
+    // 训练次数与总时长拆成独立摘要行：原来它是 status 的一个分支，
+    // 有草稿/计划时会被覆盖，收起态看不到（工单要求收起保留该摘要）。
+    val summary = if (todaySessions.isNotEmpty()) {
+        val minutes = todaySessions.sumOf { it.durationMinutes }
+        "今天已练 ${todaySessions.size} 次 · $minutes 分钟"
+    } else null
+
+    SectionCard(modifier = modifier) {
+        Column(modifier = Modifier.fillMaxWidth().animateContentSize()) {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                // 左侧标题点击切换折叠；右侧 + 按钮进入训练，两者互不误触
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable(enabled = hasContent) { expanded = !expanded }
+                        .padding(vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("今日训练", fontSize = TextSizes.CardTitle, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                    if (hasContent) {
+                        Spacer(Modifier.size(4.dp))
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = if (expanded) "收起" else "展开",
+                            tint = TextSecondary,
+                            modifier = Modifier.size(16.dp).graphicsLayer { rotationZ = arrowRotation }
+                        )
+                    }
+                }
+                Box(
+                    modifier = Modifier
+                        .size(34.dp)
+                        .clip(CircleShape)
+                        .background(QingJiGreenLight)
+                        .clickable { onClick() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Add,
+                        contentDescription = "开始训练",
+                        tint = QingJiGreen,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(status, fontSize = TextSizes.Caption, color = TextSecondary)
+            if (summary != null) {
+                Spacer(Modifier.height(2.dp))
+                Text(summary, fontSize = TextSizes.Caption, color = TextSecondary)
+            }
+            if (expanded && hasContent) {
                 if (arrangement != null && !arrangement.isRest && arrangement.exercises.isNotEmpty()) {
                     Spacer(Modifier.height(3.dp))
                     Text(
@@ -194,20 +247,6 @@ fun TodayTrainingCard(
                     Spacer(Modifier.height(3.dp))
                     Text(arrangement.notice, fontSize = TextSizes.Tiny, color = TextSecondary)
                 }
-            }
-            Box(
-                modifier = Modifier
-                    .size(34.dp)
-                    .clip(CircleShape)
-                    .background(QingJiGreenLight),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Add,
-                    contentDescription = "开始训练",
-                    tint = QingJiGreen,
-                    modifier = Modifier.size(20.dp)
-                )
             }
         }
     }
