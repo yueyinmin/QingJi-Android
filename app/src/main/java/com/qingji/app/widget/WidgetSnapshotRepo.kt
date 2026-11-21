@@ -56,73 +56,136 @@ object WidgetSnapshotRepo {
         return if (now - data.snapshotAt > FRESH_THRESHOLD_MS) Freshness.STALE else Freshness.FRESH
     }
 
+    /**
+     * 一次查询的类型化结果（验收补充工单 P0）。
+     * SUCCESS = 查到值；EMPTY = 查询成功但无记录（value 为 null/0，是真值）；
+     * FAILED = 读库抛异常，必须显示 --，绝不拿默认值冒充。
+     */
+    private data class Outcome<T>(val state: ItemState, val value: T? = null) {
+        companion object {
+            fun <T> of(value: T?): Outcome<T> =
+                if (value == null) Outcome(ItemState.EMPTY, null) else Outcome(ItemState.SUCCESS, value)
+            fun <T> fail(): Outcome<T> = Outcome(ItemState.FAILED, null)
+        }
+    }
+
+    /** 把 runCatching 的 Result 映射为 Outcome：异常 → FAILED；null → EMPTY；非 null → SUCCESS。 */
+    private fun <T> outcomeOf(result: Result<T?>): Outcome<T> =
+        result.fold(onSuccess = { Outcome.of(it) }, onFailure = { Outcome.fail() })
+
     /** 从业务源现查，成功即刷新持久化快照。任一步失败抛异常，由调用方降级。 */
     suspend fun loadFresh(context: Context): WidgetData {
+        val trace = WidgetPerf.begin("loadFresh", "SNAPSHOT")
         restoreZone(context)
         val today = AppClock.today()
-        // 添加卡顿：原来 7 次查询串行 await，冷启动叠加 DB 首次打开可达数百毫秒~1秒。
-        // 改为 IO 线程池并发查询（各 DAO 本身已在 Room queryExecutor，这里进一步并行发起），
-        // 主线程只 await 一次总时长；每项内部各自 catch，一项失败不影响其余。
-        val settings = SettingsStore.observe(context).first()
+        // 8 项查询并发发起（主线程只 await 一次总时长）；每项独立 Outcome，
+        // 一项失败不影响其余项，且失败项不会用默认值伪装成真实数据。
+        val settings = WidgetSettingsCache.get(context)
         val repo = QingJiRepository(context)
-        val results = coroutineScope {
+        val healthRepo = HealthRepository(context)
+        val dailyRepo = com.qingji.app.data.repository.DailyHealthRepository(context)
+        val results: List<Any> = coroutineScope {
             val tasks = listOf(
-                async(Dispatchers.IO) { runCatching { repo.observeProfile().first() }.getOrNull() },
-                async(Dispatchers.IO) { runCatching { repo.observeDailySummary(today).first() }.getOrNull() },
-                async(Dispatchers.IO) { runCatching { repo.observeWaterMl(today).first() ?: 0 }.getOrNull() ?: 0 },
-                async(Dispatchers.IO) { runCatching { repo.latestWeight()?.weightKg }.getOrNull() },
                 async(Dispatchers.IO) {
-                    runCatching {
-                        HealthRepository(context).observeDailyExerciseCalories(today).first()
-                    }.getOrNull() ?: 0.0
+                    val t = WidgetPerf.begin("query", "profile")
+                    val r = outcomeOf(runCatching { repo.observeProfile().first() })
+                    WidgetPerf.end(t); r
                 },
-                // W-07：训练/睡眠分别读取、分别可用，一项失败不影响另一项，也不伪装成真实 0。
                 async(Dispatchers.IO) {
-                    runCatching {
-                        com.qingji.app.data.repository.DailyHealthRepository(context).summaryFor(today)
-                    }.getOrNull()
+                    val t = WidgetPerf.begin("query", "dailySummary")
+                    val r = outcomeOf(runCatching { repo.observeDailySummary(today).first() })
+                    WidgetPerf.end(t); r
+                },
+                async(Dispatchers.IO) {
+                    val t = WidgetPerf.begin("query", "water")
+                    // 饮水无记录时 DAO 返回 null → EMPTY(0)，0 ml 是真值；异常 → FAILED。
+                    val r = outcomeOf(runCatching { repo.observeWaterMl(today).first() })
+                    WidgetPerf.end(t); r
+                },
+                // A3：体重用 Widget 专用有效查询，排除未来日期、同日多条取最新。
+                async(Dispatchers.IO) {
+                    val t = WidgetPerf.begin("query", "weight")
+                    val r = outcomeOf(runCatching { repo.latestEffectiveWeight(today)?.weightKg })
+                    WidgetPerf.end(t); r
+                },
+                async(Dispatchers.IO) {
+                    val t = WidgetPerf.begin("query", "exerciseKcal")
+                    val r = outcomeOf(runCatching { healthRepo.observeDailyExerciseCalories(today).first() })
+                    WidgetPerf.end(t); r
+                },
+                // P1：训练与睡眠分别独立读取，一个数据源失败不影响另一个。
+                // 口径与 DailyHealthRepository.summaryFor 一致：workout=workoutSession.durationSum，sleep=sleep.minutesSum。
+                async(Dispatchers.IO) {
+                    val t = WidgetPerf.begin("query", "workoutMinutes")
+                    val r = outcomeOf(runCatching { dailyRepo.workoutMinutesFor(today) })
+                    WidgetPerf.end(t); r
+                },
+                async(Dispatchers.IO) {
+                    val t = WidgetPerf.begin("query", "sleepMinutes")
+                    val r = outcomeOf(runCatching { dailyRepo.sleepMinutesFor(today) })
+                    WidgetPerf.end(t); r
                 }
             )
             tasks.awaitAll()
         }
-        @Suppress("UNCHECKED_CAST")
-        val profile = results[0] as com.qingji.app.data.local.entity.UserProfile?
-        @Suppress("UNCHECKED_CAST")
-        val summary = results[1] as com.qingji.app.data.local.dao.DailySummary?
-        val water = results[2] as Int
-        val latest = results[3] as Double?
-        val exerciseKcal = results[4] as Double
-        val daySummary = results[5] as com.qingji.app.data.local.entity.DailyHealthSummaryEntity?
-        val available = daySummary != null
+        WidgetPerf.end(trace, cache = "queries", extra = "n=7")
 
-        val goal = profile?.dailyKcalGoal?.takeIf { it > 0 } ?: 2000
-        val eaten = (summary?.totalKcal ?: 0.0).toInt()
-        val remaining = ExerciseCompensation.remainingWithBonus(
-            goalKcal = goal,
-            eatenKcal = eaten,
-            exerciseKcal = exerciseKcal,
-            enabled = settings.exerciseCompensation,
-            pct = settings.exerciseCompensationPct
-        )
+        @Suppress("UNCHECKED_CAST")
+        val profile = results[0] as Outcome<com.qingji.app.data.local.entity.UserProfile>
+        @Suppress("UNCHECKED_CAST")
+        val summary = results[1] as Outcome<com.qingji.app.data.local.dao.DailySummary>
+        @Suppress("UNCHECKED_CAST")
+        val water = results[2] as Outcome<Int>
+        @Suppress("UNCHECKED_CAST")
+        val latest = results[3] as Outcome<Double>
+        @Suppress("UNCHECKED_CAST")
+        val exercise = results[4] as Outcome<Double>
+        @Suppress("UNCHECKED_CAST")
+        val workout = results[5] as Outcome<Int>
+        @Suppress("UNCHECKED_CAST")
+        val sleep = results[6] as Outcome<Int>
+
+        // 只有三项输入都可用时才计算剩余；否则 remainingKcal 保持默认值但 UI 显示 --。
+        val canShowRemaining = profile.state != ItemState.FAILED &&
+            summary.state != ItemState.FAILED &&
+            exercise.state != ItemState.FAILED
+        val goal = profile.value?.dailyKcalGoal?.takeIf { it > 0 } ?: 2000
+        val eaten = (summary.value?.totalKcal ?: 0.0).toInt()
+        val exerciseKcal = exercise.value ?: 0.0
+        val remaining = if (canShowRemaining) {
+            ExerciseCompensation.remainingWithBonus(
+                goalKcal = goal,
+                eatenKcal = eaten,
+                exerciseKcal = exerciseKcal,
+                enabled = settings.exerciseCompensation,
+                pct = settings.exerciseCompensationPct
+            )
+        } else 0
+
         val data = WidgetData(
             goalKcal = goal,
             eatenKcal = eaten,
             remainingKcal = remaining,
-            protein = (summary?.totalProtein ?: 0.0).toInt(),
-            proteinGoal = profile?.proteinGoalG ?: 0,
-            carb = (summary?.totalCarb ?: 0.0).toInt(),
-            carbGoal = profile?.carbGoalG ?: 0,
-            fat = (summary?.totalFat ?: 0.0).toInt(),
-            fatGoal = profile?.fatGoalG ?: 0,
-            water = water,
+            protein = (summary.value?.totalProtein ?: 0.0).toInt(),
+            proteinGoal = profile.value?.proteinGoalG ?: 0,
+            carb = (summary.value?.totalCarb ?: 0.0).toInt(),
+            carbGoal = profile.value?.carbGoalG ?: 0,
+            fat = (summary.value?.totalFat ?: 0.0).toInt(),
+            fatGoal = profile.value?.fatGoalG ?: 0,
+            water = water.value ?: 0,
             waterGoal = settings.waterGoalMl,
+            profileState = profile.state,
+            dietState = summary.state,
+            waterState = water.state,
+            exerciseState = exercise.state,
+            weightState = latest.state,
             hasSnapshot = true,
-            latestWeight = latest,
-            unit = profile?.unit ?: "kg",
-            workoutAvailable = available,
-            sleepAvailable = available,
-            workoutMinutes = daySummary?.workoutDurationMinutes ?: 0,
-            sleepMinutes = daySummary?.sleepDurationMinutes ?: 0,
+            latestWeight = latest.value,
+            unit = profile.value?.unit ?: "kg",
+            workoutState = workout.state,
+            sleepState = sleep.state,
+            workoutMinutes = workout.value ?: 0,
+            sleepMinutes = sleep.value ?: 0,
             dataDate = today,
             zoneId = AppClock.zone.id,
             snapshotAt = System.currentTimeMillis()
@@ -156,8 +219,14 @@ object WidgetSnapshotRepo {
     suspend fun load(context: Context): WidgetData = try {
         loadFresh(context)
     } catch (e: Exception) {
-        loadValidSnapshot(context)?.copy(stale = true)
-            ?: WidgetData(stale = true, hasSnapshot = false, dataDate = AppClock.today(), zoneId = AppClock.zone.id)
+        val t = WidgetPerf.begin("loadFallback", "SNAPSHOT")
+        val result = loadValidSnapshot(context)?.copy(stale = true)
+            ?: WidgetData(
+                stale = true, hasSnapshot = false,
+                dataDate = AppClock.today(), zoneId = AppClock.zone.id
+            )
+        WidgetPerf.end(t, cache = if (result.hasSnapshot) "snapshot_hit" else "no_snapshot")
+        result
     }
 
     /** 恢复记录时区：统一走 BusinessClock（小组件独立进程不执行 MainActivity）。 */
@@ -188,7 +257,9 @@ object WidgetSnapshotRepo {
 
                 // 添加卡顿主因：commit() 同步写磁盘 + fsync，在 Glance 主线程阻塞几十~几百毫秒。
                 // 快照只是展示兜底（非业务数据源），丢最后一次可接受 → apply() 内存态立即生效、磁盘异步。
+                val t = WidgetPerf.begin("snapshotWrite", "SNAPSHOT")
                 prefs.edit().putString(KEY_JSON, toJson(data).toString()).apply()
+                WidgetPerf.end(t)
             } catch (e: Exception) {
                 // 写失败保留上一份有效快照，不影响本次展示
                 android.util.Log.w("WidgetSnapshotRepo", "快照写入失败，保留上一份", e)
@@ -207,8 +278,14 @@ object WidgetSnapshotRepo {
         put("water", d.water); put("waterGoal", d.waterGoal)
         put("latestWeight", d.latestWeight ?: JSONObject.NULL)
         put("unit", d.unit)
-        put("workoutAvailable", d.workoutAvailable)
-        put("sleepAvailable", d.sleepAvailable)
+        // P0：分项状态一并落盘，旧快照（schema 1）无这些字段 → fromJson 直接作废。
+        put("profileState", d.profileState.name)
+        put("dietState", d.dietState.name)
+        put("waterState", d.waterState.name)
+        put("exerciseState", d.exerciseState.name)
+        put("weightState", d.weightState.name)
+        put("workoutState", d.workoutState.name)
+        put("sleepState", d.sleepState.name)
         put("workoutMinutes", d.workoutMinutes)
         put("sleepMinutes", d.sleepMinutes)
         put("dataDate", d.dataDate?.toString() ?: "")
@@ -245,9 +322,14 @@ object WidgetSnapshotRepo {
             w
         }
 
-        // W-07：分项可用状态 + 分钟数严格校验
-        val workoutAvailable = o.getBoolean("workoutAvailable")
-        val sleepAvailable = o.getBoolean("sleepAvailable")
+        // P0：分项状态严格解析；缺失/非法值整份作废（不静默回落默认状态）。
+        val profileState = strictState(o, "profileState")
+        val dietState = strictState(o, "dietState")
+        val waterState = strictState(o, "waterState")
+        val exerciseState = strictState(o, "exerciseState")
+        val weightState = strictState(o, "weightState")
+        val workoutState = strictState(o, "workoutState")
+        val sleepState = strictState(o, "sleepState")
         val workoutMinutes = strictInt(o, "workoutMinutes", 0, 100_000)
         val sleepMinutes = strictInt(o, "sleepMinutes", 0, 100_000)
 
@@ -257,9 +339,11 @@ object WidgetSnapshotRepo {
             carb = carb, carbGoal = strictInt(o, "carbGoal", 0, 100_000),
             fat = fat, fatGoal = strictInt(o, "fatGoal", 0, 100_000),
             water = water, waterGoal = waterGoal,
+            profileState = profileState, dietState = dietState, waterState = waterState,
+            exerciseState = exerciseState, weightState = weightState,
             latestWeight = weight,
             unit = strictString(o, "unit"),
-            workoutAvailable = workoutAvailable, sleepAvailable = sleepAvailable,
+            workoutState = workoutState, sleepState = sleepState,
             workoutMinutes = workoutMinutes, sleepMinutes = sleepMinutes,
             hasSnapshot = true,
             dataDate = dataDate, zoneId = zoneId, snapshotAt = snapshotAt
@@ -279,6 +363,12 @@ object WidgetSnapshotRepo {
     }
 
     private fun strictString(o: JSONObject, key: String): String = o.getString(key)
+
+    private fun strictState(o: JSONObject, key: String): ItemState {
+        val name = o.getString(key)
+        return runCatching { ItemState.valueOf(name) }
+            .getOrElse { throw JSONException("$key invalid: $name") }
+    }
 
     /** 测试用：清空快照。 */
     internal fun clear(context: Context) {

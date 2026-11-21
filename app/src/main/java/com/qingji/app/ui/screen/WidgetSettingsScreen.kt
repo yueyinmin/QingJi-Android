@@ -57,6 +57,8 @@ import com.qingji.app.widget.OverviewWidgetReceiver
 import com.qingji.app.widget.QuickRecordWidgetReceiver
 import com.qingji.app.widget.WeightWidgetReceiver
 import com.qingji.app.widget.WidgetSpec
+import com.qingji.app.widget.WidgetTarget
+import com.qingji.app.widget.WidgetPerf
 
 /**
  * ============================================================
@@ -156,7 +158,7 @@ fun WidgetSettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = viewModel()
             WidgetCard(
                 title = "快捷记录（2×2）",
                 desc = "早餐 / 体重 / 喝水 / 拍照，点一下直达",
-                onAdd = { requestPin(context, QuickRecordWidgetReceiver::class.java) },
+                onAdd = { requestPin(context, QuickRecordWidgetReceiver::class.java, WidgetTarget.QUICK) },
                 previewAlpha = settings.widgetAlpha / 100f
             ) {
                 // V2 阶段5：预览与真实 Glance 同款「图标+短标签」轻量入口
@@ -177,13 +179,13 @@ fun WidgetSettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = viewModel()
             WidgetCard(
                 title = "今日概览（4×2）",
                 desc = "剩余热量 + 三条营养条 + 饮水",
-                onAdd = { requestPin(context, OverviewWidgetReceiver::class.java) },
+                onAdd = { requestPin(context, OverviewWidgetReceiver::class.java, WidgetTarget.OVERVIEW) },
                 previewAlpha = settings.widgetAlpha / 100f
             ) {
                 Text(text = WidgetSpec.LABEL_REMAINING, fontSize = 11.sp, color = TextSecondary)
                 Text(
                     text = "${WidgetSpec.SAMPLE_REMAINING} ${WidgetSpec.LABEL_KCAL_UNIT}",
-                    fontSize = 22.sp,
+                    fontSize = WidgetSpec.REMAINING_NUMBER_SP.sp,
                     fontWeight = FontWeight.Bold,
                     color = TextPrimary
                 )
@@ -212,7 +214,7 @@ fun WidgetSettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = viewModel()
             WidgetCard(
                 title = "体重闪记（4×1）",
                 desc = "当前体重 + 记录按钮",
-                onAdd = { requestPin(context, WeightWidgetReceiver::class.java) },
+                onAdd = { requestPin(context, WeightWidgetReceiver::class.java, WidgetTarget.WEIGHT) },
                 previewAlpha = settings.widgetAlpha / 100f
             ) {
                 Row(
@@ -227,18 +229,18 @@ fun WidgetSettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = viewModel()
                                 com.qingji.app.domain.WeightUnit.formatWithSymbol(
                                     WidgetSpec.SAMPLE_WEIGHT.toDouble(), "kg"
                                 ) else WidgetSpec.LABEL_WEIGHT_HIDDEN,
-                            fontSize = 24.sp,
+                            fontSize = WidgetSpec.WEIGHT_NUMBER_SP.sp,
                             fontWeight = FontWeight.Bold,
                             color = TextPrimary
                         )
                     }
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(WidgetSpec.WEIGHT_BUTTON_GAP_DP.dp))
                     Text(
                         text = WidgetSpec.LABEL_RECORD,
                         fontSize = 12.sp,
                         color = WidgetSpec.GREEN,
                         modifier = Modifier
-                            .clip(RoundedCornerShape(10.dp))
+                            .clip(RoundedCornerShape(WidgetSpec.TILE_CORNER_DP.dp))
                             .background(WidgetSpec.GREEN_LIGHT)
                             .padding(horizontal = 12.dp, vertical = 8.dp)
                     )
@@ -359,18 +361,18 @@ private fun QuickCell(label: String, iconRes: Int) {
     Column(
         modifier = Modifier
             .size(width = 74.dp, height = 52.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .background(CardWhite.copy(alpha = 0.55f)),
+            .clip(RoundedCornerShape(WidgetSpec.TILE_CORNER_DP.dp))
+            .background(CardWhite.copy(alpha = WidgetSpec.TILE_BG_ALPHA)),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         androidx.compose.foundation.Image(
             painter = androidx.compose.ui.res.painterResource(iconRes),
             contentDescription = label,
-            modifier = Modifier.size(18.dp)
+            modifier = Modifier.size(WidgetSpec.QUICK_ICON_DP.dp)
         )
-        Spacer(Modifier.height(2.dp))
-        Text(text = label, fontSize = 10.sp, color = TextPrimary)
+        Spacer(Modifier.height(WidgetSpec.QUICK_ICON_LABEL_GAP_DP.dp))
+        Text(text = label, fontSize = WidgetSpec.QUICK_LABEL_SP.sp, color = TextPrimary)
     }
 }
 
@@ -383,7 +385,8 @@ private fun MiniBar(
     color: Color,
     modifier: Modifier = Modifier
 ) {
-    val progress = if (goal <= 0) 0f else (current.toFloat() / goal).coerceIn(0f, 1f)
+    // V3：与真实 MacroBar 共用同一安全进度算法（目标<=0/超目标/异常输入）。
+    val progress = com.qingji.app.widget.WidgetProgress.fraction(current, goal)
     Column(modifier = modifier) {
         Text(text = label, fontSize = 9.sp, color = TextSecondary)
         Spacer(Modifier.height(3.dp))
@@ -409,15 +412,19 @@ private fun MiniBar(
 }
 
 /** 请求把小组件固定到桌面。 */
-private fun requestPin(context: Context, receiver: Class<*>) {
+private fun requestPin(context: Context, receiver: Class<*>, target: WidgetTarget? = null) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
         Toast.makeText(context, "系统版本太低，请长按桌面手动添加", Toast.LENGTH_SHORT).show()
+        WidgetPerf.mark("pin_request", target?.name ?: "-", "unsupported_sdk")
         return
     }
+    val pinTrace = WidgetPerf.begin("pin_request", target?.name ?: "-")
     val manager = AppWidgetManager.getInstance(context)
     val component = ComponentName(context, receiver)
     if (!manager.isRequestPinAppWidgetSupported) {
         Toast.makeText(context, "这台手机不支持自动添加，请长按桌面手动添加", Toast.LENGTH_SHORT).show()
+        WidgetPerf.mark("pin_request", target?.name ?: "-", "unsupported_launcher")
+        WidgetPerf.end(pinTrace, extra = "supported=false") // V3：早退也要闭合埋点生命周期
         return
     }
     // 用户确认固定成功后回调 → 立即用当前代码/数据重绘全部小组件，
@@ -425,6 +432,7 @@ private fun requestPin(context: Context, receiver: Class<*>) {
     manager.requestPinAppWidget(
         component,
         null,
-        com.qingji.app.widget.WidgetPinReceiver.pendingIntent(context)
+        com.qingji.app.widget.WidgetPinReceiver.pendingIntent(context, target)
     )
+    WidgetPerf.end(pinTrace, extra = "supported=true")
 }

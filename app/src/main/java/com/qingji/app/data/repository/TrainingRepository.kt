@@ -37,7 +37,12 @@ import kotlinx.coroutines.flow.map
  *    独立运动模块（exercise_log）的补偿通道行为不变，只是多了账本镜像。
  * ============================================================
  */
-class TrainingRepository(context: Context) {
+class TrainingRepository(
+    private val context: Context,
+    /** V3 最终缺陷修复：可注入刷新钩子（生产默认走 WidgetRefresher，测试可替换验证行为）。 */
+    private val refreshHook: (Context, Set<com.qingji.app.widget.WidgetTarget>) -> Unit =
+        { c, targets -> com.qingji.app.widget.WidgetRefresher.refresh(c, targets) }
+) {
 
     private val db = AppDatabase.get(context)
     private val exerciseDao = db.exerciseDao()
@@ -272,15 +277,21 @@ class TrainingRepository(context: Context) {
 
     /** 删除会话要连明细、连消耗账本、连运动日记日志一起删，不留孤儿行。 */
     suspend fun deleteSession(uuid: String) {
-        db.withTransaction {
+        // V3 最终缺陷修复 P1：先在事务内取业务日期与实际删除行数，
+        // 事务成功提交后仅当「目标存在且业务日期==AppClock.today()」才刷新 OVERVIEW。
+        val shouldRefresh = db.withTransaction {
+            val sessionDate = sessionDao.findByUuid(uuid)?.date
             workoutExerciseDao.deleteBySession(uuid)
             workoutCardioDao.deleteBySession(uuid)
             sessionDao.deleteByUuid(uuid)
             healthRepository.ledgerDao().deleteBySource(
                 HealthRepository.SOURCE_STRENGTH_TRAINING, uuid
             )
-            // v1.4.2：联动删掉写进运动日记的那条，删训练后日记不残留
             exerciseLogDao.deleteBySourceId(uuid)
+            sessionDate != null && sessionDate == com.qingji.app.domain.AppClock.today()
+        }
+        if (shouldRefresh) {
+            refreshHook(context, setOf(com.qingji.app.widget.WidgetTarget.OVERVIEW))
         }
     }
 

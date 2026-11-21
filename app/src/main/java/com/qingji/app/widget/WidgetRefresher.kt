@@ -56,6 +56,9 @@ object WidgetRefresher {
     /** 给 UI 层 / 仓库写入后用：定向合并刷新，不阻塞界面。 */
     fun refresh(context: Context, targets: Set<WidgetTarget> = ALL) {
         appContext = context.applicationContext
+        // B2：设置/数据写入后主动使 Widget 设置快照失效，保证外观最终一致。
+        WidgetSettingsCache.invalidate()
+        WidgetPerf.mark("refresh_enqueue", detail = targets.joinToString(",") { it.name })
         scope.launch {
             mutex.withLock { queued.update { it + targets } }
         }
@@ -71,10 +74,13 @@ object WidgetRefresher {
         val context = appContext ?: return
         val widgets: List<GlanceAppWidget> = targets.mapNotNull { widgetOf[it] }
         widgets.forEach { widget ->
+            val t = WidgetPerf.begin("updateAll", "REFRESH")
             try {
                 widget.updateAll(context)
             } catch (e: Exception) {
                 // 某个组件没被添加到桌面时 updateAll 可能失败，不能影响其它组件
+            } finally {
+                WidgetPerf.end(t)
             }
         }
     }
@@ -90,7 +96,10 @@ object WidgetRefresher {
                     queued.value = emptySet()
                     snapshot
                 }
-                if (targets.isNotEmpty()) refreshNowInternal(targets)
+                if (targets.isNotEmpty()) {
+                    WidgetPerf.mark("refresh_merged", detail = targets.joinToString(",") { it.name })
+                    refreshNowInternal(targets)
+                }
             }
         }
     }

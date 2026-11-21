@@ -178,6 +178,14 @@ class QingJiRepository(private val context: Context) {
     // ---------- 体重 ----------
     fun observeWeightLogs(): Flow<List<WeightLog>> = db.weightLogDao().observeAll()
     suspend fun latestWeight(): WeightLog? = db.weightLogDao().latest()
+
+    /**
+     * Widget 专用当前有效体重（工单 A3）：排除未来日期回填/误录，同日多条取最新一条。
+     * 既有 latest() 保持不变，避免影响首页/曲线页的历史语义。
+     */
+    suspend fun latestEffectiveWeight(today: LocalDate): WeightLog? =
+        db.weightLogDao().latestEffective(today)
+
     suspend fun saveWeight(log: WeightLog) {
         db.weightLogDao().save(log)
         db.usageStatDao().increment(log.date, "weight")
@@ -238,9 +246,21 @@ class QingJiRepository(private val context: Context) {
     suspend fun deleteExercise(id: Long) {
         // P1-04：删源记录与删账本镜像放在同一事务，同时成功或同时回滚，
         // 杜绝「源没了但账本残留孤儿行导致消耗多计」。
-        db.withTransaction {
-            db.exerciseLogDao().deleteById(id)
-            healthRepository().deleteExerciseLogMirror(id)
+        // 工单 A2：只有删除真的发生（影响行数 > 0）才刷新 OVERVIEW——
+        // Widget 的「今日剩余」含运动补偿，删运动后必须与首页同口径即时更新。
+        val deleted = db.withTransaction {
+            // 删除前先取日期：历史日期的删除不影响今日剩余，避免无差别刷新。
+            val logDate = db.exerciseLogDao().findById(id)?.date
+            val n = db.exerciseLogDao().deleteByIdCount(id)
+            if (n > 0) {
+                healthRepository().deleteExerciseLogMirror(id)
+                logDate == AppClock.today() || logDate == null
+            } else false
+        }
+        if (deleted) {
+            com.qingji.app.widget.WidgetRefresher.refresh(
+                context, setOf(com.qingji.app.widget.WidgetTarget.OVERVIEW)
+            )
         }
     }
 
@@ -843,7 +863,19 @@ class QingJiRepository(private val context: Context) {
         logs.forEach { addFoodLog(it) }
     }
 
-    suspend fun deleteFoodLog(id: Long) = db.foodLogDao().deleteById(id)
+    /**
+     * 工单 A1：删除饮食记录后必须让 Widget 的今日总览即时反映新热量/营养。
+     * 只有实际删除了行（影响行数 > 0）才触发 OVERVIEW 定向刷新；
+     * id 不存在 / 删除失败 / 事务回滚时不发「数据已更新」的副作用。
+     */
+    suspend fun deleteFoodLog(id: Long) {
+        val deleted = db.foodLogDao().deleteByIdCount(id)
+        if (deleted > 0) {
+            com.qingji.app.widget.WidgetRefresher.refresh(
+                context, setOf(com.qingji.app.widget.WidgetTarget.OVERVIEW)
+            )
+        }
+    }
 
     // ---------- 用餐详情 ----------
 

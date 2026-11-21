@@ -77,6 +77,8 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
             val safe = ml.coerceIn(500, 6000)
             SettingsStore.set(context, SettingsKeys.WATER_GOAL, safe)
             profile.value?.let { repo.saveProfile(it.copy(waterGoalMl = safe)) }
+            // V3：widget 读 waterGoalMl，持久化成功后使设置缓存失效
+            com.qingji.app.widget.WidgetRefresher.refresh(context)
             toast("饮水目标已改为 $safe ml")
         }
     }
@@ -131,8 +133,11 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun setExerciseCompensation(enabled: Boolean) =
+    fun setExerciseCompensation(enabled: Boolean) {
         put(SettingsKeys.EXERCISE_COMPENSATION, enabled)
+        // V3：补偿开关影响 widget 今日剩余
+        com.qingji.app.widget.WidgetRefresher.refresh(context)
+    }
 
     /** 补偿比例 0-100；0 等于关闭。滑杆四段（0/25/50/75/100）。
      *  2026-11-18：比例是唯一开关，选 0% 就等于关闭，同步写布尔键保持一致。 */
@@ -140,6 +145,8 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         val v = pct.coerceIn(0, 100)
         put(SettingsKeys.EXERCISE_COMPENSATION_PCT, v)
         put(SettingsKeys.EXERCISE_COMPENSATION, v > 0)
+        // V3：补偿比例影响 widget 今日剩余（put 是异步协程，refresh 合并 250ms 已覆盖最终值）
+        com.qingji.app.widget.WidgetRefresher.refresh(context)
     }
 
     fun setDietPreference(text: String) = put(SettingsKeys.DIET_PREFERENCE, text)

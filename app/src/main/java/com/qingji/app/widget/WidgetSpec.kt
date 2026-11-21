@@ -52,6 +52,29 @@ object WidgetSpec {
     const val CORNER_CARD_DP = 18
     const val MACRO_BAR_HEIGHT_DP = 5
 
+    // ---- V3 视觉精修：Glance 与设置页预览共享的尺寸/间距规格 ----
+    /** 卡片内边距（今日概览四周、体重左右）。 */
+    const val CARD_PADDING_DP = 14
+    const val CARD_PADDING_H_DP = 14
+    /** 体重组件垂直内边距（压缩留白，保持触控面积）。 */
+    const val WEIGHT_PADDING_V_DP = 6
+    /** 营养条并排间距。 */
+    const val MACRO_GAP_DP = 8
+    /** 快捷入口格子底色透明度与圆角。 */
+    const val TILE_BG_ALPHA = 0.55f
+    const val TILE_CORNER_DP = 10
+    const val QUICK_ICON_DP = 18
+    const val QUICK_LABEL_SP = 10
+    const val QUICK_ICON_LABEL_GAP_DP = 2
+    const val QUICK_TILE_GAP_DP = 2
+    /** 今日剩余大数字字号（Glance 与预览共用）。 */
+    const val REMAINING_NUMBER_SP = 26
+    /** 体重数字字号 / 记录按钮尺寸与间距。 */
+    const val WEIGHT_NUMBER_SP = 24
+    const val WEIGHT_BUTTON_W_DP = 60
+    const val WEIGHT_BUTTON_H_DP = 40
+    const val WEIGHT_BUTTON_GAP_DP = 8
+
     // ---- V2 阶段5：预览与 Glance 共享的展示规则（避免两处硬编码漂移） ----
     /** 背景不透明度范围（SettingsStore/ViewModel/Glance/预览四处共用）。 */
     const val ALPHA_MIN = 30
