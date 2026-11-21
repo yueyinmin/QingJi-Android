@@ -262,6 +262,29 @@ fun WidgetSettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = viewModel()
                     fontSize = 11.sp,
                     color = TextSecondary
                 )
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    text = "删掉重新添加不会重置外观设置。若外观和预期不一致，可恢复默认：",
+                    fontSize = 11.sp, color = TextSecondary
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "恢复默认外观",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = QingJiGreenDark,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(QingJiGreenLight)
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                        .clickable {
+                            vm.setWidgetAlpha(100)
+                            vm.setWidgetShowWater(true)
+                            vm.setWidgetShowMacro(true)
+                            vm.setWidgetShowWeight(true)
+                            alphaDraft = 100f
+                        }
+                )
             }
 
             Spacer(Modifier.height(Dimens.FabSpace))
@@ -397,5 +420,11 @@ private fun requestPin(context: Context, receiver: Class<*>) {
         Toast.makeText(context, "这台手机不支持自动添加，请长按桌面手动添加", Toast.LENGTH_SHORT).show()
         return
     }
-    manager.requestPinAppWidget(component, null, null)
+    // 用户确认固定成功后回调 → 立即用当前代码/数据重绘全部小组件，
+    // 不再等 30 分钟系统周期（解决「删掉重加看起来没变化」）。
+    manager.requestPinAppWidget(
+        component,
+        null,
+        com.qingji.app.widget.WidgetPinReceiver.pendingIntent(context)
+    )
 }

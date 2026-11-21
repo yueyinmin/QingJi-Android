@@ -6,6 +6,10 @@ import com.qingji.app.data.repository.HealthRepository
 import com.qingji.app.data.repository.QingJiRepository
 import com.qingji.app.domain.AppClock
 import com.qingji.app.domain.ExerciseCompensation
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -34,6 +38,16 @@ object WidgetSnapshotRepo {
     /** W-02：进程内串行化快照写入（Manifest 无 android:process，Widget 与 App 同进程）。 */
     private val writeMutex = Mutex()
 
+    /**
+     * 预热快照 SharedPreferences：首次 getSharedPreferences 会同步把整个 XML 读进内存，
+     * 若发生在添加小组件的主线程会有可感知卡顿。App 启动时在 IO 线程先碰一次。
+     */
+    fun warmUp(context: Context) {
+        try {
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_JSON, null)
+        } catch (e: Exception) { /* 预热失败不影响功能，真正读取时会再取一次 */ }
+    }
+
     /** 新鲜度分类（W-03）：日期/时区有效性与新鲜度是两个独立判断。 */
     enum class Freshness { FRESH, STALE, NO_SNAPSHOT }
 
@@ -46,18 +60,39 @@ object WidgetSnapshotRepo {
     suspend fun loadFresh(context: Context): WidgetData {
         restoreZone(context)
         val today = AppClock.today()
+        // 添加卡顿：原来 7 次查询串行 await，冷启动叠加 DB 首次打开可达数百毫秒~1秒。
+        // 改为 IO 线程池并发查询（各 DAO 本身已在 Room queryExecutor，这里进一步并行发起），
+        // 主线程只 await 一次总时长；每项内部各自 catch，一项失败不影响其余。
         val settings = SettingsStore.observe(context).first()
         val repo = QingJiRepository(context)
-        val profile = repo.observeProfile().first()
-        val summary = repo.observeDailySummary(today).first()
-        val water = repo.observeWaterMl(today).first() ?: 0
-        val latest = repo.latestWeight()?.weightKg
-        val exerciseKcal = HealthRepository(context).observeDailyExerciseCalories(today).first()
-
-        // W-07：训练/睡眠分别读取、分别可用，一项失败不影响另一项，也不伪装成真实 0。
-        val daySummary = try {
-            com.qingji.app.data.repository.DailyHealthRepository(context).summaryFor(today)
-        } catch (e: Exception) { null }
+        val results = coroutineScope {
+            val tasks = listOf(
+                async(Dispatchers.IO) { runCatching { repo.observeProfile().first() }.getOrNull() },
+                async(Dispatchers.IO) { runCatching { repo.observeDailySummary(today).first() }.getOrNull() },
+                async(Dispatchers.IO) { runCatching { repo.observeWaterMl(today).first() ?: 0 }.getOrNull() ?: 0 },
+                async(Dispatchers.IO) { runCatching { repo.latestWeight()?.weightKg }.getOrNull() },
+                async(Dispatchers.IO) {
+                    runCatching {
+                        HealthRepository(context).observeDailyExerciseCalories(today).first()
+                    }.getOrNull() ?: 0.0
+                },
+                // W-07：训练/睡眠分别读取、分别可用，一项失败不影响另一项，也不伪装成真实 0。
+                async(Dispatchers.IO) {
+                    runCatching {
+                        com.qingji.app.data.repository.DailyHealthRepository(context).summaryFor(today)
+                    }.getOrNull()
+                }
+            )
+            tasks.awaitAll()
+        }
+        @Suppress("UNCHECKED_CAST")
+        val profile = results[0] as com.qingji.app.data.local.entity.UserProfile?
+        @Suppress("UNCHECKED_CAST")
+        val summary = results[1] as com.qingji.app.data.local.dao.DailySummary?
+        val water = results[2] as Int
+        val latest = results[3] as Double?
+        val exerciseKcal = results[4] as Double
+        val daySummary = results[5] as com.qingji.app.data.local.entity.DailyHealthSummaryEntity?
         val available = daySummary != null
 
         val goal = profile?.dailyKcalGoal?.takeIf { it > 0 } ?: 2000
@@ -151,7 +186,9 @@ object WidgetSnapshotRepo {
 
                 if (data.snapshotAt <= existingAt) return@withLock // 旧结果不覆盖新结果
 
-                prefs.edit().putString(KEY_JSON, toJson(data).toString()).commit()
+                // 添加卡顿主因：commit() 同步写磁盘 + fsync，在 Glance 主线程阻塞几十~几百毫秒。
+                // 快照只是展示兜底（非业务数据源），丢最后一次可接受 → apply() 内存态立即生效、磁盘异步。
+                prefs.edit().putString(KEY_JSON, toJson(data).toString()).apply()
             } catch (e: Exception) {
                 // 写失败保留上一份有效快照，不影响本次展示
                 android.util.Log.w("WidgetSnapshotRepo", "快照写入失败，保留上一份", e)
@@ -245,6 +282,6 @@ object WidgetSnapshotRepo {
 
     /** 测试用：清空快照。 */
     internal fun clear(context: Context) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(KEY_JSON).commit()
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(KEY_JSON).apply()
     }
 }

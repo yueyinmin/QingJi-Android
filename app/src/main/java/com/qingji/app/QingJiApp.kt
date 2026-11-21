@@ -27,6 +27,10 @@ class QingJiApp : Application() {
                 // 放后台协程 + 挂起读 DataStore，不在 onCreate 主线程同步读。
                 com.qingji.app.domain.BusinessClock.restore(this@QingJiApp)
 
+                // 小组件快照 SP 首次读取会同步加载 XML；在 IO 线程预热，
+                // 避免用户添加小组件时在主线程碰到这段首次 I/O 而卡顿。
+                com.qingji.app.widget.WidgetSnapshotRepo.warmUp(this@QingJiApp)
+
                 val repo = QingJiRepository(this@QingJiApp)
                 // 只是确认标准库能打开、顺便把实例预热好，不再写任何标准食物
                 repo.ensurePresetFoods()
