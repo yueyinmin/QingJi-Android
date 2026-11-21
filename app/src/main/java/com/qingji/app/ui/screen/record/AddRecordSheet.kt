@@ -182,8 +182,9 @@ fun AddRecordSheet(
                 }
             }
 
-            // ---------- B. 饮食快捷区（工单 2.2 B） ----------
-            SectionLabel("饮食快捷")
+            // ---------- B. 饮食快捷区（工单 2.2 B）----------
+            // 分区小标题已按用户要求移除，只保留功能入口；用间距维持分组感
+            Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 SheetIconCard("语音输入", Icons.Outlined.Mic, MultiColor.Voice, Modifier.weight(1f)) {
                     go(onVoice)
@@ -202,7 +203,7 @@ fun AddRecordSheet(
             // ---------- C. 日常管理区（工单 2.2 C）：喝水 / 每日打卡 / 睡眠 / 自律管理 ----------
             // v1.4：每日打卡只有一个入口；冲动记录、目标偏离并入「自律管理」；
             // 睡眠从记一笔直达（工单 9）。
-            SectionLabel("日常管理")
+            Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 SheetIconCard("记录喝水", Icons.Outlined.WaterDrop, MultiColor.Drink, Modifier.weight(1f)) {
                     go(onWater)
@@ -221,7 +222,7 @@ fun AddRecordSheet(
             // ---------- D. 运动与身体区（工单 2.2 D）：四宫格，删除重复「记录运动」 ----------
             // 原来的「记录运动」「记录有氧」两个入口跳的是同一个页面（重复），
             // 按工单只保留「记录有氧」；力量训练继续走「开始训练」。
-            SectionLabel("运动与身体")
+            Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SheetWideCard("开始训练", "🏋️", MultiColor.Exercise, Modifier.weight(1f)) {
                     go(onStartTraining)
@@ -245,14 +246,6 @@ fun AddRecordSheet(
             Spacer(Modifier.height(8.dp))
         }
     }
-}
-
-/** v1.4 方案 A：分区小标题（工单 2.2 的 B/C/D 区）。 */
-@Composable
-private fun SectionLabel(text: String) {
-    Spacer(Modifier.height(8.dp))
-    Text(text, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = TextSecondary)
-    Spacer(Modifier.height(4.dp))
 }
 
 /**
