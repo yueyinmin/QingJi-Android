@@ -1,5 +1,6 @@
 package com.qingji.app.ui.screen.training
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ScrollState
@@ -208,13 +209,23 @@ fun TrainingDiaryContent(
             Spacer(Modifier.height(12.dp))
 
             // ---------- 每日健康汇总（健康体系 V1.1，工单 10.4：选日期看当天全部模块） ----------
-            DailyHealthSummaryCard(
-                summary = daySummary?.takeIf { it.date == activeDate }
-            )
+            // 切日期时内容从 4 行塌成 1 行空态再填回，原来高度硬切导致下方内容跳动。
+            // animateContentSize 让高度平滑过渡（不改滚动位置、不重播日历动画）。
+            Box(modifier = Modifier.animateContentSize(animationSpec = tween(
+                durationMillis = 200, easing = FastOutSlowInEasing
+            ))) {
+                DailyHealthSummaryCard(
+                    summary = daySummary?.takeIf { it.date == activeDate }
+                )
+            }
             Spacer(Modifier.height(12.dp))
 
             // ---------- 当天饮食明细：按选中日期真实查询，四餐次 + 小计 + 合计 ----------
-            DayFoodDetailCard(foods = dayFoods)
+            Box(modifier = Modifier.animateContentSize(animationSpec = tween(
+                durationMillis = 200, easing = FastOutSlowInEasing
+            ))) {
+                DayFoodDetailCard(foods = dayFoods)
+            }
             Spacer(Modifier.height(12.dp))
 
             // QJ 日记日期查询：标题行带日期入口（复用首页 MonthPickerSheet）+ 前后一天切换；
@@ -246,14 +257,14 @@ fun TrainingDiaryContent(
             }
             Spacer(Modifier.height(8.dp))
 
-            // 局部日期切换动画：只对训练记录内容做淡出淡入，日历/汇总卡位置不动、
-            // 页面外层 verticalScroll 不动（不重置滚动位置、不重播日历入场动画）。
-            androidx.compose.animation.Crossfade(
-                targetState = activeDate,
-                animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
-                label = "diaryDaySessions"
-            ) { shownDate ->
-                val daySessions = sessions.filter { it.date == shownDate }
+            // 日期切换动画修复：原来用 Crossfade，新旧两套内容会同时参与测量、
+            // 高度取 max 再收缩，配合下方汇总卡清空，视觉上就是「下方内容跳一下像 bug」。
+            // 改为直接渲染当天内容 + animateContentSize：只有高度平滑过渡，
+            // 日历/统计卡与外层 verticalScroll 位置完全不动。
+            Box(modifier = Modifier.animateContentSize(animationSpec = tween(
+                durationMillis = 200, easing = FastOutSlowInEasing
+            ))) {
+                val daySessions = sessions.filter { it.date == activeDate }
                 if (daySessions.isEmpty()) {
                     SectionCard {
                         Text("这一天还没有训练记录", fontSize = TextSizes.Body, color = TextSecondary)

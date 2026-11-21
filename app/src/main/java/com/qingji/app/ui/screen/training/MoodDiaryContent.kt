@@ -1,5 +1,8 @@
 package com.qingji.app.ui.screen.training
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -170,6 +173,11 @@ fun MoodDiaryContent(
             }
             Spacer(Modifier.height(8.dp))
 
+            // 切日期时列表 0↔N 张卡高度突变，原来硬切会让下方内容跳动。
+            // animateContentSize 让高度平滑过渡，月历与滚动位置不动。
+            Box(modifier = Modifier.animateContentSize(animationSpec = tween(
+                durationMillis = 200, easing = FastOutSlowInEasing
+            ))) {
             val dayDiaries = diaries.filter { it.date == queryDate }
             if (dayDiaries.isEmpty()) {
                 SectionCard {
@@ -205,6 +213,7 @@ fun MoodDiaryContent(
                     Spacer(Modifier.height(8.dp))
                 }
             }
+            }   // animateContentSize 包裹结束
             // v9：悬浮底栏会盖住页尾内容，滚动尾部让出 Dock 高度
             // TASK-05：统一从 LocalAppSettings 取，不再单独订阅 SettingsStore。
             val settings = com.qingji.app.ui.LocalAppSettings.current
