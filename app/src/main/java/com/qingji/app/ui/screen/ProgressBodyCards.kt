@@ -184,8 +184,30 @@ private fun BodyFatSummary(bodyFat: com.qingji.app.domain.BodyMetricsCalculator.
 /** 右栏：BMI 数值 + 放大仪表盘 + 中国标准分级 */
 @Composable
 private fun BodyBmiSummary(bmi: Double, category: String, categoryColor: Color, profileReady: Boolean) {
-    Text(text = "BMI", fontSize = 11.sp, color = TextSecondary)
-    if (!profileReady || bmi <= 0) {
+    val hasData = profileReady && bmi > 0
+    // BMI 标题与分级胶囊同一行：标准跟着 BMI 走，不再堆在仪表盘下方另占一行；
+    // 去掉「中国标准」字样，减少纵向占用。
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(text = "BMI", fontSize = 11.sp, color = TextSecondary)
+        if (hasData) {
+            Text(
+                text = when (category) {
+                    "正常" -> "健康"
+                    else -> category
+                },
+                fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = categoryColor,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(categoryColor.copy(alpha = 0.12f))
+                    .padding(horizontal = 8.dp, vertical = 2.dp)
+            )
+        }
+    }
+    if (!hasData) {
         Text(text = "--", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = TextSecondary)
         Spacer(Modifier.height(4.dp))
         Text(text = s("补全身高体重后显示"), fontSize = 10.sp, color = TextSecondary)
@@ -195,22 +217,13 @@ private fun BodyBmiSummary(bmi: Double, category: String, categoryColor: Color, 
         text = String.format("%.1f", bmi),
         fontSize = 32.sp, fontWeight = FontWeight.Bold, color = TextPrimary
     )
-    // BMI 仪表盘放大：120×62dp（原 88×48），刻度映射与指针算法保持不变
+    // 仪表盘只画半圆+指针，数值已在上方放大展示，不再重复；刻度映射与指针算法不变
     Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        MiniBmiGauge(bmi = bmi, categoryColor = categoryColor, width = 120.dp, height = 62.dp)
+        MiniBmiGauge(
+            bmi = bmi, categoryColor = categoryColor,
+            width = 120.dp, height = 62.dp, showLabels = false
+        )
     }
-    Text(
-        text = when (category) {
-            "正常" -> "健康"
-            else -> category
-        },
-        fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = categoryColor,
-        modifier = Modifier
-            .clip(RoundedCornerShape(999.dp))
-            .background(categoryColor.copy(alpha = 0.12f))
-            .padding(horizontal = 10.dp, vertical = 2.dp)
-    )
-    Text(text = s("中国标准"), fontSize = 10.sp, color = TextSecondary)
 }
 
 /** 底部：减重进度（百分比 / 进度条 / 还差多少） */
@@ -254,7 +267,9 @@ internal fun MiniBmiGauge(
     bmi: Double,
     categoryColor: Color,
     width: androidx.compose.ui.unit.Dp = 88.dp,
-    height: androidx.compose.ui.unit.Dp = 48.dp
+    height: androidx.compose.ui.unit.Dp = 48.dp,
+    /** 仪表盘卡已在外层放大展示数值，内部不再重复画数字/BMI 字样 */
+    showLabels: Boolean = true
 ) {
     val hasData = bmi > 0
     val sweep = if (hasData) {
@@ -326,13 +341,15 @@ internal fun MiniBmiGauge(
             }
             drawCircle(color = needle, radius = 3.dp.toPx(), center = Offset(cx, cy))
         }
-        Text(
-            text = if (hasData) String.format("%.1f", bmi) else "--",
-            fontSize = 17.sp,
-            fontWeight = FontWeight.Bold,
-            color = if (hasData) categoryColor else TextSecondary
-        )
-        Text(text = "BMI", fontSize = 10.sp, color = TextSecondary)
+        if (showLabels) {
+            Text(
+                text = if (hasData) String.format("%.1f", bmi) else "--",
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (hasData) categoryColor else TextSecondary
+            )
+            Text(text = "BMI", fontSize = 10.sp, color = TextSecondary)
+        }
     }
 }
 
