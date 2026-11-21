@@ -28,6 +28,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import com.qingji.app.domain.BodyMetricsCalculator
+import com.qingji.app.domain.BodyMetricsCalculator.BodyFatSource
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -69,8 +71,11 @@ internal fun BodyDataCard(
     remain: Double,
     recordCount: Int,
     unit: String,
-    /** 最近一次有效体脂率（与当前体重可不同日） */
-    bodyFat: com.qingji.app.domain.BodyMetricsCalculator.BodyFatRecord? = null,
+    /** 体脂展示（实测优先，无实测则 Deurenberg 估算；含来源状态） */
+    bodyFatDisplay: com.qingji.app.domain.BodyMetricsCalculator.BodyFatDisplay =
+        com.qingji.app.domain.BodyMetricsCalculator.BodyFatDisplay(
+            null, com.qingji.app.domain.BodyMetricsCalculator.BodyFatSource.NONE
+        ),
     /** 目标是否已达成 */
     goalReached: Boolean = false,
     /** 点卡片进记体重页 */
@@ -85,7 +90,7 @@ internal fun BodyDataCard(
     )
 
     SectionCard {
-        // 顶部：标题（点进详情） + 健康同步入口（未接入，不伪造同步状态）
+        // 顶部：标题（点进详情）。本轮按工单移除健康同步占位入口。
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -96,7 +101,6 @@ internal fun BodyDataCard(
                 color = TextPrimary,
                 modifier = Modifier.clickable { onClick() }
             )
-            HealthSyncEntry()
         }
 
         Spacer(Modifier.height(12.dp))
@@ -106,7 +110,7 @@ internal fun BodyDataCard(
             Column(modifier = Modifier.weight(1f)) {
                 BodyWeightSummary(currentWeight, targetWeight, unit)
                 Spacer(Modifier.height(8.dp))
-                BodyFatSummary(bodyFat)
+                BodyFatSummary(bodyFatDisplay)
             }
             Spacer(Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
@@ -124,20 +128,6 @@ internal fun BodyDataCard(
             Text(text = s("个人资料还没填完整，进度可能显示为 0"), fontSize = 11.sp, color = WarnOrange)
         }
     }
-}
-
-/** 健康同步入口：当前无 Health Connect SDK，仅占位，不展示可误导的同步成功态。 */
-@Composable
-private fun HealthSyncEntry() {
-    Text(
-        text = s("健康同步 · 暂未开放"),
-        fontSize = 11.sp,
-        color = TextSecondary,
-        modifier = Modifier
-            .clip(RoundedCornerShape(999.dp))
-            .background(QingJiGreenLight)
-            .padding(horizontal = 10.dp, vertical = 4.dp)
-    )
 }
 
 /** 左栏：当前体重（视觉主体）+ 目标体重 */
@@ -163,21 +153,34 @@ private fun BodyWeightSummary(currentWeight: Double, targetWeight: Double, unit:
     )
 }
 
-/** 左栏：最近一次有效体脂率（不推算、不伪装实测） */
+/** 左栏：体脂率（实测优先，无实测则显示 Deurenberg 估算并明确标注来源） */
 @Composable
-private fun BodyFatSummary(bodyFat: com.qingji.app.domain.BodyMetricsCalculator.BodyFatRecord?) {
-    Text(text = s("体脂率"), fontSize = 11.sp, color = TextSecondary)
-    if (bodyFat == null) {
-        Text(text = s("未记录"), fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = TextSecondary)
-    } else {
-        Text(
-            text = "${String.format("%.1f", bodyFat.value)}%",
-            fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary
-        )
-        Text(
-            text = "${bodyFat.date} 记录",
-            fontSize = 10.sp, color = TextSecondary
-        )
+private fun BodyFatSummary(display: com.qingji.app.domain.BodyMetricsCalculator.BodyFatDisplay) {
+    val label = when (display.source) {
+        BodyFatSource.MEASURED -> s("体脂率 · 实测")
+        BodyFatSource.ESTIMATED -> s("体脂率 · 估算")
+        else -> s("体脂率")
+    }
+    Text(text = label, fontSize = 11.sp, color = TextSecondary)
+    when {
+        display.source == BodyFatSource.UNSUPPORTED -> {
+            Text(text = s("暂不支持估算"), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextSecondary)
+            Text(text = s("成年后可按资料估算"), fontSize = 10.sp, color = TextSecondary)
+        }
+        display.value == null -> {
+            Text(text = s("完善资料后估算"), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextSecondary)
+        }
+        else -> {
+            Text(
+                text = "${String.format("%.1f", display.value!!)}%",
+                fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary
+            )
+            Text(
+                text = if (display.source == BodyFatSource.MEASURED) "${display.measuredDate} 记录"
+                       else s("根据 BMI、年龄和性别估算，仅供趋势参考"),
+                fontSize = 10.sp, color = TextSecondary
+            )
+        }
     }
 }
 
@@ -195,10 +198,7 @@ private fun BodyBmiSummary(bmi: Double, category: String, categoryColor: Color, 
         Text(text = "BMI", fontSize = 11.sp, color = TextSecondary)
         if (hasData) {
             Text(
-                text = when (category) {
-                    "正常" -> "健康"
-                    else -> category
-                },
+                text = category,
                 fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = categoryColor,
                 modifier = Modifier
                     .clip(RoundedCornerShape(999.dp))

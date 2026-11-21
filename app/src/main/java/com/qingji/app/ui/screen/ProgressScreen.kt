@@ -165,6 +165,12 @@ fun ProgressScreen(
     val bmi = if (profile != null && currentWeight > 0) {
         NutritionCalculator.bmi(currentWeight, profile!!.heightCm)
     } else 0.0
+    // 年龄按生日现算周岁；缺失就是缺失，不回退默认值（工单禁止猜测）。
+    val ageYears = profile?.birthday?.let {
+        java.time.Period.between(it, AppClock.today()).years.takeIf { y -> y > 0 }
+    }
+    // 体脂展示：实测优先，无实测时用未舍入 BMI + 年龄 + 性别估算（标"估算"，不入库）。
+    val bodyFatDisplay = bodyMetrics.bodyFatDisplay(latestBodyFat, bmi, ageYears, profile?.gender)
     val category = NutritionCalculator.bmiCategory(bmi)
     val categoryColor = when (category) {
         "正常" -> NormalGreen
@@ -233,7 +239,7 @@ fun ProgressScreen(
             // 身体数据卡的记录次数也取全量，不随曲线范围变化
             recordCount = allLogs.size,
             unit = unit,
-            bodyFat = latestBodyFat,
+            bodyFatDisplay = bodyFatDisplay,
             goalReached = goalReached,
             onClick = onOpenWeight
         )

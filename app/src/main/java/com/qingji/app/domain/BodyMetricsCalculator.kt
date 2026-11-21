@@ -58,4 +58,60 @@ object BodyMetricsCalculator {
     /** 目标是否已达成（当前 <= 目标）。 */
     fun isGoalReached(currentWeight: Double, targetWeight: Double): Boolean =
         currentWeight.isFinite() && targetWeight.isFinite() && currentWeight <= targetWeight
+
+    // ---------- 体脂率：实测优先 / Deurenberg 估算回退（身体数据卡片工单 2026-11-21）----------
+
+    /** 体脂展示来源。UI 只能展示这些状态，不自行判断数据来源。 */
+    enum class BodyFatSource { MEASURED, ESTIMATED, NONE, UNSUPPORTED }
+
+    /**
+     * 体脂展示模型：值 + 来源 + 记录日期（实测时）。
+     * value 为 null 时 UI 显示 "--" 或对应不可用文案。
+     */
+    data class BodyFatDisplay(
+        val value: Double?,
+        val source: BodyFatSource,
+        val measuredDate: java.time.LocalDate? = null
+    )
+
+    /**
+     * Deurenberg 成人 BMI 体脂率估算：1.2*BMI + 0.23*age - 10.8*S - 5.4。
+     * - S：男=1 / 女=0；性别缺失返回 null（不默认按男性算）。
+     * - 年龄按周岁；<18 不适用成人公式，返回 null。
+     * - 输出必须在 3..70 且有限，否则返回 null（不展示误导值）。
+     * 注意：BMI 必须是【未舍入】值，展示精度不得回灌计算。
+     */
+    fun estimateBodyFatDeurenberg(bmi: Double, ageYears: Int, gender: String?): Double? {
+        val s = when (gender?.lowercase()) {
+            "male" -> 1.0
+            "female" -> 0.0
+            else -> return null // 性别缺失/未知：不猜测
+        }
+        if (ageYears < 18) return null // 成人公式，未成年不适用
+        if (!bmi.isFinite() || bmi <= 0.0 || ageYears <= 0) return null
+        val raw = 1.2 * bmi + 0.23 * ageYears - 10.8 * s - 5.4
+        if (!raw.isFinite() || raw !in BODY_FAT_MIN..BODY_FAT_MAX) return null
+        return raw
+    }
+
+    /**
+     * 实测优先的体脂展示组装：
+     * 1) 有有效实测 → MEASURED；
+     * 2) 无实测但资料齐全、成人 → ESTIMATED（绝不入库）；
+     * 3) 资料齐全但未成年 → UNSUPPORTED；
+     * 4) 其余 → NONE。
+     */
+    fun bodyFatDisplay(
+        measured: BodyFatRecord?,
+        bmi: Double,
+        ageYears: Int?,
+        gender: String?
+    ): BodyFatDisplay {
+        if (measured != null) return BodyFatDisplay(measured.value, BodyFatSource.MEASURED, measured.date)
+        if (ageYears == null || gender.isNullOrBlank()) return BodyFatDisplay(null, BodyFatSource.NONE)
+        if (ageYears < 18) return BodyFatDisplay(null, BodyFatSource.UNSUPPORTED)
+        val estimated = estimateBodyFatDeurenberg(bmi, ageYears, gender)
+        return if (estimated != null) BodyFatDisplay(estimated, BodyFatSource.ESTIMATED)
+        else BodyFatDisplay(null, BodyFatSource.NONE)
+    }
 }
