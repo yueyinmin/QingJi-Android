@@ -162,7 +162,7 @@ class Converters {
         // 统一训练体系（Room 19→20）：有氧项目明细，旧表一列不动
         WorkoutCardioDetail::class
     ],
-    version = 21,
+    version = 22,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -537,7 +537,8 @@ abstract class AppDatabase : RoomDatabase() {
                 MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12,
                 MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16,
                 MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20,
-                MIGRATION_20_21
+                MIGRATION_20_21,
+                MIGRATION_21_22
             )
         }
 
@@ -930,6 +931,27 @@ abstract class AppDatabase : RoomDatabase() {
         internal val MIGRATION_20_21 = object : Migration(20, 21) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE `ai_config` ADD COLUMN `displayName` TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
+        /**
+         * 统一运动体系（Room 21 → 22）：四处非破坏性加列，零回填。
+         *
+         * 关键设计：recordType 列默认空串 = 「未修正，用 ExerciseRecordTypeMap 的 302 条正式映射
+         * 按 UUID 精确解析」，因此【不需要批量回填数据库】（规避 G1 门禁的不可逆改写风险）。
+         * 用户手动修正才写入合法值，且优先于动作库分类变化，不被后续覆盖。
+         * - exercise_entity.recordType：用户修正的记录类型
+         * - plan_exercise.recordType：计划类型快照（空串=继承动作库）
+         * - plan_exercise.targetConfigJson：版本化目标（空串=用旧 target* 三列）
+         * - workout_exercise.itemMetaJson：项目元数据（mode/身份/顺序，空串=旧数据 NORMAL）
+         * 所有新列 NOT NULL DEFAULT ''，与 Entity @ColumnInfo 逐字一致（六件套纪律）。
+         */
+        internal val MIGRATION_21_22 = object : Migration(21, 22) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `exercise` ADD COLUMN `recordType` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `plan_exercise` ADD COLUMN `recordType` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `plan_exercise` ADD COLUMN `targetConfigJson` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `workout_exercise` ADD COLUMN `itemMetaJson` TEXT NOT NULL DEFAULT ''")
             }
         }
 

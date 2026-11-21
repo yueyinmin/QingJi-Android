@@ -43,7 +43,13 @@ data class ExerciseEntity(
     @ColumnInfo(defaultValue = "") val exerciseType: String = "",
     @ColumnInfo(defaultValue = "0") val isStretch: Boolean = false,
     @ColumnInfo(defaultValue = "") val assetPath: String = "",
-    @ColumnInfo(defaultValue = "") val attribution: String = ""
+    @ColumnInfo(defaultValue = "") val attribution: String = "",
+    /**
+     * 统一运动体系 B1：用户手动修正的记录类型（STRENGTH/CARDIO/HIIT/FLEXIBILITY/OTHER）。
+     * 空串 = 未修正，运行时由 ExerciseRecordTypeMap 按 UUID 精确解析正式映射；
+     * 非空 = 用户修正值优先，不被动作库分类变化覆盖。默认空串兼容历史行。
+     */
+    @ColumnInfo(defaultValue = "") val recordType: String = ""
 )
 
 /**
@@ -86,7 +92,11 @@ data class PlanExercise(
     @ColumnInfo(defaultValue = "0") val targetSets: Int = 0,
     @ColumnInfo(defaultValue = "0") val targetReps: Int = 0,
     @ColumnInfo(defaultValue = "0.0") val targetWeightKg: Double = 0.0,
-    @ColumnInfo(defaultValue = "0") val orderInDay: Int = 0
+    @ColumnInfo(defaultValue = "0") val orderInDay: Int = 0,
+    /** 统一运动体系 B1：计划自身的类型快照。空串 = 继承自动作库/exerciseUuid，手动修正后固定不被覆盖。 */
+    @ColumnInfo(defaultValue = "") val recordType: String = "",
+    /** 统一运动体系 B1：版本化目标配置 JSON（TargetConfigJson），空串 = 用旧三列 target* 兼容。 */
+    @ColumnInfo(defaultValue = "") val targetConfigJson: String = ""
 )
 
 /** 表 20：一次训练会话。只有「保存成功」才会有行，进行中的草稿另存 SharedPreferences。 */
@@ -151,7 +161,9 @@ data class WorkoutExercise(
     @ColumnInfo(defaultValue = "") val exerciseNameSnapshot: String = "",
     @ColumnInfo(defaultValue = "0") val orderInSession: Int = 0,
     @ColumnInfo(defaultValue = "") val setsJson: String = "",
-    @ColumnInfo(defaultValue = "") val note: String = ""
+    @ColumnInfo(defaultValue = "") val note: String = "",
+    /** 统一运动体系 B1：项目元数据 JSON（WorkoutItem 的 mode/身份/顺序），空串 = 旧数据缺省 NORMAL。 */
+    @ColumnInfo(defaultValue = "") val itemMetaJson: String = ""
 )
 
 /**

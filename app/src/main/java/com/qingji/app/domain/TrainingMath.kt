@@ -22,7 +22,13 @@ data class WorkoutSet(
      * 存进 setsJson 的 tr / tw 两个 key，旧 JSON 没有这两个 key 时读回 null。
      */
     val targetReps: Int? = null,
-    val targetWeightKg: Double? = null
+    val targetWeightKg: Double? = null,
+    /**
+     * 统一运动体系 B1：等长训练（平板支撑/悬垂等）按组记录持续时间。
+     * 可空：null = 普通组次训练（旧数据/无等长需求），不是 0。
+     * 存进 setsJson 的 ds key，旧 JSON 无此 key 时读回 null，不破坏历史。
+     */
+    val durationSec: Int? = null
 )
 
 /**
@@ -70,6 +76,8 @@ object TrainingMath {
                 // QJ：计划目标（可空）；null 时不写 key，保持旧 JSON 结构不变
                 s.targetReps?.let { put("tr", it) }
                 s.targetWeightKg?.let { put("tw", it) }
+                // 等长训练组持续时间；null 不写 key，保持旧 JSON 结构不变
+                s.durationSec?.let { put("ds", it) }
             })
         }
     }.toString()
@@ -91,7 +99,9 @@ object TrainingMath {
                     targetReps = if (o.has("tr")) o.optInt("tr", 0).coerceAtLeast(0) else null,
                     targetWeightKg = if (o.has("tw")) {
                         o.optDouble("tw", 0.0).takeIf { it.isFinite() && it >= 0.0 }
-                    } else null
+                    } else null,
+                    // 旧 JSON 无 ds → null（普通组次），不补造 0；坏值降级 null
+                    durationSec = if (o.has("ds")) o.optInt("ds", 0).takeIf { it >= 0 } else null
                 )
             }
         }.getOrDefault(emptyList())
