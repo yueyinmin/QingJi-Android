@@ -222,7 +222,7 @@ fun HomeScreen(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier
                         .weight(1f, fill = false)
-                        .clickable { showDatePicker = true }
+                        .pressable { showDatePicker = true }
                 )
                 Spacer(Modifier.size(4.dp))
                 // 下拉箭头：点它和点标题一样弹出日历（不再用 emoji 胶囊）

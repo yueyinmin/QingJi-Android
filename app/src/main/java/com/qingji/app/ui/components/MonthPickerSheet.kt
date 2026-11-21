@@ -31,6 +31,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.qingji.app.domain.AppClock
+import com.qingji.app.ui.theme.pressable
 import com.qingji.app.ui.theme.CardWhite
 import com.qingji.app.ui.theme.PageBackground
 import com.qingji.app.ui.theme.QingJiGreen
@@ -117,7 +118,7 @@ fun MonthPickerSheet(
                     // 年月标题：年份可点进入年份选择
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.clickable { pickingYear = true }
+                        modifier = Modifier.pressable { pickingYear = true }
                     ) {
                         Text(
                             text = "$viewYear 年",

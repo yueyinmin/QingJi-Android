@@ -59,6 +59,7 @@ import com.qingji.app.ui.components.AppBottomSheet
 import com.qingji.app.ui.components.HintBox
 import com.qingji.app.ui.components.SwipeToRevealDelete
 import com.qingji.app.ui.i18n.s
+import com.qingji.app.ui.theme.pressable
 import com.qingji.app.ui.theme.CardWhite
 import com.qingji.app.ui.theme.Dimens
 import com.qingji.app.ui.theme.PageBackground
@@ -375,7 +376,7 @@ private fun CustomFoodRow(
             }
             // 编辑
             Icon(Icons.Filled.Edit, contentDescription = s("编辑"), tint = TextSecondary,
-                modifier = Modifier.size(20.dp).clickable { onEdit() })
+                modifier = Modifier.size(20.dp).pressable { onEdit() })
         }
     }
     Spacer(Modifier.height(6.dp))
@@ -411,10 +412,10 @@ private fun FoodGroupRow(
             Text("$count 个食物", fontSize = 11.sp, color = TextSecondary)
         }
         Icon(Icons.Filled.Edit, contentDescription = s("编辑"), tint = TextSecondary,
-            modifier = Modifier.size(20.dp).clickable { onEdit() })
+            modifier = Modifier.size(20.dp).pressable { onEdit() })
         Spacer(Modifier.width(8.dp))
         Icon(Icons.Filled.Delete, contentDescription = s("删除"), tint = Color(0xFFE53935),
-            modifier = Modifier.size(20.dp).clickable { onDelete() })
+            modifier = Modifier.size(20.dp).pressable { onDelete() })
     }
 }
 
@@ -434,7 +435,7 @@ private fun GroupDetailView(
     Column(modifier = Modifier.fillMaxSize()) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = Dimens.ScreenPadding, vertical = 8.dp)) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = s("返回"), tint = TextPrimary,
-                modifier = Modifier.size(22.dp).clickable { onBack() })
+                modifier = Modifier.size(22.dp).pressable { onBack() })
             Spacer(Modifier.width(10.dp))
             Text("${group.name}（${members.size}）", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
         }

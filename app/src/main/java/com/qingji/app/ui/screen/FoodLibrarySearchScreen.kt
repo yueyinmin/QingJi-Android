@@ -55,6 +55,7 @@ import com.qingji.app.domain.FoodSearchResult
 import com.qingji.app.ui.components.AppBottomSheet
 import com.qingji.app.ui.components.HintBox
 import com.qingji.app.ui.components.PrimaryButton
+import com.qingji.app.ui.theme.pressable
 import com.qingji.app.ui.theme.CardWhite
 import com.qingji.app.ui.theme.Dimens
 import com.qingji.app.ui.theme.PageBackground
@@ -119,7 +120,7 @@ fun FoodLibrarySearchScreen(
                     if (keyword.isNotEmpty()) {
                         Icon(
                             Icons.Filled.Close, "清空",
-                            modifier = Modifier.size(18.dp).clickable { vm.clearKeyword() },
+                            modifier = Modifier.size(18.dp).pressable { vm.clearKeyword() },
                             tint = TextSecondary
                         )
                     }

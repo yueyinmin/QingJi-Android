@@ -61,6 +61,7 @@ import com.qingji.app.ui.theme.MacroFat
 import com.qingji.app.ui.theme.MacroProtein
 import com.qingji.app.ui.theme.MultiColor
 import com.qingji.app.ui.theme.PageBackground
+import com.qingji.app.ui.theme.pressable
 import com.qingji.app.ui.theme.QingJiGreen
 import com.qingji.app.ui.theme.QingJiGreenDark
 import com.qingji.app.ui.theme.QingJiGreenLight
@@ -545,7 +546,7 @@ internal fun MealCard(
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
-                    .clickable { onToggleExpand() }
+                    .pressable { onToggleExpand() }
                     .padding(vertical = 2.dp)
             ) {
                 Box(
@@ -583,7 +584,7 @@ internal fun MealCard(
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
-                    .clickable { onOpenDetail() }
+                    .pressable { onOpenDetail() }
                     .padding(vertical = 2.dp)
             ) {
                 Text(text = "小计 $subtitle 千卡", fontSize = 12.sp, color = TextSecondary)
@@ -677,7 +678,7 @@ internal fun MealCard(
                     fontSize = 12.sp, color = QingJiGreen,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { expandedFoods = !expandedFoods }
+                        .pressable { expandedFoods = !expandedFoods }
                         .padding(vertical = 4.dp)
                 )
             }
