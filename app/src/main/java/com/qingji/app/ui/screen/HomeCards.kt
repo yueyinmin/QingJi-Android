@@ -1,6 +1,8 @@
 package com.qingji.app.ui.screen
 
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -24,6 +26,7 @@ import androidx.compose.material.icons.outlined.Cake
 import androidx.compose.material.icons.outlined.NightsStay
 import androidx.compose.material.icons.outlined.Restaurant
 import androidx.compose.material.icons.outlined.WbSunny
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -496,10 +500,19 @@ internal fun MealCard(
     onDelete: (Long) -> Unit,
     onOpenDetail: () -> Unit,
     /** 是否在这一餐底部显示蛋白/碳水/脂肪的比例条（首页显示设置里可关） */
-    showMacro: Boolean = true
+    showMacro: Boolean = true,
+    /** 折叠态由外层按「日期+餐次」管理，切换日期不串状态 */
+    expanded: Boolean = true,
+    onToggleExpand: () -> Unit = {}
 ) {
-    // QJ 动态列表治理：每餐独立展开状态（MealCard 每餐各自调用，remember 天然独立）
+    // QJ 动态列表治理：每餐独立展开状态（前3条/查看全部），与整卡折叠相互独立
     var expandedFoods by remember { mutableStateOf(false) }
+    // 折叠箭头轻量旋转动画（不改测量高度）
+    val arrowRotation by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        animationSpec = tween(180),
+        label = "meal_expand_arrow"
+    )
     // 四餐恢复参考图的固定语义色：早餐橙 / 午餐绿 / 晚餐蓝 / 加餐紫
     val badgeColor = when (type) {
         MealRules.BREAKFAST -> MultiColor.Breakfast
@@ -517,22 +530,27 @@ internal fun MealCard(
     val subtitle = items.sumOf { it.kcal }.toInt()
 
     SectionCard(
-        contentPadding = 14.dp,
-        modifier = Modifier.clickable { onOpenDetail() }
+        contentPadding = 14.dp
+        // 折叠改造：解除整卡统一点击，改为 header 折叠 / 右侧小计进详情 / 食物区保留滑动删除
     ) {
         // v10：右侧 44dp 让位取消——快捷按钮已默认收起，点开展开时浮到内容
         // 上层即可，主人明确「不要怕遮挡」；餐卡内容恢复满宽。
-        Column {
+        Column(modifier = Modifier.animateContentSize()) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            // 左侧：点餐次名/图标控制展开收起（带清晰点击区域，不误进详情）
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .clickable { onToggleExpand() }
+                    .padding(vertical = 2.dp)
+            ) {
                 Box(
                     modifier = Modifier
                         .size(30.dp)
-                        // 图标底板改成小圆角方形，和设置/我的页的图标语言统一
                         .clip(RoundedCornerShape(9.dp))
                         .background(badgeColor.copy(alpha = 0.12f)),
                     contentAlignment = Alignment.Center
@@ -551,14 +569,31 @@ internal fun MealCard(
                     fontWeight = FontWeight.SemiBold,
                     color = TextPrimary
                 )
+                Spacer(Modifier.size(4.dp))
+                Icon(
+                    imageVector = Icons.Filled.KeyboardArrowDown,
+                    contentDescription = if (expanded) "收起" else "展开",
+                    tint = TextSecondary,
+                    modifier = Modifier
+                        .size(16.dp)
+                        .graphicsLayer { rotationZ = arrowRotation }
+                )
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            // 右侧：小计 + 详情箭头进入用餐详情页
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .clickable { onOpenDetail() }
+                    .padding(vertical = 2.dp)
+            ) {
                 Text(text = "小计 $subtitle 千卡", fontSize = 12.sp, color = TextSecondary)
                 Spacer(Modifier.size(4.dp))
                 Text(text = "›", fontSize = 18.sp, color = TextSecondary)
             }
         }
 
+        // 收起态隐藏食物明细，但保留餐次名/数量/小计热量与下方三大营养素信息
+        if (expanded) {
         Spacer(Modifier.height(8.dp))
 
         if (items.isEmpty()) {
@@ -648,15 +683,17 @@ internal fun MealCard(
             }
             }   // Column 结束（QJ 动态列表高度约束）
         }
+        }   // if (expanded) 结束：收起态不显示食物明细
 
-        // 营养素比例条：一眼看出这一餐是碳水多、还是蛋白多
+        // 营养素比例条：收起/展开都保留，一眼看出这一餐是碳水多、还是蛋白多
         if (showMacro && items.isNotEmpty()) {
             val proteinKcal = items.sumOf { it.proteinG } * NutritionCalculator.KCAL_PER_G_PROTEIN
             val carbKcal = items.sumOf { it.carbG } * NutritionCalculator.KCAL_PER_G_CARB
             val fatKcal = items.sumOf { it.fatG } * NutritionCalculator.KCAL_PER_G_FAT
             val total = proteinKcal + carbKcal + fatKcal
             if (total > 0) {
-                Spacer(Modifier.height(10.dp))
+                // 收起态没有明细区，营养条紧贴 header，避免多余空白
+                Spacer(Modifier.height(if (expanded) 10.dp else 6.dp))
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()

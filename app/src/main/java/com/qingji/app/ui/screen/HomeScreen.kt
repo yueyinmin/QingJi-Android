@@ -25,6 +25,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -146,6 +147,8 @@ fun HomeScreen(
     val settings = com.qingji.app.ui.LocalAppSettings.current
 
     // 日期下拉面板
+    // 四餐折叠状态：key = 日期|餐次，切换日期不串用；默认「有记录的餐次展开」
+    val mealExpanded = remember { mutableStateMapOf<String, Boolean>() }
     var showDatePicker by remember { mutableStateOf(false) }
 
     // 点水杯弹出的三级：先选做什么 → 首页设置 / 今日详情
@@ -343,14 +346,20 @@ fun HomeScreen(
         // 四餐固定顺序：早 / 午 / 晚 / 加餐
         MealRules.ALL.forEachIndexed { index, type ->
             val items = state.logs.filter { it.mealType == type }
-            AppearItem(index = index + 2) {
-                MealCard(
-                    type = type,
-                    items = items,
-                    onDelete = vm::deleteLog,
-                    onOpenDetail = { onOpenMealDetail(state.date, type) },
-                    showMacro = settings.showMealMacro
-                )
+            val expandKey = "${state.date}|$type"
+            val expanded = mealExpanded[expandKey] ?: items.isNotEmpty()
+            androidx.compose.runtime.key(expandKey) {
+                AppearItem(index = index + 2) {
+                    MealCard(
+                        type = type,
+                        items = items,
+                        onDelete = vm::deleteLog,
+                        onOpenDetail = { onOpenMealDetail(state.date, type) },
+                        showMacro = settings.showMealMacro,
+                        expanded = expanded,
+                        onToggleExpand = { mealExpanded[expandKey] = !expanded }
+                    )
+                }
             }
             Spacer(Modifier.height(10.dp))
         }
