@@ -60,6 +60,7 @@ import com.qingji.app.ui.screen.DiaryEditScreen
 import com.qingji.app.ui.screen.DiaryScreen
 import com.qingji.app.ui.screen.ExerciseConfirmScreen
 import com.qingji.app.ui.screen.ExercisePickerScreen
+import com.qingji.app.ui.screen.StrengthQuickRecordScreen
 import com.qingji.app.ui.screen.FastingScreen
 import com.qingji.app.ui.screen.FoodLibraryScreen
 import com.qingji.app.ui.screen.CustomFoodEditScreen
@@ -695,8 +696,22 @@ fun QingJiAppRoot(
                                     launchSingleTop = true
                                 }
                             },
-                            // 2026-11-18：记力量 → 跳训练中心的开始训练页
-                            onOpenStrengthTraining = { navController.navigate(QingJiRoutes.TrainingActive) }
+                            onOpenStrengthTraining = { navController.navigate(QingJiRoutes.TrainingActive) },
+                            // 阶段 C：力量动作直接快速补记
+                            onOpenStrengthQuick = { uuid -> navController.navigate(QingJiRoutes.strengthQuick(uuid)) }
+                        )
+                    }
+                    composable(
+                        route = QingJiRoutes.StrengthQuickRecord,
+                        arguments = listOf(navArgument("uuid") { type = NavType.StringType })
+                    ) { backStackEntry ->
+                        val uuid = java.net.URLDecoder.decode(
+                            backStackEntry.arguments?.getString("uuid").orEmpty(), "UTF-8"
+                        )
+                        StrengthQuickRecordScreen(
+                            exerciseUuid = uuid,
+                            onBack = { navController.popBackStack() },
+                            onSaved = { navController.popBackStack() }
                         )
                     }
                     composable(

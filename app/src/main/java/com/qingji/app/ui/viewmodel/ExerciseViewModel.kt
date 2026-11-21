@@ -44,6 +44,32 @@ class ExerciseViewModel(app: Application) : AndroidViewModel(app) {
         .map { profile -> profile?.startWeight?.takeIf { it > 0 } ?: 70.0 }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 70.0)
 
+    /**
+     * 阶段 C：统一运动入口选项（预设 + 动作库动作），带解析后的 recordType。
+     * 力量动作可直接快速补记，不再只显示「去训练中心」说明卡。
+     */
+    val unifiedOptions: StateFlow<List<com.qingji.app.domain.UnifiedExerciseOption>> =
+        kotlinx.coroutines.flow.combine(
+            presets, recentNames, trainingRepo.observeExercises()
+        ) { presetList, recent, actions ->
+            val order = recent.withIndex().associate { it.value to it.index }
+            val presetOpts = presetList.map { p ->
+                com.qingji.app.domain.UnifiedExerciseOptionFactory.fromPreset(
+                    id = p.id, name = p.name, met = p.met, category = p.category,
+                    favorite = p.favorite, recentOrder = order[p.name] ?: Int.MAX_VALUE
+                )
+            }
+            val actionOpts = actions.map { a ->
+                com.qingji.app.domain.UnifiedExerciseOptionFactory.fromAction(
+                    uuid = a.uuid, name = a.name, englishName = a.englishName,
+                    exerciseType = a.exerciseType, category = a.category,
+                    isStretch = a.isStretch, recordTypeStored = a.recordType,
+                    favorite = a.isFavorite, recentOrder = order[a.name] ?: Int.MAX_VALUE
+                )
+            }
+            com.qingji.app.domain.UnifiedExerciseOptionFactory.merge(presetOpts, actionOpts)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     fun toggleFavorite(id: Long, favorite: Boolean) {
         viewModelScope.launch { repo.setExerciseFavorite(id, favorite) }
     }
@@ -74,6 +100,44 @@ class ExerciseViewModel(app: Application) : AndroidViewModel(app) {
             runCatching { repo.addExercise(log) }
                 .onSuccess { onDone() }
                 .onFailure { saveGuard.set(false); _isSaving.value = false }
+        }
+    }
+
+    /**
+     * 阶段 C：力量动作快速补记。
+     * 直接把一组重量/次数存成正式 WorkoutSession（走 saveUnifiedSession 统一入口，
+     * 一场一条账本、幂等）。不再只显示「去训练中心」说明卡。
+     */
+    fun saveStrengthQuick(
+        exerciseUuid: String, exerciseName: String, sets: List<com.qingji.app.domain.WorkoutSet>,
+        weightKg: Double, onDone: () -> Unit = {}, onError: (String) -> Unit = {}
+    ) {
+        if (!saveGuard.compareAndSet(false, true)) return
+        _isSaving.value = true
+        viewModelScope.launch {
+            runCatching {
+                val uuid = java.util.UUID.randomUUID().toString()
+                val today = com.qingji.app.domain.AppClock.today()
+                val session = com.qingji.app.data.local.entity.WorkoutSession(
+                    uuid = uuid, date = today, startedAt = 0L, endedAt = 0L,
+                    durationMinutes = 0, note = "快速补记", source = "quick_log"
+                )
+                val item = com.qingji.app.data.local.entity.WorkoutExercise(
+                    sessionUuid = uuid, exerciseUuid = exerciseUuid,
+                    exerciseNameSnapshot = exerciseName, orderInSession = 0,
+                    setsJson = com.qingji.app.domain.TrainingMath.encodeSets(sets),
+                    itemMetaJson = com.qingji.app.domain.WorkoutItem.toJson(
+                        com.qingji.app.domain.WorkoutItem.Strength(
+                            itemId = java.util.UUID.randomUUID().toString(),
+                            exerciseUuid = exerciseUuid, name = exerciseName, order = 0,
+                            sessionUuid = uuid, sets = sets
+                        )
+                    )
+                )
+                // saveUnifiedSession：力量+有氧整场一条账本（有氧列表为空）
+                trainingRepo.saveUnifiedSession(session, listOf(item), emptyList(), weightKg)
+            }.onSuccess { onDone() }
+                .onFailure { e -> saveGuard.set(false); _isSaving.value = false; onError(e.message ?: "保存失败") }
         }
     }
 
