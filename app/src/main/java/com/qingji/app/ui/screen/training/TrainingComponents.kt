@@ -292,10 +292,21 @@ fun TrainingCalendarCard(
                 color = TextPrimary,
                 modifier = Modifier.weight(1f)
             )
+            // 翻月文字与日期格同口径：去掉矩形 ripple，避免点出灰色方块
             Text("上个月", fontSize = TextSizes.Caption, color = QingJiGreen,
-                modifier = Modifier.clickable { onPrevMonth() }.padding(horizontal = 8.dp, vertical = 4.dp))
+                modifier = Modifier
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { onPrevMonth() }
+                    .padding(horizontal = 8.dp, vertical = 4.dp))
             Text("下个月", fontSize = TextSizes.Caption, color = QingJiGreen,
-                modifier = Modifier.clickable { onNextMonth() }.padding(horizontal = 8.dp, vertical = 4.dp))
+                modifier = Modifier
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { onNextMonth() }
+                    .padding(horizontal = 8.dp, vertical = 4.dp))
         }
         Spacer(Modifier.height(10.dp))
         Row(modifier = Modifier.fillMaxWidth().padding(end = fabSafeEnd)) {

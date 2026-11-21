@@ -70,21 +70,16 @@ import java.time.YearMonth
  * 全屏页把 showModeSwitch 关掉，避免顶上出现两个切换条。
  */
 /**
- * 日期切换内容淡入：只改 alpha（graphicsLayer 不改测量），避免内容硬切「闪一下」。
- * 与外层 animateContentSize 配合：高度平滑 + 内容淡入，日历与滚动位置不动。
+ * 日期切换内容容器（2026-11-21 闪烁修复）：
+ * 旧实现用 key(date) + 初始 alpha=0 再淡入，切日期瞬间内容先"消失"再出现，
+ * 真机录屏里就是下方整块内容闪一下——用户明确反馈像 bug。
+ * 现在内容随 date 直接渲染、alpha 恒 1；高度平滑交给外层 animateContentSize，
+ * 不再做"先消失后淡入"。日期变化时数据由调用的 daySummary/dayFoods 携带日期校验。
+ * date 参数保留仅为调用点语义清晰（内容自身已按 activeDate 计算）。
  */
 @Composable
 private fun DateFadeBox(date: java.time.LocalDate, content: @Composable () -> Unit) {
-    androidx.compose.runtime.key(date) {
-        var visible by remember { mutableStateOf(false) }
-        LaunchedEffect(date) { visible = true }
-        val alpha by animateFloatAsState(
-            targetValue = if (visible) 1f else 0f,
-            animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
-            label = "dateContentFade"
-        )
-        Box(modifier = Modifier.graphicsLayer { this.alpha = alpha }) { content() }
-    }
+    Box { content() }
 }
 
 /** 无 ripple 点击：日期切换类小控件不要灰色涟漪，避免被误认为「灰色选中卡片」。 */
@@ -149,8 +144,9 @@ fun TrainingDiaryContent(
     val latestActiveDate = rememberUpdatedState(activeDate)
     LaunchedEffect(activeDate) {
         val target = activeDate
-        // 先清旧日期汇总（渲染端还有 date 校验），避免慢查询期间显示旧日期数据
-        daySummary = null
+        // 不再先 daySummary=null：渲染端有 takeIf{ it.date == activeDate } 校验，
+        // 旧日期数据不会被误显示；主动清空反而让汇总从 4 行塌成 1 行空态再填回，
+        // 真机上就是"下方闪一下"。查询期间保留上一份数据，等新结果到达即替换。
         val result = healthRepo.summaryFor(target)
         // 竞态防护：查询期间用户又切了日期，丢弃这次结果，绝不让旧查询覆盖新日期。
         // 用 rememberUpdatedState 读「当前」日期，而不是闭包里被 key 固定的旧值。
@@ -161,7 +157,12 @@ fun TrainingDiaryContent(
     // produceState 会在 selectedDate 变化时取消上一次收集并重新订阅，不会串日期、不重复建监听。
     val foodRepo = remember(context) { com.qingji.app.data.repository.QingJiRepository(context) }
     val dayFoods by produceState(initialValue = emptyList<FoodLog>(), activeDate, foodRepo) {
-        foodRepo.observeFoodLogs(activeDate).collect { value = it }
+        // 切换日期时旧列表会残留到新 Flow 发出第一条，导致"当天饮食"短暂显示前一天内容。
+        // 先清空再订阅；饮食明细行数少，短暂空态比显示错误日期的数据安全。
+        value = emptyList()
+        foodRepo.observeFoodLogs(activeDate).collect { logs ->
+            value = logs.filter { it.date == activeDate }
+        }
     }
 
     val bySession = remember(allExercises) { allExercises.groupBy { it.sessionUuid } }

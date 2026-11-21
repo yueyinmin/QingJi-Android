@@ -65,19 +65,15 @@ import java.time.YearMonth
  * 「按 DiaryRules.level 的四档心情给格子着色」，规则仍在 domain 层，不重写。
  * ============================================================
  */
-/** 日期切换内容淡入：只改 alpha 不改测量，避免内容硬切闪烁。 */
+/**
+ * 日期切换内容容器（2026-11-21 闪烁修复）：
+ * 旧实现 key(date) + alpha 从 0 淡入，会让内容在切日期瞬间先消失再出现；
+ * 现在直接渲染、alpha 恒 1，高度平滑交给外层 animateContentSize。
+ * date 参数保留仅为调用点语义清晰（内容自身按 queryDate 计算）。
+ */
 @Composable
 private fun DateFadeBox(date: java.time.LocalDate, content: @Composable () -> Unit) {
-    androidx.compose.runtime.key(date) {
-        var visible by remember { mutableStateOf(false) }
-        LaunchedEffect(date) { visible = true }
-        val alpha by animateFloatAsState(
-            targetValue = if (visible) 1f else 0f,
-            animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
-            label = "moodDateFade"
-        )
-        Box(modifier = Modifier.graphicsLayer { this.alpha = alpha }) { content() }
-    }
+    Box { content() }
 }
 
 /** 无 ripple 点击：日期切换类小控件不要灰色涟漪，避免被误认为「灰色选中卡片」。 */
