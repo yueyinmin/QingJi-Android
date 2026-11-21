@@ -381,9 +381,10 @@ class OverviewWidget : GlanceAppWidget() {
                         }
                     }
 
-                    Spacer(GlanceModifier.defaultWeight())
-
+                    // V2 阶段2：去掉 defaultWeight 弹性留白，三层信息紧凑排列，
+                    // 饮水紧贴营养素区，不再被推到卡片底部造成中间大块空白。
                     if (density >= 2 && appearance.showWater) {
+                        Spacer(GlanceModifier.height(6.dp))
                         Text(
                             text = "${WidgetSpec.LABEL_WATER_SHORT} ${data.water} / ${data.waterGoal} ml",
                             style = TextStyle(color = textColor(W_SUB), fontSize = 10.sp)
@@ -420,8 +421,8 @@ private fun MacroBar(
     color: Color,
     modifier: GlanceModifier = GlanceModifier
 ) {
+    // 目标缺失(<=0)时安全显示空轨道，不伪造进度；比例钳制在 0..1 防止溢出。
     val progress = if (goal <= 0) 0f else (current.toFloat() / goal).coerceIn(0f, 1f)
-    val barWidth = 64.dp
     Column(modifier = modifier) {
         Text(
             text = label,
@@ -436,9 +437,15 @@ private fun MacroBar(
                 .cornerRadius(2.5.dp)
         ) {
             if (progress > 0f) {
+                // V2 阶段2：进度按轨道实际可用宽度的比例填充，不再写死 64dp，
+                // 横向拉宽后不会被固定长度截断，也不会超出容器。
+                // Glance 1.1.1 的 fillMaxWidth() 不支持 fraction。
+                // 三条并排且各有间距，单条轨道约为 Widget 宽度的 1/3.5；
+                // 用该估算宽度 × 比例，既随容器缩放也不会溢出轨道。
+                val trackWidth = LocalSize.current.width / 3.5f
                 Box(
                     modifier = GlanceModifier
-                        .width(barWidth * progress)
+                        .width(trackWidth * progress)
                         .height(WidgetSpec.MACRO_BAR_HEIGHT_DP.dp)
                         .background(ColorProvider(color))
                         .cornerRadius(2.5.dp)
