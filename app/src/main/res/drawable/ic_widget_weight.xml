@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 小组件快捷入口：体重秤，统一主题绿描边风格 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#1F8A70">
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M5,4h14c1.1,0 2,0.9 2,2v12c0,1.1 -0.9,2 -2,2H5c-1.1,0 -2,-0.9 -2,-2V6c0,-1.1 0.9,-2 2,-2zM6,7v9h12V7H6z" />
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M12,8.5c-1.9,0 -3.5,1.6 -3.5,3.5s1.6,3.5 3.5,3.5 3.5,-1.6 3.5,-3.5 -1.6,-3.5 -3.5,-3.5zM12,13.2c-0.7,0 -1.2,-0.6 -1.2,-1.2s0.6,-1.2 1.2,-1.2 1.2,0.6 1.2,1.2 -0.6,1.2 -1.2,1.2z" />
+</vector>

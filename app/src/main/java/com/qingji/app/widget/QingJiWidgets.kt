@@ -2,6 +2,7 @@ package com.qingji.app.widget
 
 import android.content.Context
 import android.content.Intent
+import com.qingji.app.R
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.DpSize
@@ -19,6 +20,8 @@ import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
+import androidx.glance.Image
+import androidx.glance.ImageProvider
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
 import androidx.glance.layout.Column
@@ -28,6 +31,7 @@ import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
+import androidx.glance.layout.size
 import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
@@ -144,6 +148,10 @@ class QuickRecordWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val appearance = loadWidgetAppearance(context)
         provideContent {
+            val size = LocalSize.current
+            // 横向被拉宽（≥200dp）时切换为一排四栏；默认 2×2 用两行两列，
+            // 保证 2×2 下每个入口仍有足够触控面积（工单 V2.0 §2.3）。
+            val wide = size.width >= 200.dp
             Box(
                 modifier = GlanceModifier
                     .fillMaxSize()
@@ -160,56 +168,44 @@ class QuickRecordWidget : GlanceAppWidget() {
                             fontWeight = FontWeight.Medium
                         )
                     )
-                    Spacer(GlanceModifier.height(6.dp))
-                    Row(modifier = GlanceModifier.fillMaxWidth()) {
-                        WidgetQuickTile(
-                            label = WidgetSpec.LABEL_BREAKFAST,
-                            color = W_GREEN_LIGHT,
-                            textColorValue = W_GREEN,
-                            target = WidgetRefresher.TARGET_TEXT_AI,
-                            context = context,
-                            modifier = GlanceModifier.defaultWeight().height(40.dp)
-                        )
-                        Spacer(GlanceModifier.width(6.dp))
-                        WidgetQuickTile(
-                            label = WidgetSpec.LABEL_WEIGHT,
-                            color = W_GREEN_LIGHT,
-                            textColorValue = W_GREEN,
-                            target = WidgetRefresher.TARGET_WEIGHT,
-                            context = context,
-                            modifier = GlanceModifier.defaultWeight().height(40.dp)
-                        )
-                    }
-                    Spacer(GlanceModifier.height(6.dp))
-                    Row(modifier = GlanceModifier.fillMaxWidth()) {
-                        // 喝水：直接记账，不打开 App（PRD 验收清单点名要求）
-                        Box(
-                            modifier = GlanceModifier
-                                .defaultWeight()
-                                .height(40.dp)
-                                .background(ColorProvider(W_BLUE_LIGHT))
-                                .cornerRadius(12.dp)
-                                .clickable(actionRunCallback<AddWaterAction>()),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = WidgetSpec.LABEL_WATER,
-                                style = TextStyle(
-                                    color = textColor(WidgetSpec.WATER_TEXT),
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            )
+                    Spacer(GlanceModifier.height(4.dp))
+                    // 统一弱底色容器：四个入口不再各自铺高饱和色块
+                    Column(
+                        modifier = GlanceModifier
+                            .fillMaxSize()
+                            .background(ColorProvider(W_GREEN_LIGHT.copy(alpha = 0.45f)))
+                            .cornerRadius(12.dp)
+                            .padding(4.dp)
+                    ) {
+                        if (wide) {
+                            Row(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
+                                QuickTile(context, R.drawable.ic_widget_breakfast, WidgetSpec.LABEL_BREAKFAST,
+                                    WidgetRefresher.TARGET_TEXT_AI, GlanceModifier.defaultWeight())
+                                Spacer(GlanceModifier.width(2.dp))
+                                QuickTile(context, R.drawable.ic_widget_weight, WidgetSpec.LABEL_WEIGHT,
+                                    WidgetRefresher.TARGET_WEIGHT, GlanceModifier.defaultWeight())
+                                Spacer(GlanceModifier.width(2.dp))
+                                WaterTile(GlanceModifier.defaultWeight())
+                                Spacer(GlanceModifier.width(2.dp))
+                                QuickTile(context, R.drawable.ic_widget_camera, WidgetSpec.LABEL_PHOTO,
+                                    WidgetRefresher.TARGET_IMAGE, GlanceModifier.defaultWeight())
+                            }
+                        } else {
+                            Row(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
+                                QuickTile(context, R.drawable.ic_widget_breakfast, WidgetSpec.LABEL_BREAKFAST,
+                                    WidgetRefresher.TARGET_TEXT_AI, GlanceModifier.defaultWeight())
+                                Spacer(GlanceModifier.width(2.dp))
+                                QuickTile(context, R.drawable.ic_widget_weight, WidgetSpec.LABEL_WEIGHT,
+                                    WidgetRefresher.TARGET_WEIGHT, GlanceModifier.defaultWeight())
+                            }
+                            Spacer(GlanceModifier.height(2.dp))
+                            Row(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
+                                WaterTile(GlanceModifier.defaultWeight())
+                                Spacer(GlanceModifier.width(2.dp))
+                                QuickTile(context, R.drawable.ic_widget_camera, WidgetSpec.LABEL_PHOTO,
+                                    WidgetRefresher.TARGET_IMAGE, GlanceModifier.defaultWeight())
+                            }
                         }
-                        Spacer(GlanceModifier.width(6.dp))
-                        WidgetQuickTile(
-                            label = WidgetSpec.LABEL_PHOTO,
-                            color = W_GREEN_LIGHT,
-                            textColorValue = W_GREEN,
-                            target = WidgetRefresher.TARGET_IMAGE,
-                            context = context,
-                            modifier = GlanceModifier.defaultWeight().height(40.dp)
-                        )
                     }
                 }
             }
@@ -217,34 +213,61 @@ class QuickRecordWidget : GlanceAppWidget() {
     }
 }
 
+/** 图标 + 短标签的轻量入口（跳转型）。 */
 @Composable
-private fun WidgetQuickTile(
-    label: String,
-    color: Color,
-    textColorValue: Color,
-    target: String,
+private fun QuickTile(
     context: Context,
+    iconRes: Int,
+    label: String,
+    target: String,
     modifier: GlanceModifier
 ) {
-    Box(
+    Column(
         modifier = modifier
-            .background(ColorProvider(color))
-            .cornerRadius(12.dp)
+            .background(ColorProvider(W_CARD.copy(alpha = 0.55f)))
+            .cornerRadius(10.dp)
             .clickable(
                 actionStartActivity(
                     openApp(context, target),
                     actionParametersOf(TARGET_KEY to target)
                 )
             ),
-        contentAlignment = Alignment.Center
+        verticalAlignment = Alignment.Vertical.CenterVertically,
+        horizontalAlignment = Alignment.Horizontal.CenterHorizontally
     ) {
+        Image(
+            provider = ImageProvider(iconRes),
+            contentDescription = label,
+            modifier = GlanceModifier.size(18.dp)
+        )
+        Spacer(GlanceModifier.height(2.dp))
         Text(
             text = label,
-            style = TextStyle(
-                color = textColor(textColorValue),
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium
-            )
+            style = TextStyle(color = textColor(W_TEXT), fontSize = 10.sp)
+        )
+    }
+}
+
+/** 喝水入口：保持 AddWaterAction 直接写 200ml，不改成跳转。 */
+@Composable
+private fun WaterTile(modifier: GlanceModifier) {
+    Column(
+        modifier = modifier
+            .background(ColorProvider(W_CARD.copy(alpha = 0.55f)))
+            .cornerRadius(10.dp)
+            .clickable(actionRunCallback<AddWaterAction>()),
+        verticalAlignment = Alignment.Vertical.CenterVertically,
+        horizontalAlignment = Alignment.Horizontal.CenterHorizontally
+    ) {
+        Image(
+            provider = ImageProvider(R.drawable.ic_widget_water),
+            contentDescription = WidgetSpec.LABEL_WATER,
+            modifier = GlanceModifier.size(18.dp)
+        )
+        Spacer(GlanceModifier.height(2.dp))
+        Text(
+            text = WidgetSpec.LABEL_WATER,
+            style = TextStyle(color = textColor(W_TEXT), fontSize = 10.sp)
         )
     }
 }
