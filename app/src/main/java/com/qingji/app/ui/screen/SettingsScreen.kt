@@ -1,5 +1,8 @@
 package com.qingji.app.ui.screen
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
+
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -56,7 +59,6 @@ import com.qingji.app.ui.screen.settings.RowDivider
 import com.qingji.app.ui.screen.settings.SettingIconRow
 import com.qingji.app.ui.screen.settings.SettingsSearchBox
 import com.qingji.app.ui.screen.settings.SettingsCard
-import com.qingji.app.ui.screen.settings.SettingsDetailSheet
 import com.qingji.app.ui.screen.settings.ToggleItem
 import com.qingji.app.ui.screen.settings.ToggleDetailPage
 import com.qingji.app.ui.screen.settings.OptionItem
@@ -66,6 +68,7 @@ import com.qingji.app.ui.screen.settings.InfoDetailPage
 import com.qingji.app.ui.screen.settings.DetailGroupTitle
 import com.qingji.app.ui.screen.settings.SettingIconBadge
 import com.qingji.app.ui.theme.QingJiGreenDark
+import com.qingji.app.ui.theme.QingJiGreenLight
 import com.qingji.app.ui.i18n.s
 import com.qingji.app.ui.theme.PageBackground
 import com.qingji.app.ui.theme.TextPrimary
@@ -169,6 +172,8 @@ fun SettingsScreen(
     val message by vm.message.collectAsState()
 
     var dialog by remember { mutableStateOf<DialogKind?>(null) }
+    // 一级分类改为页面内就地展开（用户反馈：点分类弹 bottom sheet 很繁琐）
+    var expandedCategory by remember { mutableStateOf<DialogKind?>(null) }
     var cacheSize by remember { mutableStateOf(0L) }
     val backup = remember { BackupManager(context) }
 
@@ -205,7 +210,9 @@ fun SettingsScreen(
 
     val listScroll = rememberScrollState()
     var query by remember { mutableStateOf("") }
-    BackHandler(enabled = dialog != null) { dialog = null }
+    BackHandler(enabled = dialog != null || expandedCategory != null) {
+        if (dialog != null) dialog = null else expandedCategory = null
+    }
 
     /** 打开某目标：弹层直接切 dialog，独立页走对应回调。 */
     fun go(dest: EntryDest) {
@@ -383,13 +390,47 @@ fun SettingsScreen(
                 }
                 Spacer(Modifier.height(28.dp))
             } else {
-                // ---- 6 个一级分类卡片 ----
+                // ---- 6 个一级分类卡片：点击就地展开，不再弹 bottom sheet ----
                 GroupTitle(s("设置分类"))
                 categories.forEach { cat ->
                     Spacer(Modifier.height(10.dp))
+                    val expanded = expandedCategory == cat.kind
                     SettingsCard {
-                        SettingIconRow(title = cat.title, icon = cat.icon, iconColor = cat.color) {
-                            dialog = cat.kind
+                        Column(
+                            modifier = Modifier
+                                .animateContentSize(tween(200))
+                                .background(
+                                    if (expanded) QingJiGreenLight.copy(alpha = 0.35f)
+                                    else Color.Transparent
+                                )
+                        ) {
+                            SettingIconRow(
+                                title = cat.title, icon = cat.icon, iconColor = cat.color,
+                                onClick = { expandedCategory = if (expanded) null else cat.kind }
+                            )
+                            if (expanded) {
+                                val rows = categoryRows[cat.kind].orEmpty()
+                                com.qingji.app.ui.components.SectionCard(contentPadding = 0.dp) {
+                                    rows.forEachIndexed { index, row ->
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
+                                                .clickable { go(row.dest) }.padding(horizontal = 14.dp, vertical = 8.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            if (row.icon != null) SettingIconBadge(row.icon, row.iconColor)
+                                            Column(modifier = Modifier.weight(1f).padding(start = if (row.icon != null) 12.dp else 0.dp)) {
+                                                Text(row.title, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
+                                                if (row.subtitle.isNotBlank()) {
+                                                    Spacer(Modifier.height(2.dp))
+                                                    Text(row.subtitle, fontSize = 11.sp, color = TextSecondary)
+                                                }
+                                            }
+                                            Text("›", fontSize = 18.sp, color = TextSecondary.copy(alpha = 0.6f))
+                                        }
+                                        if (index < rows.lastIndex) RowDivider()
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -403,41 +444,11 @@ fun SettingsScreen(
     // ============================================================
     if (dialog != null) {
         when (val d = dialog!!) {
-            // ---------- 一级分类落地页 ----------
-            in setOf(DialogKind.CAT_PERSONAL, DialogKind.CAT_HEALTH, DialogKind.CAT_GENERAL,
-                DialogKind.CAT_DISPLAY, DialogKind.CAT_AI_DATA) -> {
-                val title = when (d) {
-                    DialogKind.CAT_PERSONAL -> s("个人与安全")
-                    DialogKind.CAT_HEALTH -> s("饮食与健康")
-                    DialogKind.CAT_GENERAL -> s("通用设置")
-                    DialogKind.CAT_DISPLAY -> s("显示与交互")
-                    else -> s("AI 与数据")
-                }
-                SettingsDetailSheet(title = title, onDismiss = { dialog = null }) {
-                    val rows = categoryRows[d].orEmpty()
-                    com.qingji.app.ui.components.SectionCard(contentPadding = 0.dp) {
-                        rows.forEachIndexed { index, row ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp)
-                                    .clickable { go(row.dest) }.padding(horizontal = 14.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                if (row.icon != null) {
-                                    SettingIconBadge(row.icon, row.iconColor)
-                                }
-                                Column(modifier = Modifier.weight(1f).padding(start = if (row.icon != null) 12.dp else 0.dp)) {
-                                    Text(row.title, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
-                                    if (row.subtitle.isNotBlank()) {
-                                        Spacer(Modifier.height(2.dp))
-                                        Text(row.subtitle, fontSize = 11.sp, color = TextSecondary)
-                                    }
-                                }
-                                Text("›", fontSize = 20.sp, color = TextSecondary.copy(alpha = 0.6f))
-                            }
-                            if (index < rows.lastIndex) RowDivider()
-                        }
-                    }
-                }
+            // 一级分类已改为页面内就地展开（见上方分类卡），不再走 SettingsDetailSheet。
+            DialogKind.CAT_PERSONAL, DialogKind.CAT_HEALTH, DialogKind.CAT_GENERAL,
+            DialogKind.CAT_DISPLAY, DialogKind.CAT_AI_DATA -> {
+                expandedCategory = d
+                dialog = null
             }
 
             DialogKind.CAT_ABOUT -> AboutScreen(onBack = { dialog = null }, useSheet = true)
