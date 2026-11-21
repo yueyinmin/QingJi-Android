@@ -67,18 +67,45 @@ object DailyHealthAggregator {
     }
 
     /**
-     * 签名：把各源的「条数 + 关键求和」拼成一串。
-     * 轻量（DAO 一条聚合 SQL 就能算出来），原始记录任何增删改都会让它变化。
+     * 唯一签名入口（QJ-GOV-2026-01 / P1-01）。
+     *
+     * 必须覆盖【所有参与 aggregate 的原始输入】，否则源数据变了缓存不失效：
+     * · 饮食：条数 + kcal + 蛋白 + 碳水 + 脂肪（ carb/fat 是本次补的遗漏）；
+     * · 账本：按 sourceType 分类的消耗【分布】+ 总消耗。先按 sourceType 排序再拼，
+     *   保证 Map/集合迭代顺序不影响签名；等额换来源（如 STRENGTH↔CARDIO）也能识别；
+     * · 训练：场次 + 时长（本次补）+ 每组的 (重量,次数) 明细（不只组数，
+     *   只改某组 w/r 但组数不变也要能识别）；
+     * · 睡眠：条数 + 时长。
+     *
+     * Repository 的缓存比对与 aggregate() 落表都调这里，禁止维护第二套字段拼接。
      */
-    fun signatureOf(raw: RawDay): String = listOf(
-        raw.foodLogCount,
-        kotlin.math.round(raw.foodKcal * 10) / 10,
-        kotlin.math.round(raw.foodProteinG * 10) / 10,
-        raw.ledger.size,
-        kotlin.math.round(raw.ledger.sumOf { it.caloriesGross } * 10) / 10,
-        raw.workoutCount,
-        raw.workoutSets.size,
-        raw.sleepRecordCount,
-        raw.sleepDurationMinutes
-    ).joinToString("|")
+    fun signatureOf(raw: RawDay): String {
+        val ledgerByType = raw.ledger
+            .groupBy { it.sourceType }
+            .toSortedMap()
+            .map { (type, rows) -> "$type:${r1(rows.sumOf { it.caloriesGross })}" }
+            .joinToString(",")
+        // 每组 w×r 明细稳定排序：同内容不同迭代顺序的签名一致
+        val sets = raw.workoutSets
+            .map { (w, r) -> "${r1(w)}x$r" }
+            .sorted()
+            .joinToString(",")
+        return listOf(
+            raw.foodLogCount,
+            r1(raw.foodKcal),
+            r1(raw.foodProteinG),
+            r1(raw.foodCarbG),      // 补：碳水
+            r1(raw.foodFatG),       // 补：脂肪
+            ledgerByType,           // 补：分类分布（替代原 ledger.size）
+            r1(raw.ledger.sumOf { it.caloriesGross }),
+            raw.workoutCount,
+            raw.workoutDurationMinutes, // 补：训练时长
+            sets,                   // 补：每组明细（替代原 workoutSets.size）
+            raw.sleepRecordCount,
+            raw.sleepDurationMinutes
+        ).joinToString("|")
+    }
+
+    /** 统一保留 1 位小数，避免浮点抖动导致签名不稳定。 */
+    private fun r1(v: Double): Double = kotlin.math.round(v * 10) / 10
 }

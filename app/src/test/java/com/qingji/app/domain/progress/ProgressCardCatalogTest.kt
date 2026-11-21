@@ -13,11 +13,11 @@ import org.junit.Test
 class ProgressCardCatalogTest {
 
     @Test
-    fun `默认顺序包含十张可管理卡片且身体数据不在其中`() {
-        assertEquals(10, ProgressCardCatalog.DEFAULT_ORDER.size)
+    fun `默认顺序包含九张可管理卡片且身体数据不在其中`() {
+        assertEquals(9, ProgressCardCatalog.DEFAULT_ORDER.size)
         assertEquals(
             listOf(
-                "exercise", "forecast", "chart", "water", "nutrition", "measure", "photos",
+                "forecast", "chart", "water", "nutrition", "measure", "photos",
                 "sleep_diary", "exercise_diary", "food_diary"
             ),
             ProgressCardCatalog.DEFAULT_ORDER
@@ -39,7 +39,7 @@ class ProgressCardCatalogTest {
         val raw = "chart,not_a_card,water"
         assertEquals(
             listOf(
-                "chart", "water", "exercise", "forecast", "nutrition", "measure", "photos",
+                "chart", "water", "forecast", "nutrition", "measure", "photos",
                 "sleep_diary", "exercise_diary", "food_diary"
             ),
             ProgressCardCatalog.parseOrder(raw)
@@ -48,18 +48,18 @@ class ProgressCardCatalogTest {
 
     @Test
     fun `旧设置里缺的新卡按默认顺序补到末尾`() {
-        // 老版本只存过三张卡，后来新增了 measure/photos 和三种日记卡，应该自动出现
-        val raw = "water,exercise,chart"
+        // 老版本只存过两张卡，后来新增了 measure/photos 和三种日记卡，应该自动出现
+        val raw = "water,chart"
         val order = ProgressCardCatalog.parseOrder(raw)
-        assertEquals(listOf("water", "exercise", "chart"), order.take(3))
+        assertEquals(listOf("water", "chart"), order.take(2))
         assertEquals(
             listOf(
                 "forecast", "nutrition", "measure", "photos",
                 "sleep_diary", "exercise_diary", "food_diary"
             ),
-            order.drop(3)
+            order.drop(2)
         )
-        assertEquals(10, order.size)
+        assertEquals(9, order.size)
     }
 
     @Test
@@ -77,7 +77,7 @@ class ProgressCardCatalogTest {
         )
         assertEquals(
             listOf(
-                "photos", "chart", "exercise", "forecast", "measure",
+                "photos", "chart", "forecast", "measure",
                 "exercise_diary", "food_diary"
             ),
             visible
@@ -101,7 +101,7 @@ class ProgressCardCatalogTest {
     fun `第一张卡可以移到最后`() {
         val moved = ProgressCardCatalog.moveToIndex(ten, ten.first(), ten.lastIndex)
         assertEquals(ten.drop(1) + ten.first(), moved)
-        assertEquals(10, moved.size)
+        assertEquals(9, moved.size)
         assertEquals(ten.toSet(), moved.toSet()) // 不丢不重
     }
 
@@ -109,7 +109,7 @@ class ProgressCardCatalogTest {
     fun `最后一张卡可以移到第一`() {
         val moved = ProgressCardCatalog.moveToIndex(ten, ten.last(), 0)
         assertEquals(listOf(ten.last()) + ten.dropLast(1), moved)
-        assertEquals(10, moved.size)
+        assertEquals(9, moved.size)
     }
 
     @Test
@@ -121,7 +121,7 @@ class ProgressCardCatalogTest {
         for (target in listOf(3, 4, 5, 6, 7)) {
             order = ProgressCardCatalog.moveToIndex(order, card, target)
             assertEquals(target, order.indexOf(card))
-            assertEquals(10, order.size)
+            assertEquals(9, order.size)
         }
     }
 

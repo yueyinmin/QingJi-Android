@@ -21,7 +21,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.outlined.AltRoute
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Bedtime
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.PhotoCamera
@@ -127,7 +126,7 @@ fun AddRecordSheet(
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 18.dp)
-                .padding(bottom = 20.dp)
+                .padding(bottom = 12.dp)
         ) {
             // ---------- A. 主入口：扫描食物（v1.4 方案 A：明显加大视觉面积） ----------
             // 工单 2.2：横向大卡片、占据最明显视觉面积、不缩成普通宫格按钮。
@@ -141,7 +140,7 @@ fun AddRecordSheet(
                         )
                     )
                     .pressable { go(onImage) }
-                    .padding(horizontal = 16.dp, vertical = 24.dp),
+                    .padding(horizontal = 16.dp, vertical = 18.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
@@ -159,20 +158,14 @@ fun AddRecordSheet(
                     )
                 }
                 Spacer(Modifier.width(14.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "扫描食物",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = "拍照 AI 识别，智能估算热量",
-                        fontSize = 12.sp,
-                        color = Color.White.copy(alpha = 0.88f)
-                    )
-                }
+                // QJ-HEALTH-DATE-WATER-004：删掉标题下的重复辅助小字，只留记录类型名称
+                Text(
+                    text = "扫描食物",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    modifier = Modifier.weight(1f)
+                )
                 Box(
                     modifier = Modifier
                         .size(36.dp)
@@ -189,8 +182,9 @@ fun AddRecordSheet(
                 }
             }
 
-            // ---------- B. 饮食快捷区（工单 2.2 B） ----------
-            SectionLabel("饮食快捷")
+            // ---------- B. 饮食快捷区（工单 2.2 B）----------
+            // 分区小标题已按用户要求移除，只保留功能入口；用间距维持分组感
+            Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 SheetIconCard("语音输入", Icons.Outlined.Mic, MultiColor.Voice, Modifier.weight(1f)) {
                     go(onVoice)
@@ -209,8 +203,7 @@ fun AddRecordSheet(
             // ---------- C. 日常管理区（工单 2.2 C）：喝水 / 每日打卡 / 睡眠 / 自律管理 ----------
             // v1.4：每日打卡只有一个入口；冲动记录、目标偏离并入「自律管理」；
             // 睡眠从记一笔直达（工单 9）。
-            Spacer(Modifier.height(12.dp))
-            SectionLabel("日常管理")
+            Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 SheetIconCard("记录喝水", Icons.Outlined.WaterDrop, MultiColor.Drink, Modifier.weight(1f)) {
                     go(onWater)
@@ -229,8 +222,7 @@ fun AddRecordSheet(
             // ---------- D. 运动与身体区（工单 2.2 D）：四宫格，删除重复「记录运动」 ----------
             // 原来的「记录运动」「记录有氧」两个入口跳的是同一个页面（重复），
             // 按工单只保留「记录有氧」；力量训练继续走「开始训练」。
-            Spacer(Modifier.height(12.dp))
-            SectionLabel("运动与身体")
+            Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SheetWideCard("开始训练", "🏋️", MultiColor.Exercise, Modifier.weight(1f)) {
                     go(onStartTraining)
@@ -249,42 +241,11 @@ fun AddRecordSheet(
                 }
             }
 
-            // v9/v1.4：原「更新我的体型照片」链接并入上方四宫格的「体型照片」卡，
-            // 不再单独占一行，减少底部留白（工单 2.3）。
-            Spacer(Modifier.height(20.dp))
-
-            // ---------- 悬浮关闭键 ----------
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.Center
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(CardWhite)
-                        .border(1.dp, DividerColor, CircleShape)
-                        .pressable { onDismiss() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Close,
-                        contentDescription = "关闭",
-                        tint = TextPrimary,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-            }
+            // QJ-HEALTH-DATE-WATER-004：删掉底部常驻 X 关闭键，压缩弹窗高度。
+            // 关闭能力保留：下拉 / 点遮罩 / 系统返回键都走 ModalBottomSheet 的 onDismissRequest。
+            Spacer(Modifier.height(8.dp))
         }
     }
-}
-
-/** v1.4 方案 A：分区小标题（工单 2.2 的 B/C/D 区）。 */
-@Composable
-private fun SectionLabel(text: String) {
-    Spacer(Modifier.height(12.dp))
-    Text(text, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = TextSecondary)
-    Spacer(Modifier.height(6.dp))
 }
 
 /**
@@ -353,35 +314,16 @@ private fun SheetWideCard(
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = color,
-                maxLines = 1
-            )
-            Spacer(Modifier.height(8.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(24.dp)
-                        .clip(CircleShape)
-                        .background(color),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(14.dp)
-                    )
-                }
-                Spacer(Modifier.width(6.dp))
-                Text(text = "去记录", fontSize = 11.sp, color = color)
-            }
-        }
-        Text(text = emoji, fontSize = 24.sp)
+        // QJ-HEALTH-DATE-WATER-004：删「去记录」辅助小字 + 箭头，只留类型名 + 图标
+        Text(
+            text = title,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            color = color,
+            maxLines = 1,
+            modifier = Modifier.weight(1f)
+        )
+        Text(text = emoji, fontSize = 22.sp)
     }
 }
 

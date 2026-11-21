@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -37,6 +38,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.qingji.app.R
 import com.qingji.app.ui.components.HintBox
 import com.qingji.app.ui.components.PageTopBar
 import com.qingji.app.ui.components.SectionCard
@@ -44,9 +46,6 @@ import com.qingji.app.ui.screen.settings.SwitchRow
 import com.qingji.app.ui.viewmodel.SettingsViewModel
 import com.qingji.app.ui.theme.CardWhite
 import com.qingji.app.ui.theme.Dimens
-import com.qingji.app.ui.theme.MacroCarb
-import com.qingji.app.ui.theme.MacroFat
-import com.qingji.app.ui.theme.MacroProtein
 import com.qingji.app.ui.theme.PageBackground
 import com.qingji.app.ui.theme.QingJiGreen
 import com.qingji.app.ui.theme.QingJiGreenDark
@@ -57,6 +56,7 @@ import com.qingji.app.ui.theme.TextSizes
 import com.qingji.app.widget.OverviewWidgetReceiver
 import com.qingji.app.widget.QuickRecordWidgetReceiver
 import com.qingji.app.widget.WeightWidgetReceiver
+import com.qingji.app.widget.WidgetSpec
 
 /**
  * ============================================================
@@ -135,7 +135,7 @@ fun WidgetSettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = viewModel()
                 Spacer(Modifier.height(8.dp))
                 SwitchRow(
                     title = "显示饮水进度",
-                    subtitle = "今日概览卡右上角的饮水数字",
+                    subtitle = "今日概览卡左下角的饮水数字",
                     checked = settings.widgetShowWater
                 ) { vm.setWidgetShowWater(it) }
                 SwitchRow(
@@ -159,14 +159,15 @@ fun WidgetSettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = viewModel()
                 onAdd = { requestPin(context, QuickRecordWidgetReceiver::class.java) },
                 previewAlpha = settings.widgetAlpha / 100f
             ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    QuickCell("早餐", QingJiGreenDark)
-                    QuickCell("体重", QingJiGreen)
+                // V2 阶段5：预览与真实 Glance 同款「图标+短标签」轻量入口
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    QuickCell(WidgetSpec.LABEL_BREAKFAST, R.drawable.ic_widget_breakfast)
+                    QuickCell(WidgetSpec.LABEL_WEIGHT, R.drawable.ic_widget_weight)
                 }
-                Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    QuickCell("喝水", QingJiGreen)
-                    QuickCell("拍照", QingJiGreen.copy(alpha = 0.72f))
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    QuickCell(WidgetSpec.LABEL_WATER, R.drawable.ic_widget_water)
+                    QuickCell(WidgetSpec.LABEL_PHOTO, R.drawable.ic_widget_camera)
                 }
             }
 
@@ -179,9 +180,9 @@ fun WidgetSettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = viewModel()
                 onAdd = { requestPin(context, OverviewWidgetReceiver::class.java) },
                 previewAlpha = settings.widgetAlpha / 100f
             ) {
-                Text(text = "今日剩余", fontSize = 11.sp, color = TextSecondary)
+                Text(text = WidgetSpec.LABEL_REMAINING, fontSize = 11.sp, color = TextSecondary)
                 Text(
-                    text = "2313 千卡",
+                    text = "${WidgetSpec.SAMPLE_REMAINING} ${WidgetSpec.LABEL_KCAL_UNIT}",
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
                     color = TextPrimary
@@ -190,14 +191,18 @@ fun WidgetSettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = viewModel()
                 if (settings.widgetShowMacro) {
                     Spacer(Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        MiniBar("蛋白", MacroProtein, Modifier.weight(1f))
-                        MiniBar("碳水", MacroCarb, Modifier.weight(1f))
-                        MiniBar("脂肪", MacroFat, Modifier.weight(1f))
+                        MiniBar(WidgetSpec.LABEL_PROTEIN, WidgetSpec.SAMPLE_PROTEIN, WidgetSpec.SAMPLE_PROTEIN_GOAL,
+                            WidgetSpec.MACRO_PROTEIN, Modifier.weight(1f))
+                        MiniBar(WidgetSpec.LABEL_CARB, WidgetSpec.SAMPLE_CARB, WidgetSpec.SAMPLE_CARB_GOAL,
+                            WidgetSpec.MACRO_CARB, Modifier.weight(1f))
+                        MiniBar(WidgetSpec.LABEL_FAT, WidgetSpec.SAMPLE_FAT, WidgetSpec.SAMPLE_FAT_GOAL,
+                            WidgetSpec.MACRO_FAT, Modifier.weight(1f))
                     }
                 }
                 Spacer(Modifier.height(8.dp))
                 if (settings.widgetShowWater) {
-                    Text(text = "饮水 0 / 3200 ml", fontSize = 10.sp, color = TextSecondary)
+                    Text(text = "${WidgetSpec.LABEL_WATER_SHORT} ${WidgetSpec.SAMPLE_WATER} / ${WidgetSpec.DEFAULT_WATER_GOAL} ml",
+                        fontSize = 10.sp, color = TextSecondary)
                 }
             }
 
@@ -215,23 +220,27 @@ fun WidgetSettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = viewModel()
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(text = "当前体重", fontSize = 10.sp, color = TextSecondary)
+                        Text(text = WidgetSpec.LABEL_CURRENT_WEIGHT, fontSize = 10.sp, color = TextSecondary)
                         Text(
-                            // v1.1.0：关掉「显示体重数字」时和桌面一致显示「已隐藏」
-                            text = if (settings.widgetShowWeight) "92.0 kg" else "已隐藏",
-                            fontSize = 20.sp,
+                            // 阶段 3：示例值与「已隐藏」文案与真实 Glance 共用 WidgetSpec
+                            text = if (settings.widgetShowWeight)
+                                com.qingji.app.domain.WeightUnit.formatWithSymbol(
+                                    WidgetSpec.SAMPLE_WEIGHT.toDouble(), "kg"
+                                ) else WidgetSpec.LABEL_WEIGHT_HIDDEN,
+                            fontSize = 24.sp,
                             fontWeight = FontWeight.Bold,
                             color = TextPrimary
                         )
                     }
+                    Spacer(Modifier.width(8.dp))
                     Text(
-                        text = "+ 记录",
+                        text = WidgetSpec.LABEL_RECORD,
                         fontSize = 12.sp,
-                        color = Color.White,
+                        color = WidgetSpec.GREEN,
                         modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(QingJiGreen)
-                            .padding(horizontal = 12.dp, vertical = 7.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(WidgetSpec.GREEN_LIGHT)
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
                     )
                 }
             }
@@ -301,10 +310,12 @@ private fun WidgetCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(14.dp))
+                .clip(RoundedCornerShape(WidgetSpec.CORNER_CARD_DP.dp))
                 // 底下一层浅色当「壁纸」，上面盖半透明白卡片，拖动滑杆时能直观看到透明效果
                 .background(QingJiGreenLight.copy(alpha = 0.55f))
-                .background(CardWhite.copy(alpha = previewAlpha.coerceIn(0.3f, 1f)))
+                .background(CardWhite.copy(alpha = previewAlpha.coerceIn(
+                    WidgetSpec.ALPHA_MIN / WidgetSpec.ALPHA_MAX.toFloat(), 1f
+                )))
                 .padding(12.dp)
         ) {
             Text(
@@ -319,32 +330,58 @@ private fun WidgetCard(
     }
 }
 
+/** V2 阶段5：预览入口与真实 Glance 同款「图标+短标签」，图标资源也共用。 */
 @Composable
-private fun QuickCell(label: String, color: Color) {
+private fun QuickCell(label: String, iconRes: Int) {
     Column(
         modifier = Modifier
-            .size(width = 74.dp, height = 46.dp)
+            .size(width = 74.dp, height = 52.dp)
             .clip(RoundedCornerShape(10.dp))
-            .background(color.copy(alpha = 0.14f)),
+            .background(CardWhite.copy(alpha = 0.55f)),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text(text = label, fontSize = 12.sp, color = color, fontWeight = FontWeight.Medium)
+        androidx.compose.foundation.Image(
+            painter = androidx.compose.ui.res.painterResource(iconRes),
+            contentDescription = label,
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(text = label, fontSize = 10.sp, color = TextPrimary)
     }
 }
 
+/** V2 阶段5：进度按示例 current/goal 计算，与真实 MacroBar 同一算法，不再写死 45%。 */
 @Composable
-private fun MiniBar(label: String, color: Color, modifier: Modifier = Modifier) {
+private fun MiniBar(
+    label: String,
+    current: Int,
+    goal: Int,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    val progress = if (goal <= 0) 0f else (current.toFloat() / goal).coerceIn(0f, 1f)
     Column(modifier = modifier) {
         Text(text = label, fontSize = 9.sp, color = TextSecondary)
         Spacer(Modifier.height(3.dp))
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(5.dp)
+                .height(WidgetSpec.MACRO_BAR_HEIGHT_DP.dp)
                 .clip(RoundedCornerShape(3.dp))
-                .background(color.copy(alpha = 0.25f))
-        )
+                .background(color.copy(alpha = WidgetSpec.MACRO_TRACK_ALPHA)),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            if (progress > 0f) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(progress)
+                        .height(WidgetSpec.MACRO_BAR_HEIGHT_DP.dp)
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(color)
+                )
+            }
+        }
     }
 }
 

@@ -1,5 +1,10 @@
 package com.qingji.app.ui.screen.training
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -45,6 +50,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
@@ -158,6 +164,15 @@ fun TodayTrainingCard(
     arrangement: com.qingji.app.ui.viewmodel.TodayArrangement? = null,
     modifier: Modifier = Modifier
 ) {
+    // 折叠状态纯 UI 本地：展开/收起不触发任何 ViewModel/数据库重查。
+    // 无计划且无记录时不提供展开（空态不展开空白）。
+    var expanded by remember { mutableStateOf(false) }
+    val hasContent = arrangement != null || todaySessions.isNotEmpty()
+    val arrowRotation by animateFloatAsState(
+        targetValue = if (expanded) 90f else 0f,
+        animationSpec = tween(180),
+        label = "training_expand_arrow"
+    )
     val status = when {
         draft != null -> if (draft.editingUuid.isNotEmpty()) "正在修改一次训练" else "训练进行中 · 点这里继续"
         arrangement != null -> if (arrangement.isRest) {
@@ -165,18 +180,61 @@ fun TodayTrainingCard(
         } else {
             "${arrangement.title} · ${arrangement.exercises.size} 个动作（${arrangement.planName}）"
         }
-        todaySessions.isNotEmpty() -> {
-            val minutes = todaySessions.sumOf { it.durationMinutes }
-            "今天已练 ${todaySessions.size} 次 · $minutes 分钟"
-        }
+        todaySessions.isNotEmpty() -> "点这里记录下一次训练"
         else -> "还没开始，点这里记录第一次训练"
     }
-    SectionCard(modifier = modifier.clickable { onClick() }) {
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("今日训练", fontSize = TextSizes.CardTitle, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-                Spacer(Modifier.height(4.dp))
-                Text(status, fontSize = TextSizes.Caption, color = TextSecondary)
+    // 训练次数与总时长拆成独立摘要行：原来它是 status 的一个分支，
+    // 有草稿/计划时会被覆盖，收起态看不到（工单要求收起保留该摘要）。
+    val summary = if (todaySessions.isNotEmpty()) {
+        val minutes = todaySessions.sumOf { it.durationMinutes }
+        "今天已练 ${todaySessions.size} 次 · $minutes 分钟"
+    } else null
+
+    SectionCard(modifier = modifier) {
+        Column(modifier = Modifier.fillMaxWidth().animateContentSize()) {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                // 左侧标题点击切换折叠；右侧 + 按钮进入训练，两者互不误触
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable(enabled = hasContent) { expanded = !expanded }
+                        .padding(vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("今日训练", fontSize = TextSizes.CardTitle, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                    if (hasContent) {
+                        Spacer(Modifier.size(4.dp))
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = if (expanded) "收起" else "展开",
+                            tint = TextSecondary,
+                            modifier = Modifier.size(16.dp).graphicsLayer { rotationZ = arrowRotation }
+                        )
+                    }
+                }
+                Box(
+                    modifier = Modifier
+                        .size(34.dp)
+                        .clip(CircleShape)
+                        .background(QingJiGreenLight)
+                        .clickable { onClick() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Add,
+                        contentDescription = "开始训练",
+                        tint = QingJiGreen,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(status, fontSize = TextSizes.Caption, color = TextSecondary)
+            if (summary != null) {
+                Spacer(Modifier.height(2.dp))
+                Text(summary, fontSize = TextSizes.Caption, color = TextSecondary)
+            }
+            if (expanded && hasContent) {
                 if (arrangement != null && !arrangement.isRest && arrangement.exercises.isNotEmpty()) {
                     Spacer(Modifier.height(3.dp))
                     Text(
@@ -189,20 +247,6 @@ fun TodayTrainingCard(
                     Spacer(Modifier.height(3.dp))
                     Text(arrangement.notice, fontSize = TextSizes.Tiny, color = TextSecondary)
                 }
-            }
-            Box(
-                modifier = Modifier
-                    .size(34.dp)
-                    .clip(CircleShape)
-                    .background(QingJiGreenLight),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Add,
-                    contentDescription = "开始训练",
-                    tint = QingJiGreen,
-                    modifier = Modifier.size(20.dp)
-                )
             }
         }
     }
@@ -221,6 +265,12 @@ fun TrainingCalendarCard(
      * 不传就是训练日记原来的「练过的日子打绿点」。
      */
     dateColors: Map<LocalDate, Color>? = null,
+    /**
+     * 训练日记传当前选中日期：格子显示主题色胶囊 + 高对比文字 + 轻微缩放动画。
+     * 默认 null = 不显示选中态——心情日记 / 自律历史页沿用原来的颜色表达，零影响。
+     * 工单要求「不改变布局结构」：只在既有 36dp 格子上加背景/缩放，不动行列排布。
+     */
+    selectedDate: LocalDate? = null,
     /**
      * 右侧要给悬浮快捷按钮让出的宽度。
      * 训练日记 / 心情日记右侧有 4 颗 50dp 悬浮按钮，不留白的话
@@ -271,46 +321,93 @@ fun TrainingCalendarCard(
                         val index = row * 7 + col
                         val dayNumber = index - leading + 1
                         val date = if (dayNumber in 1..days) month.atDay(dayNumber) else null
-                        val moodColor = if (dateColors != null && date != null) dateColors[date] else null
+                        CalendarDayCell(
+                            date = date,
+                            dayNumber = dayNumber,
+                            trainingDates = trainingDates,
+                            dateColors = dateColors,
+                            selectedDate = selectedDate,
+                            onSelectDate = onSelectDate,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 月历单个日期格子（从 TrainingCalendarCard 抽出，便于每格独立持有动画状态）。
+ *
+ * 选中态只在「训练日记模式」(dateColors == null) 且传入 selectedDate 时启用：
+ * animateColorAsState 背景浅绿胶囊 + 文字转主题深绿，animateFloatAsState 轻微放大，
+ * 180ms / FastOutSlowInEasing，与内容切换节奏一致。训练标记绿点独立绘制，
+ * 选中态不覆盖它。心情/自律历史传 dateColors，保持原颜色语义、无选中动画。
+ */
+@Composable
+private fun CalendarDayCell(
+    date: LocalDate?,
+    dayNumber: Int,
+    trainingDates: Set<LocalDate>,
+    dateColors: Map<LocalDate, Color>?,
+    selectedDate: LocalDate?,
+    onSelectDate: (LocalDate) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val isTrainingMode = dateColors == null
+    val isSelected = isTrainingMode && selectedDate != null && date == selectedDate
+    val moodColor = if (dateColors != null && date != null) dateColors[date] else null
+
+    val bgColor by animateColorAsState(
+        targetValue = when {
+            isSelected -> QingJiGreenLight
+            moodColor != null -> moodColor
+            else -> Color.Transparent
+        },
+        animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
+        label = "dayCellBg"
+    )
+    val cellScale by animateFloatAsState(
+        targetValue = if (isSelected) 1.08f else 1f,
+        animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
+        label = "dayCellScale"
+    )
+    val numberColor by animateColorAsState(
+        targetValue = when {
+            isSelected -> QingJiGreenDark
+            isTrainingMode && date != null && date in trainingDates -> QingJiGreen
+            else -> TextPrimary
+        },
+        animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
+        label = "dayCellText"
+    )
+
+    Box(
+        modifier = modifier
+            .height(36.dp)
+            .scale(cellScale)
+            .clip(RoundedCornerShape(8.dp))
+            .background(bgColor)
+            .clickable(enabled = date != null) { if (date != null) onSelectDate(date) },
+        contentAlignment = Alignment.Center
+    ) {
+        if (date != null) {
+            if (!isTrainingMode) {
+                // 心情 / 自律历史：颜色已铺在格子上，只留日期数字（原有行为不变）
+                Text(text = dayNumber.toString(), fontSize = TextSizes.Tiny, color = TextPrimary)
+            } else {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(text = dayNumber.toString(), fontSize = TextSizes.Tiny, color = numberColor)
+                    // 有训练的日期保留绿点；选中态下照常显示，不被背景覆盖
+                    if (date in trainingDates) {
                         Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(36.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(moodColor ?: Color.Transparent)
-                                .clickable(enabled = date != null) {
-                                    if (date != null) onSelectDate(date)
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (date != null) {
-                                if (dateColors != null) {
-                                    // 心情日记：颜色已经铺在格子上，只留日期数字
-                                    Text(
-                                        text = dayNumber.toString(),
-                                        fontSize = TextSizes.Tiny,
-                                        color = TextPrimary
-                                    )
-                                } else {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text(
-                                            text = dayNumber.toString(),
-                                            fontSize = TextSizes.Tiny,
-                                            color = if (date in trainingDates) QingJiGreen else TextPrimary
-                                        )
-                                        if (date in trainingDates) {
-                                            Box(
-                                                Modifier
-                                                    .padding(top = 2.dp)
-                                                    .size(5.dp)
-                                                    .clip(CircleShape)
-                                                    .background(QingJiGreen)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                            Modifier
+                                .padding(top = 2.dp)
+                                .size(5.dp)
+                                .clip(CircleShape)
+                                .background(QingJiGreen)
+                        )
                     }
                 }
             }
@@ -322,6 +419,8 @@ fun TrainingCalendarCard(
 @Composable
 fun SetEditorCard(
     name: String,
+    /** QJ UI 统一：动作 UUID，用于加载与计划/日记同款缩略图 */
+    exerciseUuid: String = "",
     sets: List<WorkoutSet>,
     unit: String,
     fromLast: Boolean,
@@ -340,6 +439,11 @@ fun SetEditorCard(
         contentPadding = Dimens.CardPaddingCompact
     ) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            // QJ UI 统一：与计划/日记同款动作缩略图
+            com.qingji.app.ui.components.TrainingExerciseThumbnail(
+                exerciseUuid = exerciseUuid, fallbackName = name
+            )
+            Spacer(Modifier.width(10.dp))
             Text(name, fontSize = TextSizes.CardTitle, fontWeight = FontWeight.SemiBold,
                 color = TextPrimary, modifier = Modifier.weight(1f))
             if (fromLast) {
@@ -383,6 +487,10 @@ fun SetEditorCard(
                 NumberField(
                     value = if (unit == "lb") TrainingMath.kgToLb(set.weightKg) else set.weightKg,
                     isDecimal = true,
+                    // QJ 训练联动：计划目标重量作为占位提示（实际值仍独立存 weightKg）
+                    placeholder = (set.targetWeightKg?.takeIf { it > 0.0 }?.let {
+                        if (unit == "lb") "%.0f".format(TrainingMath.kgToLb(it)) else "${it.toInt()}"
+                    } ?: ""),
                     onValue = { raw ->
                         val kg = if (unit == "lb") TrainingMath.lbToKg(raw) else raw
                         onUpdate(index, set.copy(weightKg = kg))
@@ -392,6 +500,8 @@ fun SetEditorCard(
                 NumberField(
                     value = set.reps.toDouble(),
                     isDecimal = false,
+                    // QJ 训练联动：计划目标次数作为占位提示
+                    placeholder = (set.targetReps?.takeIf { it > 0 }?.toString() ?: ""),
                     onValue = { raw -> onUpdate(index, set.copy(reps = raw.toInt())) },
                     modifier = Modifier.weight(1f).padding(horizontal = 3.dp)
                 )

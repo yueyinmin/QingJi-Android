@@ -10,6 +10,8 @@ import com.qingji.app.data.local.entity.FoodLog
 import com.qingji.app.data.local.entity.ProgressPhoto
 import com.qingji.app.data.local.entity.UsageStat
 import com.qingji.app.data.local.entity.UserFood
+import com.qingji.app.data.local.entity.UserFoodGroup
+import com.qingji.app.data.local.entity.UserFoodGroupItem
 import com.qingji.app.data.local.entity.UserBrand
 import com.qingji.app.data.local.entity.UserBrandDish
 import com.qingji.app.data.local.entity.UserProfile
@@ -57,6 +59,9 @@ data class ParsedBackup(
     val aiConfig: AiConfig? = null,
     /** v1.1.0：备份 JSON 里是否真的写了 aiConfig 段。 */
     val hasAiConfig: Boolean = true,
+    /** v7：AI 多服务——全部配置数组（不含 Key）。老备份无此段时为空。 */
+    val aiConfigs: List<AiConfig> = emptyList(),
+    val hasAiConfigs: Boolean = false,
     // ---------- v2 新增的五段 ----------
     val bodyMeasures: List<BodyMeasure> = emptyList(),
     val photos: List<ProgressPhoto> = emptyList(),
@@ -76,7 +81,12 @@ data class ParsedBackup(
     /** 备份 JSON 里是否真的写了 userBrands 段（v4 及更老的文件没有）。 */
     val hasUserBrands: Boolean = false,
     val userBrands: List<UserBrand> = emptyList(),
-    val userBrandDishes: List<UserBrandDish> = emptyList()
+    val userBrandDishes: List<UserBrandDish> = emptyList(),
+    // ---------- v6 新增：自定义食物组 + 组食物关联 ----------
+    /** 备份 JSON 里是否真的写了 userFoodGroups 段（v5 及更老的文件没有）。 */
+    val hasUserFoodGroups: Boolean = false,
+    val userFoodGroups: List<UserFoodGroup> = emptyList(),
+    val userFoodGroupItems: List<UserFoodGroupItem> = emptyList()
 ) {
     /** 有没有真的读到业务数据。全是空的时候导入没意义，界面上该给个提示。 */
     val isEmpty: Boolean
@@ -85,7 +95,8 @@ data class ParsedBackup(
             photos.isEmpty() && exercises.isEmpty() && fastings.isEmpty() &&
             (training == null || training.isEmpty()) &&
             (selfDiscipline == null || selfDiscipline.isEmpty()) &&
-            userBrands.isEmpty() && userBrandDishes.isEmpty()
+            userBrands.isEmpty() && userBrandDishes.isEmpty() &&
+            userFoodGroups.isEmpty() && userFoodGroupItems.isEmpty()
 }
 
 /**
@@ -127,6 +138,8 @@ fun parseBackup(text: String): Result<ParsedBackup> {
                 usage = parseArray(root, "usage") { o -> parseUsage(o) },
                 aiConfig = parseAiConfig(root.optJSONObject("aiConfig")),
                 hasAiConfig = root.has("aiConfig"),
+                aiConfigs = parseArray(root, "aiConfigs") { o -> parseAiConfig(o) },
+                hasAiConfigs = root.has("aiConfigs"),
                 bodyMeasures = parseArray(root, "bodyMeasures") { o -> parseBodyMeasure(o) },
                 photos = parseArray(root, "photos") { o -> parsePhoto(o) },
                 exercises = parseArray(root, "exercises") { o -> parseExercise(o) },
@@ -138,7 +151,10 @@ fun parseBackup(text: String): Result<ParsedBackup> {
                 selfDiscipline = parseSelfDiscipline(root.optJSONObject("selfDiscipline")),
                 hasUserBrands = root.has("userBrands"),
                 userBrands = parseArray(root, "userBrands") { o -> parseUserBrand(o) },
-                userBrandDishes = parseArray(root, "userBrandDishes") { o -> parseUserBrandDish(o) }
+                userBrandDishes = parseArray(root, "userBrandDishes") { o -> parseUserBrandDish(o) },
+                hasUserFoodGroups = root.has("userFoodGroups"),
+                userFoodGroups = parseArray(root, "userFoodGroups") { o -> parseUserFoodGroup(o) },
+                userFoodGroupItems = parseArray(root, "userFoodGroupItems") { o -> parseUserFoodGroupItem(o) }
             )
         )
     } catch (e: Exception) {
@@ -313,6 +329,33 @@ private fun parseUserBrandDish(o: JSONObject): UserBrandDish? {
     )
 }
 
+/** v6：自定义食物组。老备份没有这段，不会调用到这里。 */
+private fun parseUserFoodGroup(o: JSONObject): UserFoodGroup? {
+    val name = o.optString("name", "").trim()
+    if (name.isEmpty()) return null
+    return UserFoodGroup(
+        id = o.optLong("id", 0L),
+        name = name,
+        coverUri = o.optString("coverUri", ""),
+        sortOrder = o.optInt("sortOrder", 0),
+        createdAt = o.optLong("createdAt", System.currentTimeMillis()),
+        updatedAt = o.optLong("updatedAt", System.currentTimeMillis())
+    )
+}
+
+/** v6：组与食物的关联。 */
+private fun parseUserFoodGroupItem(o: JSONObject): UserFoodGroupItem? {
+    val groupId = o.optLong("groupId", 0L)
+    val foodId = o.optLong("foodId", 0L)
+    if (groupId <= 0L || foodId <= 0L) return null
+    return UserFoodGroupItem(
+        id = o.optLong("id", 0L),
+        groupId = groupId,
+        foodId = foodId,
+        createdAt = o.optLong("createdAt", System.currentTimeMillis())
+    )
+}
+
 private fun parseFoodLog(o: JSONObject): FoodLog? {
     val date = dateOrNull(o.optString("date", "")) ?: return null
     val name = o.optString("foodName", "").trim()
@@ -363,10 +406,13 @@ private fun parseUsage(o: JSONObject): UsageStat? {
     return UsageStat(date = date, type = type, count = o.optInt("count", 0))
 }
 
-private fun parseAiConfig(o: JSONObject?): AiConfig? {
-    if (o == null) return null
-    return AiConfig(
-        provider = o.optString("provider", "custom"),
+    private fun parseAiConfig(o: JSONObject?): AiConfig? {
+        if (o == null) return null
+        return AiConfig(
+            // v7 多服务：显式 id/displayName；老备份无这些字段时 id 回落 1（老单配置）、名称空
+            id = o.optInt("id", 1),
+            displayName = o.optString("displayName", ""),
+            provider = o.optString("provider", "custom"),
         baseUrl = o.optString("baseUrl", ""),
         textModel = o.optString("textModel", ""),
         visionModel = o.optString("visionModel", ""),

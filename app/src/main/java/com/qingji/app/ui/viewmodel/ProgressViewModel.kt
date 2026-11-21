@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -45,6 +46,25 @@ class ProgressViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _rangeDays = MutableStateFlow<Int?>(30)
     val rangeDays: StateFlow<Int?> = _rangeDays.asStateFlow()
+
+    // ---------- QJ 日记日期查询：独立日期状态（绝不动首页 HomeViewModel._date） ----------
+    /** 饮食/运动日记当前查看的日期。独立于首页日期，避免日记切日期时改了首页。 */
+    private val _diaryDate = MutableStateFlow(AppClock.today())
+    val diaryDate: StateFlow<LocalDate> = _diaryDate.asStateFlow()
+
+    fun selectDiaryDate(d: LocalDate) { _diaryDate.value = d }
+    fun shiftDiaryDate(delta: Long) { _diaryDate.value = _diaryDate.value.plusDays(delta) }
+    fun backToDiaryToday() { _diaryDate.value = AppClock.today() }
+
+    /** 当天饮食记录（单日查询，按现有 Repository→DAO 口径，不重算热量）。 */
+    val diaryFoods: StateFlow<List<FoodLog>> = _diaryDate.flatMapLatest { d ->
+        repo.observeFoodLogs(d)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** 当天运动记录（单日查询）。 */
+    val diaryExercises: StateFlow<List<ExerciseLog>> = _diaryDate.flatMapLatest { d ->
+        repo.observeExerciseLogs(d)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val profile: StateFlow<UserProfile?> = repo.observeProfile()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)

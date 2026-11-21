@@ -105,7 +105,10 @@ fun ProgressScreen(
     val photos by vm.photos.collectAsState()
     // P1：三种日记卡的近 30 天数据（只读展示）
     val sleepMonth by vm.sleepMonth.collectAsState()
-    val exerciseMonth by vm.exerciseMonth.collectAsState()
+    // QJ 日记日期查询：饮食/运动卡改用独立的单日数据（睡眠卡仍用 sleepMonth 30天方案，不动）
+    val diaryDate by vm.diaryDate.collectAsState()
+    val diaryFoods by vm.diaryFoods.collectAsState()
+    val diaryExercises by vm.diaryExercises.collectAsState()
     // 统一运动消耗账本（力量+有氧），运动消耗卡统计口径
     val exerciseLedger by vm.exerciseLedger.collectAsState()
 
@@ -150,11 +153,15 @@ fun ProgressScreen(
 
     val startWeight = profile?.startWeight?.takeIf { it > 0 } ?: 0.0
     val targetWeight = profile?.targetWeight?.takeIf { it > 0 } ?: 0.0
-    // 范围内一条记录都没有时，用引导里填的「当前体重」兜底。
-    // 之前硬写 0，用户明明在引导填了身高体重，进来身体数据卡和「最新」全是灰的 --。
-    // 现在引导也会写第一条体重记录（OnboardingViewModel），这里是「清除记录后」的保险，
-    // 两处用同一个值，不会再出现「卡片 80kg、最新 --」的自相矛盾。
-    val currentWeight = logs.lastOrNull()?.weightKg ?: startWeight
+
+    // ===== 身体数据口径（仪表盘工单 P0）=====
+    // 关键修复：身体数据取【完整记录 allLogs】，不受曲线 rangeDays 过滤影响。
+    // allLogs 来自 observeAll()=date DESC，故 BodyMetricsCalculator 取 firstOrNull（最新）。
+    // 原来从过滤后的 logs 取，选近7天且该范围无记录时会错误回退到起始体重。
+    val bodyMetrics = com.qingji.app.domain.BodyMetricsCalculator
+    val currentWeight = bodyMetrics.latestWeightKg(allLogs, startWeight)
+    val latestBodyFat = bodyMetrics.latestBodyFat(allLogs)
+    val goalReached = bodyMetrics.isGoalReached(currentWeight, targetWeight)
     val bmi = if (profile != null && currentWeight > 0) {
         NutritionCalculator.bmi(currentWeight, profile!!.heightCm)
     } else 0.0
@@ -166,12 +173,12 @@ fun ProgressScreen(
         else -> QingJiGreen.copy(alpha = 0.6f)
     }
 
-    // 减重进度 = 已经减掉的 / 一共要减的
-    val totalToLose = startWeight - targetWeight
-    val progress = if (totalToLose > 0 && currentWeight > 0) {
-        ((startWeight - currentWeight) / totalToLose).toFloat().coerceIn(0f, 1f)
+    // 减重进度统一走 domain 纯函数（覆盖除零/达成/负值边界）
+    val progress = if (targetWeight > 0 && startWeight > 0) {
+        (bodyMetrics.lossProgressPercent(startWeight, currentWeight, targetWeight) / 100.0)
+            .toFloat().coerceIn(0f, 1f)
     } else 0f
-    val remain = (currentWeight - targetWeight).coerceAtLeast(0.0)
+    val remain = bodyMetrics.remainingToTarget(currentWeight, targetWeight)
 
     // v11：卡片管理——右上角按钮弹层里调顺序/显隐（参考吃有数）。
     // TASK-07-A：顺序 / 显隐的解析逻辑搬到 domain/ProgressCardCatalog，这里只拿结果。
@@ -255,9 +262,11 @@ fun ProgressScreen(
                         latestMeasure = bodyMeasures.firstOrNull(),
                         photos = photos,
                         sleepRecords = sleepMonth,
-                        exerciseLogs = exerciseMonth,
-                        foodLogs = foodMonth,
-                        exerciseLedger = exerciseLedger
+                        // 饮食/运动日记：只传选中日期的单日记录（不再平铺 30 天）
+                        exerciseLogs = diaryExercises,
+                        foodLogs = diaryFoods,
+                        exerciseLedger = exerciseLedger,
+                        diaryDate = diaryDate
                     ),
                     actions = ProgressCardActions(
                         onAddExercise = onOpenExercise,
@@ -270,7 +279,10 @@ fun ProgressScreen(
                         onViewAllPhotos = { showPhotoGallery = true },
                         onOpenSleep = onOpenSleepDiary,
                         onOpenExercise = onOpenExercise,
-                        onOpenFoodLibrary = onOpenFoodLibrary
+                        onOpenFoodLibrary = onOpenFoodLibrary,
+                        onSelectDiaryDate = { vm.selectDiaryDate(it) },
+                        onShiftDiaryDate = { vm.shiftDiaryDate(it) },
+                        onDiaryBackToToday = { vm.backToDiaryToday() }
                     )
                 )
             }

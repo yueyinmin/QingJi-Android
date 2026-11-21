@@ -1,6 +1,5 @@
 package com.qingji.app.domain
 
-import java.time.LocalTime
 
 /**
  * 餐次的统一规矩。
@@ -26,7 +25,8 @@ object MealRules {
 
     /** 按当前钟点猜一个默认餐次，用户随时能改。 */
     fun guess(): String {
-        val hour = LocalTime.now().hour
+        // P1-05：按业务时区猜餐次（用户跨时区时餐次与记录日期一致）
+        val hour = AppClock.now().hour
         return when {
             hour < 10 -> BREAKFAST
             hour < 15 -> LUNCH

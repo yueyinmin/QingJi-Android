@@ -40,7 +40,13 @@ data class WorkoutDraft(
      */
     val durationOverrideMin: Int = 0,
     /** 非空 = 补记模式：这场训练算这一天的（ISO 格式 yyyy-MM-dd），计时器不跑。 */
-    val backfillDate: String = ""
+    val backfillDate: String = "",
+    /**
+     * QJ 训练联动：非空 = 这场是从当天计划启动的，值为计划名快照。
+     * 保存时写进 WorkoutSession.source（plan:<计划名>），供训练日记追溯来源。
+     * 空 = 手动/补记/编辑，行为与旧版一致。
+     */
+    val sourcePlan: String = ""
 ) {
     /** 当前已练了多久（秒）。暂停时冻结在暂停那一刻。 */
     fun elapsedSeconds(now: Long): Long {
@@ -108,7 +114,8 @@ class WorkoutDraftStore(context: Context) {
                 fixedDurationMinutes = o.optInt("fixedDurationMinutes", 0),
                 fixedCreatedAt = o.optLong("fixedCreatedAt", 0L),
                 durationOverrideMin = o.optInt("durationOverrideMin", 0),
-                backfillDate = o.optString("backfillDate", "")
+                backfillDate = o.optString("backfillDate", ""),
+                sourcePlan = o.optString("sourcePlan", "")
             )
         }.getOrNull()?.takeIf { it.sessionUuid.isNotBlank() && it.startedAt > 0L }
     }
@@ -128,6 +135,7 @@ class WorkoutDraftStore(context: Context) {
             put("fixedCreatedAt", draft.fixedCreatedAt)
             put("durationOverrideMin", draft.durationOverrideMin)
             put("backfillDate", draft.backfillDate)
+            put("sourcePlan", draft.sourcePlan)
             put("exercises", JSONArray().apply {
                 draft.exercises.forEach { e ->
                     put(JSONObject().apply {

@@ -97,13 +97,12 @@ object Reminders {
     fun scheduleDaily(context: Context, type: String, hour: Int, minute: Int = 0) {
         ensureChannel(context)
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val trigger = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, hour.coerceIn(0, 23))
-            set(Calendar.MINUTE, minute.coerceIn(0, 59))
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-            if (timeInMillis <= System.currentTimeMillis()) add(Calendar.DAY_OF_YEAR, 1)
-        }.timeInMillis
+        // P1-05：按用户业务时区排程，不再用 Calendar.getInstance() 的系统时区。
+        val trigger = com.qingji.app.domain.BusinessClock
+            .calendarForBusinessZone(context, hour.coerceIn(0, 23), minute.coerceIn(0, 59))
+            .apply {
+                if (timeInMillis <= System.currentTimeMillis()) add(Calendar.DAY_OF_YEAR, 1)
+            }.timeInMillis
         try {
             alarmManager.setInexactRepeating(
                 AlarmManager.RTC_WAKEUP,
@@ -169,6 +168,8 @@ class ReminderReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         val type = intent.getStringExtra(Reminders.EXTRA_TYPE) ?: return
+        // P1-05：后台 Receiver 独立拉起时先恢复业务时区，再判断「今天星期几」
+        com.qingji.app.domain.BusinessClock.restoreBlocking(context)
         var settings = QingJiSettings()
         try {
             settings = runBlocking { SettingsStore.observe(context).first() }
@@ -268,6 +269,8 @@ class ReminderReceiver : BroadcastReceiver() {
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
+        // P1-05：开机广播拉起时先恢复业务时区，再让下游排闹钟/算断食
+        com.qingji.app.domain.BusinessClock.restoreBlocking(context)
         try {
             val settings = runBlocking { SettingsStore.observe(context).first() }
             Reminders.apply(context, settings)

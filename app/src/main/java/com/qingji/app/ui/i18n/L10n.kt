@@ -90,12 +90,9 @@ private val EN: Map<String, String> = mapOf(
     "选择品牌" to "Choose a brand",
     "暂无可用品牌" to "No brand available",
     "暂无热量数据" to "No calorie data",
-    "堂食" to "Dine-in",
     "菜品溯源" to "Dish traceability",
     "全部" to "All",
     "这道分类下暂时没有菜品" to "No dishes in this category",
-    "外卖商品暂无公开数据；下面展示堂食菜品，来自菜品溯源报告 2.0" to
-        "No public takeout menu; showing dine-in dishes from Traceability Report 2.0",
     "标准" to "Library",
     "自定义" to "Custom",
     "加到哪一餐" to "Add to which meal",

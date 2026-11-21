@@ -20,6 +20,8 @@ import java.io.File
 object PhotoDirs {
     const val PROGRESS_DIR = "progress"
     const val IMAGES_DIR = "images"
+    /** v1.6：自定义食物组封面，存应用私有目录，避免相册临时 URI 失效。 */
+    const val FOOD_GROUP_DIR = "food_group_covers"
 
     /**
      * 恢复出厂要整目录重建的图片目录清单，沿用 deleteRecursively() + mkdirs() 写法。

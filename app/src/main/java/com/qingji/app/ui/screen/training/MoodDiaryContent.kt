@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.sp
 import com.qingji.app.data.local.entity.Diary
 import com.qingji.app.domain.DiaryRules
 import com.qingji.app.ui.components.AppBottomSheet
+import com.qingji.app.ui.components.MonthPickerSheet
 import com.qingji.app.ui.components.SectionCard
 import com.qingji.app.ui.theme.Dimens
 import com.qingji.app.ui.theme.DividerColor
@@ -74,6 +75,9 @@ fun MoodDiaryContent(
     modifier: Modifier = Modifier
 ) {
     var detailDate by remember { mutableStateOf<LocalDate?>(null) }
+    // QJ 日记日期查询：点「日记记录」旁的日期弹首页同款月历，只显示该日记录
+    var queryDate by remember { mutableStateOf(com.qingji.app.domain.AppClock.today()) }
+    var showDatePicker by remember { mutableStateOf(false) }
 
     // 一天可能写多篇，取当天最高的那次评分（和原来近 30 天格子同一套规则）
     val ratingByDate = remember(diaries) {
@@ -140,17 +144,40 @@ fun MoodDiaryContent(
             }
             Spacer(Modifier.height(12.dp))
 
-            Text("日记记录", fontSize = TextSizes.CardTitle,
-                fontWeight = FontWeight.SemiBold, color = TextPrimary)
+            // QJ 日记日期查询：标题行带日期入口 + 前后一天；列表只显示选中日期
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("日记记录", fontSize = TextSizes.CardTitle,
+                    fontWeight = FontWeight.SemiBold, color = TextPrimary,
+                    modifier = Modifier.weight(1f))
+                Text("‹", fontSize = 20.sp, color = TextSecondary,
+                    modifier = Modifier.clickable {
+                        queryDate = queryDate.minusDays(1)
+                        onMonthChange(YearMonth.from(queryDate))
+                    }.padding(horizontal = 8.dp))
+                Text(
+                    text = if (queryDate == com.qingji.app.domain.AppClock.today())
+                        "今天" else queryDate.toString(),
+                    fontSize = TextSizes.Caption, color = QingJiGreen,
+                    modifier = Modifier.clickable { showDatePicker = true }.padding(4.dp)
+                )
+                Text("›", fontSize = 20.sp,
+                    color = if (queryDate >= com.qingji.app.domain.AppClock.today())
+                        TextSecondary.copy(alpha = 0.4f) else TextSecondary,
+                    modifier = Modifier.clickable(enabled = queryDate < com.qingji.app.domain.AppClock.today()) {
+                        queryDate = queryDate.plusDays(1)
+                        onMonthChange(YearMonth.from(queryDate))
+                    }.padding(horizontal = 8.dp))
+            }
             Spacer(Modifier.height(8.dp))
 
-            if (diaries.isEmpty()) {
+            val dayDiaries = diaries.filter { it.date == queryDate }
+            if (dayDiaries.isEmpty()) {
                 SectionCard {
-                    Text("还没有日记。点上面的「写一篇日记」，记下今天心情怎么样。",
+                    Text("这天没有日记。点上面的「写一篇日记」，记下心情怎么样。",
                         fontSize = TextSizes.Body, color = TextSecondary)
                 }
             } else {
-                diaries.forEach { diary ->
+                dayDiaries.forEach { diary ->
                     SectionCard(
                         modifier = Modifier.clickable { onOpenEdit(diary.id) },
                         contentPadding = Dimens.CardPaddingCompact
@@ -223,6 +250,18 @@ fun MoodDiaryContent(
                 }
             }
         }
+    }
+
+    // QJ 日记日期查询：复用首页 MonthPickerSheet（只改本页查询日期，不动外层月份）
+    if (showDatePicker) {
+        MonthPickerSheet(
+            selected = queryDate,
+            onSelect = {
+                queryDate = it
+                onMonthChange(YearMonth.from(it))
+            },
+            onDismiss = { showDatePicker = false }
+        )
     }
 }
 

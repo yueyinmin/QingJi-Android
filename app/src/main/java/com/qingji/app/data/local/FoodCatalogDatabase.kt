@@ -120,7 +120,12 @@ abstract class FoodCatalogDatabase : RoomDatabase() {
          * 这里用独立的 SharedPreferences，不往 SettingsStore 里加设置项，
          * 因为它记录的是「随 App 一起来的资源装到哪版了」，不是用户偏好。
          */
-        private fun ensureFresh(context: Context) {
+        /**
+         * QJ-GOV-2026-03 / P2-02 两阶段提交第一步：准备。
+         * 只删旧库，【不写版本号】——版本号必须等新库打开并校验通过后由 [markInstalled] 写。
+         * 这样中途失败时下次启动会重新走准备流程，不会把错误版本标记为已安装。
+         */
+        private fun prepareFresh(context: Context) {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             val installed = prefs.getString("catalog_version", "")
             if (installed == CATALOG_VERSION) return
@@ -133,13 +138,33 @@ abstract class FoodCatalogDatabase : RoomDatabase() {
                     if (f.name.startsWith(DB_NAME)) f.delete()
                 }
             }
-            prefs.edit().putString("catalog_version", CATALOG_VERSION).apply()
+        }
+
+        /** 两阶段提交第二步：新库打开并校验通过后，同步提交版本号（commit 不用异步 apply）。 */
+        private fun markInstalled(context: Context) {
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit().putString("catalog_version", CATALOG_VERSION).commit()
+        }
+
+        /**
+         * 基本完整性校验：库文件存在 + PRAGMA quick_check 通过 + 必要表存在。
+         * 校验失败返回 false，调用方不写版本号，下次启动重试。
+         */
+        private fun verifyInstalled(db: FoodCatalogDatabase): Boolean = try {
+            val cursor = db.openHelper.readableDatabase.query("PRAGMA quick_check")
+            val ok = cursor.use { c -> c.moveToFirst() && c.getString(0).equals("ok", true) }
+            ok && db.openHelper.readableDatabase.query(
+                "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='food_catalog'"
+            ).use { c -> c.moveToFirst() && c.getInt(0) > 0 }
+        } catch (e: Exception) {
+            android.util.Log.e("FoodCatalog", "标准库校验失败", e)
+            false
         }
 
         fun get(context: Context): FoodCatalogDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: run {
-                    ensureFresh(context.applicationContext)
+                    prepareFresh(context.applicationContext)
 
                     // assets 万一没打进来，也不能让 App 一打开就崩：退化成空标准库，
                     // 用户自建食物和所有记录照常可用。
@@ -157,13 +182,19 @@ abstract class FoodCatalogDatabase : RoomDatabase() {
                         DB_NAME
                     )
                     if (hasAsset) builder.createFromAsset(ASSET_PATH)
-                    builder
+                    val built = builder
                         // 这里保留兜底：标准库是随 APK 来的公共只读数据，重建不会丢用户记录；
-                        // 换预置库靠 ensureFresh() 主动删文件再拷新的，Room version 变了也能打开。
+                        // 换预置库靠 prepareFresh() 主动删文件再拷新的，Room version 变了也能打开。
                         // 用户库 qingji.db 那边已移除这行，绝不静默清用户数据。
                         .fallbackToDestructiveMigration()
                         .build()
-                        .also { INSTANCE = it }
+
+                    // P2-02：只有资产存在且新库通过完整性校验，才提交 installed version。
+                    // 失败时不写版本号 → 下次启动重新准备，可自愈，不会静默当成功。
+                    if (hasAsset && verifyInstalled(built)) {
+                        markInstalled(context.applicationContext)
+                    }
+                    built.also { INSTANCE = it }
                 }
             }
     }

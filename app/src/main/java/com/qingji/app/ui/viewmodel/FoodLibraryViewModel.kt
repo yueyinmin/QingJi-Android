@@ -7,10 +7,12 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.qingji.app.data.local.entity.Food
 import com.qingji.app.data.local.entity.FoodLog
+import com.qingji.app.data.local.entity.UserFoodGroup
 import com.qingji.app.data.repository.QingJiRepository
 import com.qingji.app.domain.AppClock
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -32,6 +34,66 @@ class FoodLibraryViewModel(app: Application) : AndroidViewModel(app) {
     val userFoods: StateFlow<List<com.qingji.app.data.local.entity.Food>> =
         repo.observeUserFoods()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** v1.6：标准库只显示预置食物，不掺自定义（TASK-05 数据隔离）。 */
+    val catalogFoods: StateFlow<List<com.qingji.app.data.local.entity.Food>> =
+        repo.observeCatalogFoods()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    // ==================== v1.6 自定义食物组 ====================
+    /** 全部食物组（按排序）。 */
+    val foodGroups: StateFlow<List<UserFoodGroup>> =
+        repo.observeFoodGroups()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** 当前展开查看的组 id；0 = 没展开。 */
+    private val _expandedGroupId = MutableStateFlow(0L)
+    val expandedGroupId: StateFlow<Long> = _expandedGroupId
+
+    fun expandGroup(id: Long) { _expandedGroupId.value = id }
+
+    /** 组内食物 id（展开某组时用；用 flatMapLatest 跟随展开的组切换）。 */
+    val expandedGroupFoodIds: StateFlow<List<Long>> =
+        _expandedGroupId.flatMapLatest { id ->
+            if (id == 0L) kotlinx.coroutines.flow.flowOf(emptyList())
+            else repo.observeGroupFoodIds(id)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** 每个组的成员数，界面「N 个食物」显示。用 combine 汇总，组增删自动刷新。 */
+    val groupCounts: StateFlow<Map<Long, Int>> = foodGroups.flatMapLatest { groups ->
+        if (groups.isEmpty()) kotlinx.coroutines.flow.flowOf(emptyMap())
+        else combine(groups.map { g -> repo.observeGroupFoodCount(g.id).map { g.id to it } }) { pairs ->
+            pairs.toMap()
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
+    /** 每个食物的组数（食物卡片「已归入 N 组」）。只对自定义食物订阅。 */
+    val foodGroupCounts: StateFlow<Map<Long, Int>> = userFoods.flatMapLatest { foods ->
+        if (foods.isEmpty()) kotlinx.coroutines.flow.flowOf(emptyMap())
+        else combine(foods.map { f -> repo.observeGroupsOfFood(f.id).map { f.id to it.size } }) { pairs ->
+            pairs.toMap()
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
+    /** 新建组。重名返回 -1。 */
+    suspend fun createFoodGroup(name: String, coverUri: String = "") = repo.createFoodGroup(name, coverUri)
+
+    suspend fun updateFoodGroup(group: UserFoodGroup) = repo.updateFoodGroup(group)
+
+    suspend fun deleteFoodGroup(groupId: Long) {
+        repo.deleteFoodGroup(groupId)
+        if (_expandedGroupId.value == groupId) _expandedGroupId.value = 0L
+    }
+
+    suspend fun addFoodToGroup(groupId: Long, foodId: Long) = repo.addFoodToGroup(groupId, foodId)
+
+    suspend fun removeFoodFromGroup(groupId: Long, foodId: Long) = repo.removeFoodFromGroup(groupId, foodId)
+
+    /** 一次性查某食物所在组（打开「加入组」弹窗时用）。 */
+    suspend fun groupsOfFoodOnce(foodId: Long): List<Long> = repo.groupsOfFoodOnce(foodId)
+
+    /** 一次性查某组的食物 id（打开「加成员」弹窗时用）。 */
+    suspend fun groupFoodIds(groupId: Long): List<Long> = repo.groupFoodIds(groupId)
 
     /** 近 90 天吃过的食物，按最近一次时间倒序 */
     val eatenFoods: StateFlow<List<EatenFood>> = repo

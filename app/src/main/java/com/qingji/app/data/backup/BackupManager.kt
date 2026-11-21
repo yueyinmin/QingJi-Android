@@ -125,12 +125,16 @@ class BackupManager(private val context: Context) {
         // v5：用户自建外卖品牌 + 菜品，换手机不丢
         val userBrands = db.userBrandDao().allBrands()
         val userBrandDishes = userBrands.flatMap { db.userBrandDao().dishesOfBrand(it.id) }
+        // v6：自定义食物组 + 组食物关联，换手机不丢
+        val userFoodGroups = db.userFoodGroupDao().backupGroups()
+        val userFoodGroupItems = db.userFoodGroupDao().backupItems()
         val favorites = db.foodFavoriteDao().allNames()
         val foodLogs = db.foodLogDao().findAll()
         val waters = db.waterLogDao().findAll()
         val diaries = db.diaryDao().findAll()
         val usage = db.usageStatDao().findAll()
-        val ai = db.aiConfigDao().get()
+        val ai = db.aiConfigDao().getAll().firstOrNull()
+        val aiConfigs = db.aiConfigDao().getAll()
         // v1.0.6：下面这五类以前完全没进备份，换手机就静默丢了（界面上还写着「全量」）
         val bodyMeasures = db.bodyMeasureDao().findAll()
         val photos = db.progressPhotoDao().findAll()
@@ -278,6 +282,34 @@ class BackupManager(private val context: Context) {
             }.toString()
         ).append(",\n")
 
+        // v6：自定义食物组 + 组食物关联整段导出
+        sb.append("  \"userFoodGroups\": ").append(
+            JSONArray().apply {
+                userFoodGroups.forEach { g ->
+                    put(JSONObject().apply {
+                        put("id", g.id)
+                        put("name", g.name)
+                        put("coverUri", g.coverUri)
+                        put("sortOrder", g.sortOrder)
+                        put("createdAt", g.createdAt)
+                        put("updatedAt", g.updatedAt)
+                    })
+                }
+            }.toString()
+        ).append(",\n")
+        sb.append("  \"userFoodGroupItems\": ").append(
+            JSONArray().apply {
+                userFoodGroupItems.forEach { it2 ->
+                    put(JSONObject().apply {
+                        put("id", it2.id)
+                        put("groupId", it2.groupId)
+                        put("foodId", it2.foodId)
+                        put("createdAt", it2.createdAt)
+                    })
+                }
+            }.toString()
+        ).append(",\n")
+
         // 收藏按名字存（标准库只读，收藏只能记在用户库里），换设备后照样能对上
         sb.append("  \"foodFavorites\": ").append(
             JSONArray().apply { favorites.forEach { put(it) } }.toString()
@@ -347,19 +379,27 @@ class BackupManager(private val context: Context) {
             }.toString()
         ).append(",\n")
 
-        // AI 配置：只留服务商和模型名，Key 不在数据库里，天然导不出去
-        sb.append("  \"aiConfig\": ").append(
-            if (ai == null) "null" else JSONObject().apply {
-                put("provider", ai.provider)
-                put("baseUrl", ai.baseUrl)
-                put("textModel", ai.textModel)
-                put("visionModel", ai.visionModel)
-                put("temperature", ai.temperature)
-                put("timeoutSec", ai.timeoutSec)
-                put("dailyLimit", ai.dailyLimit)
-                put("enabled", ai.enabled)
-            }.toString()
-        ).append(",\n")
+        // AI 配置：只留服务商和模型名，Key 不在数据库里，天然导不出去。
+        // aiConfig 单对象段保留给老版本读；aiConfigs 数组是多服务完整数据（v7）。
+        fun aiJson(c: com.qingji.app.data.local.entity.AiConfig) = JSONObject().apply {
+            put("id", c.id)
+            put("displayName", c.displayName)
+            put("provider", c.provider)
+            put("baseUrl", c.baseUrl)
+            put("textModel", c.textModel)
+            put("visionModel", c.visionModel)
+            put("temperature", c.temperature)
+            put("timeoutSec", c.timeoutSec)
+            put("dailyLimit", c.dailyLimit)
+            put("enabled", c.enabled)
+        }
+        sb.append("  \"aiConfig\": ").append(if (ai == null) "null" else aiJson(ai).toString()).append(",\n")
+        sb.append("  \"aiConfigs\": [")
+        aiConfigs.forEachIndexed { idx, c ->
+            if (idx > 0) sb.append(",")
+            sb.append(aiJson(c).toString())
+        }
+        sb.append("],\n")
 
         // ---------- v2 新增的五段 ----------
 
@@ -524,11 +564,34 @@ class BackupManager(private val context: Context) {
             if (p.userBrandDishes.isNotEmpty()) target.userBrandDao().insertAllDishes(p.userBrandDishes)
         }
 
+        // v6 食物组段：只有 version>=6 的备份才整段覆盖，
+        // 老备份（那时还没有食物组功能）导入时绝不清本机食物组，避免误删用户刚建的组。
+        // 红线：清表绝不能放进上面「无条件清记录」那批（那批对 v1~v5 老备份也执行）。
+        if (p.version >= 6 && p.hasUserFoodGroups) {
+            target.userFoodGroupDao().clearAllItems()
+            target.userFoodGroupDao().clearAllGroups()
+            if (p.userFoodGroups.isNotEmpty()) target.userFoodGroupDao().insertAllGroups(p.userFoodGroups)
+            if (p.userFoodGroupItems.isNotEmpty()) target.userFoodGroupDao().insertAllItems(p.userFoodGroupItems)
+        }
+
         if (p.hasProfile) {
             val dao = target.userProfileDao()
             if (p.profile != null) dao.save(p.profile!!) else dao.clear()
         }
-        if (p.hasAiConfig) {
+        // AI 配置：v7 多服务数组优先（整包覆盖），老备份只有单条 aiConfig 时保留为一条服务。
+        // Key 仍不随备份走——恢复后若没有对应 Key，界面会显示「Key 未保存」要求重填。
+        if (p.version >= 7 && p.hasAiConfigs) {
+            val dao = target.aiConfigDao()
+            dao.clearAll()
+            p.aiConfigs.forEach { dao.save(it) }
+            // 激活 ID 重新校验：指向不存在的配置时回退到第一条，没有则置 0（未配置）
+            val restoredIds = p.aiConfigs.map { it.id }
+            val active = com.qingji.app.data.prefs.SettingsStore.observe(context).first().aiActiveProviderId
+            val valid = if (active in restoredIds) active else (restoredIds.firstOrNull() ?: 0)
+            com.qingji.app.data.prefs.SettingsStore.set(
+                context, com.qingji.app.data.prefs.SettingsKeys.AI_ACTIVE_PROVIDER_ID, valid
+            )
+        } else if (p.hasAiConfig) {
             val dao = target.aiConfigDao()
             if (p.aiConfig != null) dao.save(p.aiConfig!!) else dao.clearAll()
         }
@@ -624,6 +687,10 @@ class BackupManager(private val context: Context) {
             if (sd.interventions.isNotEmpty()) target.selfDisciplineInterventionDao().insertAll(sd.interventions)
             if (sd.settings.isNotEmpty()) target.selfDisciplineSettingDao().insertAll(sd.settings)
         }
+
+        // P1-01：备份恢复后清掉每日健康汇总缓存，否则下次查询仍读到恢复前的旧汇总。
+        // 仍在调用方的 db.withTransaction 内，整份恢复失败时连带回滚。
+        target.dailyHealthSummaryDao().clearAll()
     }
 
     /**
@@ -652,6 +719,7 @@ class BackupManager(private val context: Context) {
         }
         val brandTotal = p.userBrands.size + p.userBrandDishes.size
         if (brandTotal > 0) parts.add("自建品牌 $brandTotal 条")
+        if (p.userFoodGroups.isNotEmpty()) parts.add("食物组 ${p.userFoodGroups.size} 个")
 
         val body = if (parts.isEmpty()) "这份备份里没有记录" else parts.joinToString("、")
         val photoNote = if (p.photos.isNotEmpty()) "照片文件本身不在备份里，需要从旧手机把图片拷过来。" else ""

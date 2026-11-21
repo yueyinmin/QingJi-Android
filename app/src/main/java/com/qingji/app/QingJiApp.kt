@@ -23,6 +23,10 @@ class QingJiApp : Application() {
         // --------------------------------------------------------
         CoroutineScope(Dispatchers.IO).launch {
             try {
+                // P1-05：在任何业务读取日期之前恢复记录时区。
+                // 放后台协程 + 挂起读 DataStore，不在 onCreate 主线程同步读。
+                com.qingji.app.domain.BusinessClock.restore(this@QingJiApp)
+
                 val repo = QingJiRepository(this@QingJiApp)
                 // 只是确认标准库能打开、顺便把实例预热好，不再写任何标准食物
                 repo.ensurePresetFoods()

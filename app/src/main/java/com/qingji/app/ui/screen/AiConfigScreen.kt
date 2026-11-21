@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.qingji.app.data.local.entity.AiConfig
+import com.qingji.app.ui.components.AppDialog
 import com.qingji.app.ui.components.HintBox
 import com.qingji.app.ui.components.LabeledTextField
 import com.qingji.app.ui.components.PageTopBar
@@ -51,16 +52,13 @@ import kotlinx.coroutines.launch
 
 /**
  * ============================================================
- * AI 服务配置（需求文档 5.1 / 1.4）
+ * AI 服务配置（多服务管理 · AI 多服务工单）
  * ------------------------------------------------------------
- * 要点：
- * 1. 用的是自己的 Key、自己的服务商，App 不内置任何账号。
- * 2. Key 用手机硬件里的钥匙加密后存，不进数据库、不进备份、不进日志。
- * 3. 输入框不回显已存的 Key：留空 = 继续用旧 Key，填新值才覆盖。
- * 4. 不配 Key 时 App 完全不联网，手动搜索等功能照常用。
- *
- * 下面的服务商地址只是常见默认值，服务商随时可能调整，
- * 一切以各家官方文档为准，这里全部可以手改。
+ * 1. 顶部：当前使用服务（名称/服务商/模型/Key 状态/启用态）。
+ * 2. 中部：已保存服务列表（切换/编辑/测试/删除 + 最近测试 + 当前标识）。
+ * 3. 编辑表单：新增走新 ID、编辑保留 ID；Key 留空不改、绝不回显。
+ * 4. 切换只改激活 ID；删除当前服务自动改选；测试不改激活服务、不扣额度。
+ * Key 永远不进数据库/备份/日志。
  * ============================================================
  */
 
@@ -68,9 +66,7 @@ private data class Preset(
     val name: String,
     val baseUrl: String,
     val model: String,
-    /** 视觉模型（拍照识别用）。留空表示这家没有视觉模型，只能用文字识别。 */
     val visionModel: String = "",
-    /** 选中后显示在下面的提示 */
     val hint: String = ""
 )
 
@@ -95,9 +91,19 @@ fun AiConfigScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val savedConfig by vm.config.collectAsState()
-    val hasKey by vm.hasKey.collectAsState()
+    val configs by vm.configs.collectAsState()
+    val active by vm.activeConfig.collectAsState()
+    val activeId by vm.activeId.collectAsState()
+    val keyStatus by vm.keyStatus.collectAsState()
+    val testResults by vm.testResults.collectAsState()
+    val vmMessage by vm.message.collectAsState()
 
+    var editing by remember { mutableStateOf<AiConfig?>(null) } // null=不显示表单
+    var isNew by remember { mutableStateOf(false) }
+    var pendingDelete by remember { mutableStateOf<AiConfig?>(null) }
+
+    // 表单状态
+    var displayName by remember { mutableStateOf("") }
     var provider by remember { mutableStateOf("custom") }
     var baseUrl by remember { mutableStateOf("") }
     var textModel by remember { mutableStateOf("") }
@@ -110,257 +116,308 @@ fun AiConfigScreen(
     var message by remember { mutableStateOf("") }
     var isError by remember { mutableStateOf(false) }
     var isTesting by remember { mutableStateOf(false) }
-    var loaded by remember { mutableStateOf(false) }
+    var hasKeyInForm by remember { mutableStateOf(false) }
 
-    // 只在第一次拿到已存配置时把表单填满，之后用户改了什么都不会被覆盖
-    LaunchedEffect(savedConfig) {
-        if (!loaded && savedConfig != null) {
-            val c = savedConfig!!
-            provider = c.provider
-            baseUrl = c.baseUrl
-            textModel = c.textModel
-            visionModel = c.visionModel
-            timeout = c.timeoutSec.toString()
-            dailyLimit = c.dailyLimit.toString()
-            enabled = c.enabled
-            loaded = true
-        }
+    fun openEditor(config: AiConfig?, new: Boolean) {
+        editing = config
+        isNew = new
+        displayName = config?.displayName.orEmpty()
+        provider = config?.provider ?: "custom"
+        baseUrl = config?.baseUrl.orEmpty()
+        textModel = config?.textModel.orEmpty()
+        visionModel = config?.visionModel.orEmpty()
+        timeout = (config?.timeoutSec ?: 30).toString()
+        dailyLimit = (config?.dailyLimit ?: 100).toString()
+        enabled = config?.enabled ?: true
+        keyInput = ""
+        presetHint = ""
+        hasKeyInForm = config?.let { keyStatus[it.id] == true } ?: false
+        message = ""
     }
 
-    fun buildConfig() = AiConfig(
-        id = 1,
+    fun buildConfig(): AiConfig = AiConfig(
+        id = editing?.id ?: 0,
+        displayName = displayName.trim(),
         provider = provider,
         baseUrl = baseUrl.trim(),
         textModel = textModel.trim(),
         visionModel = visionModel.trim(),
-        temperature = 0.2,
+        temperature = editing?.temperature ?: 0.2,
         timeoutSec = timeout.toIntOrNull()?.coerceIn(5, 120) ?: 30,
         dailyLimit = dailyLimit.toIntOrNull()?.coerceIn(1, 10000) ?: 100,
         enabled = enabled,
         updatedAt = System.currentTimeMillis()
     )
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(PageBackground)
-    ) {
+    LaunchedEffect(vmMessage) {
+        if (vmMessage != null) { message = vmMessage!!; isError = false; vm.consumeMessage() }
+    }
+
+    Column(modifier = Modifier.fillMaxSize().background(PageBackground)) {
         PageTopBar(title = "AI 服务配置", onBack = onBack)
 
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp)
+            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)
         ) {
             Spacer(Modifier.height(14.dp))
-
             HintBox(
-                text = "不配也能用：手动搜索、记体重、看进展都不需要 AI。" +
-                    "只有「文字 AI 记录」会联网，而且连的是你自己填的服务商。"
+                text = "可保存多个服务（如公益站 A/B）。切换只改当前使用的服务，" +
+                    "每个服务各自记住地址、模型和加密 Key；Key 不进数据库和备份。"
             )
             Spacer(Modifier.height(12.dp))
 
-            // ---------- 服务商预设 ----------
+            // ---------- 当前使用服务 ----------
+            if (active != null) {
+                SectionCard {
+                    Text("当前使用", fontSize = 12.sp, color = QingJiGreen, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(6.dp))
+                    Text(active!!.displayName.ifBlank { providerName(active!!.provider) },
+                        fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                    Spacer(Modifier.height(4.dp))
+                    Text("服务商 ${providerName(active!!.provider)} · 文本 ${active!!.textModel}",
+                        fontSize = 12.sp, color = TextSecondary)
+                    Text(
+                        "视觉模型${if (active!!.visionModel.isNotBlank()) "已配置" else "未配置"} · " +
+                            "Key ${if (keyStatus[active!!.id] == true) "已保存" else "未保存"} · " +
+                            "${if (active!!.enabled) "已启用" else "未启用"}",
+                        fontSize = 12.sp, color = TextSecondary
+                    )
+                }
+                Spacer(Modifier.height(12.dp))
+            }
+
+            // ---------- 已保存服务列表 ----------
             SectionCard {
-                Text(
-                    text = "选个服务商（自动填地址和模型名，可再手改）",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = TextPrimary
-                )
+                Text("已保存服务（${configs.size}）", fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold, color = TextPrimary)
                 Spacer(Modifier.height(10.dp))
-                presets.chunked(4).forEach { row ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        row.forEach { preset ->
-                            val selected = provider == preset.key()
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(if (selected) QingJiGreen else PageBackground)
-                                    .clickable {
-                                        provider = preset.key()
-                                        baseUrl = preset.baseUrl
-                                        if (preset.model.isNotBlank()) textModel = preset.model
-                                        visionModel = preset.visionModel
-                                        presetHint = preset.hint
+                if (configs.isEmpty()) {
+                    Text("还没有保存任何服务，点下面的「添加 AI 服务」开始。",
+                        fontSize = 12.sp, color = TextSecondary)
+                } else {
+                    configs.forEach { c ->
+                        val isCurrent = c.id == activeId
+                        val test = testResults[c.id]
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(if (isCurrent) QingJiGreen.copy(alpha = 0.10f) else PageBackground)
+                                .padding(10.dp)
+                        ) {
+                            Column {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        c.displayName.ifBlank { providerName(c.provider) },
+                                        fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                                        color = TextPrimary, modifier = Modifier.weight(1f)
+                                    )
+                                    if (isCurrent) {
+                                        Text("当前使用", fontSize = 11.sp, color = QingJiGreen,
+                                            modifier = Modifier.clip(RoundedCornerShape(999.dp))
+                                                .background(QingJiGreen.copy(alpha = 0.14f))
+                                                .padding(horizontal = 8.dp, vertical = 3.dp))
                                     }
-                                    .padding(vertical = 9.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = preset.name,
-                                    fontSize = 12.sp,
-                                    color = if (selected) Color.White else TextSecondary
-                                )
+                                }
+                                Spacer(Modifier.height(3.dp))
+                                Text("${providerName(c.provider)} · ${c.textModel}" +
+                                    " · Key ${if (keyStatus[c.id] == true) "已保存" else "未保存"}" +
+                                    " · ${if (c.enabled) "启用" else "停用"}",
+                                    fontSize = 11.sp, color = TextSecondary)
+                                if (test != null) {
+                                    Spacer(Modifier.height(2.dp))
+                                    val time = java.time.Instant.ofEpochMilli(test.atMillis)
+                                        .atZone(java.time.ZoneId.systemDefault())
+                                        .format(java.time.format.DateTimeFormatter.ofPattern("MM-dd HH:mm"))
+                                    Text(
+                                        "最近测试（$time）：${test.label}${if (test.detail.isNotBlank()) " · ${test.detail.take(40)}" else ""}",
+                                        fontSize = 11.sp,
+                                        color = if (test.ok) QingJiGreen else TextSecondary
+                                    )
+                                }
+                                Spacer(Modifier.height(6.dp))
+                                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    if (!isCurrent) {
+                                        Text("切换", fontSize = 12.sp, color = QingJiGreen,
+                                            modifier = Modifier.clickable { vm.switchTo(c) })
+                                    }
+                                    Text("编辑", fontSize = 12.sp, color = QingJiGreenDark,
+                                        modifier = Modifier.clickable { openEditor(c, false) })
+                                    Text("删除", fontSize = 12.sp, color = TextSecondary,
+                                        modifier = Modifier.clickable { pendingDelete = c })
+                                }
                             }
                         }
-                        repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
+                        Spacer(Modifier.height(8.dp))
+                    }
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+
+            // ---------- 添加按钮 ----------
+            PrimaryButton(text = "＋ 添加 AI 服务", onClick = { openEditor(null, true) })
+            Spacer(Modifier.height(12.dp))
+
+            // ---------- 编辑表单 ----------
+            if (editing != null) {
+                SectionCard {
+                    Text(if (isNew) "新增服务" else "编辑服务", fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                    Spacer(Modifier.height(10.dp))
+                    LabeledTextField(
+                        label = "服务名称（如：公益站 A / DeepSeek 官方）",
+                        value = displayName, onValueChange = { displayName = it },
+                        hint = "给自己看的备注名"
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Text("选个服务商（自动填地址和模型名，可再手改）", fontSize = 13.sp, color = TextPrimary)
+                    Spacer(Modifier.height(8.dp))
+                    presets.chunked(4).forEach { row ->
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            row.forEach { p ->
+                                val selected = provider == p.key()
+                                Box(
+                                    modifier = Modifier.weight(1f).clip(RoundedCornerShape(8.dp))
+                                        .background(if (selected) QingJiGreen else PageBackground)
+                                        .clickable {
+                                            provider = p.key(); baseUrl = p.baseUrl
+                                            if (p.model.isNotBlank()) textModel = p.model
+                                            visionModel = p.visionModel; presetHint = p.hint
+                                        }.padding(vertical = 9.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(p.name, fontSize = 12.sp,
+                                        color = if (selected) Color.White else TextSecondary)
+                                }
+                            }
+                            repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
+                        }
+                        Spacer(Modifier.height(6.dp))
+                    }
+                    if (presetHint.isNotBlank()) { Spacer(Modifier.height(6.dp)); HintBox(text = presetHint) }
+                    Spacer(Modifier.height(10.dp))
+                    LabeledTextField(label = "Base URL（接口地址）", value = baseUrl,
+                        onValueChange = { baseUrl = it }, hint = "https://api.deepseek.com/v1")
+                    Spacer(Modifier.height(10.dp))
+                    LabeledTextField(label = "文本模型名", value = textModel,
+                        onValueChange = { textModel = it }, hint = "deepseek-chat")
+                    Spacer(Modifier.height(10.dp))
+                    LabeledTextField(label = "视觉模型名（拍照识别用，可留空）", value = visionModel,
+                        onValueChange = { visionModel = it }, hint = "例如 glm-4v-flash")
+                    Spacer(Modifier.height(10.dp))
+                    LabeledTextField(
+                        label = if (hasKeyInForm) "API Key（已保存，留空表示不改）" else "API Key",
+                        value = keyInput, onValueChange = { keyInput = it },
+                        hint = if (hasKeyInForm) "••••••••••••••••" else "sk-...",
+                        isPassword = true
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text("Key 加密后单独存放，不进数据库和备份，也不会明文回显。",
+                        fontSize = 11.sp, color = TextSecondary)
+                    Spacer(Modifier.height(10.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("启用此服务", fontSize = 14.sp, color = TextPrimary)
+                            Text("关掉后不会用它识别", fontSize = 11.sp, color = TextSecondary)
+                        }
+                        Switch(checked = enabled, onCheckedChange = { enabled = it })
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Box(modifier = Modifier.weight(1f)) {
+                            LabeledTextField(label = "超时（秒）", value = timeout,
+                                onValueChange = { timeout = it }, numberOnly = true)
+                        }
+                        Box(modifier = Modifier.weight(1f)) {
+                            LabeledTextField(label = "单日上限", value = dailyLimit,
+                                onValueChange = { dailyLimit = it }, numberOnly = true)
+                        }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Box(
+                            modifier = Modifier.weight(1f).height(44.dp).clip(RoundedCornerShape(10.dp))
+                                .background(CardWhite).clickable(enabled = !isTesting) {
+                                    scope.launch {
+                                        isTesting = true; message = ""
+                                        val result = vm.test(buildConfig(), keyInput)
+                                        isTesting = false
+                                        result.fold(
+                                            onSuccess = { message = "✅ $it"; isError = false },
+                                            onFailure = { message = "测试失败：${it.message}"; isError = true }
+                                        )
+                                    }
+                                }, contentAlignment = Alignment.Center
+                        ) {
+                            Text(if (isTesting) "测试中…" else "测试连接", fontSize = 13.sp, color = QingJiGreenDark)
+                        }
+                        Box(
+                            modifier = Modifier.weight(1f).height(44.dp).clip(RoundedCornerShape(10.dp))
+                                .background(QingJiGreen).clickable {
+                                    if (baseUrl.isBlank() || textModel.isBlank()) {
+                                        message = "Base URL 和模型名不能为空"; isError = true
+                                    } else if (!hasKeyInForm && keyInput.isBlank()) {
+                                        message = "还没填 API Key"; isError = true
+                                    } else {
+                                        scope.launch {
+                                            vm.save(buildConfig(), keyInput)
+                                            Toast.makeText(context, "已保存", Toast.LENGTH_SHORT).show()
+                                            editing = null
+                                        }
+                                    }
+                                }, contentAlignment = Alignment.Center
+                        ) {
+                            Text("保存", fontSize = 13.sp, color = Color.White)
+                        }
                     }
                     Spacer(Modifier.height(6.dp))
+                    Text("取消", fontSize = 12.sp, color = TextSecondary,
+                        modifier = Modifier.clickable { editing = null })
                 }
+                Spacer(Modifier.height(12.dp))
             }
-
-            Spacer(Modifier.height(12.dp))
-
-            // ---------- 必填项 ----------
-            SectionCard {
-                LabeledTextField(
-                    label = "Base URL（接口地址）",
-                    value = baseUrl,
-                    onValueChange = { baseUrl = it },
-                    hint = "https://api.deepseek.com/v1"
-                )
-                Spacer(Modifier.height(12.dp))
-                LabeledTextField(
-                    label = "文本模型名",
-                    value = textModel,
-                    onValueChange = { textModel = it },
-                    hint = "deepseek-chat"
-                )
-                Spacer(Modifier.height(12.dp))
-                LabeledTextField(
-                    label = "视觉模型名（拍照识别用，只记文字可以留空）",
-                    value = visionModel,
-                    onValueChange = { visionModel = it },
-                    hint = "例如 glm-4v-flash"
-                )
-                if (presetHint.isNotBlank()) {
-                    Spacer(Modifier.height(8.dp))
-                    HintBox(text = presetHint)
-                }
-                Spacer(Modifier.height(12.dp))
-                LabeledTextField(
-                    label = if (hasKey) "API Key（已保存，留空表示不改）" else "API Key",
-                    value = keyInput,
-                    onValueChange = { keyInput = it },
-                    hint = if (hasKey) "••••••••••••••••" else "sk-...",
-                    isPassword = true
-                )
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = "Key 用系统硬件加密后单独存放，不会写进数据库，也不会被备份导出。",
-                    fontSize = 11.sp,
-                    color = TextSecondary
-                )
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            // ---------- 高级与安全 ----------
-            SectionCard {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(text = "启用 AI 识别", fontSize = 14.sp, color = TextPrimary)
-                        Text(
-                            text = "关掉后所有联网识别都会停",
-                            fontSize = 11.sp,
-                            color = TextSecondary
-                        )
-                    }
-                    Switch(checked = enabled, onCheckedChange = { enabled = it })
-                }
-                Spacer(Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Box(modifier = Modifier.weight(1f)) {
-                        LabeledTextField(
-                            label = "超时（秒）",
-                            value = timeout,
-                            onValueChange = { timeout = it },
-                            numberOnly = true
-                        )
-                    }
-                    Box(modifier = Modifier.weight(1f)) {
-                        LabeledTextField(
-                            label = "单日调用上限",
-                            value = dailyLimit,
-                            onValueChange = { dailyLimit = it },
-                            numberOnly = true
-                        )
-                    }
-                }
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = "到上限后自动停止调用，手动搜索和拍照以外的方式仍可用，防止费用失控。",
-                    fontSize = 11.sp,
-                    color = TextSecondary
-                )
-            }
-
-            Spacer(Modifier.height(12.dp))
 
             if (message.isNotBlank()) {
                 HintBox(text = message, isError = isError)
                 Spacer(Modifier.height(12.dp))
             }
 
-            // ---------- 测试 / 保存 ----------
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(46.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(CardWhite)
-                    .clickable(enabled = !isTesting) {
-                        scope.launch {
-                            isTesting = true
-                            message = ""
-                            val result = vm.test(buildConfig(), keyInput)
-                            isTesting = false
-                            result.fold(
-                                onSuccess = { message = "✅ $it"; isError = false },
-                                onFailure = {
-                                    message = "测试失败：${it.message}"
-                                    isError = true
-                                }
-                            )
-                        }
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = if (isTesting) "正在测试…" else "测试连接（会消耗极少量额度）",
-                    fontSize = 14.sp,
-                    color = QingJiGreenDark
-                )
-            }
-
-            Spacer(Modifier.height(10.dp))
-
-            PrimaryButton(
-                text = "保存配置",
-                onClick = {
-                    if (baseUrl.isBlank() || textModel.isBlank()) {
-                        message = "Base URL 和模型名不能为空"
-                        isError = true
-                        return@PrimaryButton
-                    }
-                    if (!hasKey && keyInput.isBlank()) {
-                        message = "还没填 API Key"
-                        isError = true
-                        return@PrimaryButton
-                    }
-                    scope.launch {
-                        vm.save(buildConfig(), keyInput)
-                        Toast.makeText(context, "AI 配置已保存", Toast.LENGTH_SHORT).show()
-                        onBack()
-                    }
-                }
-            )
-
             Spacer(Modifier.height(24.dp))
+        }
+    }
+
+    pendingDelete?.let { target ->
+        AppDialog(
+            title = "删除服务",
+            confirmText = "删除",
+            danger = true,
+            onConfirm = {
+                scope.launch { vm.delete(target.id) }
+                pendingDelete = null
+            },
+            onDismiss = { pendingDelete = null }
+        ) {
+            Text(
+                "确定删除「${target.displayName.ifBlank { providerName(target.provider) }}」？" +
+                    "只删这个服务，其它配置和 Key 不受影响。",
+                fontSize = 13.sp, color = TextSecondary
+            )
         }
     }
 }
 
-/** 服务商在数据库里存的英文代号，界面上显示的是中文名。 */
+/** 服务商英文代号 → 中文显示名。 */
+private fun providerName(provider: String): String = when (provider) {
+    "deepseek" -> "DeepSeek"
+    "qwen" -> "通义千问"
+    "kimi" -> "Kimi"
+    "glm" -> "智谱"
+    "siliconflow" -> "硅基流动"
+    "doubao" -> "豆包"
+    "openai" -> "OpenAI"
+    else -> "自定义"
+}
+
 private fun Preset.key(): String = when (name) {
     "DeepSeek" -> "deepseek"
     "通义千问" -> "qwen"

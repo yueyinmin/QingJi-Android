@@ -28,6 +28,7 @@ package com.qingji.app.domain.progress
  */
 object ProgressCardCatalog {
 
+    /** 已退役：v13 起「本周运动消耗」卡搬到首页，不再进入进展页默认顺序 / 管理列表。保留常量仅为兼容历史配置 ID。 */
     const val EXERCISE = "exercise"
     const val FORECAST = "forecast"
     const val CHART = "chart"
@@ -47,7 +48,7 @@ object ProgressCardCatalog {
      * 不会因为旧设置而看不见新卡（见下方 parseOrder 注释）。
      */
     val DEFAULT_ORDER: List<String> = listOf(
-        EXERCISE, FORECAST, CHART, WATER, NUTRITION, MEASURE, PHOTOS,
+        FORECAST, CHART, WATER, NUTRITION, MEASURE, PHOTOS,
         SLEEP_DIARY, EXERCISE_DIARY, FOOD_DIARY
     )
 

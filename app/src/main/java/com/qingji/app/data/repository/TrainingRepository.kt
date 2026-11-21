@@ -12,14 +12,17 @@ import com.qingji.app.data.local.entity.LibraryMeta
 import com.qingji.app.data.local.entity.PlanExercise
 import com.qingji.app.data.local.entity.TrainingPlan
 import com.qingji.app.data.local.entity.TrainingPlanDay
+import com.qingji.app.data.local.entity.WorkoutCardioDetail
 import com.qingji.app.data.local.entity.WorkoutExercise
 import com.qingji.app.data.local.entity.WorkoutSession
 import com.qingji.app.data.prefs.WorkoutDraftStore
 import com.qingji.app.domain.PlanExerciseResolver
 import com.qingji.app.domain.SessionCalorieCalculator
+import com.qingji.app.domain.WorkoutCalorieCalculator
 import com.qingji.app.domain.TrainingMath
 import com.qingji.app.domain.WorkoutSet
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 /**
@@ -44,6 +47,7 @@ class TrainingRepository(context: Context) {
     private val planExerciseDao = db.planExerciseDao()
     private val sessionDao = db.workoutSessionDao()
     private val workoutExerciseDao = db.workoutExerciseDao()
+    private val workoutCardioDao = db.workoutCardioDetailDao()
     private val exerciseLogDao = db.exerciseLogDao()
 
     /** 健康体系 V1.0：统一运动消耗账本（结算/删除联动都在这里做）。 */
@@ -154,6 +158,94 @@ class TrainingRepository(context: Context) {
     }
 
     /**
+     * 统一训练体系：一场【力量 + 有氧混合】训练一次事务写完。
+     *
+     * 与原 saveSession 的区别：原方法纯力量、账本只结算力量；本方法额外写有氧明细，
+     * 并用 WorkoutCalorieCalculator 把力量结算结果 + 有氧录入已确认热量汇总成
+     * 【一条整场账本】（sourceType=STRENGTH_TRAINING、sourceId=session.uuid），
+     * 力量和有氧项目都不各自写整场账本，杜绝双结算（工单 §5.1/§5.2）。
+     *
+     * 幂等：账本走 upsert（唯一索引 sourceType+sourceId），明细整包 delete+insert，
+     * 重复保存同一 session.uuid 只会有一行账本、一组明细——保存重试/双击不产生重复。
+     * 纯有氧场次传空 items 即可；纯力量场次仍走原 saveSession，行为零变化。
+     *
+     * @param settleWeightKg <=0 表示跳过全部热量结算（防御用），明细仍照常保存
+     * @return 整场热量汇总结果（含被跳过的项目数，供 UI 如实提示）
+     */
+    suspend fun saveUnifiedSession(
+        session: WorkoutSession,
+        items: List<WorkoutExercise>,
+        cardio: List<WorkoutCardioDetail>,
+        settleWeightKg: Double
+    ): WorkoutCalorieCalculator.Result {
+        var result = WorkoutCalorieCalculator.Result(
+            totalKcal = 0.0, strengthKcal = 0.0, cardioKcal = 0.0,
+            cardioItems = 0, notComputableItems = cardio.count { !WorkoutCalorieCalculator.isComputable(it) },
+            method = WorkoutCalorieCalculator.METHOD_CARDIO_ONLY
+        )
+        db.withTransaction {
+            // 1+2：会话 + 力量明细（整包替换，id 重生成，编辑不带老 id）
+            sessionDao.insert(session)
+            workoutExerciseDao.deleteBySession(session.uuid)
+            val insertedItems = items.map { it.copy(id = 0L) }
+            workoutExerciseDao.insertAll(insertedItems)
+
+            // 3：有氧明细（整包替换）
+            workoutCardioDao.deleteBySession(session.uuid)
+            val insertedCardio = cardio.map { it.copy(id = 0L, sessionUuid = session.uuid) }
+            if (insertedCardio.isNotEmpty()) workoutCardioDao.insertAll(insertedCardio)
+
+            // 4+5：整场热量汇总 → 一条账本（不重算有氧、不双结算）
+            if (settleWeightKg > 0.0) {
+                val strengthKcal = if (insertedItems.isEmpty()) 0.0 else {
+                    healthRepository.settleStrengthSession(
+                        session = session,
+                        items = insertedItems,
+                        weightKg = settleWeightKg,
+                        method = SessionCalorieCalculator.METHOD_SEGMENTED
+                    ).caloriesGross
+                }
+                val combined = WorkoutCalorieCalculator.combine(strengthKcal, insertedCardio)
+                result = combined
+                // 整场只写一条账本：sourceId=uuid，upsert 覆盖（力量结算那条被本行覆盖为整场值）。
+                // 纯力量场次 combined.totalKcal 与力量结算值一致，写下去数值不变。
+                healthRepository.ledgerDao().upsert(
+                    com.qingji.app.data.local.entity.ExerciseSessionCalorieEntity(
+                        sourceType = HealthRepository.SOURCE_STRENGTH_TRAINING,
+                        sourceId = session.uuid,
+                        date = session.date,
+                        durationSeconds = session.durationMinutes * 60,
+                        caloriesGross = combined.totalKcal,
+                        weightSnapshot = settleWeightKg,
+                        calculationMethod = combined.method,
+                        calculationVersion = combined.version,
+                        createdAt = System.currentTimeMillis(),
+                        updatedAt = System.currentTimeMillis()
+                    )
+                )
+            }
+
+            // 6：运动日记摘要投影（sourceId=uuid → 不再次触发账本镜像）
+            upsertTrainingDiaryLog(session, result.totalKcal)
+        }
+        return result
+    }
+
+    /** 读一场训练的力量 + 有氧明细（历史统一展示用）。 */
+    suspend fun sessionDetailWithCardio(uuid: String): SessionDetail =
+        SessionDetail(
+            session = sessionDao.findByUuid(uuid),
+            strength = workoutExerciseDao.findBySession(uuid),
+            cardio = workoutCardioDao.findBySession(uuid)
+        )
+
+    data class SessionDetail(
+        val session: WorkoutSession?,
+        val strength: List<WorkoutExercise>,
+        val cardio: List<WorkoutCardioDetail>
+    )
+
+    /**
      * 把一场力量训练写进运动日记（exercise_log）。
      * 按 sourceId（场次 uuid）查：有就更新、没有就插入 → 新建/编辑共用一条，
      * 重复保存也不会多记。kcal 用本场结算值，日记显示与账本一致。
@@ -182,6 +274,7 @@ class TrainingRepository(context: Context) {
     suspend fun deleteSession(uuid: String) {
         db.withTransaction {
             workoutExerciseDao.deleteBySession(uuid)
+            workoutCardioDao.deleteBySession(uuid)
             sessionDao.deleteByUuid(uuid)
             healthRepository.ledgerDao().deleteBySource(
                 HealthRepository.SOURCE_STRENGTH_TRAINING, uuid
@@ -194,6 +287,13 @@ class TrainingRepository(context: Context) {
     suspend fun sessionDetail(uuid: String): Pair<WorkoutSession?, List<WorkoutExercise>> =
         sessionDao.findByUuid(uuid) to workoutExerciseDao.findBySession(uuid)
 
+    /**
+     * 只改一次训练的标题/速记（note 单列），不触碰动作、重量、次数、组数、时长、
+     * 来源与消耗结算。训练日记的备注编辑走这里，绝不走 saveSession 整包保存。
+     */
+    suspend fun updateSessionNote(uuid: String, note: String) =
+        sessionDao.updateSessionNote(uuid, note)
+
 
     // ============================================================
     // P1：训练计划 / 动作库 / 个人最佳
@@ -205,6 +305,24 @@ class TrainingRepository(context: Context) {
     fun observePlanExercises(): Flow<List<PlanExercise>> = planExerciseDao.observeAll()
     fun observeAllPlanDays(): Flow<List<TrainingPlanDay>> = planDayDao.observeAll()
     fun observeFavorites(): Flow<List<ExerciseEntity>> = exerciseDao.observeFavorites()
+
+    /**
+     * QJ 训练联动：取「当前启用计划 · 今天（星期）」的动作安排，按 orderInDay 排序。
+     * 复用现有的 activePlan / planDays / planExercises 三条查询，不复制日期逻辑：
+     * 星期用 AppClock.today().dayOfWeek.value（周一=1 … 周日=7），与
+     * TrainingPlanViewModel.todayArrangement() 完全同一口径。
+     * 休息日 / 未启用计划 / 当天无安排 → 返回空列表，由调用方走空白训练。
+     */
+    suspend fun todayPlanExercises(): List<PlanExercise> {
+        val plan = observeActivePlan().first() ?: return emptyList()
+        val days = observeAllPlanDays().first().filter { it.planUuid == plan.uuid }
+        val weekday = com.qingji.app.domain.AppClock.today().dayOfWeek.value
+        val day = days.firstOrNull { it.weekday == weekday } ?: return emptyList()
+        if (day.isRest) return emptyList()
+        return observePlanExercises().first()
+            .filter { it.dayId == day.id }
+            .sortedBy { it.orderInDay }
+    }
 
     /**
      * 启用一份计划（模板或自定义）：先把所有旧计划停用，再整包写新计划。
@@ -229,13 +347,16 @@ class TrainingRepository(context: Context) {
                 )
                 if (tplDay != null) {
                     val items = tplDay.exerciseNames.mapIndexed { i, exerciseName ->
+                        // QJ 训练联动：优先用编辑器里填的目标参数（组/次/重量），
+                        // 预置模板没填 targets → 沿用原来的 3组×10次×0kg，行为不变。
+                        val t = tplDay.targets?.get(exerciseName)
                         PlanExercise(
                             dayId = dayId,
                             exerciseUuid = library.firstOrNull { it.name == exerciseName }?.uuid.orEmpty(),
                             exerciseNameSnapshot = exerciseName,
-                            targetSets = 3,
-                            targetReps = 10,
-                            targetWeightKg = 0.0,
+                            targetSets = t?.first ?: 3,
+                            targetReps = t?.second ?: 10,
+                            targetWeightKg = t?.third ?: 0.0,
                             orderInDay = i
                         )
                     }

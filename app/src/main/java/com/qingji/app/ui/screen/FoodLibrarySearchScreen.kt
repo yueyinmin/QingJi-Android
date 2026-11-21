@@ -55,7 +55,6 @@ import com.qingji.app.domain.FoodSearchResult
 import com.qingji.app.ui.components.AppBottomSheet
 import com.qingji.app.ui.components.HintBox
 import com.qingji.app.ui.components.PrimaryButton
-import com.qingji.app.ui.components.SecondaryButton
 import com.qingji.app.ui.theme.CardWhite
 import com.qingji.app.ui.theme.Dimens
 import com.qingji.app.ui.theme.PageBackground
@@ -193,8 +192,7 @@ fun FoodLibrarySearchScreen(
                     Spacer(Modifier.height(24.dp))
                     PrimaryButton(text = "创建自定义食物", onClick = onAddCustomFood)
                     Spacer(Modifier.height(10.dp))
-                    SecondaryButton(text = "创建外卖品牌", onClick = onManageBrands)
-                    Spacer(Modifier.height(10.dp))
+                    // QJ-FOOD-UI-003：删除「创建外卖品牌」入口；已有品牌仍可从食物库正常浏览。
                     Text("重新搜索", fontSize = 13.sp, color = QingJiGreen,
                         modifier = Modifier.clickable { vm.clearKeyword() })
                 }

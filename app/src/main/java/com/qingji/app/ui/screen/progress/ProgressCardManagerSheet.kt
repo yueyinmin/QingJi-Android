@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -33,7 +34,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -52,6 +53,7 @@ import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -68,27 +70,33 @@ import kotlin.math.roundToInt
 
 /**
  * ============================================================
- * 进展页「管理卡片」弹层（QJ-UI-PROGRESS-DRAG-001 · P0 拖拽修复 + 交互优化）
+ * 进展页「管理卡片」弹层（QJ-UI-PROGRESS-DRAG-003 · P0 深度修复）
  * ------------------------------------------------------------
- * 修复的核心 Bug：拖动卡片手柄时 BottomSheet 跟着上下移动、手势冲突、
- * 列表无独立滚动区、拖后索引错位、取消不回滚、长列表无边缘自动滚动。
+ * 根因（003 审计）：旧实现让【同一张被拖卡片】同时受三套机制控制位置——
+ *   ① applyDragDelta 按累计位移直接改 localOrder（列表换位）；
+ *   ② animateItem() 对换位播放布局动画（被拖卡片处于动画中间态）；
+ *   ③ graphicsLayer.translationY = residualY 再用「最终索引差」补偿。
+ * ②的插值位置 + ③的最终补偿叠加 = 重复位移 → 跳动 / 重叠 / 回弹。
+ * residualY 只是补丁，无法消除三者的时序竞争。
  *
- * 本次做法（不是调动画参数糊弄，是重构手势与布局结构）：
- * 1. 【弹层固定】skipPartiallyExpanded=true 消除中间态；confirmStateChange
- *    拒绝一切 →Hidden（禁掉下拉关闭）；dragHandle=null；内容外层 nestedScroll
- *    吃掉滚到边缘后本该传给 sheet 的 available.y → sheet 收不到拖动量。
- *    遮罩点击 / 系统返回键仍走 onDismissRequest，右上角另有明确关闭 ✕。
- * 2. 【列表独立滚动】普通 Column → LazyColumn + 独立 LazyListState +
- *    key=卡片ID + heightIn(max) 固定最大高度；标题/重置/说明固定在列表外。
- * 3. 【稳定拖拽身份】用 draggingCardId（不再用 dragFrom 索引）+ dragStartOrder
- *    + dragOffsetY；通过 ID 反查索引，列表重排后拖谁不会错位。
- * 4. 【边缘自动滚动】拖拽中手指贴近列表上下边缘 → 协程按比例 scrollBy，
- *    并把滚动量同步进 dragOffsetY，保证自动滚动与排序状态一致。
- * 5. 【状态管理】松手提交一次；onDragCancel 回滚到 dragStartOrder。
- * 6. 【视觉】被拖卡片 1.02 倍 + 阴影 + 提升层级；其他卡片 animateItem() 平滑换位。
+ * 本次重构（核心原则：浮动卡片的位置只由手势控制，列表只管占位和让位）：
+ * 1. 【独立浮动卡片】拖动时列表里的原卡片换成等高占位项；完整卡片在 LazyColumn
+ *    之外的 Box Overlay 里绘制，绝对定位到手指，独立于列表布局、animateItem、滚动。
+ *    不再有 translationY/residualY 补偿 —— 浮动层位置 = 手指位置，单一数据源。
+ * 2. 【目标索引用真实布局边界】从 LazyListState.layoutInfo 取可见项的 offset/size，
+ *    用手指 Y 与各中心点比较求插入位；跨过中心才换位（抗抖），支持跨多项目与首尾限界。
+ * 不再用「累计位移 / 固定 60dp」推算。
+ * 3. 【统一坐标系】全部换算到 Overlay 容器局部坐标（窗口 Y − 容器窗口 Y），
+ *    绝不混用窗口坐标 / 列表内容坐标 / 手柄局部坐标。
+ * 4. 【边缘自动滚动】滚动后按新 layoutInfo 重算目标索引；不把 scroll 量塞回拖拽位移
+ *    （否则同一位移被列表滚动和浮动卡片各计一次）。到边界自动停。
+ * 5. 【状态单一】dragStartOrder / draggingCardId / targetIndex / floatTopY / localOrder
+ *    职责清晰；拖动中只更新必要的目标索引，松手一次性提交，取消完整回滚。
+ * 6. 【手势隔离】沿用 skipPartiallyExpanded + confirmValueChange + dragHandle=null
+ *    + 内容外层 nestedScroll 吃掉溢出，只有长按右侧手柄启动拖拽。
  *
- * 数据兼容：order/hidden 仍来自外部（ProgressScreen 解析好的），
- * 本组件只在本地改副本、commit 时一次性回传，不碰 DataStore 结构、不碰 Catalog。
+ * 数据兼容：order/hidden 仍来自外部，只在本地改副本、commit 一次性回传；
+ * 不碰 DataStore 结构、不碰 Catalog、不改默认顺序与显隐业务。
  * ============================================================
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -101,7 +109,6 @@ fun ProgressCardManagerSheet(
     onDismiss: () -> Unit
 ) {
     val names = mapOf(
-        ProgressCardCatalog.EXERCISE to s("本周运动消耗"),
         ProgressCardCatalog.FORECAST to s("目标达成预估"),
         ProgressCardCatalog.CHART to s("体重走势"),
         ProgressCardCatalog.WATER to s("近一周饮水"),
@@ -117,34 +124,33 @@ fun ProgressCardManagerSheet(
     var localOrder by remember(order) { mutableStateOf(order) }
     var localHidden by remember(hidden) { mutableStateOf(hidden) }
 
-    // ---------- 拖拽状态（稳定 ID 身份） ----------
+    // ---------- 拖拽状态（职责单一，见类注释 5） ----------
+    /** 当前拖动卡片稳定 ID；null = 未在拖拽。 */
     var draggingCardId by remember { mutableStateOf<String?>(null) }
+    /** 拖动开始时的排序快照；取消时回滚到它。 */
     var dragStartOrder by remember { mutableStateOf<List<String>>(emptyList()) }
-    var dragOffsetY by remember { mutableFloatStateOf(0f) }
-    // 手指在窗口中的绝对 Y（用于边缘判断）：拖拽开始后用累计位移更新，不受重排影响
-    var fingerWindowY by remember { mutableFloatStateOf(0f) }
-    var pointerYInit by remember { mutableStateOf(false) }
-    // 每张卡手柄的窗口 Y（按 ID 各自维护，避免多卡重组时序下读到别卡的旧值）；
-    // 只在拖拽首帧用它定位手指绝对 Y，之后靠累计位移推进。
-    val handleWindowYById = remember { mutableStateMapOf<String, Float>() }
-    // LazyColumn 在窗口中的范围（用于边缘判断）
+    /** 当前目标插入索引（0..lastIndex），只在跨过项目中心时更新。 */
+    var targetIndex by remember { mutableIntStateOf(-1) }
+    /** 浮动卡片顶部相对【Overlay 容器】顶部的 Y（唯一拖动位置源）。拖拽始为卡片原顶部，之后累加位移。 */
+    var floatTopY by remember { mutableFloatStateOf(0f) }
+
+    // LazyColumn 在窗口中的范围（边缘判断）；Overlay 容器在窗口中的 Y（坐标换算基准）
     var listBounds by remember { mutableStateOf(Rect.Zero) }
+    var containerWindowY by remember { mutableFloatStateOf(0f) }
 
     val density = LocalDensity.current
-    val rowPitchPx = with(density) { 60.dp.toPx() }          // 52dp 行高 + 8dp 间距
-    val edgeBandPx = with(density) { 52.dp.toPx() }          // 边缘感应带
-    val autoScrollSpeedPx = with(density) { 520.dp.toPx() } * 0.016f  // 每帧最大滚动量
+    val cardHeightPx = with(density) { 52.dp.toPx() }     // 与卡片 .height(52.dp) 一致
+    val edgeBandPx = with(density) { 52.dp.toPx() }
+    val autoScrollSpeedPx = with(density) { 520.dp.toPx() } * 0.016f
 
     val listState = rememberLazyListState()
 
-    // sheet 固定：skipPartiallyExpanded 消除中间态；confirmStateChange 拒绝 →Hidden，
-    // 禁止下拉/手势关闭（遮罩与返回键走 onDismissRequest，不受影响）。
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true,
         confirmValueChange = { target -> target != SheetValue.Hidden }
     )
 
-    // 内容外层拦截滚到边缘后传给 sheet 的剩余量，让 sheet 完全不跟随内容拖动
+    // 吃掉滚到边缘后传给 sheet 的剩余量 → sheet 完全不跟随内容拖动
     val blockSheetScroll = remember {
         object : NestedScrollConnection {
             override fun onPostScroll(
@@ -152,67 +158,84 @@ fun ProgressCardManagerSheet(
                 available: Offset,
                 source: NestedScrollSource
             ): Offset = if (source == NestedScrollSource.UserInput) {
-                Offset(0f, available.y) // 吃掉纵向剩余（手指拖动产生的溢出），sheet 收不到
+                Offset(0f, available.y)
             } else Offset.Zero
         }
     }
 
     fun commit() = onCommit(localOrder, localHidden)
 
-    /** 累计拖拽位移并按稳定 ID 重排：目标索引 = 起始索引 + 位移/行距，与中间交换次数无关。 */
-    fun applyDragDelta(deltaY: Float) {
-        dragOffsetY += deltaY
+    /**
+     * 用真实布局边界重算目标索引（工单 §3.4）。
+     * 手指在列表内容坐标系的 Y = (floatTopY + 卡片半高) - (listBounds.top - containerWindowY)。
+     * 遍历可见项：第一个「手指 Y < 该项中心」的位置即插入位；都没找到则插到末尾。
+     * 因列表项等高（52dp + 8dp 间距），中心点天然提供滞回 —— 手指不跨过中心不换位，
+     * 轻微抖动不会反复 reorder。
+     */
+    fun recomputeTargetIndex() {
         val id = draggingCardId ?: return
-        val startIndex = dragStartOrder.indexOf(id)
-        if (startIndex < 0) return
-        val targetIndex = (startIndex + (dragOffsetY / rowPitchPx).roundToInt())
+        val listTopInContainer = listBounds.top - containerWindowY
+        // 手指近似在浮动卡片垂直中心；用卡片中心与各项中心比较，插入判定稳定
+        val fingerInList = (floatTopY + cardHeightPx / 2f) - listTopInContainer
+        // 真实布局边界 → 抽象成纯函数入参（测试覆盖的就是这段计算）
+        val bounds = listState.layoutInfo.visibleItemsInfo.map { info ->
+            com.qingji.app.domain.progress.ProgressCardDragMath.ItemBounds(
+                index = info.index,
+                offset = info.offset.toFloat(),
+                size = info.size.toFloat()
+            )
+        }
+        val newTarget = com.qingji.app.domain.progress.ProgressCardDragMath
+            .targetIndexFor(fingerInList, bounds)
             .coerceIn(0, localOrder.lastIndex)
-        // 走 domain 纯函数：按稳定 ID 换位，非法入参原样返回，不会丢卡/重卡
-        val moved = ProgressCardCatalog.moveToIndex(localOrder, id, targetIndex)
-        if (moved !== localOrder) localOrder = moved
+        if (com.qingji.app.domain.progress.ProgressCardDragMath
+                .shouldReorder(newTarget, targetIndex, localOrder.size)
+        ) {
+            targetIndex = newTarget
+            // 一次性把被拖卡片放到目标位：展示顺序稳定由 startOrder + target 推导，
+            // 用当前 localOrder 作基准可避免跨多项目时逐格 move 的抖动。
+            val moved = ProgressCardCatalog.moveToIndex(localOrder, id, newTarget)
+            if (moved !== localOrder) localOrder = moved
+        }
     }
 
-    // ---------- 边缘自动滚动：拖拽中手指贴近上下边缘时按距离比例滚动 ----------
+    // ---------- 边缘自动滚动：滚动后重算目标索引，不回灌 dragOffset ----------
     LaunchedEffect(draggingCardId) {
         if (draggingCardId == null) return@LaunchedEffect
         while (true) {
-            val y = fingerWindowY
+            val fingerInWindow = floatTopY + cardHeightPx / 2f + containerWindowY
             val top = listBounds.top
             val bottom = listBounds.bottom
             var delta = 0f
             if (bottom > top) {
                 when {
-                    y in (top - 24f)..(top + edgeBandPx) -> {
-                        val intensity = ((top + edgeBandPx - y) / edgeBandPx).coerceIn(0f, 1f)
+                    fingerInWindow in (top - 24f)..(top + edgeBandPx) -> {
+                        val intensity = ((top + edgeBandPx - fingerInWindow) / edgeBandPx).coerceIn(0f, 1f)
                         delta = -autoScrollSpeedPx * intensity
                     }
-                    y in (bottom - edgeBandPx)..(bottom + 24f) -> {
-                        val intensity = ((y - (bottom - edgeBandPx)) / edgeBandPx).coerceIn(0f, 1f)
+                    fingerInWindow in (bottom - edgeBandPx)..(bottom + 24f) -> {
+                        val intensity = ((fingerInWindow - (bottom - edgeBandPx)) / edgeBandPx).coerceIn(0f, 1f)
                         delta = autoScrollSpeedPx * intensity
                     }
                 }
             }
             if (delta != 0f) {
-                // scroll 的 lambda 拿到 ScrollScope，scrollBy 返回实际滚动量（到边缘会小于请求量）
                 var actuallyScrolled = 0f
                 listState.scroll { actuallyScrolled = scrollBy(delta) }
-                // 内容滚动后，等效手指相对内容反向位移，同步进拖拽偏移保证排序一致
-                if (actuallyScrolled != 0f) applyDragDelta(actuallyScrolled)
+                // 列表滚动改变了项目布局位置 → 用新 layoutInfo 重算；
+                // 不再 applyDragDelta(actuallyScrolled)，避免位移双重计入。
+                if (actuallyScrolled != 0f) recomputeTargetIndex()
             }
             delay(16L)
         }
     }
 
-    ModalBottomSheet(
-        onDismissRequest = { commit(); onDismiss() },
-        sheetState = sheetState,
-        containerColor = CardWhite,
-        dragHandle = null,
-        properties = ModalBottomSheetProperties(shouldDismissOnBackPress = true)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .onGloballyPositioned { containerWindowY = it.positionInWindow().y }
     ) {
-        // 拦截挂在内容根 Column（sheet 内部 swipe 连接的内层）：列表滚到边缘的溢出量
-        // 先被这里吃掉，sheet 收不到 → sheet 不会跟随列表拖动/位移。
-        // 标题 / 说明 / 重置 / 关闭：全部固定在列表之外，不参与滚动与排序。
+        // ---------- 基础内容（sheet 内部，固定 + 列表） ----------
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -241,7 +264,6 @@ fun ProgressCardManagerSheet(
                         .padding(horizontal = 10.dp, vertical = 4.dp)
                 )
                 Spacer(Modifier.width(4.dp))
-                // 明确关闭入口（下拉被禁用，这里给一个确定的关闭方式）
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(999.dp))
@@ -249,11 +271,7 @@ fun ProgressCardManagerSheet(
                         .padding(6.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Close,
-                        contentDescription = s("关闭"),
-                        tint = TextSecondary
-                    )
+                    Icon(Icons.Outlined.Close, contentDescription = s("关闭"), tint = TextSecondary)
                 }
             }
             Spacer(Modifier.height(2.dp))
@@ -264,7 +282,6 @@ fun ProgressCardManagerSheet(
             )
             Spacer(Modifier.height(12.dp))
 
-            // ---------- 独立滚动列表 ----------
             LazyColumn(
                 state = listState,
                 modifier = Modifier
@@ -278,109 +295,144 @@ fun ProgressCardManagerSheet(
             ) {
                 items(items = localOrder, key = { it }) { id ->
                     val isDragging = draggingCardId == id
-                    val startIndex = if (isDragging) dragStartOrder.indexOf(id) else -1
-                    val currentIndex = localOrder.indexOf(id)
-                    // 被拖卡片：视觉上跟手（总位移 - 已通过换位消化的位移）
-                    val residualY = if (isDragging && startIndex >= 0) {
-                        dragOffsetY - (currentIndex - startIndex) * rowPitchPx
-                    } else 0f
-                    val scale by animateFloatAsState(
-                        targetValue = if (isDragging) 1.02f else 1f,
-                        label = "dragScale"
-                    )
-
-                    Row(
-                        modifier = Modifier
-                            .animateItem()
-                            .height(52.dp)
-                            .fillMaxWidth()
-                            .zIndex(if (isDragging) 2f else 0f)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(PageBackground)
-                            .graphicsLayer {
-                                scaleX = scale
-                                scaleY = scale
-                                translationY = residualY
-                                shadowElevation = if (isDragging) 8.dp.toPx() else 0f
-                            }
-                            .padding(horizontal = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = names[id] ?: id,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = if (id in localHidden) TextSecondary else TextPrimary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
+                    // 被拖卡片在列表里只留等高占位项（完整卡片在 Overlay 绘制）。
+                    // 占位项同样 animateItem → 其他卡片平滑让位；占位项不参与任何位移补偿。
+                    if (isDragging) {
+                        Box(
+                            modifier = Modifier
+                                .animateItem()
+                                .height(52.dp)
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(PageBackground.copy(alpha = 0.5f))
                         )
-                        Switch(
+                    } else {
+                        CardRow(
+                            id = id,
+                            name = names[id] ?: id,
                             checked = id !in localHidden,
+                            isDragging = false,
                             onCheckedChange = { checked ->
-                                // 只切显隐，不改排序
                                 localHidden = if (checked) localHidden - id else localHidden + id
                                 commit()
+                            },
+                            itemModifier = Modifier.animateItem(),
+                            dragHandleModifier = Modifier.pointerInput(id) {
+                                detectDragGesturesAfterLongPress(
+                                    onDragStart = {
+                                        draggingCardId = id
+                                        dragStartOrder = localOrder
+                                        targetIndex = localOrder.indexOf(id)
+                                        // 浮动卡片初始顶部 = 该项在列表中的真实位置（layoutInfo），
+                                        // 换算到容器局部坐标：列表窗口 Y + item offset - 容器窗口 Y。
+                                        val item = listState.layoutInfo.visibleItemsInfo
+                                            .firstOrNull { info -> info.key == id }
+                                        floatTopY = listBounds.top + (item?.offset ?: 0).toFloat() - containerWindowY
+                                    },
+                                    onDrag = { change, amount ->
+                                        change.consume()
+                                        // 浮动层位置唯一来源：累加的手指位移
+                                        floatTopY += amount.y
+                                        recomputeTargetIndex()
+                                    },
+                                    onDragEnd = {
+                                        // 松手：localOrder 已在拖动中稳定到目标位，一次提交
+                                        if (localOrder != dragStartOrder) commit()
+                                        draggingCardId = null
+                                        targetIndex = -1
+                                    },
+                                    onDragCancel = {
+                                        // 取消：回滚快照、清状态、不写盘
+                                        localOrder = dragStartOrder
+                                        draggingCardId = null
+                                        targetIndex = -1
+                                    }
+                                )
                             }
-                        )
-                        Icon(
-                            imageVector = Icons.Outlined.DragHandle,
-                            contentDescription = s("拖动排序"),
-                            tint = TextSecondary,
-                            modifier = Modifier
-                                .padding(start = 8.dp)
-                                .onGloballyPositioned { coords ->
-                                    handleWindowYById[id] = coords.positionInWindow().y
-                                }
-                                .pointerInput(id) {
-                                    detectDragGesturesAfterLongPress(
-                                        onDragStart = {
-                                            draggingCardId = id
-                                            dragStartOrder = localOrder
-                                            dragOffsetY = 0f
-                                            pointerYInit = false
-                                        },
-                                        onDrag = { change, amount ->
-                                            change.consume()
-                                            // 首帧用该卡手柄位置+相对坐标定位手指绝对 Y；之后用累计位移
-                                            if (!pointerYInit) {
-                                                fingerWindowY =
-                                                    (handleWindowYById[id] ?: listBounds.top) + change.position.y
-                                                pointerYInit = true
-                                            } else {
-                                                fingerWindowY += amount.y
-                                            }
-                                            applyDragDelta(amount.y)
-                                        },
-                                        onDragEnd = {
-                                            // 松手：先对齐残余位移，再提交一次，最后清状态
-                                            val endId = draggingCardId
-                                            if (endId != null) {
-                                                val sIdx = dragStartOrder.indexOf(endId)
-                                                val eIdx = localOrder.indexOf(endId)
-                                                if (sIdx >= 0 && eIdx >= 0) {
-                                                    dragOffsetY = (eIdx - sIdx) * rowPitchPx
-                                                }
-                                                if (localOrder != dragStartOrder) commit()
-                                            }
-                                            draggingCardId = null
-                                            dragOffsetY = 0f
-                                            pointerYInit = false
-                                        },
-                                        onDragCancel = {
-                                            // 取消：回滚到拖拽前顺序，清状态和偏移，不写盘
-                                            localOrder = dragStartOrder
-                                            draggingCardId = null
-                                            dragOffsetY = 0f
-                                            pointerYInit = false
-                                        }
-                                    )
-                                }
                         )
                     }
                 }
             }
             Spacer(Modifier.height(16.dp))
         }
+
+        // ---------- 浮动卡片 Overlay：唯一位置源 = 手指，脱离列表布局与动画 ----------
+        val dragId = draggingCardId
+        if (dragId != null) {
+            val floatY = floatTopY
+            // 左右 18dp 与列表内容对齐；Y 直接取容器局部坐标的浮动位置。
+            // 这里不套 animateItem、不套 translationY 补偿 —— 位置只来自手指。
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .offset { IntOffset(0, floatY.roundToInt()) }
+                    .padding(horizontal = 18.dp)
+                    .zIndex(5f)
+            ) {
+                CardRow(
+                    id = dragId,
+                    name = names[dragId] ?: dragId,
+                    checked = dragId !in localHidden,
+                    isDragging = true,
+                    onCheckedChange = { /* 拖拽中不接受开关操作 */ },
+                    dragHandleModifier = Modifier // 浮动层手柄不再注册手势，避免二次拖拽
+                )
+            }
+        }
+    }
+}
+
+/**
+ * 卡片行：普通列表项与浮动 Overlay 共用同一套绘制，保证悬浮时完整保留
+ * 背景、圆角、文字、开关与拖动手柄（工单 §七：变换作用于完整卡片表面）。
+ * 阴影/缩放只在 isDragging=true 时启用，且 graphicsLayer 在 background 之前 →
+ * 变换作用于整张卡片而非仅内容。
+ */
+@Composable
+private fun CardRow(
+    id: String,
+    name: String,
+    checked: Boolean,
+    isDragging: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    dragHandleModifier: Modifier,
+    itemModifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
+) {
+    val scale by animateFloatAsState(targetValue = if (isDragging) 1.02f else 1f, label = "dragScale")
+    Row(
+        modifier = modifier
+            .then(itemModifier)
+            .height(52.dp)
+            .fillMaxWidth()
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+                shadowElevation = if (isDragging) 10.dp.toPx() else 0f
+                shape = RoundedCornerShape(12.dp)
+                clip = true
+            }
+            .background(PageBackground, RoundedCornerShape(12.dp))
+            .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = name,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+            color = if (checked) TextPrimary else TextSecondary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Icon(
+            imageVector = Icons.Outlined.DragHandle,
+            contentDescription = s("拖动排序"),
+            tint = TextSecondary,
+            modifier = Modifier
+                .padding(start = 8.dp)
+                .then(dragHandleModifier)
+        )
     }
 }

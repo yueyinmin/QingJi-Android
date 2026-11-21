@@ -153,3 +153,49 @@ data class WorkoutExercise(
     @ColumnInfo(defaultValue = "") val setsJson: String = "",
     @ColumnInfo(defaultValue = "") val note: String = ""
 )
+
+/**
+ * ============================================================
+ * 统一训练体系（Room 19 → 20）：有氧项目明细表
+ * ------------------------------------------------------------
+ * 一场 WorkoutSession 下可以有多个力量项目（workout_exercise）和多个有氧项目
+ * （本表），两类明细都挂在同一个 sessionUuid 上 —— 一场综合训练只生成一条会话。
+ *
+ * 设计纪律（照四件套）：
+ * 1. 全新表，MIGRATION_19_20 只有 CREATE TABLE + 索引，一行旧数据都不碰；
+ * 2. 每个非主键列都写 @ColumnInfo(defaultValue=...)，与迁移 SQL 的 DEFAULT 逐字一致；
+ * 3. 距离/体重快照可空：可空列在 Entity 上不写 defaultValue，迁移 SQL 也不写 DEFAULT
+ *    （与 ExerciseEntity.barcode 等既有可空列同一处理方式，避免 schema 校验不一致）；
+ * 4. 不建 (sessionUuid, exerciseUuid) 唯一索引 —— 一场训练允许同一动作出现多次
+ *    （如热身跑 + 间歇跑），只建 sessionUuid 普通索引供按会话读取。
+ *
+ * 缓存字段语义：calculatedKcal/calculationMethod/calculationVersion 记录「录入时
+ * 已确认」的项目级结果，统一结算时直接汇总，不重算历史；rawInputJson 存坡度、
+ * 速度、功率、阻力、楼层、步频、心率、强度等低频/设备差异大的参数，容错解析，
+ * 缺字段或未知字段都不能让整条历史打不开。
+ * ============================================================
+ */
+@Entity(tableName = "workout_cardio_detail", indices = [Index("sessionUuid")])
+data class WorkoutCardioDetail(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    @ColumnInfo(defaultValue = "") val sessionUuid: String = "",
+    /** 关联动作库 UUID；空串 = 自定义/非标准项目，仅用名称快照显示。 */
+    @ColumnInfo(defaultValue = "") val exerciseUuid: String = "",
+    @ColumnInfo(defaultValue = "") val exerciseNameSnapshot: String = "",
+    @ColumnInfo(defaultValue = "0") val orderInSession: Int = 0,
+    /** 项目实际时长（秒）。整场时长是 workout_session.durationMinutes，两者分开统计。 */
+    @ColumnInfo(defaultValue = "0") val durationSeconds: Long = 0L,
+    /** 距离（米）；可空 = 该项目不按距离记（如爬楼、跳绳）。 */
+    val distanceMeters: Double? = null,
+    /** 录入时已确认的项目级热量（估算），统一结算只汇总不重算。 */
+    @ColumnInfo(defaultValue = "0.0") val calculatedKcal: Double = 0.0,
+    /** 计算方式：user_direct / calculator / imported 等（见 WorkoutCalorieCalculator）。 */
+    @ColumnInfo(defaultValue = "") val calculationMethod: String = "",
+    /** 计算口径版本；录入时若没有可靠算法可留空，结算不虚构。 */
+    @ColumnInfo(defaultValue = "") val calculationVersion: String = "",
+    /** 计算时体重快照（kg）；可空 = 未记录。 */
+    val weightSnapshot: Double? = null,
+    /** 原始参数 JSON（坡度/速度/功率/阻力/楼层/步频/心率/强度等），容错解析。 */
+    @ColumnInfo(defaultValue = "") val rawInputJson: String = "",
+    @ColumnInfo(defaultValue = "0") val createdAt: Long = 0L
+)

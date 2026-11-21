@@ -25,6 +25,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -95,7 +96,7 @@ fun HomeScreen(
     onOpenSelfDiscipline: () -> Unit = {},
     /** 自律模块 VM：和模块内各页共用，首页只读主要目标和统计 */
     selfDisciplineVm: SelfDisciplineViewModel = viewModel(),
-    /** 首页「本周运动消耗」复用进展页数据源 */
+    /** 首页「本周运动消耗」卡复用进展页数据源（统一账本 + 近 30 天有氧明细） */
     progressVm: ProgressViewModel = viewModel(),
     /** 今日自律菜单的三个快捷动作（Root 解析当前主要目标） */
     onSelfDisciplineCheckin: () -> Unit = {},
@@ -103,6 +104,8 @@ fun HomeScreen(
     onSelfDisciplineHistory: () -> Unit = {},
     /** 记一次运动（走现有的运动选择页） */
     onOpenExercise: () -> Unit = {},
+    /** 「本周运动消耗」卡改一条有氧记录（与进展页同一跳转逻辑，Root 传入） */
+    onEditExercise: (com.qingji.app.data.local.entity.ExerciseLog) -> Unit = {},
     /** 健康体系 V1.1（工单 10.3）：点睡眠摘要卡 → 进睡眠记录页 */
     onOpenSleep: () -> Unit = {},
     /** 健康体系 V1.1：昨晚睡眠数据（null = 尚未记录）。Root 层 collect，保持和其它卡同一数据流模式 */
@@ -125,6 +128,10 @@ fun HomeScreen(
     vm: HomeViewModel = viewModel()
 ) {
     val state by vm.uiState.collectAsState()
+    // 本周运动消耗卡（从进展页搬回首页）：复用进展页同一份账本 + 近 30 天有氧明细，
+    // 同一个 progressVm 实例，显示口径与原来进展页的 ExerciseWeekCard 完全一致。
+    val exerciseMonth by progressVm.exerciseMonth.collectAsState()
+    val exerciseLedger by progressVm.exerciseLedger.collectAsState()
     val trainingSessions by trainingVm.sessions.collectAsState()
     val trainingDraft by trainingVm.draft.collectAsState()
     // 订阅计划相关的三份流，计划一变首页卡就跟着重组
@@ -140,6 +147,8 @@ fun HomeScreen(
     val settings = com.qingji.app.ui.LocalAppSettings.current
 
     // 日期下拉面板
+    // 四餐折叠状态：key = 日期|餐次，切换日期不串用；默认「有记录的餐次展开」
+    val mealExpanded = remember { mutableStateMapOf<String, Boolean>() }
     var showDatePicker by remember { mutableStateOf(false) }
 
     // 点水杯弹出的三级：先选做什么 → 首页设置 / 今日详情
@@ -337,17 +346,35 @@ fun HomeScreen(
         // 四餐固定顺序：早 / 午 / 晚 / 加餐
         MealRules.ALL.forEachIndexed { index, type ->
             val items = state.logs.filter { it.mealType == type }
-            AppearItem(index = index + 2) {
-                MealCard(
-                    type = type,
-                    items = items,
-                    onDelete = vm::deleteLog,
-                    onOpenDetail = { onOpenMealDetail(state.date, type) },
-                    showMacro = settings.showMealMacro
-                )
+            val expandKey = "${state.date}|$type"
+            val expanded = mealExpanded[expandKey] ?: items.isNotEmpty()
+            androidx.compose.runtime.key(expandKey) {
+                AppearItem(index = index + 2) {
+                    MealCard(
+                        type = type,
+                        items = items,
+                        onDelete = vm::deleteLog,
+                        onOpenDetail = { onOpenMealDetail(state.date, type) },
+                        showMacro = settings.showMealMacro,
+                        expanded = expanded,
+                        onToggleExpand = { mealExpanded[expandKey] = !expanded }
+                    )
+                }
             }
             Spacer(Modifier.height(10.dp))
         }
+
+        // ---------- 本周运动消耗（工单：从进展页搬回首页，紧贴「今日训练」正上方） ----------
+        // 卡片本体、账本口径与显示规则都和原来进展页的 ExerciseWeekCard 完全一致，
+        // 只是渲染位置换到首页；进展页入口已同步移除，不会出现两张相同的卡。
+        Spacer(Modifier.height(12.dp))
+        ExerciseWeekCard(
+            list = exerciseMonth,
+            ledger = exerciseLedger,
+            onAdd = onOpenExercise,
+            onEdit = onEditExercise,
+            onDelete = { id -> progressVm.deleteExercise(id) }
+        )
 
         // ---------- 今日训练（训练中心 P0，放在今日记录下面） ----------
         Spacer(Modifier.height(12.dp))
@@ -377,7 +404,7 @@ fun HomeScreen(
             onHistory = onSelfDisciplineHistory
         )
 
-        // v8：本周运动消耗 + 本周小结已搬到进展页（主人指定），首页不再展示
+        // v8：本周小结仍在进展页；本周运动消耗卡已按工单搬回首页「今日训练」正上方
 
         // 底部留白：给悬浮按钮腾位置，不然会盖住最后一餐。
         // v9：悬浮底栏模式再让出 Dock 高度，最后的餐卡能完整滚出来。
@@ -425,7 +452,8 @@ fun HomeScreen(
         QuickWaterSheet(
             waterMl = state.waterMl,
             goalMl = settings.waterGoalMl,
-            onAdd = { ml -> vm.addWater(ml) },
+            // QJ-HEALTH-DATE-WATER-004：首页喝水带日期时间（默认首页选中日期 + 当前时刻，可改）
+            onAdd = { ml, date, time -> vm.addWater(ml, date, time) },
             onOpenDetail = {
                 showCupMenu = false
                 showCupDetail = true
@@ -478,6 +506,36 @@ fun HomeScreen(
                 fontSize = 13.sp,
                 color = if (state.waterMl >= goal) QingJiGreen else TextPrimary
             )
+
+            // ---------- QJ-HEALTH-DATE-WATER-004：逐笔饮水明细（当前查看日期，时间升序） ----------
+            Spacer(Modifier.height(14.dp))
+            Text(text = s("饮水记录"), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+            Spacer(Modifier.height(6.dp))
+            if (state.waterLogs.isEmpty()) {
+                Text(text = s("这天还没有饮水记录"), fontSize = 12.sp, color = TextSecondary)
+            } else {
+                state.waterLogs.forEach { log ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(PageBackground)
+                            .padding(horizontal = 12.dp, vertical = 9.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = java.time.Instant.ofEpochMilli(log.createdAt)
+                                .atZone(AppClock.zone)
+                                .format(java.time.format.DateTimeFormatter.ofPattern("HH:mm")),
+                            fontSize = 13.sp, color = TextPrimary,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(text = "${log.ml} ml", fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold, color = MultiColor.WaterText)
+                    }
+                    Spacer(Modifier.height(4.dp))
+                }
+            }
         }
     }
 }

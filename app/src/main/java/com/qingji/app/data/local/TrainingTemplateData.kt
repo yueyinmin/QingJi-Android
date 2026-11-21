@@ -22,7 +22,13 @@ object TrainingTemplateData {
     data class TemplateDay(
         val weekday: Int,
         val title: String,
-        val exerciseNames: List<String>
+        val exerciseNames: List<String>,
+        /**
+         * QJ 训练联动：每个动作的目标参数（组数, 次数, 重量kg），按动作名索引。
+         * null = 沿用模板默认（3组×10次×0kg）；UI 编辑器会填它。
+         * 预置模板不传此参数，行为完全不变。
+         */
+        val targets: Map<String, Triple<Int, Int, Double>>? = null
     )
 
     data class Template(

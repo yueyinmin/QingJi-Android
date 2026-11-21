@@ -83,6 +83,7 @@ object QingJiRoutes {
     const val ExerciseDetail = "exercise_detail/{uuid}"
     fun exerciseDetail(uuid: String) = "exercise_detail/$uuid"
     const val TrainingPlan = "training_plan"
+    const val CustomPlanEdit = "custom_plan_edit"   // QJ 训练联动：自定义计划全屏编辑页
     const val PersonalBest = "personal_best"
 
     // ---------- 健康体系 V1.1：睡眠（工单 9，记一笔直达） ----------
@@ -118,7 +119,7 @@ object QingJiRoutes {
         Fasting, FoodPreference, FoodLibrary, CustomFoodEdit, UserBrandManage, FoodLibrarySearch,
         WidgetSettings, ExercisePicker, ExerciseConfirm,
         TrainingActive, TrainingHistory,
-        ExerciseLibrary, ExerciseFavorites, ExerciseDetail, TrainingPlan, PersonalBest,
+        ExerciseLibrary, ExerciseFavorites, ExerciseDetail, TrainingPlan, CustomPlanEdit, PersonalBest,
         Sleep,
         SelfDiscipline, SelfDisciplineGoals, SelfDisciplineGoalEdit, SelfDisciplineCheckin,
         SelfDisciplineUrge, SelfDisciplineDeviation, SelfDisciplineHistory, SelfDisciplineSettings

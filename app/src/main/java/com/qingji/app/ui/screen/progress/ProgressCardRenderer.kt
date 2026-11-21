@@ -29,7 +29,6 @@ import com.qingji.app.ui.theme.TextPrimary
 import com.qingji.app.ui.theme.TextSecondary
 import com.qingji.app.ui.theme.TextSizes
 import com.qingji.app.ui.screen.BodyMeasureCard
-import com.qingji.app.ui.screen.ExerciseWeekCard
 import com.qingji.app.ui.screen.NutritionWeekCard
 import com.qingji.app.ui.screen.ProgressPhotoCard
 import com.qingji.app.ui.screen.TimeRangeChips
@@ -61,7 +60,9 @@ data class ProgressCardData(
     val exerciseLogs: List<ExerciseLog> = emptyList(),
     val foodLogs: List<FoodLog> = emptyList(),
     /** 统一运动消耗账本（力量+有氧），运动消耗卡统计口径 */
-    val exerciseLedger: List<com.qingji.app.data.local.entity.ExerciseSessionCalorieEntity> = emptyList()
+    val exerciseLedger: List<com.qingji.app.data.local.entity.ExerciseSessionCalorieEntity> = emptyList(),
+    /** 日记日期查询：饮食/运动卡当前查看日期（独立于首页） */
+    val diaryDate: LocalDate = AppClock.today()
 )
 
 /** 卡片里的交互回调，同样集中管理，渲染分派本身保持纯展示。 */
@@ -78,7 +79,11 @@ data class ProgressCardActions(
     /** 三种日记卡空态的直达按钮 */
     val onOpenSleep: () -> Unit = {},
     val onOpenExercise: () -> Unit = {},
-    val onOpenFoodLibrary: () -> Unit = {}
+    val onOpenFoodLibrary: () -> Unit = {},
+    /** 日记日期查询回调（饮食/运动共用一套日期） */
+    val onSelectDiaryDate: (LocalDate) -> Unit = {},
+    val onShiftDiaryDate: (Long) -> Unit = {},
+    val onDiaryBackToToday: () -> Unit = {}
 )
 
 /**
@@ -97,17 +102,8 @@ fun ProgressCardRenderer(
     actions: ProgressCardActions
 ) {
     when (cardId) {
-        ProgressCardCatalog.EXERCISE -> ExerciseWeekCard(
-            // v1.3.7：卡片内部要支持今日/近7天/近30天切换，传近 30 天全量，
-            // 由 ExerciseRangeCalculator 在卡片内过滤（原来传的是本周，切不了维度）
-            list = data.exerciseLogs.ifEmpty { data.exerciseWeek },
-            // 2026-11-18：统计口径改用统一账本（力量+有氧），力量训练消耗才不会漏
-            ledger = data.exerciseLedger,
-            onAdd = actions.onAddExercise,
-            onEdit = { log -> actions.onEditExercise(log) },
-            onDelete = { id -> actions.onDeleteExercise(id) }
-        )
-
+        // v13：「本周运动消耗」卡已按工单搬到首页「今日训练」正上方，
+        // 进展页不再渲染，避免出现两个相同的运动消耗入口。
         ProgressCardCatalog.FORECAST -> {
             // 近 14 天趋势；数据不足时只给说明，不硬凑日期
             val forecast = WeightForecastCalculator.forecast(
@@ -175,13 +171,19 @@ fun ProgressCardRenderer(
         }
 
         ProgressCardCatalog.EXERCISE_DIARY -> {
-            val groups = DiaryGrouping.groupByDate(data.exerciseLogs, { it.date })
-            DiarySectionCard(
+            // QJ 日记日期查询：只显示选中日期的运动记录，当天合计放日期行
+            DayQueryDiaryCard(
                 title = s("运动日记"),
-                groups = groups,
-                emptyText = s("还没有运动记录，记一次吧"),
+                selectedDate = data.diaryDate,
+                items = data.exerciseLogs.filter { it.date == data.diaryDate },
+                dayTotalKcal = data.exerciseLogs.filter { it.date == data.diaryDate }
+                    .sumOf { it.kcal.toInt() },
+                emptyText = s("这天还没有运动记录"),
                 emptyActionText = s("去记录"),
-                onEmptyAction = actions.onOpenExercise
+                onEmptyAction = actions.onOpenExercise,
+                onSelectDate = actions.onSelectDiaryDate,
+                onShiftDate = actions.onShiftDiaryDate,
+                onBackToToday = actions.onDiaryBackToToday
             ) { log ->
                 Text("🏃 ${log.type} · ${log.minutes}${s("分钟")}",
                     fontSize = TextSizes.Caption, color = TextPrimary,
@@ -193,13 +195,19 @@ fun ProgressCardRenderer(
         }
 
         ProgressCardCatalog.FOOD_DIARY -> {
-            val groups = DiaryGrouping.groupByDate(data.foodLogs, { it.date })
-            DiarySectionCard(
+            // QJ 日记日期查询：只显示选中日期的饮食记录，同一食物多次录入各自显示不合并
+            DayQueryDiaryCard(
                 title = s("饮食日记"),
-                groups = groups,
-                emptyText = s("还没有饮食记录，记一餐吧"),
+                selectedDate = data.diaryDate,
+                items = data.foodLogs.filter { it.date == data.diaryDate },
+                dayTotalKcal = data.foodLogs.filter { it.date == data.diaryDate }
+                    .sumOf { it.kcal.toInt() },
+                emptyText = s("这天还没有饮食记录"),
                 emptyActionText = s("去记录"),
-                onEmptyAction = actions.onOpenFoodLibrary
+                onEmptyAction = actions.onOpenFoodLibrary,
+                onSelectDate = actions.onSelectDiaryDate,
+                onShiftDate = actions.onShiftDiaryDate,
+                onBackToToday = actions.onDiaryBackToToday
             ) { log ->
                 Text("🍽 ${log.foodName} · ${log.grams.toInt()}g",
                     fontSize = TextSizes.Caption, color = TextPrimary,

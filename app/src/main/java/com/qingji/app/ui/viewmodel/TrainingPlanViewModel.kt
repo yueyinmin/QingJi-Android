@@ -119,6 +119,13 @@ class TrainingPlanViewModel(app: Application) : AndroidViewModel(app) {
     fun saveHistoryAsTemplate(session: WorkoutSession) {
         viewModelScope.launch {
             runCatching {
+                // QJ 防重复：UUID 来源（history:<sessionUuid>）已存过就不再复制。
+                // 原 UI 层只排除「当前激活计划」，停用后同一场能重复存——这里补齐 VM 层校验。
+                val source = "history:${session.uuid}"
+                if (plans.value.any { it.source == source }) {
+                    say("这场训练已经存成过计划了，去「计划历史」里启用即可")
+                    return@runCatching
+                }
                 val name = "我的计划 · ${session.date}"
                 val (_, missing) = repo.saveSessionAsTemplate(session.uuid, name)
                 if (missing.isEmpty()) {

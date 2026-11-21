@@ -179,7 +179,8 @@ class HealthRepository(private val context: Context) {
      * 快速路径：训练场次数 == 账本里 STRENGTH_TRAINING 行数时跳过场次补算，
      * 日常启动零成本；训练删除/新增都会让两边计数变化，自动触发重跑。
      */
-    suspend fun ensureLedgerBackfill(weightKg: Double) {
+    suspend fun ensureLedgerBackfill(weightKg: Double) = db.withTransaction {
+        // P1-04：整段补算放入同一 Room 事务，中途失败整批回滚（幂等可重跑）。
         // 1) 孤儿行清理（备份恢复/清记录后对齐）：镜像行 + 强度行
         ledgerDao.deleteOrphanExerciseLogMirrors()
         ledgerDao.deleteOrphanStrengthRows()
@@ -191,10 +192,14 @@ class HealthRepository(private val context: Context) {
         val sessionDao = db.workoutSessionDao()
         val workoutExerciseDao = db.workoutExerciseDao()
         val sessions = sessionDao.findAll()
-        val settledCount = ledgerDao.countByType(SOURCE_STRENGTH_TRAINING)
-        if (sessions.size == settledCount) return
-
         val existingSourceIds = ledgerDao.findSourceIds(SOURCE_STRENGTH_TRAINING).toSet()
+        // P1-04：快速路径改为 sourceId 集合差集而非仅比数量（纯函数，见 LedgerBackfillDecision）。
+        // 原实现「数量相等就跳过」在「删一场加一场」时会漏补。
+        if (!com.qingji.app.domain.LedgerBackfillDecision.needBackfill(
+                sessions.map { it.uuid }, existingSourceIds
+            )
+        ) return@withTransaction
+
         val metCache = typeMetDefaults()
         sessions.forEach { session ->
             if (session.uuid in existingSourceIds) return@forEach

@@ -4,141 +4,85 @@ import android.content.Context
 import android.os.SystemClock
 import androidx.glance.GlanceId
 import androidx.glance.action.ActionParameters
-import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.action.ActionCallback
-import androidx.glance.appwidget.updateAll
 import com.qingji.app.data.repository.QingJiRepository
 import com.qingji.app.domain.AppClock
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /**
  * ============================================================
- * 小组件的公共动作（M8）
+ * 小组件的公共动作
  * ------------------------------------------------------------
- * 1. TARGET_KEY：点小组件按钮时，把「要去哪个页面」塞进 Intent extra，
- *    MainActivity 读出来直接导航，不用先回首页再点。
- * 2. AddWaterAction：点「喝水」不打开 App，直接往 Room 写 +200ml。
- *    v1.1.0：加 600ms 防抖（合并误触，不禁止真实场景下的连续记录），
- *    并且写库成功才刷新 —— 失败绝不假装成功。
- * 3. WidgetRefresher（v1.1.0 重构）：
- *    - 协程全部跑在单例 scope 里，不再每次新建 CoroutineScope；
- *    - 按数据类型定向刷新：饮食/饮水/营养目标 → 今日概览，
- *      体重 → 体重闪记，外观/清数据 → 全部；
- *    - 短时间内的多次刷新请求经 250ms 合并成一次（collectLatest 去抖），
- *      不再出现「一次操作触发三组件重复重绘」。
+ * 1. TARGET_KEY：点小组件按钮时把「去哪个页面」塞进 Intent extra，
+ *    MainActivity 读出来直接导航（key 字面值 qingji_target 未变）。
+ * 2. AddWaterAction：点「喝水」直接往 Room 写 +200ml。
+ *
+ * W-04：显式 inFlight + lastSuccessAt 状态机（进程级，跨 ActionCallback 重建有效），
+ * 写失败释放执行权且不消耗成功窗口 → 用户可立即重试；成功后 600ms 防误触合并。
+ * 唯一刷新责任方仍是 QingJiRepository.addWater（内部 refresh OVERVIEW），Action 不重复刷新。
  * ============================================================
  */
 
 /** ActionParameters 的 name 会原样变成 Intent extra 的 key。 */
 val TARGET_KEY = ActionParameters.Key<String>("qingji_target")
 
-/** 一个刷新目标对应一个小组件实例。 */
-enum class WidgetTarget { QUICK, OVERVIEW, WEIGHT }
+/**
+ * 喝水防误触状态机（W-04，纯逻辑可单测）。
+ * @param inFlight 是否正在执行一次写入
+ * @param lastSuccessAt 最近一次【成功】写入时间（elapsedRealtime）
+ */
+internal data class WaterGuardState(
+    val inFlight: Boolean = false,
+    val lastSuccessAt: Long = 0L
+)
+
+internal object WaterGuard {
+    const val WINDOW_MS = 600L
+
+    /** 是否可以发起一次写入：正在写入 → 拒绝；距上次成功不足窗口 → 拒绝。 */
+    fun canStart(state: WaterGuardState, now: Long): Boolean =
+        !state.inFlight && (state.lastSuccessAt == 0L || now - state.lastSuccessAt >= WINDOW_MS)
+
+    /** 占用执行权（canStart 通过后调用）。 */
+    fun onStart(state: WaterGuardState): WaterGuardState = state.copy(inFlight = true)
+
+    /** 写成功：释放执行权 + 推进成功时间（开始 600ms 窗口）。 */
+    fun onSuccess(now: Long): WaterGuardState = WaterGuardState(false, now)
+
+    /** 写失败：释放执行权，成功时间不变 → 用户可立即重试。 */
+    fun onFailure(state: WaterGuardState): WaterGuardState =
+        state.copy(inFlight = false)
+}
 
 /** 点「喝水」直接记账，不打开界面。 */
 class AddWaterAction : ActionCallback {
-
-    private var lastClickAt = 0L
 
     override suspend fun onAction(
         context: Context,
         glanceId: GlanceId,
         parameters: ActionParameters
     ) {
-        val now = SystemClock.elapsedRealtime()
-        if (now - lastClickAt < DEBOUNCE_MS) return
-        lastClickAt = now
-        try {
-            QingJiRepository(context).addWater(200, AppClock.today())
-        } catch (e: Exception) {
-            // 写库失败就到此为止：桌面不刷新，用户看到的仍是旧数字，
-            // 绝不出现「点了但没记上还以为记上了」。
-            return
+        // Mutex 保证「检查→占用→写库→释放」原子串行：并发点击不会同时通过检查。
+        STATE_MUTEX.withLock {
+            val now = SystemClock.elapsedRealtime()
+            if (!WaterGuard.canStart(STATE, now)) return@withLock
+            STATE = WaterGuard.onStart(STATE)
+            val succeeded = try {
+                // addWater 内部已写库并 refresh(OVERVIEW)，这里不再 refreshNow，避免双重刷新。
+                QingJiRepository(context).addWater(200, AppClock.today())
+                true
+            } catch (e: Exception) {
+                // 写失败：不刷新、不假装成功
+                false
+            }
+            STATE = if (succeeded) WaterGuard.onSuccess(now) else WaterGuard.onFailure(STATE)
         }
-        WidgetRefresher.refreshNow(context, setOf(WidgetTarget.OVERVIEW))
     }
 
     private companion object {
-        /** 600ms 内的连点视为同一次误触；超过再点就是真实的新记录。 */
-        const val DEBOUNCE_MS = 600L
-    }
-}
-
-object WidgetRefresher {
-
-    /** 与 TARGET_KEY.name 保持一致，MainActivity 用这个 key 读 extra。 */
-    const val EXTRA_TARGET = "qingji_target"
-
-    /** 目标值就是 NavHost 里的路由字符串。 */
-    const val TARGET_TEXT_AI = "text_ai"
-    const val TARGET_WEIGHT = "weight"
-    const val TARGET_IMAGE = "image_record"
-    const val TARGET_HOME = "home"
-
-    /** 全部组件（清数据 / 外观变化 / 首次启动用）。 */
-    val ALL: Set<WidgetTarget> = WidgetTarget.entries.toSet()
-
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private val mutex = Mutex()
-    private val queued = MutableStateFlow(emptySet<WidgetTarget>())
-
-    @Volatile
-    private var appContext: Context? = null
-
-    private val widgetOf: Map<WidgetTarget, GlanceAppWidget> = mapOf(
-        WidgetTarget.QUICK to QuickRecordWidget(),
-        WidgetTarget.OVERVIEW to OverviewWidget(),
-        WidgetTarget.WEIGHT to WeightWidget()
-    )
-
-    /** 给 UI 层 / 仓库写入后用：定向合并刷新，不阻塞界面。 */
-    fun refresh(context: Context, targets: Set<WidgetTarget> = ALL) {
-        appContext = context.applicationContext
-        scope.launch {
-            mutex.withLock { queued.update { it + targets } }
-        }
-    }
-
-    /** 真正刷新的 suspend 版本，给 ActionCallback 和需要「写完立即生效」的路径用。 */
-    suspend fun refreshNow(context: Context, targets: Set<WidgetTarget> = ALL) {
-        appContext = context.applicationContext
-        refreshNowInternal(targets)
-    }
-
-    private suspend fun refreshNowInternal(targets: Set<WidgetTarget>) {
-        val context = appContext ?: return
-        val widgets: List<GlanceAppWidget> = targets.mapNotNull { widgetOf[it] }
-        widgets.forEach {
-            try {
-                it.updateAll(context)
-            } catch (e: Exception) {
-                // 某个组件没被添加到桌面时 updateAll 可能失败，不能影响其它组件
-            }
-        }
-    }
-
-    init {
-        // 泵：把短时间内的多次请求合并成一次刷新（collectLatest 的去抖语义）
-        scope.launch {
-            queued.collectLatest { incoming ->
-                if (incoming.isEmpty()) return@collectLatest
-                delay(250)
-                val targets = mutex.withLock {
-                    val snapshot = queued.value
-                    queued.value = emptySet()
-                    snapshot
-                }
-                if (targets.isNotEmpty()) refreshNowInternal(targets)
-            }
-        }
+        val STATE_MUTEX = Mutex()
+        /** 进程级状态（跨 ActionCallback 重建有效），仅在上述 Mutex 内读写。 */
+        var STATE = WaterGuardState()
     }
 }

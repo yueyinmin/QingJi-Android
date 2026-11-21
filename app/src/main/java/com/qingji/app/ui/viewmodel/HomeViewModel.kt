@@ -50,26 +50,30 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
      * 和训练中心的数字保证一致，不再各算各的。
      */
     val uiState: StateFlow<HomeUiState> = _date.flatMapLatest { d ->
+        // QJ-HEALTH-DATE-WATER-004：combine 最多接 5 股，饮水明细作为第 6 股需嵌套合并。
         combine(
-            repo.observeProfile(),
-            repo.observeDailySummary(d),
-            repo.observeFoodLogs(d),
-            repo.observeWaterMl(d),
-            healthRepo.observeDailyExerciseCalories(d)
-        ) { profile, summary, logs, water, exerciseTotal ->
-            HomeUiState(
-                date = d,
-                profile = profile,
-                totalKcal = summary?.totalKcal ?: 0.0,
-                totalProtein = summary?.totalProtein ?: 0.0,
-                totalCarb = summary?.totalCarb ?: 0.0,
-                totalFat = summary?.totalFat ?: 0.0,
-                waterMl = water ?: 0,
-                // 当天运动消耗：计入「预计热量缺口」（动得多缺口大）
-                exerciseKcal = exerciseTotal,
-                logs = logs
-            )
-        }
+            combine(
+                repo.observeProfile(),
+                repo.observeDailySummary(d),
+                repo.observeFoodLogs(d),
+                repo.observeWaterMl(d),
+                healthRepo.observeDailyExerciseCalories(d)
+            ) { profile, summary, logs, water, exerciseTotal ->
+                HomeUiState(
+                    date = d,
+                    profile = profile,
+                    totalKcal = summary?.totalKcal ?: 0.0,
+                    totalProtein = summary?.totalProtein ?: 0.0,
+                    totalCarb = summary?.totalCarb ?: 0.0,
+                    totalFat = summary?.totalFat ?: 0.0,
+                    waterMl = water ?: 0,
+                    // 当天运动消耗：计入「预计热量缺口」（动得多缺口大）
+                    exerciseKcal = exerciseTotal,
+                    logs = logs
+                )
+            },
+            repo.observeWaterLogs(d)
+        ) { base, waterLogs -> base.copy(waterLogs = waterLogs) }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 
     /**
@@ -133,6 +137,11 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
 
     fun addWater(ml: Int) {
         viewModelScope.launch { repo.addWater(ml, _date.value) }
+    }
+
+    /** QJ-HEALTH-DATE-WATER-004：带日期时间的饮水记录；日期也用弹层里选的那天。 */
+    fun addWater(ml: Int, date: LocalDate, time: java.time.LocalTime) {
+        viewModelScope.launch { repo.addWater(ml, date, time) }
     }
 
     fun deleteLog(id: Long) {

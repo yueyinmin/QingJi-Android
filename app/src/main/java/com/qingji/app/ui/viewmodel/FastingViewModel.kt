@@ -53,11 +53,12 @@ class FastingViewModel(app: Application) : AndroidViewModel(app) {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** 当前时刻，每 30 秒刷一次，倒计时才会走 */
-    var now by androidx.compose.runtime.mutableStateOf(java.time.LocalTime.now())
+    var now by androidx.compose.runtime.mutableStateOf(AppClock.now().toLocalTime())
         private set
 
     fun tick() {
-        now = java.time.LocalTime.now()
+        // P1-05：断食倒计时按业务时区
+        now = AppClock.now().toLocalTime()
     }
 
     fun saveSettings(

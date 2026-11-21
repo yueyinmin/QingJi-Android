@@ -10,6 +10,7 @@ import com.qingji.app.data.prefs.DraftExercise
 import com.qingji.app.data.prefs.WorkoutDraft
 import com.qingji.app.data.repository.TrainingRepository
 import com.qingji.app.domain.AppClock
+import com.qingji.app.domain.PlanToDraftMapper
 import com.qingji.app.domain.RestTimerState
 import com.qingji.app.domain.SessionCalorieCalculator
 import com.qingji.app.domain.TrainingMath
@@ -33,6 +34,16 @@ import java.util.UUID
  * 计时只存开始时间戳（不存「已经过了多少秒」），系统时间被改也不会算错。
  * ============================================================
  */
+/** QJ 训练联动：开始训练初始化状态（供界面显示进度 / 失败重试）。 */
+enum class TrainingInitState {
+    Idle,           // 还没开始初始化
+    Loading,        // 正在读取当天计划
+    Restored,       // 恢复了已有草稿
+    PlanLoaded,     // 已按当天计划载入动作
+    Blank,          // 没有计划，空白训练
+    Failed          // 计划读取失败（已按空白继续，界面给重试提示）
+}
+
 class TrainingViewModel(app: Application) : AndroidViewModel(app) {
 
     private val repo = TrainingRepository(app)
@@ -120,6 +131,10 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
     fun consumeMessage() { _message.value = null }
     private fun say(text: String) { _message.value = text }
 
+    /** QJ 训练联动：初始化状态，界面据此显示进度 / 失败重试。 */
+    private val _initState = MutableStateFlow(TrainingInitState.Idle)
+    val initState: StateFlow<TrainingInitState> = _initState.asStateFlow()
+
     init {
         // 首次进入时灌最小内置动作库
         viewModelScope.launch { repo.ensureSeed() }
@@ -134,18 +149,81 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
         _unit.value = draftStore.unit()
     }
 
-    /** 开一次新训练；已有草稿就原样恢复，绝不覆盖掉没保存的内容。 */
-    fun startNew() {
-        if (_draft.value != null) return
+    /**
+     * 统一训练启动入口（QJ 训练联动 P0）。
+     * 所有「正常新建训练」入口最终都由 TrainingActiveScreen 调到这里，
+     * 计划识别只此一处，不允许各页面自己拼装动作。
+     *
+     * 优先级：
+     * 1. 已有有效草稿 → 原样恢复，不重载计划、不重复加动作、不覆盖用户改过的参数；
+     * 2. 有「动作详情页带过来的指定动作」→ 建空白草稿，由 Screen 随后 addExercise（不载计划）；
+     * 3. 当天有启用的训练计划安排 → 按 PlanToDraftMapper 转成草稿动作（目标/实际分离）；
+     * 4. 都没有 → 空白训练，不阻止用户开练。
+     *
+     * 编辑历史 / 补记是独立入口（editSession / startBackfill），不经过本方法，
+     * 因此不会错误套用今日计划。
+     */
+    suspend fun startNew() {
+        // 1. 已有草稿：恢复，什么都不做
+        if (_draft.value != null) {
+            _initState.value = TrainingInitState.Restored
+            return
+        }
         val t = System.currentTimeMillis()
+        val base = WorkoutDraft(
+            sessionUuid = UUID.randomUUID().toString(),
+            startedAt = t,
+            pausedAt = 0L,
+            pausedMs = 0L
+        )
+        // 2. 指定动作来源：留空白草稿，动作由 Screen consumePendingExercise 后加入
+        if (pendingExercise != null) {
+            persist(base)
+            _initState.value = TrainingInitState.Blank
+            return
+        }
+        // 3. 尝试读取当天计划（已启用 + 非休息日 + 按 orderInDay）
+        _initState.value = TrainingInitState.Loading
+        val planResult = runCatching { repo.todayPlanExercises() }
+        val planItems = planResult.getOrElse {
+            say("读取当天训练计划失败，已按空白训练开始")
+            emptyList()
+        }
+        if (planResult.isFailure) {
+            persist(base)
+            _initState.value = TrainingInitState.Failed
+            return
+        }
+        if (planItems.isEmpty()) {
+            // 4. 没有计划：空白训练
+            persist(base)
+            _initState.value = TrainingInitState.Blank
+            return
+        }
+        val mapped = planItems.map { PlanToDraftMapper.map(it) }
+        // QJ 来源信息：记下计划名快照，保存时写进 WorkoutSession.source
+        val planName = runCatching { repo.observeActivePlan().first()?.name.orEmpty() }.getOrDefault("")
         persist(
-            WorkoutDraft(
-                sessionUuid = UUID.randomUUID().toString(),
-                startedAt = t,
-                pausedAt = 0L,
-                pausedMs = 0L
+            base.copy(
+                sourcePlan = planName,
+                exercises = mapped.map { m ->
+                    DraftExercise(
+                        key = UUID.randomUUID().toString(),
+                        exerciseUuid = m.exerciseUuid,
+                        name = m.name,
+                        sets = m.sets
+                    )
+                }
             )
         )
+        _initState.value = TrainingInitState.PlanLoaded
+    }
+
+    /** QJ 初始化失败重试：丢掉刚才兜底的空白草稿，重新走一次启动流程。 */
+    suspend fun retryInit() {
+        discard()
+        _initState.value = TrainingInitState.Idle
+        startNew()
     }
 
     /**
@@ -210,7 +288,10 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
                     fixedStartedAt = session.startedAt,
                     fixedEndedAt = session.endedAt,
                     fixedDurationMinutes = session.durationMinutes,
-                    fixedCreatedAt = session.createdAt
+                    fixedCreatedAt = session.createdAt,
+                    // QJ：编辑历史时保留原来源，保存后不丢 plan:<计划名> 标记
+                    sourcePlan = session.source.removePrefix("plan:")
+                        .takeIf { session.source.startsWith("plan:") } ?: ""
                 )
             )
             onLoaded()
@@ -308,6 +389,18 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
         persist(d.copy(note = text))
     }
 
+    /**
+     * 训练日记：给历史会话补/改标题速记，只更新 workout_session.note 一列。
+     * 刻意不走 editSession→save，避免重算消耗与账本、覆盖动作/时长/来源。
+     */
+    fun updateSessionNote(uuid: String, note: String) {
+        viewModelScope.launch {
+            runCatching { repo.updateSessionNote(uuid, note) }
+                .onSuccess { say("备注已保存") }
+                .onFailure { say("备注保存失败，请重试") }
+        }
+    }
+
     /** 暂停 / 继续：把暂停时长累加起来，恢复后计时从冻结处接着走。 */
     fun togglePause() {
         val d = _draft.value ?: return
@@ -354,6 +447,8 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
         // 2026-11-18：指定时长优先（补记必须有；正常练点了「改时长」也按它算）
         val overrideMin = d.durationOverrideMin
         val backfillDate = runCatching { LocalDate.parse(d.backfillDate) }.getOrNull()
+        // QJ 来源信息：从计划启动的训练写 plan:<计划名>，其余保持 manual（旧行为）
+        val sessionSource = if (d.sourcePlan.isNotBlank()) "plan:${d.sourcePlan}" else "manual"
         val session = if (editing) {
             WorkoutSession(
                 uuid = d.sessionUuid,
@@ -362,7 +457,7 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
                 endedAt = d.fixedEndedAt,
                 durationMinutes = overrideMin.takeIf { it > 0 } ?: d.fixedDurationMinutes,
                 note = d.note,
-                source = "manual",
+                source = sessionSource,
                 createdAt = d.fixedCreatedAt
             )
         } else if (backfillDate != null && overrideMin > 0) {
@@ -375,7 +470,7 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
                     overrideMin * 60_000L,
                 durationMinutes = overrideMin,
                 note = d.note,
-                source = "manual",
+                source = sessionSource,
                 createdAt = System.currentTimeMillis()
             )
         } else {
@@ -391,7 +486,7 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
                 endedAt = endedAt,
                 durationMinutes = durationMin,
                 note = d.note,
-                source = "manual",
+                source = sessionSource,
                 createdAt = System.currentTimeMillis()
             )
         }

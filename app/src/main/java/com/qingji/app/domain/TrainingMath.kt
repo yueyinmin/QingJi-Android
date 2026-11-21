@@ -14,7 +14,15 @@ data class WorkoutSet(
     val reps: Int = 0,
     val rpe: Int = 0,
     val restSec: Int = 0,
-    val completed: Boolean = false
+    val completed: Boolean = false,
+    /**
+     * QJ 训练联动：计划目标次数 / 目标重量（可空）。
+     * null = 这组没有计划目标（手动空白训练 / 旧历史数据），不是 0。
+     * 目标与实际（reps/weightKg）独立：训练中改实际值不覆盖目标。
+     * 存进 setsJson 的 tr / tw 两个 key，旧 JSON 没有这两个 key 时读回 null。
+     */
+    val targetReps: Int? = null,
+    val targetWeightKg: Double? = null
 )
 
 /**
@@ -59,6 +67,9 @@ object TrainingMath {
                 put("rpe", s.rpe)
                 put("rest", s.restSec)
                 put("done", s.completed)
+                // QJ：计划目标（可空）；null 时不写 key，保持旧 JSON 结构不变
+                s.targetReps?.let { put("tr", it) }
+                s.targetWeightKg?.let { put("tw", it) }
             })
         }
     }.toString()
@@ -75,7 +86,12 @@ object TrainingMath {
                     reps = o.optInt("r", 0).coerceAtLeast(0),
                     rpe = o.optInt("rpe", 0).coerceIn(0, 10),
                     restSec = o.optInt("rest", 0).coerceAtLeast(0),
-                    completed = o.optBoolean("done", false)
+                    completed = o.optBoolean("done", false),
+                    // QJ：旧 JSON 无 tr/tw → null（无计划目标），不补造 0
+                    targetReps = if (o.has("tr")) o.optInt("tr", 0).coerceAtLeast(0) else null,
+                    targetWeightKg = if (o.has("tw")) {
+                        o.optDouble("tw", 0.0).takeIf { it.isFinite() && it >= 0.0 }
+                    } else null
                 )
             }
         }.getOrDefault(emptyList())

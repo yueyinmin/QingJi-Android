@@ -98,9 +98,8 @@ fun UserBrandManageScreen(
     Column(modifier = Modifier.fillMaxSize().background(PageBackground)) {
         PageTopBar(
             title = "我的外卖品牌",
-            onBack = onBack,
-            actionText = "+ 新增品牌",
-            onAction = { editingBrand = null; showBrandSheet = true }
+            onBack = onBack
+            // QJ-FOOD-UI-003：删除右上角「+ 新增品牌」入口；已有品牌仍可查看/编辑。
         )
 
         if (brands.isEmpty()) {
@@ -108,11 +107,10 @@ fun UserBrandManageScreen(
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
                     Text("🏪", fontSize = 48.sp)
                     Spacer(Modifier.height(12.dp))
-                    Text("还没有自建品牌", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
+                    Text("暂无自建品牌", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
                     Spacer(Modifier.height(6.dp))
-                    Text("建一个品牌，再往里加菜品，就能记外卖这一餐了", fontSize = 13.sp, color = TextSecondary)
-                    Spacer(Modifier.height(20.dp))
-                    PrimaryButton(text = "+ 新增品牌", onClick = { editingBrand = null; showBrandSheet = true })
+                    // QJ-FOOD-UI-003：删除空态「+ 新增品牌」按钮；
+                    // 新增品牌入口已全面收起，已有品牌数据、菜品、溯源关联完整保留。
                 }
             }
         } else {

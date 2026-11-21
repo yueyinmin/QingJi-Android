@@ -84,11 +84,13 @@ fun FoodLibraryScreen(
     onBack: () -> Unit,
     onAddCustomFood: () -> Unit = {},
     onEditCustomFood: (Long) -> Unit = {},
+    // QJ-FOOD-UI-003：品牌新增/管理入口已移除，此回调保留兼容导航签名（当前不触发）。
     onManageBrands: () -> Unit = {},
     onOpenSearch: () -> Unit = {},
     vm: FoodLibraryViewModel = viewModel()
 ) {
     val allFoods by vm.allFoods.collectAsState()
+    val catalogFoods by vm.catalogFoods.collectAsState()
     val userFoods by vm.userFoods.collectAsState()
     val eatenFoods by vm.eatenFoods.collectAsState()
 
@@ -172,14 +174,29 @@ fun FoodLibraryScreen(
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                 modifier = Modifier.weight(1f)
             )
-            Icon(
-                imageVector = Icons.Filled.Search,
-                contentDescription = s("搜索食物"),
-                tint = QingJiGreen,
-                modifier = Modifier
-                    .size(22.dp)
-                    .pressable { onOpenSearch() }
-            )
+            // QJ-FOOD-UI-003：标题栏右侧图标按页签分流——
+            // 标准食物库=搜索；自定义食物=加号（进新增自定义食物）；吃过的=不显示图标。
+            // 三个分支都放同尺寸 22.dp 占位：隐藏图标时标题不会左右偏移。
+            when (effectiveTab) {
+                3 -> Spacer(Modifier.size(22.dp)) // 我的收藏：不显示图标
+                1 -> Icon(
+                    imageVector = Icons.Filled.Add,
+                    contentDescription = s("新增自定义食物"),
+                    tint = QingJiGreen,
+                    modifier = Modifier
+                        .size(22.dp)
+                        .pressable { onAddCustomFood() }
+                )
+                2 -> Spacer(Modifier.size(22.dp)) // 吃过的：不显示搜索图标
+                else -> Icon(
+                    imageVector = Icons.Filled.Search,
+                    contentDescription = s("搜索食物"),
+                    tint = QingJiGreen,
+                    modifier = Modifier
+                        .size(22.dp)
+                        .pressable { onOpenSearch() }
+                )
+            }
         }
 
         // v1.5 阶段四：搜索框已移到独立全屏页（点上面的放大镜进入），
@@ -191,12 +208,15 @@ fun FoodLibraryScreen(
         Column(modifier = Modifier.weight(1f)) {
         when (effectiveTab) {
             0 -> {
-                Segmented(listOf(s("家庭厨房"), s("外卖快餐")), kitchenTab) { kitchenTab = it }
+                // QJ-FOOD-UI-003：标题栏与分类分段之间拉开间距（8dp → 16dp），
+                // 让「家庭厨房 / 外卖快餐」不再贴着标题；Segmented 自身已是独立分段组件。
                 Spacer(Modifier.height(8.dp))
+                Segmented(listOf(s("家庭厨房"), s("外卖快餐")), kitchenTab) { kitchenTab = it }
+                Spacer(Modifier.height(16.dp))
 
                 if (kitchenTab == 0) {
-                    // v1.5 阶段二：家庭厨房改为「顶部横滑主分类 + 单列列表」
-                    val homeFoods = allFoods.filter {
+                    // v1.6 TASK-05 数据隔离：标准库只显示 food_catalog 的标准食物，不掺自定义
+                    val homeFoods = catalogFoods.filter {
                         it.category != FoodCategory.FAST_FOOD && matchesFood(it)
                     }
                     val available = FoodCategory.ALL.filter { cat ->
@@ -213,7 +233,7 @@ fun FoodLibraryScreen(
                     // 解决「搜一道菜只出一条，看着少一大截」的问题。
                     val searching = query.trim().isNotEmpty()
                     val related = if (searching) {
-                        allFoods.filter {
+                        catalogFoods.filter {
                             it.category != FoodCategory.FAST_FOOD &&
                                 !matchesFood(it) &&
                                 NutritionMatch.score(query.trim(), it.name) >= 45
@@ -237,49 +257,17 @@ fun FoodLibraryScreen(
                     val effectiveSub = if (subCategory in subs) subCategory else ""
                     val allSubLabel = s("全部")
 
-                    Column(modifier = Modifier.fillMaxWidth().weight(1f)) {
-                            // v1.5 阶段二：主分类从左侧竖栏改为顶部横滑胶囊（单列布局）。
-                            // 默认「全部」选中；切分类只刷新列表，不重建页面。
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .horizontalScroll(rememberScrollState())
-                                    .padding(horizontal = 10.dp, vertical = 4.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                // 「全部」胶囊
-                                val allSelected = category == ALL_CATEGORY
-                                Text(
-                                    text = s("全部"),
-                                    fontSize = 13.sp,
-                                    color = if (allSelected) Color.White else TextSecondary,
-                                    fontWeight = if (allSelected) FontWeight.SemiBold else FontWeight.Normal,
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(999.dp))
-                                        .background(if (allSelected) QingJiGreen else CardWhite)
-                                        .clickable { category = ALL_CATEGORY; subCategory = "" }
-                                        .padding(horizontal = 16.dp, vertical = 7.dp)
-                                )
-                                available.forEach { cat ->
-                                    val selected = cat == category
-                                    Text(
-                                        text = catEmoji(cat) + " " + cat,
-                                        fontSize = 13.sp,
-                                        color = if (selected) Color.White else TextSecondary,
-                                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(999.dp))
-                                            .background(if (selected) QingJiGreen else CardWhite)
-                                            .clickable {
-                                                category = cat
-                                                subCategory = "" // 换大类，细类回到「全部」
-                                            }
-                                            .padding(horizontal = 14.dp, vertical = 7.dp)
-                                    )
-                                }
-                            }
-
+                    // v1.6：恢复双栏——左侧主分类竖排，右侧细类横排 + 食物列表。
+                    // 左右独立滚动，切分类只换右侧数据、不重建页面。
+                    val twoPaneAllLabel = s("全部")
+                    com.qingji.app.ui.components.FoodTwoPane(
+                        modifier = Modifier.fillMaxWidth().weight(1f),
+                        categories = listOf(ALL_CATEGORY) + available,
+                        selected = category,
+                        labelOf = { cat -> if (cat == ALL_CATEGORY) twoPaneAllLabel else catEmoji(cat) + " " + cat },
+                        onSelect = { cat -> category = cat; subCategory = "" }
+                    ) {
+                        Column(modifier = Modifier.fillMaxSize()) {
                             // 横排细类胶囊：和外卖快餐右上那排同款（搜索模式下隐藏）
                             if (!searching && subs.isNotEmpty()) {
                                 Row(
@@ -397,24 +385,12 @@ fun FoodLibraryScreen(
                                 }
                                 item { Spacer(Modifier.height(80.dp)) }
                             }
-                    }
+                        }
+                    } // FoodTwoPane 结束
                 } else {
-                    // v1.5 阶段四：自建品牌入口（顶部紧凑按钮，接入品牌管理页）
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = Dimens.ScreenPadding, vertical = 4.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(QingJiGreen)
-                            .clickable { onManageBrands() }
-                            .padding(vertical = 10.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("+ 管理我的外卖品牌", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color.White)
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    // 外卖快餐（第六阶段）：品牌选择 → 品牌菜单 → 溯源详情。
+                    // QJ-FOOD-UI-003：删除「+ 管理我的外卖品牌」入口按钮。
+                    // 品牌数据、品牌菜单、菜品营养、溯源关联全部保留，仍由 BrandMenuScreen 正常展示。
+                    // 外卖快餐（第六阶段）：品牌选择 → 品牌菜单 → 菜品列表。
                     // 品牌由数据库动态驱动；堂食菜当菜单；外卖商品空态如实提示。
                     // 家庭厨房分支、底栏、收藏、记录链路都不动。
                     BrandMenuScreen(
@@ -426,70 +402,15 @@ fun FoodLibraryScreen(
                 }
             }
 
-            1 -> Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = Dimens.ScreenPadding)
-            ) {
-                Spacer(Modifier.height(4.dp))
-                // v1.5：自定义食物的主要新增入口，视觉突出
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(Dimens.CardCorner))
-                        .background(QingJiGreen)
-                        .clickable { onAddCustomFood() }
-                        .padding(vertical = 14.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Filled.Add,
-                            contentDescription = "新增",
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(text = "新增自定义食物", fontSize = 15.sp, color = Color.White, fontWeight = FontWeight.SemiBold)
-                    }
-                }
-                Spacer(Modifier.height(8.dp))
-                HintBox(text = "手动录入名称与营养；AI 识别过的也能从「用餐详情 → 更多」存进来。左滑删除，点右侧编辑。")
-                Spacer(Modifier.height(8.dp))
-                if (userFoods.isEmpty()) {
-                    Text(text = "还没有自定义食物，点上面按钮新建", fontSize = 13.sp, color = TextSecondary)
-                } else {
-                    userFoods.filter { matchesFood(it) }.forEach { food ->
-                        com.qingji.app.ui.components.SwipeToRevealDelete(
-                            onDelete = { vm.deleteCustomFood(food) }
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(Modifier.weight(1f)) {
-                                    LibraryFoodRow(
-                                        name = food.name,
-                                        kcalPer100g = food.kcalPer100g,
-                                        favorite = food.favorite,
-                                        risky = AllergenRules.isRisky(food.name, allergens),
-                                        onFavorite = { vm.toggleFavorite(food) },
-                                        onClick = { pick = food }
-                                    )
-                                }
-                                Icon(
-                                    imageVector = Icons.Outlined.EditNote,
-                                    contentDescription = "编辑",
-                                    tint = TextSecondary,
-                                    modifier = Modifier
-                                        .size(22.dp)
-                                        .clickable { onEditCustomFood(food.id) }
-                                        .padding(start = 4.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-                Spacer(Modifier.height(80.dp))
+            1 -> Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                // v1.6：自定义食物库整体重构（就地搜索 + 食物/食物组双胶囊 + 多对多食物组）
+                CustomFoodLibraryScreen(
+                    vm = vm,
+                    allergens = allergens,
+                    onAddCustomFood = onAddCustomFood,
+                    onEditCustomFood = onEditCustomFood,
+                    onPick = { food -> pick = food }
+                )
             }
 
             2 -> Column(
@@ -546,35 +467,20 @@ fun FoodLibraryScreen(
             }
         }
         } // 内容区 Column 结束
-
-        // ---------- 底栏：标准 / 自定义 / 吃过的 ----------
-        FoodLibraryBottomBar(
-            selected = if (showFavorites) -1 else tab,
-            onSelect = { index ->
-                tab = index
-                showFavorites = false
-            }
-        )
     } // Column 结束
 
-    // ---------- 右下角收藏悬浮按钮 ----------
-    Box(
-        modifier = Modifier
-            .align(Alignment.BottomEnd)
-            .padding(end = 16.dp, bottom = 78.dp)
-            .size(52.dp)
-            .clip(CircleShape)
-            .background(if (showFavorites) QingJiGreenDark else QingJiGreen)
-            .pressable {
-                showFavorites = !showFavorites
-            },
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            imageVector = Icons.Filled.Favorite,
-            contentDescription = if (showFavorites) s("返回食物库") else s("只看收藏"),
-            tint = Color.White,
-            modifier = Modifier.size(24.dp)
+    // ---------- v1.6 悬浮 Dock：标准 / 自定义 / 吃过的 + 独立收藏按钮 ----------
+    Box(modifier = Modifier.align(Alignment.BottomCenter)) {
+        com.qingji.app.ui.components.FoodLibraryDock(
+            items = listOf(
+                com.qingji.app.ui.components.FoodDockItem(s("标准"), Icons.Outlined.Description),
+                com.qingji.app.ui.components.FoodDockItem(s("自定义"), Icons.Outlined.EditNote),
+                com.qingji.app.ui.components.FoodDockItem(s("吃过的"), Icons.Outlined.History)
+            ),
+            selectedIndex = tab,
+            onSelect = { index -> tab = index; showFavorites = false },
+            favoriteActive = showFavorites,
+            onFavoriteClick = { showFavorites = !showFavorites }
         )
     }
     } // 外层 Box 结束
@@ -601,53 +507,6 @@ fun FoodLibraryScreen(
                 pick = null
             }
         )
-    }
-}
-
-/** 食物库底栏：三个页签 + 对应图标，选中的跟主题色。 */
-@Composable
-private fun FoodLibraryBottomBar(
-    selected: Int,
-    onSelect: (Int) -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(CardWhite)
-            .padding(vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        val items = listOf(
-            Triple(s("标准"), Icons.Outlined.Description, 0),
-            Triple(s("自定义"), Icons.Outlined.EditNote, 1),
-            Triple(s("吃过的"), Icons.Outlined.History, 2)
-        )
-        items.forEach { (label, icon, index) ->
-            val active = selected == index
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(10.dp))
-                    .pressable { onSelect(index) }
-                    .padding(vertical = 4.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = label,
-                    tint = if (active) QingJiGreen else TextSecondary,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(Modifier.height(3.dp))
-                Text(
-                    text = label,
-                    fontSize = 11.sp,
-                    color = if (active) QingJiGreen else TextSecondary,
-                    fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal
-                )
-            }
-        }
     }
 }
 

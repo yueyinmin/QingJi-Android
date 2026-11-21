@@ -51,6 +51,7 @@ import com.qingji.app.ui.viewmodel.DiaryViewModel
 import com.qingji.app.ui.viewmodel.ProgressViewModel
 import com.qingji.app.ui.viewmodel.TrainingViewModel
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 import java.time.YearMonth
 
 /**
@@ -94,6 +95,11 @@ fun DiaryScreen(
     // 两个 Tab **共用同一个月份状态**：旧版训练页的月份在外层、心情页自己
     // remember 一份，翻过月再切回来日历会跳到另一月，看起来像换了一整个页面。
     var diaryMonth by remember { mutableStateOf(YearMonth.now()) }
+    // 训练日记选中日期也放外层：AnimatedContent 切 Tab 会 dispose 内容层，
+    // 放 TrainingDiaryContent 内部会在「训练 ↔ 心情」来回切换后重置为今天（日期切换工单）。
+    var diarySelectedDate by remember {
+        mutableStateOf<LocalDate>(com.qingji.app.domain.AppClock.today())
+    }
     val trainingScrollState = rememberScrollState()
 
     // ========== 日记 Tab 切换 · 唯一动画源（专项工单 2026-11-16）==========
@@ -202,7 +208,9 @@ fun DiaryScreen(
                     dailyKcalGoal = profile?.dailyKcalGoal?.takeIf { it > 0 }?.toDouble() ?: 2000.0,
                     month = diaryMonth,
                     onMonthChange = { diaryMonth = it },
-                    scrollState = trainingScrollState
+                    scrollState = trainingScrollState,
+                    selectedDate = diarySelectedDate,
+                    onSelectedDateChange = { diarySelectedDate = it }
                 )
             }
             Box(

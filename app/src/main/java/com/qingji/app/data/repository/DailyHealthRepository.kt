@@ -1,6 +1,7 @@
 package com.qingji.app.data.repository
 
 import android.content.Context
+import androidx.room.withTransaction
 import com.qingji.app.data.local.AppDatabase
 import com.qingji.app.data.local.entity.DailyHealthSummaryEntity
 import com.qingji.app.domain.AppClock
@@ -32,7 +33,16 @@ class DailyHealthRepository(context: Context) {
     private val sleepDao = db.sleepDao()
 
     /** 取某天汇总（缓存优先、签名失效自动重建）。 */
-    suspend fun summaryFor(date: LocalDate): DailyHealthSummaryEntity {
+    suspend fun summaryFor(date: LocalDate): DailyHealthSummaryEntity = summaryFor(date, null)
+
+    /**
+     * 内部单日实现。@param prefetched 区间批量时预取的缓存行（按日期），
+     * 命中则免掉逐日 findByDate 的数据库往返；口径与 summaryFor 完全一致。
+     */
+    private suspend fun summaryFor(
+        date: LocalDate,
+        prefetched: Map<String, DailyHealthSummaryEntity>?
+    ): DailyHealthSummaryEntity {
         // ---- 五源轻量聚合（每源一条 SUM SQL，不拉明细行） ----
         val food = foodLogDao.dayAggregate(date)
         val ledger = ledgerDao.dayAggregate(date.toString())
@@ -44,22 +54,9 @@ class DailyHealthRepository(context: Context) {
             TrainingMath.decodeSets(json).map { it.weightKg to it.reps }
         }
         val ledgerRows = ledger.map { DailyHealthAggregator.LedgerRow(it.sourceType, it.kcalSum) }
-        val sig = listOf(
-            food?.count ?: 0,
-            round10(food?.kcalSum ?: 0.0),
-            round10(food?.proteinSum ?: 0.0),
-            ledger.sumOf { it.count },
-            round10(ledger.sumOf { it.kcalSum }),
-            session?.count ?: 0,
-            workoutSets.size,
-            sleep?.count ?: 0,
-            sleep?.minutesSum ?: 0
-        ).joinToString("|")
 
-        val cached = summaryDao.findByDate(date.toString())
-        if (cached != null && cached.signature == sig) return cached
-
-        // ---- 缓存失效或没有：用刚拿到的聚合值构造 + 落表 ----
+        // 唯一原始输入：先构造 raw，再用【同一个】signatureOf 做比对与落表。
+        // QJ-GOV-2026-01/P1-01：删掉原先 Repository 手写的第二套签名（口径与落表不一致）。
         val raw = DailyHealthAggregator.RawDay(
             foodLogCount = food?.count ?: 0,
             foodKcal = food?.kcalSum ?: 0.0,
@@ -73,24 +70,51 @@ class DailyHealthRepository(context: Context) {
             sleepRecordCount = sleep?.count ?: 0,
             sleepDurationMinutes = sleep?.minutesSum ?: 0
         )
+        val sig = DailyHealthAggregator.signatureOf(raw)
+
+        val dateKey = date.toString()
+        val cached = prefetched?.get(dateKey) ?: summaryDao.findByDate(dateKey)
+        if (cached != null && cached.signature == sig) return cached
+
+        // ---- 缓存失效或没有：用刚拿到的原始值构造 + 落表 ----
         val rebuilt = DailyHealthAggregator.aggregate(date, raw, System.currentTimeMillis())
         summaryDao.upsert(rebuilt)
         return rebuilt
     }
 
-    /** 区间批量（统计页用；逐日签名校验，失效的重建）。 */
+    /**
+     * 区间批量（QJ-GOV-2026-03 / P2-01）。
+     *
+     * 采用「一次 findRange 预取缓存 + 单事务覆盖区间」：
+     * - 缓存读取从 N 次 findByDate 降为 1 次 findRange；
+     * - N 次 upsert 收进一个 withTransaction，避免部分日期成功部分失败的半状态；
+     * - 单日聚合仍逐日走同一 summaryFor 逻辑（含统一 signatureOf），
+     *   保证与 summaryFor(date) 逐日结果完全一致，不复制任何业务口径。
+     *
+     * 未新增源表区间聚合 SQL：summariesFor 当前无生产调用方（工单要求不得为
+     * 优化未使用代码扩大改造），批量源聚合留待有真实调用与性能实测后再评估。
+     */
     suspend fun summariesFor(from: LocalDate, to: LocalDate): List<DailyHealthSummaryEntity> {
-        val out = mutableListOf<DailyHealthSummaryEntity>()
-        var d = from
-        while (!d.isAfter(to)) {
-            out.add(summaryFor(d))
-            d = d.plusDays(1)
+        if (from.isAfter(to)) return emptyList()
+        return db.withTransaction {
+            val cached = summaryDao.findRange(from.toString(), to.toString())
+                .associateBy { it.date.toString() }
+            val out = mutableListOf<DailyHealthSummaryEntity>()
+            var d = from
+            while (!d.isAfter(to)) {
+                out.add(summaryFor(d, cached))
+                d = d.plusDays(1)
+            }
+            out
         }
-        return out
     }
 
-    /** 手动清缓存（备份恢复 / 数据导入后调，下次查询自动重建）。 */
+    /**
+     * 手动清缓存（备份恢复 / 数据导入 / 清空记录 / 恢复出厂后调，下次查询自动重建）。
+     * P1-01：补上生产调用点，避免这些路径残留旧汇总。
+     */
     suspend fun invalidateAll() = summaryDao.clearAll()
 
-    private fun round10(v: Double): Double = kotlin.math.round(v * 10) / 10
+    /** 只失效指定日期（跨日期记录按既有归属规则只影响相关日期）。 */
+    suspend fun invalidateDate(date: LocalDate) = summaryDao.deleteByDate(date.toString())
 }

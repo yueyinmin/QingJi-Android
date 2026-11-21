@@ -466,6 +466,16 @@ fun QingJiAppRoot(
                             recentSleepNights = recentSleepNights,
                             onOpenSelfDiscipline = { navController.navigate(QingJiRoutes.SelfDiscipline) },
                             onOpenExercise = { navController.navigate(QingJiRoutes.ExercisePicker) },
+                            // 首页「本周运动消耗」卡改一条有氧记录：与进展页同一跳转逻辑
+                            onEditExercise = { log ->
+                                val presetId = progressVm.exercisePresets.value
+                                    .firstOrNull { it.name == log.type }?.id
+                                if (presetId != null) {
+                                    navController.navigate(QingJiRoutes.exerciseConfirm(presetId, log.id))
+                                } else {
+                                    navController.navigate(QingJiRoutes.ExercisePicker)
+                                }
+                            },
                             onSelfDisciplineCheckin = {
                                 val id = selfDisciplineVm.primaryGoal.value?.id
                                 navController.navigate(
@@ -754,6 +764,14 @@ fun QingJiAppRoot(
                     composable(QingJiRoutes.TrainingPlan) {
                         TrainingPlanScreen(
                             vm = planVm,
+                            onBack = { navController.popBackStack() },
+                            onOpenCustomEdit = { navController.navigate(QingJiRoutes.CustomPlanEdit) }
+                        )
+                    }
+                    // QJ 训练联动：自定义计划独立全屏编辑页
+                    composable(QingJiRoutes.CustomPlanEdit) {
+                        com.qingji.app.ui.screen.training.CustomPlanEditScreen(
+                            vm = planVm,
                             onBack = { navController.popBackStack() }
                         )
                     }
@@ -930,9 +948,10 @@ fun QingJiAppRoot(
         com.qingji.app.ui.screen.QuickWaterSheet(
             waterMl = homeUiState.waterMl,
             goalMl = settings.waterGoalMl,
-            onAdd = { ml ->
+            // QJ-HEALTH-DATE-WATER-004：全局喝水弹层也支持改日期时间
+            onAdd = { ml, date, time ->
                 scope.launch {
-                    appRepo.addWater(ml, com.qingji.app.domain.AppClock.today())
+                    appRepo.addWater(ml, date, time)
                 }
             },
             onDismiss = { showWaterSheet = false }

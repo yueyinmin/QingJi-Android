@@ -26,6 +26,7 @@ import com.qingji.app.data.local.entity.WaterLog
 import com.qingji.app.data.local.entity.WeightLog
 import com.qingji.app.data.prefs.ApiKeyStore
 import com.qingji.app.data.prefs.SettingsStore
+import com.qingji.app.data.prefs.SettingsKeys
 import com.qingji.app.data.remote.AiClient
 import com.qingji.app.data.remote.AiException
 import com.qingji.app.data.remote.AiRecognitionResult
@@ -37,6 +38,7 @@ import com.qingji.app.domain.Per100g
 import androidx.room.withTransaction
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
@@ -55,14 +57,20 @@ class QingJiRepository(private val context: Context) {
     private val db = AppDatabase.get(context)
     /** 标准食物库（只读，随 APK 预置） */
     private val catalog = FoodCatalogDatabase.get(context)
-    private val aiClient = AiClient()
-    private val foodApi = OpenFoodFactsClient()
+    /**
+     * QJ-GOV-2026-04 / P2-03：网络客户端延迟初始化。
+     * 本地只读场景（读档案/体重/历史）不再构造 OkHttp/AiClient，
+     * 首次真正调用 AI 或条码查询时才创建。数据库/标准库仍是进程单例，不重复创建。
+     */
+    private val aiClient: AiClient by lazy { AiClient() }
+    private val foodApi: OpenFoodFactsClient by lazy { OpenFoodFactsClient() }
 
     private val catalogDao = catalog.catalogDao()
     private val omniDao = catalog.omniFoodDao()
     private val brandDao = catalog.brandCatalogDao()
     private val takeawayDao = catalog.takeawayDao()
     private val userFoodDao = db.userFoodDao()
+    private val userFoodGroupDao = db.userFoodGroupDao()
     private val userBrandDao = db.userBrandDao()
     private val favoriteDao = db.foodFavoriteDao()
 
@@ -79,21 +87,82 @@ class QingJiRepository(private val context: Context) {
     fun observeProfile(): Flow<UserProfile?> = db.userProfileDao().observe()
     suspend fun saveProfile(profile: UserProfile) = db.userProfileDao().save(profile)
 
-    // ---------- AI 配置 ----------
-    fun observeAiConfig(): Flow<AiConfig?> = db.aiConfigDao().observe()
-    suspend fun getAiConfig(): AiConfig? = db.aiConfigDao().get()
-    suspend fun saveAiConfig(config: AiConfig) = db.aiConfigDao().save(config)
+    // ---------- AI 配置（多服务统一入口） ----------
+    /** 观察全部服务配置（配置页列表用）。 */
+    fun observeAiConfigs(): Flow<List<AiConfig>> = db.aiConfigDao().observeAll()
+    suspend fun getAiConfigs(): List<AiConfig> = db.aiConfigDao().getAll()
 
-    /** Key 单独走加密存储，不进数据库。 */
-    fun getApiKey(): String = ApiKeyStore.load(context).orEmpty()
-    fun saveApiKey(key: String) = ApiKeyStore.save(context, key)
-    fun hasApiKey(): Boolean = ApiKeyStore.isSet(context)
+    /**
+     * 当前激活配置。统一入口：所有 AI 业务经这里取配置，绝不各自读固定 id。
+     * 读取流程：Settings 里的激活 id → 命中则用它；id=0（老用户首次升级/未配置）
+     * 则取现有第一条配置并把它的 id 写回 Settings（迁移），以后就固定了。
+     */
+    suspend fun getActiveAiConfig(): AiConfig? {
+        val dao = db.aiConfigDao()
+        val savedId = SettingsStore.observe(context).first().aiActiveProviderId
+        if (savedId > 0) {
+            val hit = dao.getById(savedId)
+            if (hit != null) return hit
+        }
+        // 未设置或指向已删配置：回退到第一条现存配置并写回（删当前服务后自动选其它）
+        val fallback = dao.getAll().firstOrNull()
+        if (fallback != null) setActiveAiConfig(fallback.id)
+        return fallback
+    }
+
+    /** 当前激活配置的 API Key（按该配置 id 从加密存储读）。 */
+    suspend fun getActiveApiKey(): String =
+        getActiveAiConfig()?.let { ApiKeyStore.load(context, it.id).orEmpty() }.orEmpty()
+
+    /** 切换当前服务：只写激活 id，不碰任何配置行、不清 Key。 */
+    suspend fun setActiveAiConfig(id: Int) {
+        SettingsStore.set(context, SettingsKeys.AI_ACTIVE_PROVIDER_ID, id)
+    }
+
+    /**
+     * 新增或更新服务。id=0 = 新增，分配 max(id)+1 保证唯一且稳定；
+     * 编辑传入原 id 保留。改名/改地址都不动 id。
+     */
+    suspend fun saveAiConfig(config: AiConfig, key: String? = null): AiConfig {
+        val id = if (config.id > 0) config.id else (db.aiConfigDao().maxId() ?: 0) + 1
+        val saved = config.copy(id = id, updatedAt = System.currentTimeMillis())
+        db.aiConfigDao().save(saved)
+        // 传了 key 才覆盖该配置的 Key；null = 保持原 Key（编辑留空）
+        if (key != null) ApiKeyStore.save(context, id, key)
+        // 首次保存（还没有激活服务）自动激活第一条，避免用户存完还要手动切
+        if (getActiveAiConfig() == null) setActiveAiConfig(id)
+        return saved
+    }
+
+    /** 删除服务：只删指定 id 的行与 Key；若删的是当前激活，自动切到其余第一条，没有则置 0。 */
+    suspend fun deleteAiConfig(id: Int) {
+        db.aiConfigDao().deleteById(id)
+        ApiKeyStore.clear(context, id)
+        val active = SettingsStore.observe(context).first().aiActiveProviderId
+        if (active == id) {
+            val next = db.aiConfigDao().getAll().firstOrNull()?.id ?: 0
+            setActiveAiConfig(next)
+        }
+    }
+
+    suspend fun hasApiKey(id: Int): Boolean = ApiKeyStore.isSet(context, id)
+    /** 按指定 id 读 Key（编辑某配置时「留空保持原 Key」用）。 */
+    fun getApiKeyFor(id: Int): String = ApiKeyStore.load(context, id).orEmpty()
+
+    /** 观察当前激活配置（随切换实时刷新）。 */
+    fun observeAiConfig(): Flow<AiConfig?> =
+        SettingsStore.observe(context).map { it.aiActiveProviderId }
+            .flatMapLatest { id -> db.aiConfigDao().observeById(id) }
+    suspend fun getAiConfig(): AiConfig? = getActiveAiConfig()
 
     // ---------- 首页当天数据 ----------
     fun observeDailySummary(date: LocalDate): Flow<DailySummary?> = db.foodLogDao().observeDailySummary(date)
     fun observeMealSummary(date: LocalDate): Flow<List<MealSummary>> = db.foodLogDao().observeMealSummary(date)
     fun observeFoodLogs(date: LocalDate): Flow<List<FoodLog>> = db.foodLogDao().observeByDate(date)
     fun observeWaterMl(date: LocalDate): Flow<Int?> = db.waterLogDao().observeTodayMl(date)
+
+    /** QJ-HEALTH-DATE-WATER-004：指定日期的逐笔饮水明细，按 createdAt 升序。 */
+    fun observeWaterLogs(date: LocalDate): Flow<List<WaterLog>> = db.waterLogDao().observeByDate(date)
 
     // ---------- 体重 ----------
     fun observeWeightLogs(): Flow<List<WeightLog>> = db.weightLogDao().observeAll()
@@ -128,10 +197,15 @@ class QingJiRepository(private val context: Context) {
         db.exerciseLogDao().observeRange(from, to)
 
     suspend fun addExercise(log: ExerciseLog) {
-        val newId = db.exerciseLogDao().insert(log)
-        // v1.4 健康体系：同步镜像进统一运动消耗账本（幂等，唯一索引去重）
-        runCatching { healthRepository().mirrorExerciseLog(log.copy(id = newId)) }
-        db.usageStatDao().increment(log.date, "body")
+        // 统一训练体系：日志 + 账本镜像放在同一事务里，失败一起回滚，
+        // 不会出现「有运动记录没账本」的半成品（工单 §8 保存原子性）。
+        db.withTransaction {
+            val newId = db.exerciseLogDao().insert(log)
+            // P1-04：账本镜像与源记录同事务、异常同回滚。移除原 runCatching 吞异常的写法，
+            // 镜像失败不再伪装成「运动记录保存成功但账本没有」。
+            healthRepository().mirrorExerciseLog(log.copy(id = newId))
+            db.usageStatDao().increment(log.date, "body")
+        }
     }
 
     /** v1.3.7：按 id 取一条有氧记录，给确认页回填「修改」。 */
@@ -142,17 +216,21 @@ class QingJiRepository(private val context: Context) {
      * 旧镜像残留（sourceId 虽然一样，但 sourceType 会随 type 变）。
      */
     suspend fun updateExercise(log: ExerciseLog) {
-        db.exerciseLogDao().update(log)
-        runCatching {
+        db.withTransaction {
+            db.exerciseLogDao().update(log)
+            // P1-04：先删旧镜像再重建，同事务、异常同回滚（不再 runCatching）
             healthRepository().deleteExerciseLogMirror(log.id)
             healthRepository().mirrorExerciseLog(log)
         }
     }
 
     suspend fun deleteExercise(id: Long) {
-        db.exerciseLogDao().deleteById(id)
-        // 账本镜像联动删除：删运动记录，消耗也跟着消失，不会残留旧数字
-        runCatching { healthRepository().deleteExerciseLogMirror(id) }
+        // P1-04：删源记录与删账本镜像放在同一事务，同时成功或同时回滚，
+        // 杜绝「源没了但账本残留孤儿行导致消耗多计」。
+        db.withTransaction {
+            db.exerciseLogDao().deleteById(id)
+            healthRepository().deleteExerciseLogMirror(id)
+        }
     }
 
     /** 统一运动消耗账本（健康体系 V1.0）。懒加载避免和 AppDatabase 初始化抢顺序。 */
@@ -228,6 +306,16 @@ class QingJiRepository(private val context: Context) {
             custom.map { it.toFood(favorite = it.name in names || it.favorite) }
         }
 
+    /**
+     * v1.6 TASK-05 数据隔离：「标准库」页签只显示 food_catalog.db 的标准食物，
+     * 绝不掺 user_food。收藏仍复用 food_favorite（按名字），不新建第二套。
+     */
+    fun observeCatalogFoods(): Flow<List<Food>> =
+        combine(catalogDao.observeAll(), favoriteDao.observeAll()) { preset, favs ->
+            val names = favs.map { it.name }.toSet()
+            preset.map { it.toFood(favorite = it.name in names) }
+        }
+
     /** 一次性取全量，给 AI 识别结果校正营养值、查重用。 */
     private suspend fun allFoodsOnce(): List<Food> =
         mergeFoods(catalogDao.findAll(), userFoodDao.findAll(), favoriteDao.allNames().toSet())
@@ -235,6 +323,9 @@ class QingJiRepository(private val context: Context) {
     /** 删除自定义食物；标准库只读，id >= 100001 的一律不删。 */
     suspend fun deleteFood(id: Long) {
         if (id >= CATALOG_ID_START) return
+        // v1.6：删自定义食物前先清掉它在所有食物组里的关联，避免留孤立关联行。
+        // 只删关联、不碰组本身，更不碰 food_log 历史快照。
+        userFoodGroupDao.clearItemsOfFood(id)
         userFoodDao.deleteById(id)
     }
 
@@ -353,6 +444,65 @@ class QingJiRepository(private val context: Context) {
         if (id <= 0 || id >= CATALOG_ID_START) return null
         return userFoodDao.findById(id)?.toFood()
     }
+
+    // ---------- v1.6 食物库整体重构：自定义食物组（多对多） ----------
+
+    fun observeFoodGroups(): Flow<List<com.qingji.app.data.local.entity.UserFoodGroup>> =
+        userFoodGroupDao.observeGroups()
+
+    suspend fun allFoodGroups(): List<com.qingji.app.data.local.entity.UserFoodGroup> =
+        userFoodGroupDao.allGroups()
+
+    /** 新建食物组。重名返回 -1，界面提示「已有同名组」。 */
+    suspend fun createFoodGroup(name: String, coverUri: String = ""): Long {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty() || userFoodGroupDao.allGroups().any { it.name == trimmed }) return -1L
+        val order = userFoodGroupDao.allGroups().maxOfOrNull { it.sortOrder }?.plus(1) ?: 0
+        return userFoodGroupDao.insertGroup(
+            com.qingji.app.data.local.entity.UserFoodGroup(
+                name = trimmed,
+                coverUri = coverUri,
+                sortOrder = order
+            )
+        )
+    }
+
+    suspend fun updateFoodGroup(group: com.qingji.app.data.local.entity.UserFoodGroup) =
+        userFoodGroupDao.updateGroup(group.copy(updatedAt = System.currentTimeMillis()))
+
+    /** 删组：DAO 事务里先清关联再删组，组内食物本身不动。 */
+    suspend fun deleteFoodGroup(groupId: Long) = userFoodGroupDao.deleteGroupCascade(groupId)
+
+    /** 组内食物 id 列表（界面据此从 observeUserFoods 里过滤出成员）。 */
+    fun observeGroupFoodIds(groupId: Long): Flow<List<Long>> =
+        userFoodGroupDao.observeFoodIdsInGroup(groupId)
+
+    suspend fun groupFoodIds(groupId: Long): List<Long> =
+        userFoodGroupDao.foodIdsInGroup(groupId)
+
+    /** 每个组的成员数，界面显示「N 个食物」。 */
+    fun observeGroupFoodCount(groupId: Long): Flow<Int> =
+        userFoodGroupDao.observeGroupCount(groupId)
+
+    /** 某个食物被加进了哪些组（食物卡片「已归入 N 组」）。 */
+    fun observeGroupsOfFood(foodId: Long): Flow<List<Long>> =
+        userFoodGroupDao.observeGroupsOfFood(foodId)
+
+    /** 一次性查某食物所在的组（打开「加入组」弹窗时用）。 */
+    suspend fun groupsOfFoodOnce(foodId: Long): List<Long> =
+        userFoodGroupDao.observeGroupsOfFood(foodId).first()
+
+    /** 把一个食物加入组；重复加入被 DAO 的 IGNORE 吞掉，不会报错。 */
+    suspend fun addFoodToGroup(groupId: Long, foodId: Long) =
+        userFoodGroupDao.insertItem(
+            com.qingji.app.data.local.entity.UserFoodGroupItem(
+                groupId = groupId,
+                foodId = foodId
+            )
+        )
+
+    suspend fun removeFoodFromGroup(groupId: Long, foodId: Long) =
+        userFoodGroupDao.removeItem(groupId, foodId)
 
     // ---------- v1.5 阶段四：用户自建外卖品牌 + 品牌菜品 ----------
 
@@ -726,7 +876,7 @@ class QingJiRepository(private val context: Context) {
         }
 
         val rule = buildRecognitionRules() + "\n\n" + extraRule
-        val result = aiClient.recognizeText(config, getApiKey(), description, rule)
+        val result = aiClient.recognizeText(config, getApiKeyFor(config.id), description, rule)
         if (result.isSuccess) {
             db.usageStatDao().increment(date, "ai")
             return Result.success(correctWithLocalFood(result.getOrThrow()))
@@ -737,6 +887,22 @@ class QingJiRepository(private val context: Context) {
     suspend fun addWater(ml: Int, date: LocalDate) {
         if (ml <= 0) return
         db.waterLogDao().insert(WaterLog(date = date, ml = ml))
+        db.usageStatDao().increment(date, "water")
+        com.qingji.app.widget.WidgetRefresher.refresh(context, setOf(com.qingji.app.widget.WidgetTarget.OVERVIEW))
+    }
+
+    /**
+     * QJ-HEALTH-DATE-WATER-004：支持指定日期 + 时间的饮水记录。
+     * 只复用 WaterLog.createdAt（不新增时间字段/表）：把 (date, time) 按
+     * AppClock.zone 转成 epoch 毫秒写进 createdAt，时区口径与全 App 一致（不假设 UTC）。
+     * 上面两参的 addWater(ml, date) 保持不变，所有旧调用点无需改动。
+     */
+    suspend fun addWater(ml: Int, date: LocalDate, time: java.time.LocalTime) {
+        if (ml <= 0) return
+        val createdAt = java.time.LocalDateTime.of(date, time)
+            .atZone(com.qingji.app.domain.AppClock.zone)
+            .toInstant().toEpochMilli()
+        db.waterLogDao().insert(WaterLog(date = date, ml = ml, createdAt = createdAt))
         db.usageStatDao().increment(date, "water")
         com.qingji.app.widget.WidgetRefresher.refresh(context, setOf(com.qingji.app.widget.WidgetTarget.OVERVIEW))
     }
@@ -906,7 +1072,7 @@ class QingJiRepository(private val context: Context) {
             )
         }
 
-        val result = aiClient.recognizeText(config, getApiKey(), input, buildRecognitionRules())
+        val result = aiClient.recognizeText(config, getApiKeyFor(config.id), input, buildRecognitionRules())
         if (result.isSuccess) {
             db.usageStatDao().increment(date, "ai")
             return Result.success(correctWithLocalFood(result.getOrThrow()))
@@ -932,7 +1098,7 @@ class QingJiRepository(private val context: Context) {
     /** 图片识别（M3.2）。成功才计一次 AI 调用，失败不扣额度。 */
     suspend fun recognizeImage(base64Jpeg: String, date: LocalDate): Result<AiRecognitionResult> = try {
         val config = requireAi(date)
-        val result = aiClient.recognizeImage(config, getApiKey(), base64Jpeg, buildRecognitionRules())
+        val result = aiClient.recognizeImage(config, getApiKeyFor(config.id), base64Jpeg, buildRecognitionRules())
         if (result.isSuccess) {
             db.usageStatDao().increment(date, "ai")
             Result.success(correctWithLocalFood(result.getOrThrow()))
@@ -985,7 +1151,7 @@ class QingJiRepository(private val context: Context) {
     /** AI 分析（M3.8）：facts 是仓库层聚合好的数字，prompt 里不许模型编数据。 */
     suspend fun analyze(facts: String, date: LocalDate): Result<String> = try {
         val config = requireAi(date)
-        val result = aiClient.analyze(config, getApiKey(), facts)
+        val result = aiClient.analyze(config, getApiKeyFor(config.id), facts)
         if (result.isSuccess) db.usageStatDao().increment(date, "ai")
         result
     } catch (e: AiException) {
@@ -1184,6 +1350,9 @@ class QingJiRepository(private val context: Context) {
         // 还没保存的「进行中训练」也算记录，一并作废
         com.qingji.app.data.prefs.WorkoutDraftStore(context).clear()
 
+        // P1-01：清记录后失效每日健康汇总缓存，避免首页/进展页读到旧汇总
+        com.qingji.app.data.repository.DailyHealthRepository(context).invalidateAll()
+
         // 断食/饮水的通知文案依赖记录，清完顺手刷一次桌面
         com.qingji.app.widget.WidgetRefresher.refresh(context)
     }
@@ -1237,8 +1406,8 @@ class QingJiRepository(private val context: Context) {
         SettingsStore.clear(context)
         // 训练草稿与 kg/lb 偏好（SharedPreferences，跟 DataStore 不是一个地方）
         com.qingji.app.data.prefs.WorkoutDraftStore(context).clearAll()
-        // Key 在 AndroidKeyStore 加密存储里，跟 DataStore 是两个地方
-        ApiKeyStore.clear(context)
+        // Key 在 AndroidKeyStore 加密存储里，跟 DataStore 是两个地方（清全部服务 + 旧字段）
+        ApiKeyStore.clearAll(context)
 
         // 图片：头像、记录图、进度照片整目录重建（不删目录本身，省得后面要判空）。
         // 清单里补了 filesDir/progress（TASK-03）；备份目录 getExternalFilesDir/backup 不在清单里，保留。
@@ -1253,6 +1422,9 @@ class QingJiRepository(private val context: Context) {
         runCatching {
             com.qingji.app.notify.Reminders.apply(context, com.qingji.app.data.prefs.QingJiSettings())
         }
+
+        // P1-01：恢复出厂一并清掉每日健康汇总缓存（否则空数据下仍显示旧汇总）
+        com.qingji.app.data.repository.DailyHealthRepository(context).invalidateAll()
 
         com.qingji.app.widget.WidgetRefresher.refresh(context)
     }

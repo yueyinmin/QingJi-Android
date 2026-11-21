@@ -27,6 +27,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,6 +54,7 @@ import com.qingji.app.ui.theme.TextSecondary
 import com.qingji.app.ui.theme.TextSizes
 import com.qingji.app.ui.viewmodel.TrainingViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * 进行中训练页。
@@ -70,6 +72,8 @@ fun TrainingActiveScreen(
     val unit by vm.unit.collectAsState()
     val library by vm.exercises.collectAsState()
     val message by vm.message.collectAsState()
+    // QJ 训练联动：初始化状态（进度 / 失败重试）
+    val initState by vm.initState.collectAsState()
     // v1.4 健康体系：结算体重 + MET 参数，用来实时算「每组/整场预计消耗」
     val settleWeight by vm.settleWeight.collectAsState()
     val metDefaults by vm.metDefaults.collectAsState()
@@ -79,6 +83,7 @@ fun TrainingActiveScreen(
     // 2026-11-18：改时长 / 改补记日期的滚轮弹层
     var showDurationWheel by remember { mutableStateOf(false) }
     var showDateWheel by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     // 进页面：没有草稿就开一次新训练；每秒刷一次计时显示
     LaunchedEffect(Unit) {
@@ -152,6 +157,31 @@ fun TrainingActiveScreen(
                 Spacer(Modifier.height(8.dp))
             }
 
+            // QJ 训练联动：初始化中 / 失败重试提示（成功状态不打扰用户）
+            if (initState == com.qingji.app.ui.viewmodel.TrainingInitState.Loading) {
+                Text("正在识别今天的训练计划…", fontSize = TextSizes.Caption, color = TextSecondary)
+                Spacer(Modifier.height(8.dp))
+            }
+            if (initState == com.qingji.app.ui.viewmodel.TrainingInitState.Failed) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(Dimens.ItemCorner))
+                        .background(QingJiGreenLight)
+                        .padding(10.dp)
+                ) {
+                    Column {
+                        Text("计划读取失败，已按空白训练继续。", fontSize = TextSizes.Caption, color = TextPrimary)
+                        Text(
+                            "重试（重新识别当天计划）",
+                            fontSize = TextSizes.Caption, color = QingJiGreen,
+                            modifier = Modifier.clickable { scope.launch { vm.retryInit() } }.padding(vertical = 4.dp)
+                        )
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+            }
+
             if (d != null) {
                 WorkoutTimerBar(
                     elapsedSeconds = d.elapsedSeconds(now),
@@ -204,6 +234,7 @@ fun TrainingActiveScreen(
                     val met = vm.metForExercise(e.exerciseUuid, entity?.isStretch == true)
                     SetEditorCard(
                         name = e.name,
+                        exerciseUuid = e.exerciseUuid,
                         sets = e.sets,
                         unit = unit,
                         fromLast = e.fromLast,

@@ -48,6 +48,7 @@ import com.qingji.app.data.local.entity.SleepRecordEntity
 import com.qingji.app.domain.AppClock
 import com.qingji.app.domain.SleepScoreCalculator
 import com.qingji.app.ui.components.AppDialog
+import com.qingji.app.ui.components.MonthPickerSheet
 import com.qingji.app.ui.components.PageTopBar
 import com.qingji.app.ui.components.SectionCard
 import com.qingji.app.ui.components.WheelDatePicker
@@ -104,6 +105,8 @@ fun SleepScreen(
     var showForm by remember { mutableStateOf(false) }
     var showScoreDetail by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<SleepRecordEntity?>(null) }
+    // QJ-HEALTH-DATE-WATER-004：点顶部日期弹首页同款月历，选历史日期直接跳。
+    var showDatePicker by remember { mutableStateOf(false) }
 
     val today = AppClock.today()
     val isToday = selectedDate == today
@@ -156,7 +159,12 @@ fun SleepScreen(
                     text = if (isToday) s("今天") else selectedDate.format(DATE_CN),
                     fontSize = TextSizes.CardTitle, fontWeight = FontWeight.SemiBold,
                     color = TextPrimary, textAlign = TextAlign.Center,
-                    modifier = Modifier.width(120.dp)
+                    // QJ-HEALTH-DATE-WATER-004：点日期弹月历；加个轻微底色提示可点。
+                    modifier = Modifier
+                        .width(120.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { showDatePicker = true }
+                        .padding(vertical = 4.dp)
                 )
                 Text(
                     text = "›", fontSize = 26.sp,
@@ -271,6 +279,17 @@ fun SleepScreen(
         ) {
             Text("${r.date} 的记录会被删掉，其他数据不受影响。", fontSize = 14.sp, color = TextPrimary)
         }
+    }
+
+    // ---------- QJ-HEALTH-DATE-WATER-004：点顶部日期弹月历（复用首页组件） ----------
+    if (showDatePicker) {
+        MonthPickerSheet(
+            selected = selectedDate,
+            // vm.selectDate 内含禁未来 + 近 30 天范围校验，越界不写状态；
+            // 数据由 selectedDate 驱动的 selectedNight/trend 自动刷新。
+            onSelect = { vm.selectDate(it) },
+            onDismiss = { showDatePicker = false }
+        )
     }
 }
 

@@ -33,6 +33,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.qingji.app.domain.AppClock
+import com.qingji.app.ui.components.AppDialog
+import com.qingji.app.ui.components.WheelDatePicker
+import com.qingji.app.ui.components.WheelTimePicker
 import com.qingji.app.ui.i18n.s
 import com.qingji.app.ui.theme.CardWhite
 import com.qingji.app.ui.theme.DangerRed
@@ -69,7 +72,7 @@ import java.time.LocalDate
 fun QuickWaterSheet(
     waterMl: Int,
     goalMl: Int,
-    onAdd: (Int) -> Unit,
+    onAdd: (Int, LocalDate, java.time.LocalTime) -> Unit,
     onDismiss: () -> Unit,
     onOpenDetail: (() -> Unit)? = null
 ) {
@@ -78,8 +81,17 @@ fun QuickWaterSheet(
     var customMl by remember { mutableStateOf("") }
     var error by remember { mutableStateOf("") }
     var submitted by remember { mutableStateOf(false) }
-    val timeText = "${AppClock.today().monthValue}月${AppClock.today().dayOfMonth}日 " +
-        java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+    // QJ-HEALTH-DATE-WATER-004：日期默认今天、时间默认当前（走 AppClock 时区）；
+    // 用户可用滚轮改历史日期与具体时间，取消不写库。
+    var pendingDate by remember { mutableStateOf(AppClock.today()) }
+    var pendingTime by remember { mutableStateOf(AppClock.now().toLocalTime().withSecond(0).withNano(0)) }
+    var showDateWheel by remember { mutableStateOf(false) }
+    var showTimeWheel by remember { mutableStateOf(false) }
+    // 滚轮临时值：年/月/日三个数字（滚轮本身不校验业务口径，
+    // 是否合法、是否未来日期在确定时统一校验，非法不写回 pendingDate）
+    var draftY by remember { mutableStateOf(pendingDate.year) }
+    var draftM by remember { mutableStateOf(pendingDate.monthValue) }
+    var draftD by remember { mutableStateOf(pendingDate.dayOfMonth) }
 
     androidx.compose.material3.ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -254,17 +266,45 @@ fun QuickWaterSheet(
             }
 
             Spacer(Modifier.height(12.dp))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(PageBackground)
-                    .padding(horizontal = 12.dp, vertical = 11.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(text = "🕐", fontSize = 13.sp)
-                Spacer(Modifier.width(8.dp))
-                Text(text = timeText, fontSize = 13.sp, color = QingJiGreenDark)
+            // QJ-HEALTH-DATE-WATER-004：日期和时间由只读文本改为可点区域，复用项目滚轮。
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(PageBackground)
+                        .pressable {
+                            draftY = pendingDate.year
+                            draftM = pendingDate.monthValue
+                            draftD = pendingDate.dayOfMonth
+                            showDateWheel = true
+                        }
+                        .padding(horizontal = 10.dp, vertical = 11.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(text = "📅", fontSize = 13.sp)
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "${pendingDate.monthValue}月${pendingDate.dayOfMonth}日",
+                        fontSize = 13.sp, color = QingJiGreenDark, maxLines = 1
+                    )
+                }
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(PageBackground)
+                        .pressable { showTimeWheel = true }
+                        .padding(horizontal = 10.dp, vertical = 11.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(text = "🕐", fontSize = 13.sp)
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = java.time.format.DateTimeFormatter.ofPattern("HH:mm").format(pendingTime),
+                        fontSize = 13.sp, color = QingJiGreenDark, maxLines = 1
+                    )
+                }
             }
 
             // ---------- 取消 / 确认：唯一的写库时机 ----------
@@ -291,7 +331,7 @@ fun QuickWaterSheet(
                         .pressable {
                             if (submitted) return@pressable
                             submitted = true
-                            onAdd(pendingMl)
+                            onAdd(pendingMl, pendingDate, pendingTime)
                             onDismiss()
                         }
                         .padding(vertical = 14.dp),
@@ -318,13 +358,61 @@ fun QuickWaterSheet(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = s("查看今日饮水详情"),
+                        // QJ-HEALTH-DATE-WATER-004：首页可能正在看历史日期，标题不再写「今日」
+                        text = s("查看饮水详情"),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
                         color = MultiColor.WaterText
                     )
                 }
             }
+        }
+    }
+
+    // ---------- QJ-HEALTH-DATE-WATER-004：日期滚轮（禁未来 + 非法日期拦截） ----------
+    if (showDateWheel) {
+        val today = AppClock.today()
+        // 拼日期可能非法（2月30日）；非法或未来/超一年都置灰确定，不写回表单
+        val draftDate = runCatching { LocalDate.of(draftY, draftM, draftD) }.getOrNull()
+        val draftValid = draftDate != null &&
+            !draftDate.isAfter(today) && !draftDate.isBefore(today.minusDays(365))
+        AppDialog(
+            title = s("选择记录日期"),
+            confirmText = s("确定"),
+            confirmEnabled = draftValid,
+            onConfirm = {
+                if (draftDate != null && draftValid) {
+                    pendingDate = draftDate
+                    showDateWheel = false
+                }
+            },
+            onDismiss = { showDateWheel = false }
+        ) {
+            Text(
+                text = if (draftValid) s("可记录最近一年内的日期，未来日期不能记")
+                       else s("日期无效或超出可记录范围"),
+                fontSize = 11.sp, color = TextSecondary
+            )
+            Spacer(Modifier.height(8.dp))
+            WheelDatePicker(
+                initialDate = pendingDate,
+                yearRange = IntRange(today.year - 1, today.year)
+            ) { y, m, d -> draftY = y; draftM = m; draftD = d }
+        }
+    }
+
+    // ---------- QJ-HEALTH-DATE-WATER-004：时间滚轮（只改具体时刻，日期不变） ----------
+    if (showTimeWheel) {
+        AppDialog(
+            title = s("选择记录时间"),
+            confirmText = s("确定"),
+            onConfirm = { showTimeWheel = false },
+            onDismiss = { showTimeWheel = false }
+        ) {
+            WheelTimePicker(
+                initialHour = pendingTime.hour,
+                initialMinute = pendingTime.minute
+            ) { h, m -> pendingTime = java.time.LocalTime.of(h, m) }
         }
     }
 }
