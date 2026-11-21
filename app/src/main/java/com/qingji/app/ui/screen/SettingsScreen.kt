@@ -271,6 +271,8 @@ fun SettingsScreen(
                 EntryDest.Dlg(DialogKind.UNIT))
         ),
         DialogKind.CAT_DISPLAY to listOf(
+            EntryRow(s("桌面小组件"), "今日剩余 / 体重 / 记一笔的外观与预览", Icons.Filled.Dashboard, SettingsIconGreen,
+                EntryDest.Page(PageRoute.WIDGET)),
             EntryRow(s("主题与外观"), "主题色、深浅模式、图标、字体、气泡", Icons.Filled.Dashboard, SettingsIconPurple,
                 EntryDest.Dlg(DialogKind.CAT_THEME)),
             EntryRow(s("首页布局"), "AI 分析、饮水卡、快捷按钮、小结、营养素比例", Icons.Filled.Dashboard, SettingsIconBlue,
@@ -338,6 +340,8 @@ fun SettingsScreen(
     // ============================================================
     // 页面主体
     // ============================================================
+    // 二级设置打开时不组合主页，避免底层仍参与渲染/交互
+    if (dialog == null) {
     Column(modifier = modifier.fillMaxSize().background(SettingsPageBg)) {
         // 标题栏
         Row(
@@ -438,6 +442,7 @@ fun SettingsScreen(
             }
         }
     }
+    }
 
     // ============================================================
     // 弹层：分类落地页 + 具体设置页
@@ -451,7 +456,7 @@ fun SettingsScreen(
                 dialog = null
             }
 
-            DialogKind.CAT_ABOUT -> AboutScreen(onBack = { dialog = null }, useSheet = true)
+            DialogKind.CAT_ABOUT -> AboutScreen(onBack = { dialog = null }, useSheet = false)
 
             // ---------- 显示与交互 · 4 个二级分类 ----------
             DialogKind.CAT_THEME -> ThemeSettingsPage(
@@ -462,7 +467,7 @@ fun SettingsScreen(
                 onSetFont = { vm.setCustomFontPath(it) },
                 onOpenIcon = { dialog = DialogKind.ICON },
                 onBack = { dialog = null },
-                useSheet = true
+                useSheet = false // 改为页面内全屏，不再底部弹窗
             )
 
             DialogKind.CAT_HOME_LAYOUT -> ToggleDetailPage(
@@ -475,7 +480,7 @@ fun SettingsScreen(
                     ToggleItem(s("本周小结"), "进展页显示近 7 天一句话小结（本地计算）", settings.showWeeklySummary) { vm.setShowWeeklySummary(it) },
                     ToggleItem(s("每餐营养素比例"), "餐次卡片底部显示蛋白·碳水·脂肪比例条", settings.showMealMacro) { vm.setShowMealMacro(it) }
                 ),
-                onBack = { dialog = null }, useSheet = true
+                onBack = { dialog = null }, useSheet = false // 改为页面内全屏，不再底部弹窗
             )
 
             DialogKind.CAT_NAVIGATION -> ToggleDetailPage(
@@ -488,7 +493,7 @@ fun SettingsScreen(
                     ToggleItem("显示我的 Tab", "个人资料、成就、设置入口", settings.showMineTab) { vm.setTabVisible("mine", it) },
                     ToggleItem(s("左右滑动切换页面"), "在首页等主页面左右滑动切换", settings.swipeNavigate) { vm.setSwipeNavigate(it) }
                 ),
-                onBack = { dialog = null }, useSheet = true
+                onBack = { dialog = null }, useSheet = false // 改为页面内全屏，不再底部弹窗
             )
 
             DialogKind.CAT_MOTION -> ToggleDetailPage(
@@ -508,7 +513,7 @@ fun SettingsScreen(
                         ) { vm.setShowRefreshRate(it) }
                     }
                 },
-                onBack = { dialog = null }, useSheet = true
+                onBack = { dialog = null }, useSheet = false // 改为页面内全屏，不再底部弹窗
             )
 
             // ---------- 具体设置弹层 ----------
@@ -530,7 +535,7 @@ fun SettingsScreen(
                         }
                     }
                 },
-                onBack = { dialog = null }, useSheet = true
+                onBack = { dialog = null }, useSheet = false // 改为页面内全屏，不再底部弹窗
             )
 
             DialogKind.MACRO -> MacroRatioPage(
@@ -539,19 +544,19 @@ fun SettingsScreen(
                 calciumInit = profile?.calciumGoalMg ?: 800,
                 onSave = { p, c, f -> vm.setMacroRatio(p, c, f) },
                 onSaveGoals = { fiber, sodium, calcium -> vm.setNutrientGoals(fiber, sodium, calcium) },
-                onBack = { dialog = null }, useSheet = true
+                onBack = { dialog = null }, useSheet = false // 改为页面内全屏，不再底部弹窗
             )
 
             DialogKind.EXERCISE_PCT -> ExercisePctDetailPage(
                 pct = settings.exerciseCompensationPct, onSelect = { vm.setExerciseCompensationPct(it) },
-                onBack = { dialog = null }, useSheet = true
+                onBack = { dialog = null }, useSheet = false // 改为页面内全屏，不再底部弹窗
             )
 
             DialogKind.TIMEZONE -> OptionDetailPage(
                 title = s("记录时区"), subtitle = s("改这里会影响「今天」从几点开始算，跨时区出差时用得上"),
                 options = timezoneOptions().map { OptionItem(it.first, it.second) },
                 selectedKey = settings.timeZone, onPick = { vm.setTimezone(it); dialog = null },
-                onBack = { dialog = null }, useSheet = true
+                onBack = { dialog = null }, useSheet = false // 改为页面内全屏，不再底部弹窗
             )
 
             DialogKind.REMINDERS -> ReminderPage(
@@ -564,7 +569,7 @@ fun SettingsScreen(
                 onSetKcalTime = { hour, minute -> vm.setKcalReminder(settings.kcalReminder, hour, minute, showToast = false) },
                 onSetWaterSwitch = { on -> if (on) enableReminderWithPermission { vm.setWaterReminder(true) } else vm.setWaterReminder(false) },
                 onSetWaterTime = { hour, minute -> vm.setWaterReminder(settings.waterReminder, hour, minute, showToast = false) },
-                onBack = { dialog = null }, useSheet = true
+                onBack = { dialog = null }, useSheet = false // 改为页面内全屏，不再底部弹窗
             )
 
             DialogKind.UI_LANG -> OptionDetailPage(
@@ -572,31 +577,31 @@ fun SettingsScreen(
                 options = listOf(OptionItem("zh", "简体中文", s("界面默认中文，核心页可切英文")),
                     OptionItem("en", "English", s("Core screens in English; the rest stays Chinese"))),
                 selectedKey = settings.uiLanguage, onPick = { vm.setUiLanguage(it); dialog = null },
-                onBack = { dialog = null }, useSheet = true
+                onBack = { dialog = null }, useSheet = false // 改为页面内全屏，不再底部弹窗
             )
 
             DialogKind.UNIT -> OptionDetailPage(
                 title = s("体重单位"), subtitle = s("只改显示，数据库里永远存公斤"),
                 options = listOf(OptionItem("kg", "公斤（kg）"), OptionItem("jin", "斤（500g）")),
                 selectedKey = settings.unit, onPick = { vm.setUnit(it); dialog = null },
-                onBack = { dialog = null }, useSheet = true
+                onBack = { dialog = null }, useSheet = false // 改为页面内全屏，不再底部弹窗
             )
 
             DialogKind.WATER_GOAL -> NumberDetailPage(
                 title = s("饮水目标"), subtitle = s("首页水杯按这个目标灌满"), label = s("每天计划喝多少"),
                 initial = settings.waterGoalMl.toString(), suffix = "ml", hint = s("常见范围 1500～3000 毫升"),
                 onSave = { vm.setWaterGoal(it.toIntOrNull() ?: 2000) },
-                onBack = { dialog = null }, useSheet = true
+                onBack = { dialog = null }, useSheet = false // 改为页面内全屏，不再底部弹窗
             )
 
             DialogKind.PRIVACY -> PrivacyPage(
                 onClearRecords = { vm.clearRecords() }, onFactoryReset = { vm.factoryReset() },
-                onBack = { dialog = null }, useSheet = true
+                onBack = { dialog = null }, useSheet = false // 改为页面内全屏，不再底部弹窗
             )
 
             DialogKind.ICON -> com.qingji.app.ui.screen.settings.AppIconSettingsPage(
                 currentVariant = settings.iconVariant, onSelect = { vm.setIconVariant(it) },
-                onBack = { dialog = null }, useSheet = true
+                onBack = { dialog = null }, useSheet = false // 改为页面内全屏，不再底部弹窗
             )
 
             DialogKind.CACHE -> InfoDetailPage(
@@ -606,7 +611,7 @@ fun SettingsScreen(
                 actionText = s("清理缓存"),
                 onAction = { backup.clearCache(); cacheSize = backup.cacheSize()
                     Toast.makeText(context, "已清理", Toast.LENGTH_SHORT).show() },
-                onBack = { dialog = null }, useSheet = true
+                onBack = { dialog = null }, useSheet = false // 改为页面内全屏，不再底部弹窗
             )
 
             else -> Unit
