@@ -38,9 +38,10 @@ class BackupManager(private val context: Context) {
 
     /**
      * B1.1.2：恢复事务中途钩子，生产为空操作。
-     * 测试在训练段清表之后、灌入之前注入异常，真实验证 db.withTransaction 的整事务回滚。
+     * internal + 默认空操作，仅测试可注入异常；测试在训练段清表之后、灌入之前注入异常，
+     * 真实验证 db.withTransaction 的整事务回滚，不暴露给业务 UI。
      */
-    var restoreHook: suspend () -> Unit = {}
+    internal var restoreHook: suspend () -> Unit = {}
 
     /** 备份目录：App 私有外部目录，卸载 App 会被清掉，所以务必先分享出去。 */
     private fun backupDir(): File {

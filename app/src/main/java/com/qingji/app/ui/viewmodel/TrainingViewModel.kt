@@ -602,27 +602,43 @@ class TrainingViewModel(app: Application, repoOverride: TrainingRepository? = nu
 
                 // ---------- 第二段：数据库已成功提交，以下任何异常都不改变「已保存」事实 ----------
                 try {
-                    // 版本化清理：仅当当前草稿仍是本次保存的那一份（revision 未变）才清空。
-                    // 若保存期间用户又改了草稿，保留新草稿（T14），其 sessionUuid 留给下一次保存（T15/T16）。
+                    // B1.1.2 复审收口：版本比对和清理在 WorkoutDraftStore 的同一把锁内完成，
+                    // 且只删「本次保存的那一个 revision」，旧保存任务不可能清掉期间写入的新草稿。
                     val current = _draft.value
-                    if (current == null || current.revision == snapshotRevision) {
-                        draftStore.clear()
-                        _draft.value = null
-                    } else {
-                        say("这次训练已保存；你在保存期间的新修改仍保留在草稿里，可再次保存")
+                    when {
+                        current == null -> {
+                            runCatching { draftStore.clear() }
+                            _draft.value = null
+                        }
+                        current.revision == snapshotRevision -> {
+                            val cleared = runCatching {
+                                draftStore.clearIfRevision(snapshotRevision)
+                            }.getOrDefault(false)
+                            if (cleared) {
+                                _draft.value = null
+                            } else {
+                                runCatching { say("这次训练已保存，但草稿版本已变化，草稿已保留以便检查") }
+                            }
+                        }
+                        else -> {
+                            // 保存期间又有新修改：新草稿（含同一 sessionUuid）留给下一次保存（T15/T16）
+                            runCatching { say("这次训练已保存；你在保存期间的新修改仍保留在草稿里，可再次保存") }
+                        }
                     }
                     val hasActual = snapshot.exercises.any { e ->
                         e.sets.any { s -> s.reps > 0 || s.weightKg > 0.0 } ||
                             WorkoutItem.fromJson(e.actualJson)?.hasActualData() == true
                     }
                     val kcalText = ExerciseCalorieHint.message(hasActual, weight > 0.0, result)
-                    say(
-                        when {
-                            result.hasSkipped -> "训练已保存${kcalText}；${result.notComputableItems} 项缺少可靠时长/参数未计入消耗"
-                            !editing -> "训练已保存${kcalText}"
-                            else -> "已更新这次训练，消耗已重新结算${kcalText}"
-                        }
-                    )
+                    runCatching {
+                        say(
+                            when {
+                                result.hasSkipped -> "训练已保存${kcalText}；${result.notComputableItems} 项缺少可靠时长/参数未计入消耗"
+                                !editing -> "训练已保存${kcalText}"
+                                else -> "已更新这次训练，消耗已重新结算${kcalText}"
+                            }
+                        )
+                    }
                 } catch (c: kotlinx.coroutines.CancellationException) {
                     throw c
                 } catch (e: Exception) {

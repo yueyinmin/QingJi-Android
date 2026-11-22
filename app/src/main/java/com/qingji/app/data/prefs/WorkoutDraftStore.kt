@@ -86,10 +86,17 @@ class WorkoutDraftStore(context: Context) {
         .getSharedPreferences("workout_draft", Context.MODE_PRIVATE)
 
     /**
-     * B1.1.2：落盘前钩子，生产为空操作。测试可注入异常以验证
+     * B1.1.2 复审收口：草稿写入与「按 revision 条件清理」共用一把锁。
+     * SharedPreferences.apply() 本身线程安全，但「读当前 revision + 删除」必须是
+     * 一个不可分割的动作，否则保存完成时的清理可能误删保存期间刚写入的新草稿。
+     */
+    private val draftLock = Any()
+
+    /**
+     * B1.1.2：落盘前钩子，生产为空操作。internal + 默认空操作，仅测试注入异常以验证
      * 「落盘失败时内存 revision 与磁盘 revision 保持一致」（T20）。
      */
-    var saveHook: () -> Unit = {}
+    internal var saveHook: () -> Unit = {}
 
     companion object {
         private const val KEY_DRAFT = "draft_json"
@@ -141,7 +148,7 @@ class WorkoutDraftStore(context: Context) {
         }.getOrNull()?.takeIf { it.sessionUuid.isNotBlank() && it.startedAt > 0L }
     }
 
-    fun save(draft: WorkoutDraft) {
+    fun save(draft: WorkoutDraft) = synchronized(draftLock) {
         saveHook()   // B1.1.2：测试注入落盘失败（生产为空）
         val o = JSONObject().apply {
             put("sessionUuid", draft.sessionUuid)
@@ -178,7 +185,21 @@ class WorkoutDraftStore(context: Context) {
         sp.edit().putString(KEY_DRAFT, o.toString()).apply()
     }
 
-    fun clear() = sp.edit().remove(KEY_DRAFT).apply()
+    fun clear() = synchronized(draftLock) { sp.edit().remove(KEY_DRAFT).apply() }
+
+    /**
+     * B1.1.2 复审收口：只在磁盘上的草稿仍是 expected 版本时才删除。
+     * 读 revision 与删除在同一把 draftLock 内完成，保存期间的新写入不会被旧保存任务清掉。
+     * 返回是否真的删除；调用方据此决定内存 _draft 是否置空。
+     */
+    internal fun clearIfRevision(expected: Long): Boolean = synchronized(draftLock) {
+        if (load()?.revision == expected) {
+            sp.edit().remove(KEY_DRAFT).apply()
+            true
+        } else {
+            false
+        }
+    }
 
     /** kg/lb 只在显示层换算，库里永远存 kg。 */
     fun unit(): String = sp.getString(KEY_UNIT, UNIT_KG) ?: UNIT_KG

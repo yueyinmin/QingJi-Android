@@ -305,6 +305,20 @@ class TrainingViewModelB112Test {
         assertTrue(withTimeout(5_000) { ok.await() })
     }
 
+    // ==================== 复审收口：按 revision 条件清理，不与保存期间的新写入互相覆盖 ====================
+    @Test
+    fun `条件清理只删除指定revision的草稿`() = runBlocking {
+        val store = repoWith().draftStore
+        store.save(strengthDraft("vm112-cond", revision = 7L))
+
+        assertFalse("旧 revision 不得删掉新草稿", store.clearIfRevision(6L))
+        assertNotNull("条件清理失败时草稿必须还在", store.load())
+        assertEquals(7L, store.load()!!.revision)
+
+        assertTrue("同 revision 才允许清理", store.clearIfRevision(7L))
+        assertNull("条件清理成功后草稿应清空", store.load())
+    }
+
     // ==================== P0-1：数据库成功但 UI 回调异常不得误判为保存失败 ====================
     @Test
     fun `回调异常不得把已成功的数据库保存改成失败`() = runBlocking {
