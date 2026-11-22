@@ -24,6 +24,12 @@ data class WidgetData(
     val eatenKcal: Int = 0,
     /** 今日剩余（含运动补偿），与首页 remainingWithBonus 同口径。仅当 canShowRemaining 为 true 时可展示。 */
     val remainingKcal: Int = 2000,
+    /** 首页同款：目标模式 lose/gain/keep，标题右侧胶囊。 */
+    val goalMode: String = "lose",
+    /** 首页同款：当日运动消耗（千卡），用于橙色小字。 */
+    val exerciseKcal: Int = 0,
+    /** 首页同款：预期缺口（纯饮食剩余，不含补偿）。 */
+    val remainingFoodOnly: Int = 0,
     val protein: Int = 0,
     val proteinGoal: Int = 0,
     val carb: Int = 0,
@@ -81,6 +87,6 @@ data class WidgetData(
          * P0：新增分项状态，schema 1 旧快照无法表达「真 0 与失败」区别，
          * 升到 2 后旧快照在 fromJson 直接作废（安全作废，不静默迁移）。
          */
-        const val SCHEMA_VERSION = 2
+        const val SCHEMA_VERSION = 3  // 首页同款字段补齐
     }
 }

@@ -166,6 +166,9 @@ object WidgetSnapshotRepo {
             goalKcal = goal,
             eatenKcal = eaten,
             remainingKcal = remaining,
+            goalMode = settings.goalMode,
+            exerciseKcal = exerciseKcal.toInt().coerceAtLeast(0),
+            remainingFoodOnly = if (canShowRemaining) (goal - eaten) else 0,
             protein = (summary.value?.totalProtein ?: 0.0).toInt(),
             proteinGoal = profile.value?.proteinGoalG ?: 0,
             carb = (summary.value?.totalCarb ?: 0.0).toInt(),
@@ -272,6 +275,7 @@ object WidgetSnapshotRepo {
     internal fun toJson(d: WidgetData) = JSONObject().apply {
         put(KEY_SCHEMA, WidgetData.SCHEMA_VERSION)
         put("goalKcal", d.goalKcal); put("eatenKcal", d.eatenKcal); put("remainingKcal", d.remainingKcal)
+        put("goalMode", d.goalMode); put("exerciseKcal", d.exerciseKcal); put("remainingFoodOnly", d.remainingFoodOnly)
         put("protein", d.protein); put("proteinGoal", d.proteinGoal)
         put("carb", d.carb); put("carbGoal", d.carbGoal)
         put("fat", d.fat); put("fatGoal", d.fatGoal)
@@ -303,6 +307,9 @@ object WidgetSnapshotRepo {
         val goal = strictInt(o, "goalKcal", 1, 100_000)
         val eaten = strictInt(o, "eatenKcal", 0, 100_000)
         val remaining = strictInt(o, "remainingKcal", -100_000, 100_000)
+        val goalMode = o.optString("goalMode", "lose").ifBlank { "lose" }
+        val exerciseKcal = strictInt(o, "exerciseKcal", 0, 100_000)
+        val remainingFoodOnly = strictInt(o, "remainingFoodOnly", -100_000, 100_000)
         val water = strictInt(o, "water", 0, 100_000)
         val waterGoal = strictInt(o, "waterGoal", 1, 100_000)
         val protein = strictInt(o, "protein", 0, 100_000)
@@ -335,6 +342,7 @@ object WidgetSnapshotRepo {
 
         return WidgetData(
             goalKcal = goal, eatenKcal = eaten, remainingKcal = remaining,
+            goalMode = goalMode, exerciseKcal = exerciseKcal, remainingFoodOnly = remainingFoodOnly,
             protein = protein, proteinGoal = strictInt(o, "proteinGoal", 0, 100_000),
             carb = carb, carbGoal = strictInt(o, "carbGoal", 0, 100_000),
             fat = fat, fatGoal = strictInt(o, "fatGoal", 0, 100_000),
