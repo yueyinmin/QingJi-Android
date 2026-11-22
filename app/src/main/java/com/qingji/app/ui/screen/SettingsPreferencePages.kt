@@ -1,5 +1,9 @@
 package com.qingji.app.ui.screen
 
+import kotlinx.coroutines.launch
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lock
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -28,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.qingji.app.ui.components.HintBox
 import com.qingji.app.ui.components.SectionCard
+import com.qingji.app.ui.components.AppDialog
 import com.qingji.app.ui.screen.settings.DangerActionButton
 import com.qingji.app.ui.screen.settings.SettingsDetailScaffold
 import com.qingji.app.ui.theme.Dimens
@@ -165,12 +170,55 @@ internal fun PrivacyPage(
     onClearRecords: () -> Unit,
     onFactoryReset: () -> Unit,
     onBack: () -> Unit,
-    useSheet: Boolean = false
+    useSheet: Boolean = false,
+    /** V1：日记隐私锁统一状态（Activity 作用域），由设置页调用统一业务层。 */
+    privacyVm: com.qingji.app.ui.viewmodel.DiaryPrivacyViewModel? = null
 ) {
     var confirmRecords by remember { mutableStateOf(false) }
     var confirmReset by remember { mutableStateOf(false) }
+    var showSetup by remember { mutableStateOf(false) }
+    var showDisable by remember { mutableStateOf(false) }
+    var pin1 by remember { mutableStateOf("") }
+    var pin2 by remember { mutableStateOf("") }
+    var pinOld by remember { mutableStateOf("") }
+    var showChangePin by remember { mutableStateOf(false) }
+    val privacyScope = androidx.compose.runtime.rememberCoroutineScope()
 
     SettingsDetailScaffold(title = "隐私与安全", onBack = onBack, useSheet = useSheet) {
+        // ---------- V1：日记隐私锁 ----------
+        if (privacyVm != null) {
+            SectionCard {
+                com.qingji.app.ui.screen.settings.SwitchRow(
+                    title = "日记隐私锁",
+                    subtitle = if (privacyVm.config.enabled)
+                        "已开启 · ${if (privacyVm.config.biometricEnabled) "生物识别+数字密码" else "数字密码"}"
+                    else "解锁后才可查看训练/心情/饮食/运动/睡眠日记",
+                    checked = privacyVm.config.enabled,
+                    onCheckedChange = { on ->
+                        if (on) { pin1 = ""; pin2 = ""; showSetup = true }
+                        else { pin1 = ""; showDisable = true }
+                    }
+                )
+                if (privacyVm.config.enabled) {
+                    com.qingji.app.ui.screen.settings.SwitchRow(
+                        title = "生物识别解锁",
+                        subtitle = if (privacyVm.availability == com.qingji.app.domain.BiometricAvailability.SUCCESS)
+                            "已开启 · 系统生物识别（具体模态以系统为准）"
+                        else "设备当前不可用，可使用数字密码",
+                        checked = privacyVm.config.biometricEnabled,
+                        onCheckedChange = { on -> privacyScope.launch { privacyVm.setBiometricEnabled(on) } }
+                    )
+                    com.qingji.app.ui.screen.settings.SettingIconRow(
+                        title = "修改数字密码",
+                        icon = Icons.Default.Lock,
+                        iconColor = com.qingji.app.ui.theme.QingJiGreen,
+                        onClick = { pinOld = ""; pin1 = ""; pin2 = ""; showChangePin = true }
+                    )
+                }
+            }
+            Spacer(Modifier.height(Dimens.Gap))
+        }
+
         SectionCard {
             Text(
                 text = "轻记没有账号、没有服务器、没有任何埋点统计：\n" +
@@ -272,6 +320,87 @@ internal fun PrivacyPage(
                 color = TextPrimary,
                 lineHeight = 21.sp
             )
+        }
+    }
+
+
+    // 首次开启：两次输入数字密码，确认后由统一业务层启用
+    if (showSetup && privacyVm != null) {
+        AppDialog(
+            title = "设置数字密码",
+            onDismiss = { showSetup = false },
+            confirmText = "开启",
+            confirmEnabled = pin1.length >= com.qingji.app.domain.DiaryPasscode.MIN_LENGTH && pin1 == pin2,
+            onConfirm = {
+                privacyVm.setupPasscode(pin1, pin2) { ok -> if (ok) showSetup = false }
+            }
+        ) {
+            androidx.compose.material3.OutlinedTextField(
+                value = pin1, onValueChange = { if (it.length <= 8) pin1 = it.filter { c -> c.isDigit() } },
+                label = { androidx.compose.material3.Text("数字密码（4~8位）") }, modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(8.dp))
+            androidx.compose.material3.OutlinedTextField(
+                value = pin2, onValueChange = { if (it.length <= 8) pin2 = it.filter { c -> c.isDigit() } },
+                label = { androidx.compose.material3.Text("再次确认") }, modifier = Modifier.fillMaxWidth()
+            )
+            if (pin2.isNotBlank() && pin1 != pin2) {
+                Spacer(Modifier.height(4.dp))
+                androidx.compose.material3.Text("两次输入不一致", fontSize = 11.sp, color = com.qingji.app.ui.theme.DangerRed)
+            }
+        }
+    }
+
+    // 修改数字密码：先验证原密码，再两次输入新密码
+    if (showChangePin && privacyVm != null) {
+        AppDialog(
+            title = "修改数字密码",
+            onDismiss = { showChangePin = false },
+            confirmText = "确认修改",
+            confirmEnabled = pinOld.isNotBlank() &&
+                pin1.length >= com.qingji.app.domain.DiaryPasscode.MIN_LENGTH && pin1 == pin2,
+            onConfirm = {
+                privacyVm.changePasscode(pinOld, pin1, pin2) { ok -> if (ok) showChangePin = false }
+            }
+        ) {
+            androidx.compose.material3.OutlinedTextField(value = pinOld, onValueChange = { pinOld = it.filter { c -> c.isDigit() } },
+                label = { androidx.compose.material3.Text("原密码") }, modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(8.dp))
+            androidx.compose.material3.OutlinedTextField(value = pin1, onValueChange = { pin1 = it.filter { c -> c.isDigit() } },
+                label = { androidx.compose.material3.Text("新密码") }, modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(8.dp))
+            androidx.compose.material3.OutlinedTextField(value = pin2, onValueChange = { pin2 = it.filter { c -> c.isDigit() } },
+                label = { androidx.compose.material3.Text("再次确认新密码") }, modifier = Modifier.fillMaxWidth())
+            if (privacyVm.message.isNotBlank()) {
+                Spacer(Modifier.height(4.dp))
+                androidx.compose.material3.Text(privacyVm.message, fontSize = 11.sp, color = com.qingji.app.ui.theme.DangerRed)
+            }
+        }
+    }
+
+    // 关闭隐私锁：必须先通过身份验证（数字密码）
+    if (showDisable && privacyVm != null) {
+        AppDialog(
+            title = "关闭日记隐私锁",
+            onDismiss = { showDisable = false },
+            confirmText = "验证并关闭",
+            confirmEnabled = pin1.isNotBlank(),
+            onConfirm = {
+                if (privacyVm.verifyPasscode(pin1)) {
+                    privacyScope.launch {
+                        privacyVm.disablePrivacy { showDisable = false }
+                    }
+                }
+            }
+        ) {
+            androidx.compose.material3.OutlinedTextField(
+                value = pin1, onValueChange = { pin1 = it.filter { c -> c.isDigit() } },
+                label = { androidx.compose.material3.Text("输入数字密码验证") }, modifier = Modifier.fillMaxWidth()
+            )
+            if (privacyVm.message.isNotBlank()) {
+                Spacer(Modifier.height(4.dp))
+                androidx.compose.material3.Text(privacyVm.message, fontSize = 11.sp, color = com.qingji.app.ui.theme.DangerRed)
+            }
         }
     }
 }

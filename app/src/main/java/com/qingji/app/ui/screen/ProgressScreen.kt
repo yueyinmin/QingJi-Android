@@ -90,7 +90,8 @@ fun ProgressScreen(
     weeklySummary: com.qingji.app.domain.WeeklySummaryCalculator.Summary,
     /** v12：卡片管理写设置用（独立实例，仅作为 DataStore 写入口）。 */
     settingsVm: com.qingji.app.ui.viewmodel.SettingsViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
-    vm: ProgressViewModel = viewModel()
+    vm: ProgressViewModel = viewModel(),
+    privacyVm: com.qingji.app.ui.viewmodel.DiaryPrivacyViewModel? = null
 ) {
     val profile by vm.profile.collectAsState()
     val allLogs by vm.logs.collectAsState()
@@ -291,7 +292,8 @@ fun ProgressScreen(
                         onSelectDiaryDate = { vm.selectDiaryDate(it) },
                         onShiftDiaryDate = { vm.shiftDiaryDate(it) },
                         onDiaryBackToToday = { vm.backToDiaryToday() }
-                    )
+                    ),
+                    privacyVm = privacyVm
                 )
             }
             appearIndex++

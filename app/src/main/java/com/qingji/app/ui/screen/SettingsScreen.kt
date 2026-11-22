@@ -165,7 +165,9 @@ fun SettingsScreen(
     onOpenFoodPreference: () -> Unit = {},
     onOpenWidget: () -> Unit = {},
     modifier: Modifier = Modifier,
-    vm: SettingsViewModel = viewModel()
+    vm: SettingsViewModel = viewModel(),
+    /** V1：日记隐私锁设置（Activity 作用域统一状态）。 */
+    privacyVm: com.qingji.app.ui.viewmodel.DiaryPrivacyViewModel? = null
 ) {
     val context = LocalContext.current
     val settings by vm.settings.collectAsState()
@@ -610,7 +612,8 @@ fun SettingsScreen(
 
             DialogKind.PRIVACY -> PrivacyPage(
                 onClearRecords = { vm.clearRecords() }, onFactoryReset = { vm.factoryReset() },
-                onBack = { dialog = null }, useSheet = false // 改为页面内全屏，不再底部弹窗
+                onBack = { dialog = null }, useSheet = false,
+                privacyVm = privacyVm
             )
 
             DialogKind.ICON -> com.qingji.app.ui.screen.settings.AppIconSettingsPage(

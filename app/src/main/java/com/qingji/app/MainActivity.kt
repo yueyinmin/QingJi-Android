@@ -2,8 +2,9 @@ package com.qingji.app
 
 import android.content.Intent
 import android.os.Bundle
-import androidx.activity.ComponentActivity
+import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.viewModels
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
@@ -19,6 +20,7 @@ import com.qingji.app.domain.AppClock
 import com.qingji.app.ui.components.UpdateNoticeDialog
 import com.qingji.app.ui.navigation.QingJiAppRoot
 import com.qingji.app.ui.theme.QingJiTheme
+import com.qingji.app.ui.viewmodel.DiaryPrivacyViewModel
 import com.qingji.app.widget.WidgetRefresher
 
 /**
@@ -30,7 +32,10 @@ import com.qingji.app.widget.WidgetRefresher
  * 4. 读桌面小组件带过来的跳转目标（点小组件按钮直达对应记录页）
  * 5. 每次打开 App 主动刷新一次小组件（国产 ROM 会杀后台，兜底用）
  */
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
+
+    /** 日记隐私锁：Activity 作用域唯一持有解锁态；进程重建即新实例 → 锁定。 */
+    private val diaryPrivacyVm: DiaryPrivacyViewModel by viewModels()
 
     /**
      * 小组件要我们跳到哪一页。
@@ -84,7 +89,8 @@ class MainActivity : ComponentActivity() {
                         // v3.2.3：跳完就把目标清掉。以前它一直挂在 Activity 上，
                         // 只要界面因换主题/转屏重新组合一次，就会被重新消费一遍，
                         // 表现成「明明点了首页，最后又跑到别的页」。
-                        onTargetConsumed = { pendingTarget = null }
+                        onTargetConsumed = { pendingTarget = null },
+                        diaryPrivacyVm = diaryPrivacyVm
                     )
 
                     // ---------- 版本更新提示（升级后第一次打开只弹一次） ----------
@@ -127,11 +133,17 @@ class MainActivity : ComponentActivity() {
      */
     override fun onStart() {
         super.onStart()
+        diaryPrivacyVm.onForeground() // 日记隐私锁：回前台恢复会话
         try {
             com.qingji.app.notify.FastingService.sync(this)
         } catch (e: Exception) {
             // 通知挂不上不影响任何功能，静默即可
         }
+    }
+
+    override fun onStop() {
+        diaryPrivacyVm.onEnterBackground() // 进后台立即遮蔽敏感内容
+        super.onStop()
     }
 
     private fun readTarget(intent: Intent?) {

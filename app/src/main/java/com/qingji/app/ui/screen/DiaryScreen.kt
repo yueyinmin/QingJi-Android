@@ -27,6 +27,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.qingji.app.ui.components.DiaryPrivacyGate
+import com.qingji.app.ui.viewmodel.DiaryPrivacyViewModel
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.graphicsLayer
@@ -85,7 +87,9 @@ fun DiaryScreen(
     progressVm: ProgressViewModel = viewModel(),
     modifier: Modifier = Modifier,
     scrollState: ScrollState = rememberScrollState(),
-    vm: DiaryViewModel = viewModel()
+    vm: DiaryViewModel = viewModel(),
+    /** 日记隐私锁：Activity 作用域统一状态；不传则不启用（兼容旧调用）。 */
+    privacyVm: DiaryPrivacyViewModel? = null
 ) {
     val diaries by vm.diaries.collectAsState()
     val scope = rememberCoroutineScope()
@@ -184,6 +188,70 @@ fun DiaryScreen(
         // · 两个 Tab 的日历、主按钮、三栏统计用同一套组件 + 同一个 month，
         //   位置尺寸字号完全一致，切换时上半部分静止不动。
         // · 顶部标题、切换胶囊、悬浮快捷栏在这层之外，完全不参与动画。
+        if (privacyVm != null) {
+            DiaryPrivacyGate(vm = privacyVm, hiddenText = "训练与心情日记已隐藏") {
+        Box(modifier = Modifier
+            .weight(1f)
+            .clipToBounds()
+            ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(if (trainingTab) 1f else 0f)
+                    .graphicsLayer {
+                        val w = size.width
+                        // 训练层：未选中时停在左侧 4% 处等待，选中时滑回原位
+                        translationX = -progress.value * w * 0.04f
+                    }
+                    .then(if (trainingTab) Modifier else blockGestures)
+            ) {
+                TrainingDiaryContent(
+                    vm = trainingVm,
+                    onStartTraining = onStartTraining,
+                    onEditSession = onEditTraining,
+                    onBackfill = onStartTraining,
+                    foodLogs = foodMonth,
+                    dailyKcalGoal = profile?.dailyKcalGoal?.takeIf { it > 0 }?.toDouble() ?: 2000.0,
+                    month = diaryMonth,
+                    onMonthChange = { diaryMonth = it },
+                    scrollState = trainingScrollState,
+                    selectedDate = diarySelectedDate,
+                    onSelectedDateChange = { diarySelectedDate = it }
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(if (trainingTab) 0f else 1f)
+                    .graphicsLayer {
+                        val w = size.width
+                        // 心情层：未选中时停在右侧 4% 处等待，选中时滑回原位
+                        translationX = (1f - progress.value) * w * 0.04f
+                    }
+                    .then(if (trainingTab) blockGestures else Modifier)
+            ) {
+                MoodDiaryContent(
+                    diaries = diaries,
+                    onOpenEdit = onOpenEdit,
+                    onRequestDelete = { pendingDelete = it },
+                    month = diaryMonth,
+                    onMonthChange = { diaryMonth = it },
+                    scrollState = scrollState
+                )
+            }
+            // 右下角悬浮快捷按钮：两个 Tab 都显示，位置和其它页完全一致
+            QuickActionColumn(
+                onWater = onOpenWaterSheet,
+                onWeight = onOpenWeight,
+                onOpenFoodLibrary = onOpenFoodLibrary,
+                onPhoto = onOpenImage,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 16.dp, bottom = 20.dp)
+            )
+        }
+            }
+        } else {
         Box(modifier = Modifier
             .weight(1f)
             .clipToBounds()
@@ -243,6 +311,7 @@ fun DiaryScreen(
                     .align(Alignment.BottomEnd)
                     .padding(end = 16.dp, bottom = 20.dp)
             )
+        }
         }
     }
 
