@@ -151,6 +151,21 @@ fun QingJiAppRoot(
     // 用户看到的就是「点首页，最后却停在别的页」。
     LaunchedEffect(startTarget, startTargetRequestId) {
         val target = startTarget ?: return@LaunchedEffect
+        // V3.0：水杯点击特判——先回首页 Tab，再打开全局「记录饮水」弹窗。
+        // 必须在下面的 navController.navigate 之前拦截，否则 "water" 会被当成不存在的路由。
+        if (target == com.qingji.app.widget.WidgetRefresher.TARGET_WATER) {
+            if (navController.currentDestination?.route != QingJiTab.Home.route) {
+                runCatching {
+                    navController.navigate(QingJiTab.Home.route) {
+                        popUpTo(QingJiTab.Home.route) { saveState = false }
+                        launchSingleTop = true
+                    }
+                }
+            }
+            showWaterSheet = true
+            onTargetConsumed()
+            return@LaunchedEffect
+        }
         if (target != QingJiTab.Home.route && target.isNotBlank()) {
             // 断食常驻通知专项（2026-11-11）：冷启动带 target（通知 / 小组件）时，
             // NavHost 的 graph 可能还没挂上，直接 navigate 会抛

@@ -201,32 +201,32 @@ class QuickRecordWidget : GlanceAppWidget() {
                         if (wide) {
                             Row(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
                                 QuickTile(R.drawable.ic_widget_breakfast, WidgetSpec.LABEL_BREAKFAST,
-                                    jumpAction(context, WidgetRefresher.TARGET_TEXT_AI), GlanceModifier.defaultWeight(), palette)
+                                    jumpAction(context, WidgetRefresher.TARGET_TEXT_AI), GlanceModifier.defaultWeight(), palette, palette.green)
                                 Spacer(GlanceModifier.width(WidgetSpec.QUICK_TILE_GAP_DP.dp))
                                 QuickTile(R.drawable.ic_widget_weight, WidgetSpec.LABEL_WEIGHT,
-                                    jumpAction(context, WidgetRefresher.TARGET_WEIGHT), GlanceModifier.defaultWeight(), palette)
+                                    jumpAction(context, WidgetRefresher.TARGET_WEIGHT), GlanceModifier.defaultWeight(), palette, palette.warnOrange)
                                 Spacer(GlanceModifier.width(WidgetSpec.QUICK_TILE_GAP_DP.dp))
                                 QuickTile(R.drawable.ic_widget_water, WidgetSpec.LABEL_WATER,
-                                    actionRunCallback<AddWaterAction>(), GlanceModifier.defaultWeight(), palette)
+                                    jumpAction(context, WidgetRefresher.TARGET_WATER), GlanceModifier.defaultWeight(), palette, palette.macroProtein)
                                 Spacer(GlanceModifier.width(WidgetSpec.QUICK_TILE_GAP_DP.dp))
                                 QuickTile(R.drawable.ic_widget_camera, WidgetSpec.LABEL_PHOTO,
-                                    jumpAction(context, WidgetRefresher.TARGET_IMAGE), GlanceModifier.defaultWeight(), palette)
+                                    jumpAction(context, WidgetRefresher.TARGET_IMAGE), GlanceModifier.defaultWeight(), palette, palette.macroFat)
                             }
                         } else {
                             Row(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
                                 QuickTile(R.drawable.ic_widget_breakfast, WidgetSpec.LABEL_BREAKFAST,
-                                    jumpAction(context, WidgetRefresher.TARGET_TEXT_AI), GlanceModifier.defaultWeight(), palette)
+                                    jumpAction(context, WidgetRefresher.TARGET_TEXT_AI), GlanceModifier.defaultWeight(), palette, palette.green)
                                 Spacer(GlanceModifier.width(WidgetSpec.QUICK_TILE_GAP_DP.dp))
                                 QuickTile(R.drawable.ic_widget_weight, WidgetSpec.LABEL_WEIGHT,
-                                    jumpAction(context, WidgetRefresher.TARGET_WEIGHT), GlanceModifier.defaultWeight(), palette)
+                                    jumpAction(context, WidgetRefresher.TARGET_WEIGHT), GlanceModifier.defaultWeight(), palette, palette.warnOrange)
                             }
                             Spacer(GlanceModifier.height(WidgetSpec.QUICK_TILE_GAP_DP.dp))
                             Row(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
                                 QuickTile(R.drawable.ic_widget_water, WidgetSpec.LABEL_WATER,
-                                    actionRunCallback<AddWaterAction>(), GlanceModifier.defaultWeight(), palette)
+                                    jumpAction(context, WidgetRefresher.TARGET_WATER), GlanceModifier.defaultWeight(), palette, palette.macroProtein)
                                 Spacer(GlanceModifier.width(WidgetSpec.QUICK_TILE_GAP_DP.dp))
                                 QuickTile(R.drawable.ic_widget_camera, WidgetSpec.LABEL_PHOTO,
-                                    jumpAction(context, WidgetRefresher.TARGET_IMAGE), GlanceModifier.defaultWeight(), palette)
+                                    jumpAction(context, WidgetRefresher.TARGET_IMAGE), GlanceModifier.defaultWeight(), palette, palette.macroFat)
                             }
                         }
                     }
@@ -251,7 +251,9 @@ private fun QuickTile(
     label: String,
     action: Action,
     modifier: GlanceModifier,
-    palette: WidgetPalette
+    palette: WidgetPalette,
+    /** V3.0：圆形彩底颜色（对齐「记一笔」面板彩色圆形图标观感）。 */
+    tint: Color = Color.Unspecified
 ) {
     Column(
         modifier = modifier
@@ -261,11 +263,19 @@ private fun QuickTile(
         verticalAlignment = Alignment.Vertical.CenterVertically,
         horizontalAlignment = Alignment.Horizontal.CenterHorizontally
     ) {
-        Image(
-            provider = ImageProvider(iconRes),
-            contentDescription = label,
-            modifier = GlanceModifier.size(WidgetSpec.QUICK_ICON_DP.dp)
-        )
+        // V3.0：图标外加圆形彩底（与记一笔面板 SheetIconCard 的彩色圆形图标一致）
+        Box(
+            modifier = GlanceModifier.size(30.dp)
+                .background(ColorProvider(if (tint != Color.Unspecified) tint.copy(alpha = 0.20f) else palette.greenLight))
+                .cornerRadius(999.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Image(
+                provider = ImageProvider(iconRes),
+                contentDescription = label,
+                modifier = GlanceModifier.size(WidgetSpec.QUICK_ICON_DP.dp)
+            )
+        }
         Spacer(GlanceModifier.height(WidgetSpec.QUICK_ICON_LABEL_GAP_DP.dp))
         Text(
             text = label,
@@ -409,7 +419,8 @@ class OverviewWidget : GlanceAppWidget() {
                                 provider = ImageProvider(waterCupBitmap(data.waterPercent / 100f)),
                                 contentDescription = "饮水 ${data.waterMl}/${data.waterGoalMl} 毫升",
                                 modifier = GlanceModifier.size(width = 54.dp, height = 130.dp)
-                                    .clickable(actionRunCallback<AddWaterAction>())
+                                    // V3.0：改为进入首页并打开记录饮水弹窗（原静默+200ml 用户以为没反应）
+                                    .clickable(jumpAction(context, WidgetRefresher.TARGET_WATER))
                             )
                             Spacer(GlanceModifier.height(3.dp))
                             Text("${data.waterMl}/${data.waterGoalMl}ml",

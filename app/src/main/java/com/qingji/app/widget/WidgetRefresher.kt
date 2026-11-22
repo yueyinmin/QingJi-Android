@@ -36,6 +36,8 @@ object WidgetRefresher {
     const val TARGET_WEIGHT = "weight"
     const val TARGET_IMAGE = "image_record"
     const val TARGET_HOME = "home"
+    /** V3.0：点小组件水杯 → 回首页并打开「记录饮水」弹窗（不是 nav route，QingJiAppRoot 特判）。 */
+    const val TARGET_WATER = "water"
     const val TARGET_PROGRESS = "progress"
 
     /** 全部组件（清数据 / 外观变化 / 首次启动用）。 */
