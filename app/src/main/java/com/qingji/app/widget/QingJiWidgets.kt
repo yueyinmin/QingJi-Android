@@ -329,10 +329,39 @@ class OverviewWidget : GlanceAppWidget() {
                 // v3.5.1：布局与「桌面小组件」页预览对齐——
                 // 大数字 + 三个并排彩色营养短条 + 左下角饮水，去掉旧的右侧数字与全宽白条
                 Column(modifier = GlanceModifier.fillMaxSize()) {
-                    Text(
-                        text = WidgetSpec.LABEL_REMAINING,
-                        style = TextStyle(color = textColor(W_SUB), fontSize = 11.sp)
-                    )
+                    // 首页同款标题行：今日剩余 ›   |   减脂胶囊
+                    Row(
+                        modifier = GlanceModifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.Vertical.CenterVertically
+                    ) {
+                        Text(
+                            text = WidgetSpec.LABEL_REMAINING,
+                            style = TextStyle(color = textColor(WidgetSpec.TEXT), fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        )
+                        Text(
+                            text = "›",
+                            style = TextStyle(color = textColor(W_SUB), fontSize = 12.sp)
+                        )
+                        Spacer(GlanceModifier.defaultWeight())
+                        // 目标模式胶囊（首页同款），仅空间足够时显示
+                        if (density >= 2) {
+                            Box(
+                                modifier = GlanceModifier
+                                    .background(ColorProvider(WidgetSpec.GREEN_LIGHT))
+                                    .cornerRadius(999.dp)
+                                    .padding(horizontal = 7.dp, vertical = 3.dp)
+                            ) {
+                                Text(
+                                    text = when (data.goalMode) {
+                                        "gain" -> "增肌"
+                                        "keep" -> "保持"
+                                        else -> "减脂"
+                                    },
+                                    style = TextStyle(color = textColor(W_GREEN), fontSize = 9.sp)
+                                )
+                            }
+                        }
+                    }
                     if (data.stale) {
                         Text(
                             // W-03：旧快照必须标注更新时间，不能伪装成刚刷新
@@ -364,15 +393,52 @@ class OverviewWidget : GlanceAppWidget() {
                         )
                     }
 
+                    // 首页同款：运动消耗橙字 + 进度条 + 已吃/预期缺口
+                    if (density >= 2 && data.canShowRemaining) {
+                        if (data.exerciseKcal > 0) {
+                            Text(
+                                text = "运动消耗 ${data.exerciseKcal} 千卡",
+                                style = TextStyle(color = ColorProvider(WidgetSpec.WARN_ORANGE), fontSize = 9.sp)
+                            )
+                        }
+                        Spacer(GlanceModifier.height(5.dp))
+                        val kcalProgress = WidgetProgress.fraction(data.eatenKcal, data.goalKcal)
+                        Box(modifier = GlanceModifier.fillMaxWidth().height(4.dp)
+                            .background(ColorProvider(WidgetSpec.GREEN_LIGHT)).cornerRadius(2.dp)) {
+                            if (kcalProgress > 0f) {
+                                Box(modifier = GlanceModifier.width(
+                                    WidgetLayout.macroTrackWidth(size.width) * kcalProgress
+                                ).height(4.dp).background(ColorProvider(W_GREEN)).cornerRadius(2.dp)) {}
+                            }
+                        }
+                        Spacer(GlanceModifier.height(3.dp))
+                        Row(modifier = GlanceModifier.fillMaxWidth()) {
+                            Text("${data.eatenKcal}/${data.goalKcal}",
+                                style = TextStyle(color = textColor(W_SUB), fontSize = 9.sp))
+                            Spacer(GlanceModifier.defaultWeight())
+                            Text(
+                                text = if (data.remainingFoodOnly >= 0) "预期缺口：${data.remainingFoodOnly}"
+                                       else "反超 ${-data.remainingFoodOnly}",
+                                style = TextStyle(color = textColor(if (data.remainingFoodOnly < 0) WidgetSpec.OVER_LIMIT else W_SUB), fontSize = 9.sp)
+                            )
+                        }
+                    }
+
                     // 2×2 只保留关键数字；4×2 起才显示营养与饮水
                     if (density >= 2 && appearance.showMacro) {
-                        Spacer(GlanceModifier.height(10.dp))
+                        Spacer(GlanceModifier.height(7.dp))
+                        Box(modifier = GlanceModifier.fillMaxWidth().height(1.dp)
+                            .background(ColorProvider(WidgetSpec.DIVIDER))) {}
+                        Spacer(GlanceModifier.height(5.dp))
+                        Text("营养素 (g) ›", style = TextStyle(color = textColor(WidgetSpec.TEXT), fontSize = 11.sp, fontWeight = FontWeight.Medium))
+                        Spacer(GlanceModifier.height(5.dp))
                         // P1/C1：轨道宽度由 Responsive 声明尺寸 + padding/gap 精确推导，
                         // 算法集中在 WidgetLayout（有单测覆盖 2×2/4×2/4×4），不用经验系数。
                         val trackWidth = WidgetLayout.macroTrackWidth(size.width)
                         Row(modifier = GlanceModifier.fillMaxWidth()) {
                             MacroBar(
                                 label = WidgetSpec.LABEL_PROTEIN,
+                                current = data.protein, goal = data.proteinGoal,
                                 progress = macroProgress(data.dietState, data.protein, data.proteinGoal),
                                 color = W_MACRO_PROTEIN,
                                 trackWidth = trackWidth,
@@ -381,6 +447,7 @@ class OverviewWidget : GlanceAppWidget() {
                             Spacer(GlanceModifier.width(WidgetSpec.MACRO_GAP_DP.dp))
                             MacroBar(
                                 label = WidgetSpec.LABEL_CARB,
+                                current = data.carb, goal = data.carbGoal,
                                 progress = macroProgress(data.dietState, data.carb, data.carbGoal),
                                 color = W_MACRO_CARB,
                                 trackWidth = trackWidth,
@@ -389,6 +456,7 @@ class OverviewWidget : GlanceAppWidget() {
                             Spacer(GlanceModifier.width(WidgetSpec.MACRO_GAP_DP.dp))
                             MacroBar(
                                 label = WidgetSpec.LABEL_FAT,
+                                current = data.fat, goal = data.fatGoal,
                                 progress = macroProgress(data.dietState, data.fat, data.fatGoal),
                                 color = W_MACRO_FAT,
                                 trackWidth = trackWidth,
@@ -439,6 +507,8 @@ class OverviewWidget : GlanceAppWidget() {
 @Composable
 private fun MacroBar(
     label: String,
+    current: Int,
+    goal: Int,
     progress: Float?,
     color: Color,
     trackWidth: androidx.compose.ui.unit.Dp,
@@ -447,10 +517,14 @@ private fun MacroBar(
     Column(modifier = modifier) {
         Text(
             // P0：读失败时显示 -- 而不是空轨道（避免被误认为「没吃」）。
-            text = if (progress == null) "$label --" else label,
-            style = TextStyle(color = textColor(W_SUB), fontSize = 10.sp)
+            text = label,
+            style = TextStyle(color = textColor(W_SUB), fontSize = 9.sp)
         )
-        Spacer(GlanceModifier.height(3.dp))
+        Text(
+            text = if (progress == null) "--" else "$current",
+            style = TextStyle(color = textColor(WidgetSpec.TEXT), fontSize = 17.sp, fontWeight = FontWeight.Bold)
+        )
+        Spacer(GlanceModifier.height(2.dp))
         Box(
             modifier = GlanceModifier
                 .fillMaxWidth()
@@ -468,6 +542,11 @@ private fun MacroBar(
                 ) {}
             }
         }
+        Spacer(GlanceModifier.height(2.dp))
+        Text(
+            text = if (progress == null) "--" else "$current/$goal",
+            style = TextStyle(color = textColor(W_SUB), fontSize = 8.sp)
+        )
     }
 }
 

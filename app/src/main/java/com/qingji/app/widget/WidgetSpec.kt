@@ -44,6 +44,8 @@ object WidgetSpec {
     val BLUE_LIGHT = Color(0xFFE8F4FB)
     val WATER_TEXT = Color(0xFF2A7FA8)
     val OVER_LIMIT = Color(0xFFE5544B)
+    val WARN_ORANGE = Color(0xFFE08A2E)  // 首页同款：运动消耗橙字
+    val DIVIDER = Color(0xFFECEFF2)  // 首页同款分隔线
     val MACRO_PROTEIN = Color(0xFF5B8DEF)
     val MACRO_CARB = Color(0xFF1F8A70)
     val MACRO_FAT = Color(0xFFF5A623)
