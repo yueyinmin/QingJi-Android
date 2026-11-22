@@ -65,6 +65,26 @@ data class WidgetData(
     val workoutMinutes: Int = 0,
     val sleepMinutes: Int = 0,
 
+    // ---- 身体数据仪表盘（对齐进展页 Card） ----
+    /** BMI 值（未舍入）；FAILED/无资料时 0 且 bodyState=FAILED/EMPTY。 */
+    val bmi: Double = 0.0,
+    /** BMI 分类：偏瘦/正常/超重/肥胖。 */
+    val bmiCategory: String = "",
+    /** 体脂率（实测优先，无实测用估算；单位%）。 */
+    val bodyFat: Double? = null,
+    /** 体脂来源：measured / estimated / none。 */
+    val bodyFatSource: String = "none",
+    /** 目标体重（kg/lb 数值，与 unit 一致）。 */
+    val targetWeight: Double = 0.0,
+    /** 起始体重（档案 startWeight）。 */
+    val startWeight: Double = 0.0,
+    /** 减重进度 0..1。 */
+    val lossProgress: Float = 0f,
+    /** 距目标还差多少（正数=还需减）。 */
+    val remainToTarget: Double = 0.0,
+    /** 身体数据整体可用性：资料/体重任一失败则不可用。 */
+    val bodyState: ItemState = ItemState.FAILED,
+
     /** 数据归属业务日期（AppClock 记录时区下的今天）。 */
     val dataDate: LocalDate? = null,
     /** 生成快照时的记录时区 ID。 */
@@ -87,6 +107,6 @@ data class WidgetData(
          * P0：新增分项状态，schema 1 旧快照无法表达「真 0 与失败」区别，
          * 升到 2 后旧快照在 fromJson 直接作废（安全作废，不静默迁移）。
          */
-        const val SCHEMA_VERSION = 3  // 首页同款字段补齐
+        const val SCHEMA_VERSION = 4  // 身体数据仪表盘字段
     }
 }

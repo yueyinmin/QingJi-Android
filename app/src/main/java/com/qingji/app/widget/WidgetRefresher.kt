@@ -36,6 +36,7 @@ object WidgetRefresher {
     const val TARGET_WEIGHT = "weight"
     const val TARGET_IMAGE = "image_record"
     const val TARGET_HOME = "home"
+    const val TARGET_PROGRESS = "progress"
 
     /** 全部组件（清数据 / 外观变化 / 首次启动用）。 */
     val ALL: Set<WidgetTarget> = WidgetTarget.entries.toSet()

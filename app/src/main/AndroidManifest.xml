@@ -128,6 +128,18 @@
                 android:resource="@xml/weight_widget_info" />
         </receiver>
 
+        <receiver
+            android:name=".widget.BodyWidgetReceiver"
+            android:exported="false"
+            android:label="@string/widget_body">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/body_widget_info" />
+        </receiver>
+
         <!-- ============================================================
              M7 提醒：闹钟到点发通知；手机重启后重新排一遍
              ============================================================ -->

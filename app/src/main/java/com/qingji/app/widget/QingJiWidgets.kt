@@ -634,3 +634,105 @@ class WeightWidget : GlanceAppWidget() {
         }
     }
 }
+
+/**
+ * 身体数据小组件（对齐进展页「身体数据」卡）：
+ * 体重主体 + 目标 / 体脂 / BMI / 减重进度条。
+ * 数据来自 WidgetSnapshotRepo（与进展页同一套 domain 纯函数口径），不造假、失败显示 --。
+ */
+class BodyWidget : GlanceAppWidget() {
+    override suspend fun provideGlance(context: Context, id: GlanceId) {
+        val trace = WidgetPerf.begin("provideGlance", "BODY")
+        val data = loadWidgetData(context)
+        val appearance = loadWidgetAppearance(context)
+        WidgetPerf.end(trace, cache = if (data.stale) "stale" else "fresh")
+        provideContent {
+            val size = LocalSize.current
+            val compact = size.height < 140.dp
+            Box(
+                modifier = GlanceModifier
+                    .fillMaxSize()
+                    .background(cardBg(appearance.alphaPercent))
+                    .cornerRadius(WidgetSpec.CORNER_CARD_DP.dp)
+                    .padding(WidgetSpec.CARD_PADDING_DP.dp)
+                    .clickable(
+                        actionStartActivity(openApp(context, WidgetRefresher.TARGET_PROGRESS))
+                    )
+            ) {
+                Column(modifier = GlanceModifier.fillMaxSize()) {
+                    Text(
+                        text = "身体数据",
+                        style = TextStyle(color = textColor(WidgetSpec.TEXT), fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                    )
+                    Spacer(GlanceModifier.height(6.dp))
+                    Row(modifier = GlanceModifier.fillMaxWidth()) {
+                        // 左栏：体重主体 + 体脂
+                        Column(modifier = GlanceModifier.defaultWeight()) {
+                            Text("体重", style = TextStyle(color = textColor(W_SUB), fontSize = 9.sp))
+                            Text(
+                                text = if (data.bodyState == ItemState.FAILED || data.latestWeight == null || data.latestWeight <= 0)
+                                    "--" else WeightUnit.format(data.latestWeight, data.unit),
+                                style = TextStyle(color = textColor(WidgetSpec.TEXT), fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                            )
+                            Text(
+                                text = "目标 " + if (data.targetWeight > 0) WeightUnit.format(data.targetWeight, data.unit) else "--",
+                                style = TextStyle(color = textColor(W_SUB), fontSize = 9.sp)
+                            )
+                            if (!compact) {
+                                Spacer(GlanceModifier.height(5.dp))
+                                Text(
+                                    text = "体脂 ${if (data.bodyFat != null) "${String.format("%.1f", data.bodyFat)}%" else "--"}" +
+                                        if (data.bodyFatSource == "estimated") " ·估算" else "",
+                                    style = TextStyle(color = textColor(W_SUB), fontSize = 9.sp)
+                                )
+                            }
+                        }
+                        Spacer(GlanceModifier.width(8.dp))
+                        // 右栏：BMI
+                        Column(modifier = GlanceModifier.defaultWeight()) {
+                            Text("BMI", style = TextStyle(color = textColor(W_SUB), fontSize = 9.sp))
+                            Text(
+                                text = if (data.bodyState == ItemState.FAILED || data.bmi <= 0) "--"
+                                       else String.format("%.1f", data.bmi),
+                                style = TextStyle(color = textColor(bmiColor(data.bmiCategory)), fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                            )
+                            Text(
+                                text = data.bmiCategory.ifBlank { "--" },
+                                style = TextStyle(color = textColor(bmiColor(data.bmiCategory)), fontSize = 9.sp)
+                            )
+                        }
+                    }
+                    if (!compact) {
+                        Spacer(GlanceModifier.height(8.dp))
+                        Box(modifier = GlanceModifier.fillMaxWidth().height(1.dp)
+                            .background(ColorProvider(WidgetSpec.DIVIDER))) {}
+                        Spacer(GlanceModifier.height(6.dp))
+                        // 减重进度（首页同款细条 + 差距）
+                        val p = data.lossProgress.coerceIn(0f, 1f)
+                        Box(modifier = GlanceModifier.fillMaxWidth().height(5.dp)
+                            .background(ColorProvider(WidgetSpec.GREEN_LIGHT)).cornerRadius(2.5.dp)) {
+                            if (p > 0f) {
+                                Box(modifier = GlanceModifier.width(
+                                    WidgetLayout.macroTrackWidth(size.width) * p
+                                ).height(5.dp).background(ColorProvider(W_GREEN)).cornerRadius(2.5.dp)) {}
+                            }
+                        }
+                        Spacer(GlanceModifier.height(4.dp))
+                        Text(
+                            text = if (data.targetWeight <= 0) "设置目标体重后显示进度"
+                                   else "减重进度 ${(p * 100).toInt()}% · 还差 ${String.format("%.1f", data.remainToTarget)} ${data.unit}",
+                            style = TextStyle(color = textColor(W_SUB), fontSize = 9.sp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun bmiColor(category: String) = when (category) {
+    "正常" -> WidgetSpec.GREEN
+    "超重" -> WidgetSpec.WARN_ORANGE
+    "肥胖" -> WidgetSpec.OVER_LIMIT
+    else -> W_SUB
+}

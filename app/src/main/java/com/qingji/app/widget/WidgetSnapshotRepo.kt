@@ -124,11 +124,17 @@ object WidgetSnapshotRepo {
                     val t = WidgetPerf.begin("query", "sleepMinutes")
                     val r = outcomeOf(runCatching { dailyRepo.sleepMinutesFor(today) })
                     WidgetPerf.end(t); r
+                },
+                // 身体数据：完整体重记录（date DESC），口径与进展页一致。
+                async(Dispatchers.IO) {
+                    val t = WidgetPerf.begin("query", "bodyLogs")
+                    val r = outcomeOf(runCatching { repo.observeWeightLogs().first() })
+                    WidgetPerf.end(t); r
                 }
             )
             tasks.awaitAll()
         }
-        WidgetPerf.end(trace, cache = "queries", extra = "n=7")
+        WidgetPerf.end(trace, cache = "queries", extra = "n=8")
 
         @Suppress("UNCHECKED_CAST")
         val profile = results[0] as Outcome<com.qingji.app.data.local.entity.UserProfile>
@@ -144,6 +150,26 @@ object WidgetSnapshotRepo {
         val workout = results[5] as Outcome<Int>
         @Suppress("UNCHECKED_CAST")
         val sleep = results[6] as Outcome<Int>
+        @Suppress("UNCHECKED_CAST")
+        val bodyLogs = results[7] as Outcome<List<com.qingji.app.data.local.entity.WeightLog>>
+
+        // ---- 身体数据：复用进展页同一套 domain 纯函数，口径一致 ----
+        val bm = com.qingji.app.domain.BodyMetricsCalculator
+        val bodyOk = profile.state != ItemState.FAILED && bodyLogs.state != ItemState.FAILED
+        val p = profile.value
+        val currentW = bm.latestWeightKg(bodyLogs.value.orEmpty(), p?.startWeight ?: 0.0)
+        val targetW = p?.targetWeight ?: 0.0
+        val startW = p?.startWeight ?: 0.0
+        val bmi = if (p != null && currentW > 0.0 && p.heightCm > 0)
+            com.qingji.app.domain.NutritionCalculator.bmi(currentW, p.heightCm) else 0.0
+        val ageYears = p?.birthday?.let {
+            java.time.Period.between(it, AppClock.today()).years.takeIf { y -> y > 0 }
+        }
+        val measuredFat = bm.latestBodyFat(bodyLogs.value.orEmpty())
+        val fatDisplay = bm.bodyFatDisplay(measuredFat, bmi, ageYears, p?.gender)
+        val lossProgress = if (targetW > 0 && startW > 0)
+            (bm.lossProgressPercent(startW, currentW, targetW) / 100.0).toFloat().coerceIn(0f, 1f)
+        else 0f
 
         // 只有三项输入都可用时才计算剩余；否则 remainingKcal 保持默认值但 UI 显示 --。
         val canShowRemaining = profile.state != ItemState.FAILED &&
@@ -189,6 +215,15 @@ object WidgetSnapshotRepo {
             sleepState = sleep.state,
             workoutMinutes = workout.value ?: 0,
             sleepMinutes = sleep.value ?: 0,
+            bmi = bmi,
+            bmiCategory = if (bmi > 0) com.qingji.app.domain.NutritionCalculator.bmiCategory(bmi) else "",
+            bodyFat = fatDisplay.value,
+            bodyFatSource = fatDisplay.source.name.lowercase(),
+            targetWeight = targetW,
+            startWeight = startW,
+            lossProgress = lossProgress,
+            remainToTarget = bm.remainingToTarget(currentW, targetW),
+            bodyState = if (bodyOk) ItemState.SUCCESS else ItemState.FAILED,
             dataDate = today,
             zoneId = AppClock.zone.id,
             snapshotAt = System.currentTimeMillis()
@@ -292,6 +327,11 @@ object WidgetSnapshotRepo {
         put("sleepState", d.sleepState.name)
         put("workoutMinutes", d.workoutMinutes)
         put("sleepMinutes", d.sleepMinutes)
+        put("bmi", d.bmi); put("bmiCategory", d.bmiCategory)
+        put("bodyFat", d.bodyFat ?: JSONObject.NULL); put("bodyFatSource", d.bodyFatSource)
+        put("targetWeight", d.targetWeight); put("startWeight", d.startWeight)
+        put("lossProgress", d.lossProgress); put("remainToTarget", d.remainToTarget)
+        put("bodyState", d.bodyState.name)
         put("dataDate", d.dataDate?.toString() ?: "")
         put("zoneId", d.zoneId); put("snapshotAt", d.snapshotAt)
     }
@@ -339,6 +379,15 @@ object WidgetSnapshotRepo {
         val sleepState = strictState(o, "sleepState")
         val workoutMinutes = strictInt(o, "workoutMinutes", 0, 100_000)
         val sleepMinutes = strictInt(o, "sleepMinutes", 0, 100_000)
+        val bmi = if (o.isNull("bmi")) 0.0 else o.getDouble("bmi")
+        val bmiCategory = o.optString("bmiCategory", "")
+        val bodyFat = if (o.isNull("bodyFat")) null else o.getDouble("bodyFat")
+        val bodyFatSource = o.optString("bodyFatSource", "none")
+        val targetWeight = o.optDouble("targetWeight", 0.0)
+        val startWeight = o.optDouble("startWeight", 0.0)
+        val lossProgress = o.optDouble("lossProgress", 0.0).toFloat().coerceIn(0f, 1f)
+        val remainToTarget = o.optDouble("remainToTarget", 0.0)
+        val bodyState = runCatching { ItemState.valueOf(o.optString("bodyState", "FAILED")) }.getOrDefault(ItemState.FAILED)
 
         return WidgetData(
             goalKcal = goal, eatenKcal = eaten, remainingKcal = remaining,
@@ -353,6 +402,9 @@ object WidgetSnapshotRepo {
             unit = strictString(o, "unit"),
             workoutState = workoutState, sleepState = sleepState,
             workoutMinutes = workoutMinutes, sleepMinutes = sleepMinutes,
+            bmi = bmi, bmiCategory = bmiCategory, bodyFat = bodyFat, bodyFatSource = bodyFatSource,
+            targetWeight = targetWeight, startWeight = startWeight,
+            lossProgress = lossProgress, remainToTarget = remainToTarget, bodyState = bodyState,
             hasSnapshot = true,
             dataDate = dataDate, zoneId = zoneId, snapshotAt = snapshotAt
         )
