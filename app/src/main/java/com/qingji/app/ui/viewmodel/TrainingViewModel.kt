@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.qingji.app.data.local.entity.ExerciseEntity
 import com.qingji.app.data.local.entity.WorkoutExercise
 import com.qingji.app.data.local.entity.WorkoutSession
+import com.qingji.app.data.prefs.DraftClearOutcome
 import com.qingji.app.data.prefs.DraftExercise
 import com.qingji.app.data.prefs.WorkoutDraft
 import com.qingji.app.data.repository.TrainingRepository
@@ -602,40 +603,39 @@ class TrainingViewModel(app: Application, repoOverride: TrainingRepository? = nu
 
                 // ---------- 第二段：数据库已成功提交，以下任何异常都不改变「已保存」事实 ----------
                 try {
-                    // B1.1.2.1：清理只看「磁盘上的草稿是否仍是本次保存的那一份」。
+                    // B1.1.2.2：清理只看「磁盘上的草稿是否仍是本次保存的那一份」。
                     // 身份（sessionUuid）与版本（revision）必须同时匹配，且校验+删除在
                     // WorkoutDraftStore 的进程级共享锁内完成；current==null 也不再无条件 clear。
+                    // 清理抛异常时保守认为磁盘草稿仍在，保证用户一定能收到提示（T25）。
+                    val outcome = runCatching {
+                        draftStore.clearIfMatchesDetailed(snapshot.sessionUuid, snapshotRevision)
+                    }.getOrDefault(DraftClearOutcome(cleared = false, draftRemains = true))
                     val current = _draft.value
-                    val cleared = runCatching {
-                        draftStore.clearIfMatches(snapshot.sessionUuid, snapshotRevision)
-                    }.getOrDefault(false)
-                    when {
-                        cleared -> _draft.value = null
-                        current == null -> {
-                            // 内存已空但磁盘里是另一份草稿：原样保留，绝不能误删新训练（T22）
+                    // B1.1.2.2：草稿保留提示必须并入最终成功消息。原先先 say 保留提示、
+                    // 紧接着再 say 保存成功，StateFlow 会把第一条合并掉，用户实际看不到，
+                    // 等于「磁盘还有草稿却没有任何提示」。
+                    val draftNotice = when {
+                        outcome.cleared -> {
+                            _draft.value = null
+                            null
                         }
-                        current.revision != snapshotRevision -> {
-                            // 保存期间又有新修改：新草稿（含同一 sessionUuid）留给下一次保存（T15/T16）
-                            runCatching { say("这次训练已保存；你在保存期间的新修改仍保留在草稿里，可再次保存") }
-                        }
-                        else -> {
-                            // 版本没变但身份变了（例如另一场训练），保留草稿并如实提示
-                            runCatching { say("这次训练已保存，但草稿身份或版本已变化，草稿已保留以便检查") }
-                        }
+                        !outcome.draftRemains -> null  // 磁盘本来就是空的
+                        current != null && current.revision != snapshotRevision ->
+                            "保存期间的新修改仍保留在草稿里，可再次保存"   // T15/T16
+                        else -> "草稿区仍有未清理的草稿，已为你保留"        // T22/T25
                     }
                     val hasActual = snapshot.exercises.any { e ->
                         e.sets.any { s -> s.reps > 0 || s.weightKg > 0.0 } ||
                             WorkoutItem.fromJson(e.actualJson)?.hasActualData() == true
                     }
                     val kcalText = ExerciseCalorieHint.message(hasActual, weight > 0.0, result)
+                    val baseMessage = when {
+                        result.hasSkipped -> "训练已保存${kcalText}；${result.notComputableItems} 项缺少可靠时长/参数未计入消耗"
+                        !editing -> "训练已保存${kcalText}"
+                        else -> "已更新这次训练，消耗已重新结算${kcalText}"
+                    }
                     runCatching {
-                        say(
-                            when {
-                                result.hasSkipped -> "训练已保存${kcalText}；${result.notComputableItems} 项缺少可靠时长/参数未计入消耗"
-                                !editing -> "训练已保存${kcalText}"
-                                else -> "已更新这次训练，消耗已重新结算${kcalText}"
-                            }
-                        )
+                        say(if (draftNotice == null) baseMessage else "$baseMessage；$draftNotice")
                     }
                 } catch (c: kotlinx.coroutines.CancellationException) {
                     throw c

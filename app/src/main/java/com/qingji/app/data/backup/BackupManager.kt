@@ -2,6 +2,7 @@ package com.qingji.app.data.backup
 
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import androidx.room.withTransaction
 import com.qingji.app.data.local.AppDatabase
 import com.qingji.app.data.local.entity.ExerciseEntity
@@ -40,9 +41,23 @@ internal data class RestoreSideEffects(
     val aiActiveProviderId: Int? = null
 )
 
-class BackupManager(private val context: Context) {
+private const val TAG = "BackupManager"
 
-    private val db = AppDatabase.get(context)
+class BackupManager(
+    private val context: Context,
+    /** B1.1.2.2：生产不传；测试注入独立 Room 实例，验证 importJson() 真实入口。 */
+    dbOverride: AppDatabase? = null,
+    /** B1.1.2.2：生产写真实 DataStore；测试可注入失败，验证副作用失败不误报恢复失败。 */
+    private val aiSettingWriter: suspend (Int) -> Unit = { id ->
+        com.qingji.app.data.prefs.SettingsStore.set(
+            context, com.qingji.app.data.prefs.SettingsKeys.AI_ACTIVE_PROVIDER_ID, id
+        )
+    },
+    /** B1.1.2.2：生产刷新真实桌面组件；测试可注入失败，验证两类日志可区分。 */
+    private val widgetRefresher: () -> Unit = { com.qingji.app.widget.WidgetRefresher.refresh(context) }
+) {
+
+    private val db = dbOverride ?: AppDatabase.get(context)
 
     /**
      * B1.1.2：恢复事务中途钩子，生产为空操作。
@@ -538,15 +553,18 @@ class BackupManager(private val context: Context) {
                 restoreInto(db, parsed)
             }
             // 阶段B：仅在整份恢复事务成功提交后才应用外部存储副作用/刷新。
-            // 这两步失败都不能把已经提交的数据库恢复误报成整体失败（B1.1.2.1 P1）。
+            // 外部存储（DataStore / 桌面组件）不属于 Room 事务，无法被它回滚；
+            // 这两步失败只分别记日志，绝不把已经提交的数据库恢复误报成整体失败（B1.1.2.2）。
             runCatching {
-                sideEffects.aiActiveProviderId?.let { id ->
-                    com.qingji.app.data.prefs.SettingsStore.set(
-                        context, com.qingji.app.data.prefs.SettingsKeys.AI_ACTIVE_PROVIDER_ID, id
-                    )
-                }
+                sideEffects.aiActiveProviderId?.let { id -> aiSettingWriter(id) }
+            }.onFailure { e ->
+                val reason = e.message ?: "未知原因"
+                Log.w(TAG, "备份恢复已提交：AI 激活服务设置写入失败（$reason），请手动检查 AI 设置", e)
             }
-            runCatching { com.qingji.app.widget.WidgetRefresher.refresh(context) }
+            runCatching { widgetRefresher() }.onFailure { e ->
+                val reason = e.message ?: "未知原因"
+                Log.w(TAG, "备份恢复已提交：桌面组件刷新失败（$reason），下次进入首页会自动刷新", e)
+            }
 
             Result.success(summaryText(parsed))
         } catch (e: Exception) {

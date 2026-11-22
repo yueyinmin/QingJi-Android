@@ -1,5 +1,6 @@
 package com.qingji.app.training
 
+import android.net.Uri
 import androidx.room.Room
 import androidx.room.withTransaction
 import androidx.test.core.app.ApplicationProvider
@@ -29,6 +30,8 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows
+import org.robolectric.shadows.ShadowLog
 import java.time.LocalDate
 
 /**
@@ -150,5 +153,84 @@ class BackupRollbackB112Test {
         // 显式应用副作用后，设置才更新（模拟 importJson 事务提交后的行为）
         SettingsStore.set(ctx, SettingsKeys.AI_ACTIVE_PROVIDER_ID, effects.aiActiveProviderId!!)
         assertEquals(newId, SettingsStore.observe(ctx).first().aiActiveProviderId)
+    }
+
+    // ==================== B1.1.2.2：importJson() 真实入口 ====================
+
+    /** 构造一份最小合法 v8 备份；withTraining=true 时带上训练段，供事务中途注入异常。 */
+    private fun entryBackup(aiId: Int, withTraining: Boolean): String = JSONObject().apply {
+        put("app", "qingji")
+        put("version", BackupFormat.VERSION)
+        put("aiConfigs", JSONArray().put(JSONObject().apply {
+            put("id", aiId)
+            put("displayName", "导入的服务")
+            put("provider", "custom")
+            put("baseUrl", "https://example.com/v1")
+            put("textModel", "text-model")
+            put("visionModel", "vision-model")
+            put("temperature", 0.2)
+            put("timeoutSec", 30)
+            put("dailyLimit", 100)
+            put("enabled", true)
+        }))
+        if (withTraining) {
+            put("training", TrainingBackup(
+                sessions = listOf(WorkoutSession(
+                    "restore-entry", LocalDate.of(2026, 11, 22), 30,
+                    note = "恢复进来的训练", source = "manual", createdAt = 1L
+                ))
+            ).toJson())
+        }
+    }.toString()
+
+    /** Robolectric 下用 content:// Uri 注册输入流，走 ContentResolver 的真实读取分支。 */
+    private fun registerBackup(text: String): Uri {
+        val uri = Uri.parse("content://test.backup/restore.json")
+        Shadows.shadowOf(ctx.contentResolver).registerInputStream(uri, text.byteInputStream())
+        return uri
+    }
+
+    @Test
+    fun `importJson事务提交成功后才应用AI设置副作用`() = runBlocking {
+        SettingsStore.set(ctx, SettingsKeys.AI_ACTIVE_PROVIDER_ID, 11)
+        val manager = BackupManager(ctx, dbOverride = db)
+        val result = manager.importJson(registerBackup(entryBackup(77, withTraining = false)))
+
+        assertTrue("入口应返回成功", result.isSuccess)
+        assertEquals("事务提交后 AI 激活设置必须更新", 77,
+            SettingsStore.observe(ctx).first().aiActiveProviderId)
+        assertEquals("备份中的 AI 配置必须落库", 1, db.aiConfigDao().getAll().size)
+    }
+
+    @Test
+    fun `importJson事务中途失败时完全不应用AI设置副作用`() = runBlocking {
+        SettingsStore.set(ctx, SettingsKeys.AI_ACTIVE_PROVIDER_ID, 11)
+        val manager = BackupManager(ctx, dbOverride = db)
+        manager.restoreHook = { throw IllegalStateException("模拟入口事务中途失败") }
+        val result = manager.importJson(registerBackup(entryBackup(77, withTraining = true)))
+
+        assertTrue("入口应返回失败", result.isFailure)
+        assertEquals("事务回滚后设置不得被改动", 11,
+            SettingsStore.observe(ctx).first().aiActiveProviderId)
+        assertEquals("事务回滚后 AI 配置不得部分写入", 0, db.aiConfigDao().getAll().size)
+        assertEquals("事务回滚后训练段不得部分写入", 0, db.workoutSessionDao().findAll().size)
+    }
+
+    @Test
+    fun `importJson外部副作用失败分别记录日志且数据库恢复仍成功`() = runBlocking {
+        val manager = BackupManager(
+            ctx,
+            dbOverride = db,
+            aiSettingWriter = { throw IllegalStateException("模拟AI设置写入失败") },
+            widgetRefresher = { throw IllegalStateException("模拟桌面组件刷新失败") }
+        )
+        val result = manager.importJson(registerBackup(entryBackup(88, withTraining = false)))
+
+        assertTrue("外部副作用失败不得改写数据库恢复成功", result.isSuccess)
+        assertEquals("数据库恢复必须已完成", 1, db.aiConfigDao().getAll().size)
+
+        val messages = ShadowLog.getLogs().map { it.msg }
+        assertTrue("AI 设置失败应有独立日志", messages.any { it.contains("模拟AI设置写入失败") })
+        assertTrue("Widget 刷新失败应有独立日志", messages.any { it.contains("模拟桌面组件刷新失败") })
     }
 }

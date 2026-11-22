@@ -67,6 +67,17 @@ data class WorkoutDraft(
 }
 
 /**
+ * B1.1.2.2：条件清理的结果。
+ * [cleared] 表示本次保存的草稿是否真的被删除；
+ * [draftRemains] 表示操作结束后磁盘上是否仍有草稿（身份/版本不匹配，或清理本身失败）。
+ * 调用方据此在「草稿仍在」的所有分支给出提示，磁盘本来就空时不会误报「草稿已保留」。
+ */
+internal data class DraftClearOutcome(
+    val cleared: Boolean,
+    val draftRemains: Boolean
+)
+
+/**
  * ============================================================
  * 进行中训练草稿 + 重量单位偏好
  * ------------------------------------------------------------
@@ -198,18 +209,27 @@ class WorkoutDraftStore(context: Context) {
      * 返回是否真的删除；调用方据此决定内存 _draft 是否置空。
      */
     internal fun clearIfMatches(expectedSessionUuid: String, expectedRevision: Long): Boolean =
-        synchronized(DRAFT_LOCK) {
-            val current = load()
-            if (current != null &&
-                current.sessionUuid == expectedSessionUuid &&
-                current.revision == expectedRevision
-            ) {
+        clearIfMatchesDetailed(expectedSessionUuid, expectedRevision).cleared
+
+    /**
+     * B1.1.2.2：与 [clearIfMatches] 同一把锁，但额外返回「磁盘上是否仍有草稿」。
+     * 供保存后处理区分三种情况：清掉了本次草稿 / 磁盘本来就是空的 / 有别的草稿被保留。
+     * 只读 SP 与删除仍在同一临界区内完成，不会出现检查完又被别的实例写入的窗口。
+     */
+    internal fun clearIfMatchesDetailed(
+        expectedSessionUuid: String,
+        expectedRevision: Long
+    ): DraftClearOutcome = synchronized(DRAFT_LOCK) {
+        val current = load()
+        when {
+            current == null -> DraftClearOutcome(cleared = false, draftRemains = false)
+            current.sessionUuid == expectedSessionUuid && current.revision == expectedRevision -> {
                 sp.edit().remove(KEY_DRAFT).apply()
-                true
-            } else {
-                false
+                DraftClearOutcome(cleared = true, draftRemains = false)
             }
+            else -> DraftClearOutcome(cleared = false, draftRemains = true)
         }
+    }
 
     /** kg/lb 只在显示层换算，库里永远存 kg。 */
     fun unit(): String = sp.getString(KEY_UNIT, UNIT_KG) ?: UNIT_KG

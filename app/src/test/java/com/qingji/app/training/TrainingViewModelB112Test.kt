@@ -110,6 +110,8 @@ class TrainingViewModelB112Test {
 
         // 第一次保存后：草稿应仍在（新 revision），旧快照 40kg 已落库
         assertNotNull("保存期间的新草稿必须保留", repo.draftStore.load())
+        assertTrue("新草稿保留提示必须出现在最终成功消息里",
+            vm.message.value.orEmpty().contains("保存期间的新修改仍保留在草稿里"))
         assertEquals(1, sessionCount("vm112-t15"))
 
         // 第二次保存：用新草稿覆盖同一场
@@ -418,6 +420,29 @@ class TrainingViewModelB112Test {
         assertTrue("同身份同 revision 才允许清理",
             store.clearIfMatches("vm112-t23", 2L))
         assertNull("条件清理成功后草稿应清空", store.load())
+    }
+
+    // ==================== T25：磁盘仍有草稿时必须给出提示（B1.1.2.2）====================
+    @Test
+    fun `T25 内存草稿为空但磁盘仍有草稿时保存成功必须提示草稿已保留`() = runBlocking {
+        val gate = CompletableDeferred<Unit>()
+        val call = AtomicInteger(0)
+        val repo = repoWith(saveHook = { if (call.incrementAndGet() == 1) gate.await() })
+        repo.draftStore.save(strengthDraft("vm112-t25-a", revision = 1L))
+        val vm = vm(repo)
+
+        val first = CompletableDeferred<Boolean>()
+        vm.save { first.complete(it) }   // A 保存卡在事务内
+        vm.discard()                     // 内存清空
+        repo.draftStore.save(strengthDraft("vm112-t25-b", revision = 3L)) // 磁盘换成 B
+        gate.complete(Unit)
+        assertTrue(withTimeout(5_000) { first.await() })
+
+        val finalMessage = vm.message.value.orEmpty()
+        assertTrue("草稿保留提示必须并入最终成功消息，不能静默留草稿：$finalMessage",
+            finalMessage.contains("草稿区仍有未清理的草稿"))
+        assertEquals("B 的草稿必须保留", "vm112-t25-b", repo.draftStore.load()!!.sessionUuid)
+        assertEquals("A 的数据库保存结果必须正确", 1, sessionCount("vm112-t25-a"))
     }
 
     // ==================== P0-1：数据库成功但 UI 回调异常不得误判为保存失败 ====================
