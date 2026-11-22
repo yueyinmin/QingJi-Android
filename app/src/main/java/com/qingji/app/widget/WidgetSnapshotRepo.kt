@@ -497,7 +497,8 @@ object WidgetSnapshotRepo {
         val profile = query("today.profile") { repo.observeProfile().first() }
         val summary = query("today.summary") { repo.observeDailySummary(today).first() }
         val exercise = query("today.exercise") {
-            HealthRepository(context).observeDailyExerciseCalories(today).first()
+            HealthRepository(context, dbOverride = dbOverride)
+                .observeDailyExerciseCalories(today).first()
         }
         val goalRaw = profile.value?.dailyKcalGoal ?: 0
         val goalConfigured = goalRaw > 0
