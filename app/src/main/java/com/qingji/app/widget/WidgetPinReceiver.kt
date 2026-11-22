@@ -43,6 +43,7 @@ class WidgetPinReceiver : BroadcastReceiver() {
                 com.qingji.app.widget.WidgetTarget.QUICK -> 1
                 com.qingji.app.widget.WidgetTarget.OVERVIEW -> 2
                 com.qingji.app.widget.WidgetTarget.WEIGHT -> 3
+                com.qingji.app.widget.WidgetTarget.BODY_DATA -> 4
                 null -> 0
             }
             return android.app.PendingIntent.getBroadcast(

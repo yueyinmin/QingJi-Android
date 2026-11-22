@@ -6,12 +6,13 @@ import com.qingji.app.data.prefs.SettingsStore
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * 小组件外观/设置快照的进程级轻量缓存（工单 B2 + V3 最终缺陷修复 P1）。
  *
  * 一致性模型（generation）：
- * - 每次 invalidate() 递增 generation 并清空缓存；
+ * - 每次 invalidate() 原子递增 generation（不清缓存，旧 Entry 因代次不符永不命中）；
  * - get()/warmUp() 开始回源时记录当时的 generation；
  * - 回源完成写缓存前，只有 generation 未变化才允许写入——旧在途读取绝不覆盖新值；
  * - 回源失败返回安全默认值但不缓存，下次调用可重新回源；
@@ -26,8 +27,12 @@ object WidgetSettingsCache {
     @Volatile
     private var cached: Entry? = null
 
-    @Volatile
-    private var generation: Long = 0L
+    /**
+     * 代次用 AtomicLong：invalidate 只需一次原子自增，不碰 cached，
+     * 因此不再需要 synchronized 与协程 Mutex 两把锁——消除「校验后、写入前」竞态窗口。
+     * 旧 loader 写回的 Entry 因 generation 不匹配，被 get 快路径/锁内二次检查拒绝。
+     */
+    private val generation = AtomicLong(0L)
 
     /** 保证 get 与 warmUp 的回源-校验-写入原子，避免两者互相覆盖。 */
     private val mutex = Mutex()
@@ -44,7 +49,7 @@ object WidgetSettingsCache {
 
     /** 冷启动预热：与 get 共用 generation 机制，旧预热不得覆盖较新缓存。 */
     suspend fun warmUp(context: Context) {
-        val gen = generation
+        val gen = generation.get()
         val loaded = try {
             loadFromSource(context)
         } catch (e: kotlinx.coroutines.CancellationException) {
@@ -53,7 +58,7 @@ object WidgetSettingsCache {
             return // 预热失败不缓存，首次读取会再试
         }
         mutex.withLock {
-            if (gen == generation) cached = Entry(gen, loaded)
+            if (gen == generation.get()) cached = Entry(gen, loaded)
         }
     }
 
@@ -62,10 +67,15 @@ object WidgetSettingsCache {
      * 回源失败返回默认快照，但不写入缓存（下次可重试）。
      */
     suspend fun get(context: Context): QingJiSettings {
-        cached?.let { return it.settings }
-        val gen = generation
+        // 快路径也必须校验代次：invalidate/reset 之后，旧代次 Entry 不得再被命中。
+        // 否则并发测试里上一用例的在途回填会被下一用例读到（表现为 loader 未被调用 → gate 死锁，
+        // 或读到旧值）。这是与 generation 模型一致的防御，不改变写入侧语义。
+        cached?.let { entry -> if (entry.generation == generation.get()) return entry.settings }
+        val gen = generation.get()
         return mutex.withLock {
-            cached?.let { return@withLock it.settings }
+            cached?.let { entry ->
+                if (entry.generation == generation.get()) return@withLock entry.settings
+            }
             val loaded = try {
                 loadFromSource(context)
             } catch (e: kotlinx.coroutines.CancellationException) {
@@ -73,7 +83,7 @@ object WidgetSettingsCache {
             } catch (e: Exception) {
                 return@withLock QingJiSettings() // 失败不缓存
             }
-            if (gen == generation) cached = Entry(gen, loaded)
+            if (gen == generation.get()) cached = Entry(gen, loaded)
             loaded
         }
     }
@@ -83,18 +93,15 @@ object WidgetSettingsCache {
      * 任何在途的旧读取完成后都会因 generation 不匹配而被丢弃。
      */
     fun invalidate() {
-        synchronized(this) {
-            generation += 1
-            cached = null
-        }
+        // 只做原子自增：cached 不主动清空。旧 Entry 因代次不符永远不会被命中，
+        // 新读取因代次不符一定回源。单一原子操作 + 读取侧 generation 校验 = 无双锁竞态。
+        generation.incrementAndGet()
     }
 
     /** 测试清理注入点。 */
     internal fun resetForTest() {
-        synchronized(this) {
-            generation += 1
-            cached = null
-        }
+        generation.incrementAndGet()
+        cached = null
         loaderForTest = null
     }
 }

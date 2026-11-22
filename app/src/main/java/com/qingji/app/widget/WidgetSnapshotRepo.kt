@@ -73,6 +73,30 @@ object WidgetSnapshotRepo {
     private fun <T> outcomeOf(result: Result<T?>): Outcome<T> =
         result.fold(onSuccess = { Outcome.of(it) }, onFailure = { Outcome.fail() })
 
+    /**
+     * A2：查询保护统一入口。
+     * - CancellationException 必须原样重抛，不能被转成 FAILED 或 stale；
+     * - 普通 Exception → FAILED Outcome（UI 显示 --，不伪 0）；
+     * - 不使用 catch(Throwable)，系统级错误照常向上。
+     */
+    /** A2 测试注入点：可让指定 label 的查询抛出取消/业务异常，验证保护语义。生产为 null。 */
+    internal var queryHookForTest: ((String) -> Unit)? = null
+
+    private suspend fun <T> query(label: String, block: suspend () -> T?): Outcome<T> {
+        val t = WidgetPerf.begin("query", label)
+        try {
+            queryHookForTest?.invoke(label) // 测试注入也在保护范围内
+            return Outcome.of(block())
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            android.util.Log.w("WidgetSnapshotRepo", "分项查询失败: $label", e)
+            return Outcome.fail()
+        } finally {
+            WidgetPerf.end(t)
+        }
+    }
+
     /** 从业务源现查，成功即刷新持久化快照。任一步失败抛异常，由调用方降级。 */
     suspend fun loadFresh(context: Context): WidgetData {
         val trace = WidgetPerf.begin("loadFresh", "SNAPSHOT")
@@ -88,47 +112,47 @@ object WidgetSnapshotRepo {
             val tasks = listOf(
                 async(Dispatchers.IO) {
                     val t = WidgetPerf.begin("query", "profile")
-                    val r = outcomeOf(runCatching { repo.observeProfile().first() })
+                    val r = query("profile") { repo.observeProfile().first() }
                     WidgetPerf.end(t); r
                 },
                 async(Dispatchers.IO) {
                     val t = WidgetPerf.begin("query", "dailySummary")
-                    val r = outcomeOf(runCatching { repo.observeDailySummary(today).first() })
+                    val r = query("dailySummary") { repo.observeDailySummary(today).first() }
                     WidgetPerf.end(t); r
                 },
                 async(Dispatchers.IO) {
                     val t = WidgetPerf.begin("query", "water")
                     // 饮水无记录时 DAO 返回 null → EMPTY(0)，0 ml 是真值；异常 → FAILED。
-                    val r = outcomeOf(runCatching { repo.observeWaterMl(today).first() })
+                    val r = query("water") { repo.observeWaterMl(today).first() }
                     WidgetPerf.end(t); r
                 },
                 // A3：体重用 Widget 专用有效查询，排除未来日期、同日多条取最新。
                 async(Dispatchers.IO) {
                     val t = WidgetPerf.begin("query", "weight")
-                    val r = outcomeOf(runCatching { repo.latestEffectiveWeight(today)?.weightKg })
+                    val r = query("weight") { repo.latestEffectiveWeight(today)?.weightKg }
                     WidgetPerf.end(t); r
                 },
                 async(Dispatchers.IO) {
                     val t = WidgetPerf.begin("query", "exerciseKcal")
-                    val r = outcomeOf(runCatching { healthRepo.observeDailyExerciseCalories(today).first() })
+                    val r = query("exerciseKcal") { healthRepo.observeDailyExerciseCalories(today).first() }
                     WidgetPerf.end(t); r
                 },
                 // P1：训练与睡眠分别独立读取，一个数据源失败不影响另一个。
                 // 口径与 DailyHealthRepository.summaryFor 一致：workout=workoutSession.durationSum，sleep=sleep.minutesSum。
                 async(Dispatchers.IO) {
                     val t = WidgetPerf.begin("query", "workoutMinutes")
-                    val r = outcomeOf(runCatching { dailyRepo.workoutMinutesFor(today) })
+                    val r = query("workoutMinutes") { dailyRepo.workoutMinutesFor(today) }
                     WidgetPerf.end(t); r
                 },
                 async(Dispatchers.IO) {
                     val t = WidgetPerf.begin("query", "sleepMinutes")
-                    val r = outcomeOf(runCatching { dailyRepo.sleepMinutesFor(today) })
+                    val r = query("sleepMinutes") { dailyRepo.sleepMinutesFor(today) }
                     WidgetPerf.end(t); r
                 },
                 // 身体数据：完整体重记录（date DESC），口径与进展页一致。
                 async(Dispatchers.IO) {
                     val t = WidgetPerf.begin("query", "bodyLogs")
-                    val r = outcomeOf(runCatching { repo.observeWeightLogs().first() })
+                    val r = query("bodyLogs") { repo.observeWeightLogs().first() }
                     WidgetPerf.end(t); r
                 }
             )
@@ -256,6 +280,8 @@ object WidgetSnapshotRepo {
     /** 统一降级：成功用新数据；失败用当天有效快照（stale）；都没有则明确空态。 */
     suspend fun load(context: Context): WidgetData = try {
         loadFresh(context)
+    } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e // A2：协程取消不能降级为 stale 或 FAILED
     } catch (e: Exception) {
         val t = WidgetPerf.begin("loadFallback", "SNAPSHOT")
         val result = loadValidSnapshot(context)?.copy(stale = true)
@@ -271,6 +297,8 @@ object WidgetSnapshotRepo {
     private suspend fun restoreZone(context: Context) {
         try {
             com.qingji.app.domain.BusinessClock.restore(context)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) { /* 读设置失败：沿用当前 zone，不阻断读取 */ }
     }
 
@@ -298,6 +326,8 @@ object WidgetSnapshotRepo {
                 val t = WidgetPerf.begin("snapshotWrite", "SNAPSHOT")
                 prefs.edit().putString(KEY_JSON, toJson(data).toString()).apply()
                 WidgetPerf.end(t)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 // 写失败保留上一份有效快照，不影响本次展示
                 android.util.Log.w("WidgetSnapshotRepo", "快照写入失败，保留上一份", e)

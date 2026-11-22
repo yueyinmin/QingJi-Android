@@ -24,7 +24,7 @@ import kotlinx.coroutines.sync.withLock
  *   仍用 `WidgetRefresher.refresh(...)` / `refreshNow(...)`，Kotlin 同包可见。
  */
 /** 一个刷新目标对应一个小组件实例（阶段 0 从 WidgetActions.kt 原样搬来）。 */
-enum class WidgetTarget { QUICK, OVERVIEW, WEIGHT }
+enum class WidgetTarget { QUICK, OVERVIEW, WEIGHT, BODY_DATA }
 
 object WidgetRefresher {
 
@@ -51,7 +51,8 @@ object WidgetRefresher {
     private val widgetOf: Map<WidgetTarget, GlanceAppWidget> = mapOf(
         WidgetTarget.QUICK to QuickRecordWidget(),
         WidgetTarget.OVERVIEW to OverviewWidget(),
-        WidgetTarget.WEIGHT to WeightWidget()
+        WidgetTarget.WEIGHT to WeightWidget(),
+        WidgetTarget.BODY_DATA to BodyWidget()
     )
 
     /** 给 UI 层 / 仓库写入后用：定向合并刷新，不阻塞界面。 */
