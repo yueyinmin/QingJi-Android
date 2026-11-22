@@ -80,7 +80,7 @@ private const val GITHUB_HANDLE = "@yueyinmin"
 private enum class AboutPage { MAIN, VERSION, CHANGELOG, CALIBER, LICENSES }
 
 @Composable
-fun AboutScreen(onBack: () -> Unit, useSheet: Boolean = false) {
+fun AboutScreen(onBack: () -> Unit, useSheet: Boolean = false, onOpenPrivacy: () -> Unit = {}) {
     val context = LocalContext.current
     var page by remember { mutableStateOf(AboutPage.MAIN) }
 
@@ -104,7 +104,7 @@ fun AboutScreen(onBack: () -> Unit, useSheet: Boolean = false) {
             SheetBackRow { page = AboutPage.MAIN }
         }
         when (page) {
-            AboutPage.MAIN -> AboutMainContent(onOpen = { page = it })
+            AboutPage.MAIN -> AboutMainContent(onOpen = { page = it }, onOpenPrivacy = onOpenPrivacy)
             AboutPage.VERSION -> VersionContent()
             AboutPage.CHANGELOG -> ChangeLogContent()
             AboutPage.CALIBER -> CaliberContent()
@@ -162,7 +162,7 @@ private fun aboutBackgroundColor(): Color =
 // 主页面
 // ------------------------------------------------------------
 @Composable
-private fun AboutMainContent(onOpen: (AboutPage) -> Unit) {
+private fun AboutMainContent(onOpen: (AboutPage) -> Unit, onOpenPrivacy: () -> Unit = {}) {
     val context = LocalContext.current
 
     Spacer(Modifier.height(20.dp))
@@ -227,6 +227,17 @@ private fun AboutMainContent(onOpen: (AboutPage) -> Unit) {
         listOf(
             AboutMenuItem(s("版本信息"), "版本号、构建号、技术信息", onClick = { onOpen(AboutPage.VERSION) }),
             AboutMenuItem(s("更新记录"), onClick = { onOpen(AboutPage.CHANGELOG) })
+        )
+    )
+
+    Spacer(Modifier.height(20.dp))
+
+    // ---------- V2.8：隐私与安全作为「关于轻记」的子菜单 ----------
+    GroupLabel(s("隐私与安全"))
+    Spacer(Modifier.height(8.dp))
+    AboutMenuCard(
+        listOf(
+            AboutMenuItem(s("隐私与安全"), "隐私说明、清除记录、恢复出厂", onClick = onOpenPrivacy)
         )
     )
 

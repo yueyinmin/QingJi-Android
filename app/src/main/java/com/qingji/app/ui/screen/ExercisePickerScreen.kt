@@ -51,6 +51,7 @@ import com.qingji.app.ui.components.ExerciseIcon
 import com.qingji.app.ui.components.LabeledTextField
 import com.qingji.app.ui.components.PageTopBar
 import com.qingji.app.ui.components.SectionCard
+import com.qingji.app.ui.components.TrainingExerciseThumbnail
 import com.qingji.app.ui.theme.CardWhite
 import com.qingji.app.ui.theme.DangerRed
 import com.qingji.app.ui.theme.DividerColor
@@ -89,8 +90,10 @@ fun ExercisePickerScreen(
     onBack: () -> Unit,
     /** 选中一条运动 → 进「确认记录」三级页 */
     onPick: (Long) -> Unit,
-    /** 2026-11-18：选「记力量」→ 跳训练中心的开始训练页 */
+    /** 旧参数保留兼容（阶段 C 不再使用） */
     onOpenStrengthTraining: () -> Unit = {},
+    /** 阶段 C：选力量动作 → 直接快速补记（不再只跳训练中心） */
+    onOpenStrengthQuick: (String) -> Unit = {},
     modifier: Modifier = Modifier,
     vm: ExerciseViewModel = viewModel()
 ) {
@@ -99,11 +102,11 @@ fun ExercisePickerScreen(
     // 2026-11-18：「训练记录」页签的数据
     val sessions by vm.sessions.collectAsState()
     val ledger by vm.ledger.collectAsState()
+    // 阶段 C：动作库力量动作（统一入口顶栏快捷区）
+    val strengthActions by vm.unifiedOptions.collectAsState()
 
     var keyword by remember { mutableStateOf("") }
     var tab by remember { mutableStateOf(TAB_COMMON) }
-    // 2026-11-18：先选记哪种——有氧走预设列表，力量跳训练中心
-    var strengthMode by remember { mutableStateOf(false) }
     var showNewDialog by remember { mutableStateOf(false) }
     var showPhotoHint by remember { mutableStateOf(false) }
     var newName by remember { mutableStateOf("") }
@@ -124,7 +127,8 @@ fun ExercisePickerScreen(
                 presets.filter { order.containsKey(it.name) }
                     .sortedBy { order[it.name] ?: Int.MAX_VALUE }
             }
-            TAB_FAVORITE -> presets.filter { it.favorite }
+            // 收藏：排除力量类 preset（力量动作统一从「开始训练」进，不在有氧记录页出现）
+            TAB_FAVORITE -> presets.filter { it.favorite && it.category != "力量" }
             TAB_CUSTOM -> presets.filter { it.category == ExerciseCalculator.CUSTOM_CATEGORY }
             TAB_ALL -> presets
             // 常用 = 预置运动（DAO 已经把收藏置顶、按名称排好）
@@ -149,86 +153,6 @@ fun ExercisePickerScreen(
             }
         )
 
-        // ---------- 2026-11-18：先选记有氧还是记力量 ----------
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            listOf("记有氧" to false, "记力量" to true).forEach { (label, isStrength) ->
-                val selected = strengthMode == isStrength
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(if (selected) QingJiGreen else CardWhite)
-                        .border(
-                            width = 1.dp,
-                            color = if (selected) Color.Transparent else DividerColor,
-                            shape = RoundedCornerShape(14.dp)
-                        )
-                        .pressable { strengthMode = isStrength }
-                        .padding(vertical = 12.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = if (isStrength) "记力量（练器械）" else "记有氧（跑步/骑行等）",
-                        fontSize = 14.sp,
-                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                        color = if (selected) Color.White else TextPrimary
-                    )
-                }
-            }
-        }
-
-        if (strengthMode) {
-            // ---------- 力量：跳训练中心 ----------
-            LazyColumn(
-                modifier = Modifier.weight(1f).fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                item {
-                    SectionCard(contentPadding = 14.dp) {
-                        Text(
-                            text = "力量训练去训练中心记",
-                            fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary
-                        )
-                        Spacer(Modifier.height(6.dp))
-                        Text(
-                            text = "练器械、举铁这类记录在「训练」模块：选动作、记组数重量、自动算消耗，" +
-                                "记完自动计入运动消耗和今日剩余额度。想补记之前忘记的训练，" +
-                                "到「我的 → 训练记录」里点「补记一次」。",
-                            fontSize = 13.sp, color = TextSecondary
-                        )
-                        Spacer(Modifier.height(14.dp))
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(QingJiGreen)
-                                .pressable {
-                                    strengthMode = false
-                                    onOpenStrengthTraining()
-                                }
-                                .padding(vertical = 14.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "去开始力量训练",
-                                fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White
-                            )
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            text = "也可以切回「训练记录」页签，查看或调整已计入的消耗",
-                            fontSize = 12.sp, color = TextSecondary
-                        )
-                    }
-                }
-            }
-        } else {
         // ---------- 固定区 2：拍照识别 / 搜索 / 分类 ----------
         Column(
             modifier = Modifier
@@ -375,6 +299,39 @@ fun ExercisePickerScreen(
                     }
                 }
             } else {
+            // 阶段 C：力量动作直接快速补记（去分流后统一入口的第一类）
+            val strengthItems = strengthActions.filter {
+                it.isStrengthAction && it.recordType == com.qingji.app.domain.ExerciseRecordType.STRENGTH &&
+                    (keyword.isBlank() || it.name.contains(keyword.trim(), ignoreCase = true))
+            }
+            // 力量快捷区只在「最近/常用/全部」显示；收藏/自定义/训练记录不显示，
+            // 否则收藏 tab 会凭空多出一排力量动作（用户反馈）。
+            if (strengthItems.isNotEmpty() && tab != TAB_TRAINING &&
+                tab != TAB_FAVORITE && tab != TAB_CUSTOM) {
+                item {
+                    SectionCard(contentPadding = 12.dp) {
+                        strengthItems.take(8).forEach { a ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(CardWhite)
+                                    .pressable { a.exerciseUuid?.let { onOpenStrengthQuick(it) } }
+                                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // 复用训练选择动作同款缩略图（本地 SVG 首帧 + 首字兜底）
+                                a.exerciseUuid?.let { uuid ->
+                                    TrainingExerciseThumbnail(exerciseUuid = uuid, fallbackName = a.name, size = 40.dp)
+                                    Spacer(Modifier.width(10.dp))
+                                }
+                                Text(a.name, fontSize = 13.sp, color = TextPrimary, modifier = Modifier.weight(1f))
+                                Text("记组数 ›", fontSize = 11.sp, color = QingJiGreen)
+                            }
+                            Spacer(Modifier.height(4.dp))
+                        }
+                    }
+                }
+            }
             items(visible, key = { it.id }) { item ->
                 ExercisePresetRow(
                     item = item,
@@ -407,7 +364,6 @@ fun ExercisePickerScreen(
             } // else 分支结束（非训练页签的运动预设列表）
             item { Spacer(Modifier.height(16.dp)) }
         }
-        } // else 分支结束（有氧模式：拍照 / 搜索 / 页签 / 运动列表）
     }
 
     // ---------- 新建自定义运动 ----------

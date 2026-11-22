@@ -299,7 +299,7 @@ object SettingsStore {
                     waterReminder = p[SettingsKeys.WATER_REMINDER] ?: false,
                     waterReminderHour = p[SettingsKeys.WATER_REMINDER_HOUR] ?: 15,
                     waterReminderMinute = p[SettingsKeys.WATER_REMINDER_MINUTE] ?: 0,
-                    widgetAlpha = (p[SettingsKeys.WIDGET_ALPHA] ?: 100).coerceIn(30, 100),
+                    widgetAlpha = (p[SettingsKeys.WIDGET_ALPHA] ?: 100).coerceIn(com.qingji.app.widget.WidgetSpec.ALPHA_MIN, com.qingji.app.widget.WidgetSpec.ALPHA_MAX),
                     widgetShowWater = p[SettingsKeys.WIDGET_SHOW_WATER] ?: true,
                     widgetShowMacro = p[SettingsKeys.WIDGET_SHOW_MACRO] ?: true,
                     widgetShowWeight = p[SettingsKeys.WIDGET_SHOW_WEIGHT] ?: true,

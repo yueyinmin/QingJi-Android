@@ -90,7 +90,8 @@ fun ProgressScreen(
     weeklySummary: com.qingji.app.domain.WeeklySummaryCalculator.Summary,
     /** v12：卡片管理写设置用（独立实例，仅作为 DataStore 写入口）。 */
     settingsVm: com.qingji.app.ui.viewmodel.SettingsViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
-    vm: ProgressViewModel = viewModel()
+    vm: ProgressViewModel = viewModel(),
+    privacyVm: com.qingji.app.ui.viewmodel.DiaryPrivacyViewModel? = null
 ) {
     val profile by vm.profile.collectAsState()
     val allLogs by vm.logs.collectAsState()
@@ -161,10 +162,18 @@ fun ProgressScreen(
     val bodyMetrics = com.qingji.app.domain.BodyMetricsCalculator
     val currentWeight = bodyMetrics.latestWeightKg(allLogs, startWeight)
     val latestBodyFat = bodyMetrics.latestBodyFat(allLogs)
-    val goalReached = bodyMetrics.isGoalReached(currentWeight, targetWeight)
+    // 阶段D：方向感知统一进度（增重/减重/维持），与 Widget 同一函数。
+    val bodyGoal = bodyMetrics.goalProgress(currentWeight, startWeight, targetWeight)
+    val goalReached = bodyGoal.reached
     val bmi = if (profile != null && currentWeight > 0) {
         NutritionCalculator.bmi(currentWeight, profile!!.heightCm)
     } else 0.0
+    // 年龄按生日现算周岁；缺失就是缺失，不回退默认值（工单禁止猜测）。
+    val ageYears = profile?.birthday?.let {
+        java.time.Period.between(it, AppClock.today()).years.takeIf { y -> y > 0 }
+    }
+    // 体脂展示：实测优先，无实测时用未舍入 BMI + 年龄 + 性别估算（标"估算"，不入库）。
+    val bodyFatDisplay = bodyMetrics.bodyFatDisplay(latestBodyFat, bmi, ageYears, profile?.gender)
     val category = NutritionCalculator.bmiCategory(bmi)
     val categoryColor = when (category) {
         "正常" -> NormalGreen
@@ -173,12 +182,9 @@ fun ProgressScreen(
         else -> QingJiGreen.copy(alpha = 0.6f)
     }
 
-    // 减重进度统一走 domain 纯函数（覆盖除零/达成/负值边界）
-    val progress = if (targetWeight > 0 && startWeight > 0) {
-        (bodyMetrics.lossProgressPercent(startWeight, currentWeight, targetWeight) / 100.0)
-            .toFloat().coerceIn(0f, 1f)
-    } else 0f
-    val remain = bodyMetrics.remainingToTarget(currentWeight, targetWeight)
+    // 阶段D：与身体数据 Widget 共用 goalProgress，进度/剩余不再各算一套。
+    val progress = if (bodyGoal.computable) bodyGoal.progress else 0f
+    val remain = bodyGoal.remaining
 
     // v11：卡片管理——右上角按钮弹层里调顺序/显隐（参考吃有数）。
     // TASK-07-A：顺序 / 显隐的解析逻辑搬到 domain/ProgressCardCatalog，这里只拿结果。
@@ -230,8 +236,11 @@ fun ProgressScreen(
             categoryColor = categoryColor,
             progress = progress,
             remain = remain,
-            recordCount = logs.size,
+            // 身体数据卡的记录次数也取全量，不随曲线范围变化
+            recordCount = allLogs.size,
             unit = unit,
+            bodyFatDisplay = bodyFatDisplay,
+            goalReached = goalReached,
             onClick = onOpenWeight
         )
 
@@ -283,7 +292,8 @@ fun ProgressScreen(
                         onSelectDiaryDate = { vm.selectDiaryDate(it) },
                         onShiftDiaryDate = { vm.shiftDiaryDate(it) },
                         onDiaryBackToToday = { vm.backToDiaryToday() }
-                    )
+                    ),
+                    privacyVm = privacyVm
                 )
             }
             appearIndex++

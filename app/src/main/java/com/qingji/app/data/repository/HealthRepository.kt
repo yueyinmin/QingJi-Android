@@ -34,9 +34,18 @@ import java.time.LocalDate
  * 所以它不进备份文件——备份恢复后重跑补算即可，备份 schema 不用动。
  * ============================================================
  */
-class HealthRepository(private val context: Context) {
+class HealthRepository(
+    private val context: Context,
+    /** V2.1阶段A：账本变化可注入刷新钩子（默认 OVERVIEW，测试可记录）。 */
+    private val refreshHook: (Context) -> Unit = { c ->
+        com.qingji.app.widget.WidgetRefresher.refresh(c,
+            setOf(com.qingji.app.widget.WidgetTarget.OVERVIEW))
+    },
+    /** V2.1阶段A4：独立数据库注入（仅测试用）。 */
+    dbOverride: com.qingji.app.data.local.AppDatabase? = null
+) {
 
-    private val db = AppDatabase.get(context)
+    private val db = dbOverride ?: AppDatabase.get(context)
     private val configDao = db.exerciseCalorieConfigDao()
     private val ledgerDao = db.exerciseSessionCalorieDao()
 
@@ -262,6 +271,8 @@ class HealthRepository(private val context: Context) {
                 updatedAt = System.currentTimeMillis()
             )
         )
+        // V2.1阶段A：调整消耗影响今日剩余（运动补偿），刷新 OVERVIEW。
+        refreshHook(context)
         return true
     }
 

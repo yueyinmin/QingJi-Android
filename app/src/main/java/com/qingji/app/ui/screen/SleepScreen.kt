@@ -94,7 +94,8 @@ import java.time.format.DateTimeFormatter
 fun SleepScreen(
     vm: SleepViewModel,
     onBack: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    privacyVm: com.qingji.app.ui.viewmodel.DiaryPrivacyViewModel? = null
 ) {
     val selectedDate by vm.selectedDate.collectAsState()
     val night by vm.selectedNight.collectAsState()
@@ -135,6 +136,98 @@ fun SleepScreen(
             actionText = s("✏ 记录"),
             onAction = { openNew() }
         )
+        if (privacyVm != null) {
+            com.qingji.app.ui.components.DiaryPrivacyGate(vm = privacyVm) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = Dimens.ScreenPadding)
+            ) {
+                Spacer(Modifier.height(8.dp))
+    
+                // ---------- 1. 顶部日期导航 ----------
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = "‹", fontSize = 26.sp, color = TextSecondary,
+                        modifier = Modifier
+                            .clickable { vm.shiftSelectedDate(-1) }
+                            .padding(horizontal = 14.dp, vertical = 4.dp)
+                    )
+                    Text(
+                        text = if (isToday) s("今天") else selectedDate.format(DATE_CN),
+                        fontSize = TextSizes.CardTitle, fontWeight = FontWeight.SemiBold,
+                        color = TextPrimary, textAlign = TextAlign.Center,
+                        // QJ-HEALTH-DATE-WATER-004：点日期弹月历；加个轻微底色提示可点。
+                        modifier = Modifier
+                            .width(120.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { showDatePicker = true }
+                            .padding(vertical = 4.dp)
+                    )
+                    Text(
+                        text = "›", fontSize = 26.sp,
+                        color = if (isToday) DividerColor else TextSecondary,
+                        modifier = Modifier
+                            .clickable(enabled = !isToday) { vm.shiftSelectedDate(1) }
+                            .padding(horizontal = 14.dp, vertical = 4.dp)
+                    )
+                }
+                if (!isToday) {
+                    TextButton(
+                        onClick = { vm.backToToday() },
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    ) { Text(s("回到今天"), fontSize = TextSizes.Caption, color = QingJiGreen) }
+                }
+                Spacer(Modifier.height(8.dp))
+    
+                if (message != null) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(Dimens.ItemCorner))
+                            .background(QingJiGreenLight)
+                            .padding(10.dp)
+                    ) {
+                        Text(message.orEmpty(), fontSize = TextSizes.Caption, color = QingJiGreen)
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
+    
+                // ---------- 2. 今日睡眠核心卡（评分 + 时长合并） ----------
+                CoreSleepDashboard(
+                    night = night,
+                    score = score,
+                    isToday = isToday,
+                    selectedDate = selectedDate,
+                    onNew = { openNew() },
+                    onShowDetail = { showScoreDetail = true }
+                )
+                Spacer(Modifier.height(Dimens.Gap))
+    
+                // ---------- 3. 七天趋势卡（压缩 + 点击切日期） ----------
+                WeeklyTrendCard(
+                    trend = trend,
+                    targetMinutes = SleepScoreCalculator.DEFAULT_TARGET_MINUTES,
+                    selectedDate = selectedDate,
+                    onPickDate = { vm.selectDate(it) }
+                )
+                Spacer(Modifier.height(Dimens.Gap))
+    
+                // ---------- 4. 睡眠时段卡（时间轴，不重复放大时长） ----------
+                SleepDurationCard(night = night, onEdit = { n -> openEdit(n) })
+                Spacer(Modifier.height(Dimens.Gap))
+    
+                // ---------- 5. 其他分析卡（指标 + 免责 + 备注合并） ----------
+                OtherAnalysisCard(night = night, score = score)
+                Spacer(Modifier.height(80.dp))
+            }
+            }
+        } else {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -222,6 +315,7 @@ fun SleepScreen(
             // ---------- 5. 其他分析卡（指标 + 免责 + 备注合并） ----------
             OtherAnalysisCard(night = night, score = score)
             Spacer(Modifier.height(80.dp))
+        }
         }
     }
 

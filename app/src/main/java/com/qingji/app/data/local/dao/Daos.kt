@@ -58,6 +58,18 @@ interface WeightLogDao {
     @Query("SELECT * FROM weight_log ORDER BY date DESC LIMIT 1")
     suspend fun latest(): WeightLog?
 
+    /**
+     * Widget 专用「当前有效体重」：只取业务日期 <= today 的记录，
+     * 同日多条按 createdAt 再按 id 倒序取最新一条。
+     * 未来日期的回填/误录不会覆盖今天的有效体重（工单 A3）。
+     * 不改动 [latest] 的既有语义，避免影响首页/图表等其他页面。
+     */
+    @Query(
+        "SELECT * FROM weight_log WHERE date <= :today " +
+            "ORDER BY date DESC, createdAt DESC, id DESC LIMIT 1"
+    )
+    suspend fun latestEffective(today: LocalDate): WeightLog?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun save(log: WeightLog)
 
@@ -135,6 +147,10 @@ interface FoodLogDao {
 
     @Query("DELETE FROM food_log WHERE id = :id")
     suspend fun deleteById(id: Long)
+
+    /** 返回实际删除行数：0 = 记录不存在；>0 = 删除成功。仅供「删成功才刷新 Widget」判定。 */
+    @Query("DELETE FROM food_log WHERE id = :id")
+    suspend fun deleteByIdCount(id: Long): Int
 
     /** 用餐详情：把这一餐的几条记录整体挪到别的日期/餐次。 */
     @Query("UPDATE food_log SET date = :newDate, mealType = :newMealType WHERE id IN (:ids)")
@@ -380,6 +396,10 @@ interface ExerciseLogDao {
 
     @Query("DELETE FROM exercise_log WHERE id = :id")
     suspend fun deleteById(id: Long)
+
+    /** 返回实际删除行数，供删除成功后的定向刷新判定（0 = 记录不存在）。 */
+    @Query("DELETE FROM exercise_log WHERE id = :id")
+    suspend fun deleteByIdCount(id: Long): Int
 
     @Query("SELECT * FROM exercise_log ORDER BY date ASC")
     suspend fun findAll(): List<ExerciseLog>

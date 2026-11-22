@@ -14,7 +14,8 @@ activityCompose = "1.9.3"              # Compose 的 Activity 宿主
 composeBom = "2024.12.01"              # Compose 全家桶版本表（用 BOM 就不用逐个写版本）
 navigationCompose = "2.8.5"            # 页面跳转
 room = "2.6.1"                         # 本地数据库
-datastore = "1.1.1"                    # 键值对存储（存偏好设置）
+datastore = "1.1.1"
+biometric = "1.1.0"  # 日记隐私锁：稳定版(1.4.0-rc01要求AGP>=8.9.1,当前8.7.3不兼容)                    # 键值对存储（存偏好设置）
 coil = "2.7.0"                         # 图片加载
 coroutines = "1.9.0"                   # 后台线程（首次启动灌假数据要用）
 okhttp = "4.12.0"                      # 发 AI 请求的 HTTP 客户端
@@ -48,6 +49,7 @@ androidx-room-compiler = { group = "androidx.room", name = "room-compiler", vers
 androidx-room-testing = { group = "androidx.room", name = "room-testing", version.ref = "room" }
 
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
+androidx-biometric = { group = "androidx.biometric", name = "biometric", version.ref = "biometric" }
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
 # V2 工单：动作插画是 512x512 透明底 SVG（Workout Guide 上游只提供 SVG 帧），
 # coil-svg 负责把本地 assets 里的 SVG 解码成 Drawable，不引入额外图片框架。

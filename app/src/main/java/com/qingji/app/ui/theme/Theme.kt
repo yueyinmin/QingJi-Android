@@ -1,10 +1,13 @@
 package com.qingji.app.ui.theme
 
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.ripple
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import com.qingji.app.data.prefs.SettingsStore
 import com.qingji.app.data.prefs.QingJiSettings
 import androidx.compose.ui.platform.LocalContext
@@ -122,9 +125,15 @@ fun QingJiTheme(
         QingJiTypography
     }
 
-    MaterialTheme(
-        colorScheme = if (dark) darkScheme() else lightScheme(),
-        typography = typography,
-        content = content
-    )
+    // 全 App 统一点击反馈（用户反馈：Material 默认灰色 ripple 像「灰色选中卡片」很丑）。
+    // 改为极淡主题绿涟漪：保留"点到了"的反馈，但不再是一块突兀的灰印；
+    // 选中态本身仍由各控件的颜色/图标变化明确表达（日历蓝底、餐卡箭头旋转等）。
+    val softIndication = ripple(color = QingJiGreen.copy(alpha = 0.14f))
+    CompositionLocalProvider(LocalIndication provides softIndication) {
+        MaterialTheme(
+            colorScheme = if (dark) darkScheme() else lightScheme(),
+            typography = typography,
+            content = content
+        )
+    }
 }

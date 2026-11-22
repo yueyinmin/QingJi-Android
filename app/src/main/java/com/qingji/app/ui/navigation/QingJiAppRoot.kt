@@ -60,6 +60,7 @@ import com.qingji.app.ui.screen.DiaryEditScreen
 import com.qingji.app.ui.screen.DiaryScreen
 import com.qingji.app.ui.screen.ExerciseConfirmScreen
 import com.qingji.app.ui.screen.ExercisePickerScreen
+import com.qingji.app.ui.screen.StrengthQuickRecordScreen
 import com.qingji.app.ui.screen.FastingScreen
 import com.qingji.app.ui.screen.FoodLibraryScreen
 import com.qingji.app.ui.screen.CustomFoodEditScreen
@@ -117,7 +118,9 @@ fun QingJiAppRoot(
     /** 每次点小组件都会 +1，用来强制触发一次跳转（同一按钮连点两次也能跳）。 */
     startTargetRequestId: Long = 0L,
     /** 目标用完后立刻回告 MainActivity 清空，避免残留目标被反复消费。 */
-    onTargetConsumed: () -> Unit = {}
+    onTargetConsumed: () -> Unit = {},
+    /** 日记隐私锁：Activity 作用域状态，Root 只负责导航跃迁触发锁定。 */
+    diaryPrivacyVm: com.qingji.app.ui.viewmodel.DiaryPrivacyViewModel? = null
 ) {
     val navController = rememberNavController()
 
@@ -150,6 +153,21 @@ fun QingJiAppRoot(
     // 用户看到的就是「点首页，最后却停在别的页」。
     LaunchedEffect(startTarget, startTargetRequestId) {
         val target = startTarget ?: return@LaunchedEffect
+        // V3.0：水杯点击特判——先回首页 Tab，再打开全局「记录饮水」弹窗。
+        // 必须在下面的 navController.navigate 之前拦截，否则 "water" 会被当成不存在的路由。
+        if (target == com.qingji.app.widget.WidgetRefresher.TARGET_WATER) {
+            if (navController.currentDestination?.route != QingJiTab.Home.route) {
+                runCatching {
+                    navController.navigate(QingJiTab.Home.route) {
+                        popUpTo(QingJiTab.Home.route) { saveState = false }
+                        launchSingleTop = true
+                    }
+                }
+            }
+            showWaterSheet = true
+            onTargetConsumed()
+            return@LaunchedEffect
+        }
         if (target != QingJiTab.Home.route && target.isNotBlank()) {
             // 断食常驻通知专项（2026-11-11）：冷启动带 target（通知 / 小组件）时，
             // NavHost 的 graph 可能还没挂上，直接 navigate 会抛
@@ -173,6 +191,22 @@ fun QingJiAppRoot(
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route ?: QingJiTab.Home.route
     val showBottomBar = currentRoute !in QingJiRoutes.fullScreenRoutes
+
+    // 日记隐私锁 V1：基于真实导航 route 的「进入/离开日记区域」跃迁判断。
+    // 日记区域 = 日记 Tab + 日记编辑页（编辑同份私密内容，属内部操作，不重锁）。
+    // 绝不用 onDispose / 底栏点击判断（会漏系统返回、滑动、通知跳转）。
+    if (diaryPrivacyVm != null) {
+        val diaryArea = setOf(QingJiTab.Diary.route, QingJiRoutes.DiaryEdit)
+        var wasInDiary by remember { mutableStateOf(false) }
+        LaunchedEffect(currentRoute) {
+            val inside = currentRoute in diaryArea
+            if (inside != wasInDiary) {
+                if (inside) diaryPrivacyVm.enterDiaryArea()
+                else diaryPrivacyVm.leaveDiaryArea() // 离开立即锁定，内部弹窗/分类切换不触发
+                wasInDiary = inside
+            }
+        }
+    }
 
     // 底部导航要不要显示某个 Tab、首页要不要显示某些卡片，都从这里读。
     // TASK-05：不再自己订阅 SettingsStore，改用 MainActivity 发下来的同一份设置。
@@ -526,6 +560,7 @@ fun QingJiAppRoot(
                             },
                             // P1：睡眠日记卡空态直达睡眠页
                             onOpenSleepDiary = { navController.navigate(QingJiRoutes.Sleep) },
+                            privacyVm = diaryPrivacyVm,
                             scrollState = tabScrollStates.getValue(QingJiTab.Progress),
                             weeklySummary = weeklySummary,
                             vm = progressVm
@@ -545,7 +580,8 @@ fun QingJiAppRoot(
                             trainingVm = trainingVm,
                             progressVm = progressVm,
                             scrollState = tabScrollStates.getValue(QingJiTab.Diary),
-                            vm = diaryVm
+                            vm = diaryVm,
+                            privacyVm = diaryPrivacyVm
                         )
                     }
                     composable(QingJiTab.Mine.route) {
@@ -571,7 +607,8 @@ fun QingJiAppRoot(
                             onOpenWidget = { navController.navigate(QingJiRoutes.WidgetSettings) },
                             onOpenAiConfig = { navController.navigate(QingJiRoutes.AiConfig) },
                             onOpenProfile = { navController.navigate(QingJiRoutes.Profile) },
-                            onOpenBackup = { navController.navigate(QingJiRoutes.Backup) }
+                            onOpenBackup = { navController.navigate(QingJiRoutes.Backup) },
+                            privacyVm = diaryPrivacyVm
                         )
                     }
                     composable(QingJiRoutes.Backup) {
@@ -627,7 +664,8 @@ fun QingJiAppRoot(
                     ) { entry ->
                         DiaryEditScreen(
                             diaryId = entry.arguments?.getLong("diaryId") ?: 0L,
-                            onBack = { navController.popBackStack() }
+                            onBack = { navController.popBackStack() },
+                            privacyVm = diaryPrivacyVm
                         )
                     }
                     composable(QingJiRoutes.WidgetSettings) {
@@ -695,8 +733,22 @@ fun QingJiAppRoot(
                                     launchSingleTop = true
                                 }
                             },
-                            // 2026-11-18：记力量 → 跳训练中心的开始训练页
-                            onOpenStrengthTraining = { navController.navigate(QingJiRoutes.TrainingActive) }
+                            onOpenStrengthTraining = { navController.navigate(QingJiRoutes.TrainingActive) },
+                            // 阶段 C：力量动作直接快速补记
+                            onOpenStrengthQuick = { uuid -> navController.navigate(QingJiRoutes.strengthQuick(uuid)) }
+                        )
+                    }
+                    composable(
+                        route = QingJiRoutes.StrengthQuickRecord,
+                        arguments = listOf(navArgument("uuid") { type = NavType.StringType })
+                    ) { backStackEntry ->
+                        val uuid = java.net.URLDecoder.decode(
+                            backStackEntry.arguments?.getString("uuid").orEmpty(), "UTF-8"
+                        )
+                        StrengthQuickRecordScreen(
+                            exerciseUuid = uuid,
+                            onBack = { navController.popBackStack() },
+                            onSaved = { navController.popBackStack() }
                         )
                     }
                     composable(
@@ -788,7 +840,8 @@ fun QingJiAppRoot(
                             androidx.lifecycle.viewmodel.compose.viewModel()
                         com.qingji.app.ui.screen.SleepScreen(
                             vm = sleepVm,
-                            onBack = { navController.popBackStack() }
+                            onBack = { navController.popBackStack() },
+                            privacyVm = diaryPrivacyVm
                         )
                     }
 

@@ -14,7 +14,11 @@ data class DraftExercise(
     val sets: List<WorkoutSet> = emptyList(),
     val note: String = "",
     /** true = 这几组是从「上次成绩」自动带出来的，界面上用浅绿底标一下。 */
-    val fromLast: Boolean = false
+    val fromLast: Boolean = false,
+    /** 统一体系 V2.1：非空 = 非力量动作（有氧/HIIT等），保存时走 WorkoutItem.Cardio。 */
+    val recordType: String = "",
+    /** 该动作的计划目标配置 JSON（TargetConfigJson），空串 = 力量或没目标。 */
+    val targetConfigJson: String = ""
 )
 
 /** 一次「还没保存」的训练。进程被杀掉后靠它恢复到离开前的样子。 */
@@ -97,7 +101,9 @@ class WorkoutDraftStore(context: Context) {
                     name = e.optString("name", ""),
                     sets = TrainingMath.decodeSets(e.optString("setsJson", "")),
                     note = e.optString("note", ""),
-                    fromLast = e.optBoolean("fromLast", false)
+                    fromLast = e.optBoolean("fromLast", false),
+                    recordType = e.optString("recordType", ""),
+                    targetConfigJson = e.optString("targetConfigJson", "")
                 )
             }.filter { it.name.isNotBlank() }
             WorkoutDraft(
@@ -145,6 +151,8 @@ class WorkoutDraftStore(context: Context) {
                         put("setsJson", TrainingMath.encodeSets(e.sets))
                         put("note", e.note)
                         put("fromLast", e.fromLast)
+                        put("recordType", e.recordType)
+                        put("targetConfigJson", e.targetConfigJson)
                     })
                 }
             })

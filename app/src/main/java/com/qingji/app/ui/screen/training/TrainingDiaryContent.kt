@@ -1,10 +1,13 @@
 package com.qingji.app.ui.screen.training
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,6 +37,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -65,6 +69,28 @@ import java.time.YearMonth
  * 日记页「训练日记」胶囊和「我的 → 训练记录」全屏页共用这一块，
  * 全屏页把 showModeSwitch 关掉，避免顶上出现两个切换条。
  */
+/**
+ * 日期切换内容容器（2026-11-21 闪烁修复）：
+ * 旧实现用 key(date) + 初始 alpha=0 再淡入，切日期瞬间内容先"消失"再出现，
+ * 真机录屏里就是下方整块内容闪一下——用户明确反馈像 bug。
+ * 现在内容随 date 直接渲染、alpha 恒 1；高度平滑交给外层 animateContentSize，
+ * 不再做"先消失后淡入"。日期变化时数据由调用的 daySummary/dayFoods 携带日期校验。
+ * date 参数保留仅为调用点语义清晰（内容自身已按 activeDate 计算）。
+ */
+@Composable
+private fun DateFadeBox(date: java.time.LocalDate, content: @Composable () -> Unit) {
+    Box { content() }
+}
+
+/** 无 ripple 点击：日期切换类小控件不要灰色涟漪，避免被误认为「灰色选中卡片」。 */
+@Composable
+private fun Modifier.dateClickable(enabled: Boolean = true, onClick: () -> Unit): Modifier = this.clickable(
+    enabled = enabled,
+    interactionSource = remember { MutableInteractionSource() },
+    indication = null,
+    onClick = onClick
+)
+
 @Composable
 fun TrainingDiaryContent(
     vm: TrainingViewModel,
@@ -118,8 +144,9 @@ fun TrainingDiaryContent(
     val latestActiveDate = rememberUpdatedState(activeDate)
     LaunchedEffect(activeDate) {
         val target = activeDate
-        // 先清旧日期汇总（渲染端还有 date 校验），避免慢查询期间显示旧日期数据
-        daySummary = null
+        // 不再先 daySummary=null：渲染端有 takeIf{ it.date == activeDate } 校验，
+        // 旧日期数据不会被误显示；主动清空反而让汇总从 4 行塌成 1 行空态再填回，
+        // 真机上就是"下方闪一下"。查询期间保留上一份数据，等新结果到达即替换。
         val result = healthRepo.summaryFor(target)
         // 竞态防护：查询期间用户又切了日期，丢弃这次结果，绝不让旧查询覆盖新日期。
         // 用 rememberUpdatedState 读「当前」日期，而不是闭包里被 key 固定的旧值。
@@ -130,7 +157,12 @@ fun TrainingDiaryContent(
     // produceState 会在 selectedDate 变化时取消上一次收集并重新订阅，不会串日期、不重复建监听。
     val foodRepo = remember(context) { com.qingji.app.data.repository.QingJiRepository(context) }
     val dayFoods by produceState(initialValue = emptyList<FoodLog>(), activeDate, foodRepo) {
-        foodRepo.observeFoodLogs(activeDate).collect { value = it }
+        // 切换日期时旧列表会残留到新 Flow 发出第一条，导致"当天饮食"短暂显示前一天内容。
+        // 先清空再订阅；饮食明细行数少，短暂空态比显示错误日期的数据安全。
+        value = emptyList()
+        foodRepo.observeFoodLogs(activeDate).collect { logs ->
+            value = logs.filter { it.date == activeDate }
+        }
     }
 
     val bySession = remember(allExercises) { allExercises.groupBy { it.sessionUuid } }
@@ -208,13 +240,25 @@ fun TrainingDiaryContent(
             Spacer(Modifier.height(12.dp))
 
             // ---------- 每日健康汇总（健康体系 V1.1，工单 10.4：选日期看当天全部模块） ----------
-            DailyHealthSummaryCard(
-                summary = daySummary?.takeIf { it.date == activeDate }
-            )
+            // 切日期时内容从 4 行塌成 1 行空态再填回，原来高度硬切导致下方内容跳动。
+            // animateContentSize 让高度平滑过渡（不改滚动位置、不重播日历动画）。
+            Box(modifier = Modifier.animateContentSize(animationSpec = tween(
+                durationMillis = 200, easing = FastOutSlowInEasing
+            ))) {
+                DateFadeBox(activeDate) {
+                    DailyHealthSummaryCard(
+                        summary = daySummary?.takeIf { it.date == activeDate }
+                    )
+                }
+            }
             Spacer(Modifier.height(12.dp))
 
             // ---------- 当天饮食明细：按选中日期真实查询，四餐次 + 小计 + 合计 ----------
-            DayFoodDetailCard(foods = dayFoods)
+            Box(modifier = Modifier.animateContentSize(animationSpec = tween(
+                durationMillis = 200, easing = FastOutSlowInEasing
+            ))) {
+                DateFadeBox(activeDate) { DayFoodDetailCard(foods = dayFoods) }
+            }
             Spacer(Modifier.height(12.dp))
 
             // QJ 日记日期查询：标题行带日期入口（复用首页 MonthPickerSheet）+ 前后一天切换；
@@ -224,7 +268,7 @@ fun TrainingDiaryContent(
                     fontWeight = FontWeight.SemiBold, color = TextPrimary,
                     modifier = Modifier.weight(1f))
                 Text("‹", fontSize = 20.sp, color = TextSecondary,
-                    modifier = Modifier.clickable {
+                    modifier = Modifier.dateClickable {
                         val next = activeDate.minusDays(1)
                         pickDate(next)
                         onMonthChange(YearMonth.from(next))
@@ -233,12 +277,12 @@ fun TrainingDiaryContent(
                     text = if (activeDate == com.qingji.app.domain.AppClock.today())
                         "今天" else activeDate.toString(),
                     fontSize = TextSizes.Caption, color = com.qingji.app.ui.theme.QingJiGreen,
-                    modifier = Modifier.clickable { showDatePicker = true }.padding(4.dp)
+                    modifier = Modifier.dateClickable { showDatePicker = true }.padding(4.dp)
                 )
                 Text("›", fontSize = 20.sp,
                     color = if (activeDate >= com.qingji.app.domain.AppClock.today())
                         TextSecondary.copy(alpha = 0.4f) else TextSecondary,
-                    modifier = Modifier.clickable(enabled = activeDate < com.qingji.app.domain.AppClock.today()) {
+                    modifier = Modifier.dateClickable(enabled = activeDate < com.qingji.app.domain.AppClock.today()) {
                         val next = activeDate.plusDays(1)
                         pickDate(next)
                         onMonthChange(YearMonth.from(next))
@@ -246,29 +290,31 @@ fun TrainingDiaryContent(
             }
             Spacer(Modifier.height(8.dp))
 
-            // 局部日期切换动画：只对训练记录内容做淡出淡入，日历/汇总卡位置不动、
-            // 页面外层 verticalScroll 不动（不重置滚动位置、不重播日历入场动画）。
-            androidx.compose.animation.Crossfade(
-                targetState = activeDate,
-                animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
-                label = "diaryDaySessions"
-            ) { shownDate ->
-                val daySessions = sessions.filter { it.date == shownDate }
-                if (daySessions.isEmpty()) {
-                    SectionCard {
-                        Text("这一天还没有训练记录", fontSize = TextSizes.Body, color = TextSecondary)
-                    }
-                } else {
-                    daySessions.forEach { s ->
-                        SessionRow(
-                            session = s,
-                            exercises = bySession[s.uuid].orEmpty(),
-                            unit = unit,
-                            onDetail = { detailUuid = s.uuid },
-                            onEdit = { vm.editSession(s.uuid) { onEditSession() } },
-                            onDelete = { pendingDelete = s.uuid }
-                        )
-                        Spacer(Modifier.height(8.dp))
+            // 日期切换动画修复：原来用 Crossfade，新旧两套内容会同时参与测量、
+            // 高度取 max 再收缩，配合下方汇总卡清空，视觉上就是「下方内容跳一下像 bug」。
+            // 改为直接渲染当天内容 + animateContentSize：只有高度平滑过渡，
+            // 日历/统计卡与外层 verticalScroll 位置完全不动。
+            Box(modifier = Modifier.animateContentSize(animationSpec = tween(
+                durationMillis = 200, easing = FastOutSlowInEasing
+            ))) {
+                DateFadeBox(activeDate) {
+                    val daySessions = sessions.filter { it.date == activeDate }
+                    if (daySessions.isEmpty()) {
+                        SectionCard {
+                            Text("这一天还没有训练记录", fontSize = TextSizes.Body, color = TextSecondary)
+                        }
+                    } else {
+                        daySessions.forEach { s ->
+                            SessionRow(
+                                session = s,
+                                exercises = bySession[s.uuid].orEmpty(),
+                                unit = unit,
+                                onDetail = { detailUuid = s.uuid },
+                                onEdit = { vm.editSession(s.uuid) { onEditSession() } },
+                                onDelete = { pendingDelete = s.uuid }
+                            )
+                            Spacer(Modifier.height(8.dp))
+                        }
                     }
                 }
             }

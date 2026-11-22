@@ -50,7 +50,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
@@ -293,10 +292,21 @@ fun TrainingCalendarCard(
                 color = TextPrimary,
                 modifier = Modifier.weight(1f)
             )
+            // 翻月文字与日期格同口径：去掉矩形 ripple，避免点出灰色方块
             Text("上个月", fontSize = TextSizes.Caption, color = QingJiGreen,
-                modifier = Modifier.clickable { onPrevMonth() }.padding(horizontal = 8.dp, vertical = 4.dp))
+                modifier = Modifier
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { onPrevMonth() }
+                    .padding(horizontal = 8.dp, vertical = 4.dp))
             Text("下个月", fontSize = TextSizes.Caption, color = QingJiGreen,
-                modifier = Modifier.clickable { onNextMonth() }.padding(horizontal = 8.dp, vertical = 4.dp))
+                modifier = Modifier
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { onNextMonth() }
+                    .padding(horizontal = 8.dp, vertical = 4.dp))
         }
         Spacer(Modifier.height(10.dp))
         Row(modifier = Modifier.fillMaxWidth().padding(end = fabSafeEnd)) {
@@ -368,11 +378,8 @@ private fun CalendarDayCell(
         animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
         label = "dayCellBg"
     )
-    val cellScale by animateFloatAsState(
-        targetValue = if (isSelected) 1.08f else 1f,
-        animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
-        label = "dayCellScale"
-    )
+    // 去掉选中放大动画：1.08 缩放让相邻格子一放大一缩小，快速切日期时
+    // 视觉上就是「闪一下」，用户反馈像 bug。选中反馈只靠背景/文字颜色平滑过渡。
     val numberColor by animateColorAsState(
         targetValue = when {
             isSelected -> QingJiGreenDark
@@ -386,10 +393,15 @@ private fun CalendarDayCell(
     Box(
         modifier = modifier
             .height(36.dp)
-            .scale(cellScale)
             .clip(RoundedCornerShape(8.dp))
             .background(bgColor)
-            .clickable(enabled = date != null) { if (date != null) onSelectDate(date) },
+            // 去掉 Material 灰色 ripple：点击时出现灰色圆形涟漪压在选中格子上，
+            // 看起来像「灰色选中卡片」，很丑。选中态已由背景/文字色明确表达。
+            .clickable(
+                enabled = date != null,
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) { if (date != null) onSelectDate(date) },
         contentAlignment = Alignment.Center
     ) {
         if (date != null) {

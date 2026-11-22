@@ -118,6 +118,14 @@ fun AiConfigScreen(
     var isTesting by remember { mutableStateOf(false) }
     var hasKeyInForm by remember { mutableStateOf(false) }
 
+    // 关闭表单：editing 与 isNew 必须一起清。
+    // 显示条件是 (editing != null || isNew)，只清 editing 会导致新建表单关不掉，
+    // 或下次打开编辑页残留 isNew=true 把「编辑」显示成「新增」。
+    fun closeEditor() {
+        editing = null
+        isNew = false
+    }
+
     fun openEditor(config: AiConfig?, new: Boolean) {
         editing = config
         isNew = new
@@ -259,7 +267,8 @@ fun AiConfigScreen(
             Spacer(Modifier.height(12.dp))
 
             // ---------- 编辑表单 ----------
-            if (editing != null) {
+            // 新建时 editing=null、isNew=true；只看 editing 会让「添加 AI 服务」点了没反应。
+            if (editing != null || isNew) {
                 SectionCard {
                     Text(if (isNew) "新增服务" else "编辑服务", fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold, color = TextPrimary)
@@ -362,7 +371,7 @@ fun AiConfigScreen(
                                         scope.launch {
                                             vm.save(buildConfig(), keyInput)
                                             Toast.makeText(context, "已保存", Toast.LENGTH_SHORT).show()
-                                            editing = null
+                                            closeEditor()
                                         }
                                     }
                                 }, contentAlignment = Alignment.Center
@@ -371,8 +380,13 @@ fun AiConfigScreen(
                         }
                     }
                     Spacer(Modifier.height(6.dp))
-                    Text("取消", fontSize = 12.sp, color = TextSecondary,
-                        modifier = Modifier.clickable { editing = null })
+                    Text(
+                        "取消", fontSize = 13.sp, color = TextSecondary,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { closeEditor() }
+                            .padding(horizontal = 16.dp, vertical = 10.dp)
+                    )
                 }
                 Spacer(Modifier.height(12.dp))
             }

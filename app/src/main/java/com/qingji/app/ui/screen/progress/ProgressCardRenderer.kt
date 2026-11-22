@@ -99,7 +99,9 @@ data class ProgressCardActions(
 fun ProgressCardRenderer(
     cardId: String,
     data: ProgressCardData,
-    actions: ProgressCardActions
+    actions: ProgressCardActions,
+    /** 日记隐私锁：三张日记卡（睡眠/运动/饮食）受统一门控保护。 */
+    privacyVm: com.qingji.app.ui.viewmodel.DiaryPrivacyViewModel? = null
 ) {
     when (cardId) {
         // v13：「本周运动消耗」卡已按工单搬到首页「今日训练」正上方，
@@ -148,73 +150,161 @@ fun ProgressCardRenderer(
             onViewAll = actions.onViewAllPhotos
         )
 
-        ProgressCardCatalog.SLEEP_DIARY -> {
-            val groups = DiaryGrouping.groupByDate(data.sleepRecords, { it.date })
-            DiarySectionCard(
-                title = s("睡眠日记"),
-                groups = groups,
-                emptyText = s("还没有睡眠日记，记第一晚吧"),
-                emptyActionText = s("去记录"),
-                onEmptyAction = actions.onOpenSleep
-            ) { r ->
-                val minutes = r.durationMinutes
-                val duration = "%d:%02d".format(minutes / 60, minutes % 60)
-                val score = SleepScoreCalculator.score(r, data.sleepRecords)
-                Text("🌙 $duration · ${score.score} · ${s(score.rating)}",
-                    fontSize = TextSizes.Caption, color = TextPrimary,
-                    modifier = Modifier.weight(1f))
-                if (r.wakeCount > 0) {
-                    Text("${s("夜醒")} ${r.wakeCount} ${s("次")}",
-                        fontSize = TextSizes.Tiny, color = TextSecondary)
+        ProgressCardCatalog.SLEEP_DIARY ->  {
+            if (privacyVm != null) {
+                com.qingji.app.ui.components.DiaryPrivacyGate(vm = privacyVm, hiddenText = "睡眠日记已隐藏") {
+    
+                val groups = DiaryGrouping.groupByDate(data.sleepRecords, { it.date })
+                DiarySectionCard(
+                    title = s("睡眠日记"),
+                    groups = groups,
+                    emptyText = s("还没有睡眠日记，记第一晚吧"),
+                    emptyActionText = s("去记录"),
+                    onEmptyAction = actions.onOpenSleep
+                ) { r ->
+                    val minutes = r.durationMinutes
+                    val duration = "%d:%02d".format(minutes / 60, minutes % 60)
+                    val score = SleepScoreCalculator.score(r, data.sleepRecords)
+                    Text("🌙 $duration · ${score.score} · ${s(score.rating)}",
+                        fontSize = TextSizes.Caption, color = TextPrimary,
+                        modifier = Modifier.weight(1f))
+                    if (r.wakeCount > 0) {
+                        Text("${s("夜醒")} ${r.wakeCount} ${s("次")}",
+                            fontSize = TextSizes.Tiny, color = TextSecondary)
+                    }
                 }
+            
+                }
+            } else {
+    
+                val groups = DiaryGrouping.groupByDate(data.sleepRecords, { it.date })
+                DiarySectionCard(
+                    title = s("睡眠日记"),
+                    groups = groups,
+                    emptyText = s("还没有睡眠日记，记第一晚吧"),
+                    emptyActionText = s("去记录"),
+                    onEmptyAction = actions.onOpenSleep
+                ) { r ->
+                    val minutes = r.durationMinutes
+                    val duration = "%d:%02d".format(minutes / 60, minutes % 60)
+                    val score = SleepScoreCalculator.score(r, data.sleepRecords)
+                    Text("🌙 $duration · ${score.score} · ${s(score.rating)}",
+                        fontSize = TextSizes.Caption, color = TextPrimary,
+                        modifier = Modifier.weight(1f))
+                    if (r.wakeCount > 0) {
+                        Text("${s("夜醒")} ${r.wakeCount} ${s("次")}",
+                            fontSize = TextSizes.Tiny, color = TextSecondary)
+                    }
+                }
+            
             }
         }
 
-        ProgressCardCatalog.EXERCISE_DIARY -> {
-            // QJ 日记日期查询：只显示选中日期的运动记录，当天合计放日期行
-            DayQueryDiaryCard(
-                title = s("运动日记"),
-                selectedDate = data.diaryDate,
-                items = data.exerciseLogs.filter { it.date == data.diaryDate },
-                dayTotalKcal = data.exerciseLogs.filter { it.date == data.diaryDate }
-                    .sumOf { it.kcal.toInt() },
-                emptyText = s("这天还没有运动记录"),
-                emptyActionText = s("去记录"),
-                onEmptyAction = actions.onOpenExercise,
-                onSelectDate = actions.onSelectDiaryDate,
-                onShiftDate = actions.onShiftDiaryDate,
-                onBackToToday = actions.onDiaryBackToToday
-            ) { log ->
-                Text("🏃 ${log.type} · ${log.minutes}${s("分钟")}",
-                    fontSize = TextSizes.Caption, color = TextPrimary,
-                    modifier = Modifier.weight(1f))
-                Text("${log.kcal.toInt()} ${s("千卡")}",
-                    fontSize = TextSizes.Caption, color = QingJiGreen,
-                    fontWeight = FontWeight.SemiBold)
+        ProgressCardCatalog.EXERCISE_DIARY ->  {
+            if (privacyVm != null) {
+                com.qingji.app.ui.components.DiaryPrivacyGate(vm = privacyVm, hiddenText = "运动日记已隐藏") {
+    
+                // QJ 日记日期查询：只显示选中日期的运动记录，当天合计放日期行
+                DayQueryDiaryCard(
+                    title = s("运动日记"),
+                    selectedDate = data.diaryDate,
+                    items = data.exerciseLogs.filter { it.date == data.diaryDate },
+                    dayTotalKcal = data.exerciseLogs.filter { it.date == data.diaryDate }
+                        .sumOf { it.kcal.toInt() },
+                    emptyText = s("这天还没有运动记录"),
+                    emptyActionText = s("去记录"),
+                    onEmptyAction = actions.onOpenExercise,
+                    onSelectDate = actions.onSelectDiaryDate,
+                    onShiftDate = actions.onShiftDiaryDate,
+                    onBackToToday = actions.onDiaryBackToToday
+                ) { log ->
+                    Text("🏃 ${log.type} · ${log.minutes}${s("分钟")}",
+                        fontSize = TextSizes.Caption, color = TextPrimary,
+                        modifier = Modifier.weight(1f))
+                    Text("${log.kcal.toInt()} ${s("千卡")}",
+                        fontSize = TextSizes.Caption, color = QingJiGreen,
+                        fontWeight = FontWeight.SemiBold)
+                }
+            
+                }
+            } else {
+    
+                // QJ 日记日期查询：只显示选中日期的运动记录，当天合计放日期行
+                DayQueryDiaryCard(
+                    title = s("运动日记"),
+                    selectedDate = data.diaryDate,
+                    items = data.exerciseLogs.filter { it.date == data.diaryDate },
+                    dayTotalKcal = data.exerciseLogs.filter { it.date == data.diaryDate }
+                        .sumOf { it.kcal.toInt() },
+                    emptyText = s("这天还没有运动记录"),
+                    emptyActionText = s("去记录"),
+                    onEmptyAction = actions.onOpenExercise,
+                    onSelectDate = actions.onSelectDiaryDate,
+                    onShiftDate = actions.onShiftDiaryDate,
+                    onBackToToday = actions.onDiaryBackToToday
+                ) { log ->
+                    Text("🏃 ${log.type} · ${log.minutes}${s("分钟")}",
+                        fontSize = TextSizes.Caption, color = TextPrimary,
+                        modifier = Modifier.weight(1f))
+                    Text("${log.kcal.toInt()} ${s("千卡")}",
+                        fontSize = TextSizes.Caption, color = QingJiGreen,
+                        fontWeight = FontWeight.SemiBold)
+                }
+            
             }
         }
 
-        ProgressCardCatalog.FOOD_DIARY -> {
-            // QJ 日记日期查询：只显示选中日期的饮食记录，同一食物多次录入各自显示不合并
-            DayQueryDiaryCard(
-                title = s("饮食日记"),
-                selectedDate = data.diaryDate,
-                items = data.foodLogs.filter { it.date == data.diaryDate },
-                dayTotalKcal = data.foodLogs.filter { it.date == data.diaryDate }
-                    .sumOf { it.kcal.toInt() },
-                emptyText = s("这天还没有饮食记录"),
-                emptyActionText = s("去记录"),
-                onEmptyAction = actions.onOpenFoodLibrary,
-                onSelectDate = actions.onSelectDiaryDate,
-                onShiftDate = actions.onShiftDiaryDate,
-                onBackToToday = actions.onDiaryBackToToday
-            ) { log ->
-                Text("🍽 ${log.foodName} · ${log.grams.toInt()}g",
-                    fontSize = TextSizes.Caption, color = TextPrimary,
-                    modifier = Modifier.weight(1f))
-                Text("${log.kcal.toInt()} ${s("千卡")}",
-                    fontSize = TextSizes.Caption, color = QingJiGreen,
-                    fontWeight = FontWeight.SemiBold)
+        ProgressCardCatalog.FOOD_DIARY ->  {
+            if (privacyVm != null) {
+                com.qingji.app.ui.components.DiaryPrivacyGate(vm = privacyVm, hiddenText = "饮食日记已隐藏") {
+    
+                // QJ 日记日期查询：只显示选中日期的饮食记录，同一食物多次录入各自显示不合并
+                DayQueryDiaryCard(
+                    title = s("饮食日记"),
+                    selectedDate = data.diaryDate,
+                    items = data.foodLogs.filter { it.date == data.diaryDate },
+                    dayTotalKcal = data.foodLogs.filter { it.date == data.diaryDate }
+                        .sumOf { it.kcal.toInt() },
+                    emptyText = s("这天还没有饮食记录"),
+                    emptyActionText = s("去记录"),
+                    onEmptyAction = actions.onOpenFoodLibrary,
+                    onSelectDate = actions.onSelectDiaryDate,
+                    onShiftDate = actions.onShiftDiaryDate,
+                    onBackToToday = actions.onDiaryBackToToday
+                ) { log ->
+                    Text("🍽 ${log.foodName} · ${log.grams.toInt()}g",
+                        fontSize = TextSizes.Caption, color = TextPrimary,
+                        modifier = Modifier.weight(1f))
+                    Text("${log.kcal.toInt()} ${s("千卡")}",
+                        fontSize = TextSizes.Caption, color = QingJiGreen,
+                        fontWeight = FontWeight.SemiBold)
+                }
+            
+                }
+            } else {
+    
+                // QJ 日记日期查询：只显示选中日期的饮食记录，同一食物多次录入各自显示不合并
+                DayQueryDiaryCard(
+                    title = s("饮食日记"),
+                    selectedDate = data.diaryDate,
+                    items = data.foodLogs.filter { it.date == data.diaryDate },
+                    dayTotalKcal = data.foodLogs.filter { it.date == data.diaryDate }
+                        .sumOf { it.kcal.toInt() },
+                    emptyText = s("这天还没有饮食记录"),
+                    emptyActionText = s("去记录"),
+                    onEmptyAction = actions.onOpenFoodLibrary,
+                    onSelectDate = actions.onSelectDiaryDate,
+                    onShiftDate = actions.onShiftDiaryDate,
+                    onBackToToday = actions.onDiaryBackToToday
+                ) { log ->
+                    Text("🍽 ${log.foodName} · ${log.grams.toInt()}g",
+                        fontSize = TextSizes.Caption, color = TextPrimary,
+                        modifier = Modifier.weight(1f))
+                    Text("${log.kcal.toInt()} ${s("千卡")}",
+                        fontSize = TextSizes.Caption, color = QingJiGreen,
+                        fontWeight = FontWeight.SemiBold)
+                }
+            
             }
         }
     }

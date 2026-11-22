@@ -38,12 +38,14 @@ object WidgetSpec {
     // ---- 配色（Glance 写死值，预览对齐用同一份） ----
     val CARD = Color(0xFFFFFFFF)
     val TEXT = Color(0xFF1A1A1A)
-    val SUB = Color(0xFF8A8F98)
-    val GREEN = Color(0xFF1F8A70)
+    val SUB = Color(0xFF5C6672)  // 视觉精修：从浅灰加深，壁纸上可读
+    val GREEN = Color(0xFF0E7A5F)  // 视觉精修：更深更饱和，主数字一眼可见
     val GREEN_LIGHT = Color(0xFFE8F5EF)
     val BLUE_LIGHT = Color(0xFFE8F4FB)
     val WATER_TEXT = Color(0xFF2A7FA8)
     val OVER_LIMIT = Color(0xFFE5544B)
+    val WARN_ORANGE = Color(0xFFE08A2E)  // 首页同款：运动消耗橙字
+    val DIVIDER = Color(0xFFECEFF2)  // 首页同款分隔线
     val MACRO_PROTEIN = Color(0xFF5B8DEF)
     val MACRO_CARB = Color(0xFF1F8A70)
     val MACRO_FAT = Color(0xFFF5A623)
@@ -52,12 +54,43 @@ object WidgetSpec {
     const val CORNER_CARD_DP = 18
     const val MACRO_BAR_HEIGHT_DP = 5
 
+    // ---- V3 视觉精修：Glance 与设置页预览共享的尺寸/间距规格 ----
+    /** 卡片内边距（今日概览四周、体重左右）。 */
+    const val CARD_PADDING_DP = 14
+    const val CARD_PADDING_H_DP = 14
+    /** 体重组件垂直内边距（压缩留白，保持触控面积）。 */
+    const val WEIGHT_PADDING_V_DP = 6
+    /** 营养条并排间距。 */
+    const val MACRO_GAP_DP = 8
+    /** 快捷入口格子底色透明度与圆角。 */
+    const val TILE_BG_ALPHA = 1.0f  // 视觉精修：实心浅绿格，不再半透糊
+    const val TILE_CORNER_DP = 10
+    const val QUICK_ICON_DP = 18
+    const val QUICK_LABEL_SP = 10
+    const val QUICK_ICON_LABEL_GAP_DP = 2
+    const val QUICK_TILE_GAP_DP = 2
+    /** 今日剩余大数字字号（Glance 与预览共用）。 */
+    const val REMAINING_NUMBER_SP = 30  // 视觉精修：主数字更大
+    /** 体重数字字号 / 记录按钮尺寸与间距。 */
+    const val WEIGHT_NUMBER_SP = 24
+    const val WEIGHT_BUTTON_W_DP = 60
+    const val WEIGHT_BUTTON_H_DP = 40
+    const val WEIGHT_BUTTON_GAP_DP = 8
+
+    // ---- V2.1阶段B：深浅色主题选择（Glance 与预览共用） ----
+    /** 浅色主题（保持 V2 配色，老用户视觉不突变）。 */
+    fun light() = WidgetTheme.LIGHT
+    /** 深色主题：深灰底 + 高对比浅字 + 提亮绿。 */
+    fun dark() = WidgetTheme.DARK
+    /** 根据系统 uiMode 选主题；不依赖 App Activity 状态。 */
+    fun theme(dark: Boolean) = if (dark) WidgetTheme.DARK else WidgetTheme.LIGHT
+
     // ---- V2 阶段5：预览与 Glance 共享的展示规则（避免两处硬编码漂移） ----
     /** 背景不透明度范围（SettingsStore/ViewModel/Glance/预览四处共用）。 */
-    const val ALPHA_MIN = 30
+    const val ALPHA_MIN = 82  // 视觉精修：下限抬高，半透明不再糊在壁纸上
     const val ALPHA_MAX = 100
     /** 营养条轨道色透明度。 */
-    const val MACRO_TRACK_ALPHA = 0.25f
+    const val MACRO_TRACK_ALPHA = 0.42f  // 视觉精修：轨道加深，进度可辨
     /** 预览示例营养素进度（用示例 current/goal 计算，勿写死比例）。 */
     const val SAMPLE_PROTEIN = 80
     const val SAMPLE_PROTEIN_GOAL = 120

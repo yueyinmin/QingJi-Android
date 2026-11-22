@@ -1,14 +1,16 @@
 package com.qingji.app.ui.screen
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
+
 import android.Manifest
+import androidx.compose.foundation.background
 import android.content.pm.PackageManager
 import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -56,7 +58,6 @@ import com.qingji.app.ui.screen.settings.RowDivider
 import com.qingji.app.ui.screen.settings.SettingIconRow
 import com.qingji.app.ui.screen.settings.SettingsSearchBox
 import com.qingji.app.ui.screen.settings.SettingsCard
-import com.qingji.app.ui.screen.settings.SettingsDetailSheet
 import com.qingji.app.ui.screen.settings.ToggleItem
 import com.qingji.app.ui.screen.settings.ToggleDetailPage
 import com.qingji.app.ui.screen.settings.OptionItem
@@ -66,6 +67,7 @@ import com.qingji.app.ui.screen.settings.InfoDetailPage
 import com.qingji.app.ui.screen.settings.DetailGroupTitle
 import com.qingji.app.ui.screen.settings.SettingIconBadge
 import com.qingji.app.ui.theme.QingJiGreenDark
+import com.qingji.app.ui.theme.clickableNoRipple
 import com.qingji.app.ui.i18n.s
 import com.qingji.app.ui.theme.PageBackground
 import com.qingji.app.ui.theme.TextPrimary
@@ -123,7 +125,9 @@ private data class CategoryDef(
     val kind: DialogKind,
     val title: String,
     val icon: ImageVector,
-    val color: Color
+    val color: Color,
+    /** V2.8：非空时点击卡片直达该目标，不再展开分类（用于「个人资料」这类只有一个入口的分类）。 */
+    val direct: EntryDest? = null
 )
 
 /** 分类落地页里的一行入口。 */
@@ -161,7 +165,9 @@ fun SettingsScreen(
     onOpenFoodPreference: () -> Unit = {},
     onOpenWidget: () -> Unit = {},
     modifier: Modifier = Modifier,
-    vm: SettingsViewModel = viewModel()
+    vm: SettingsViewModel = viewModel(),
+    /** V1：日记隐私锁设置（Activity 作用域统一状态）。 */
+    privacyVm: com.qingji.app.ui.viewmodel.DiaryPrivacyViewModel? = null
 ) {
     val context = LocalContext.current
     val settings by vm.settings.collectAsState()
@@ -169,6 +175,9 @@ fun SettingsScreen(
     val message by vm.message.collectAsState()
 
     var dialog by remember { mutableStateOf<DialogKind?>(null) }
+    // 一级分类页面内就地展开（用户反馈：点分类弹 bottom sheet 很繁琐）。
+    // 用户反馈：点开一个分类后点别的，原来那个会自动收起不合理——改为多个可同时展开。
+    var expandedCategories by remember { mutableStateOf(setOf<DialogKind>()) }
     var cacheSize by remember { mutableStateOf(0L) }
     val backup = remember { BackupManager(context) }
 
@@ -205,7 +214,9 @@ fun SettingsScreen(
 
     val listScroll = rememberScrollState()
     var query by remember { mutableStateOf("") }
-    BackHandler(enabled = dialog != null) { dialog = null }
+    BackHandler(enabled = dialog != null || expandedCategories.isNotEmpty()) {
+        if (dialog != null) dialog = null else expandedCategories = emptySet()
+    }
 
     /** 打开某目标：弹层直接切 dialog，独立页走对应回调。 */
     fun go(dest: EntryDest) {
@@ -225,19 +236,28 @@ fun SettingsScreen(
     // 入口注册中心：主页 6 张分类卡片 + 全量搜索索引
     // ============================================================
     val categories = listOf(
-        CategoryDef(DialogKind.CAT_PERSONAL, s("个人与安全"), Icons.Filled.Person, SettingsIconBlue),
+        // V2.8：原「个人与安全」点进去只有一项，改为直接展示「个人资料」入口。
+        CategoryDef(DialogKind.CAT_PERSONAL, s("个人资料"), Icons.Filled.Person, SettingsIconBlue,
+            direct = EntryDest.Page(PageRoute.PROFILE)),
         CategoryDef(DialogKind.CAT_HEALTH, s("饮食与健康"), Icons.Filled.Favorite, SettingsIconCoral),
         CategoryDef(DialogKind.CAT_GENERAL, s("通用设置"), Icons.Filled.Tune, SettingsIconPurple),
         CategoryDef(DialogKind.CAT_DISPLAY, s("显示与交互"), Icons.Filled.Dashboard, SettingsIconCyanSafe),
         CategoryDef(DialogKind.CAT_AI_DATA, s("AI 与数据"), Icons.Filled.Storage, SettingsIconBlueLight),
-        CategoryDef(DialogKind.CAT_ABOUT, s("关于轻记"), Icons.Filled.Info, SettingsIconPink)
+        // V2.8：关于轻记直达关于页（版本/更新/隐私都在里面），不再展开空壳分类。
+        CategoryDef(DialogKind.CAT_ABOUT, s("关于轻记"), Icons.Filled.Info, SettingsIconPink,
+            direct = EntryDest.Dlg(DialogKind.CAT_ABOUT))
     )
 
     // 每个分类落地页里的入口行（统一命名参数，避免位置错位）
     val categoryRows: Map<DialogKind, List<EntryRow>> = mapOf(
         DialogKind.CAT_PERSONAL to listOf(
             EntryRow(s("个人资料"), "头像、昵称、身高体重目标", Icons.Filled.Person, SettingsIconBlue,
-                EntryDest.Page(PageRoute.PROFILE)),
+                EntryDest.Page(PageRoute.PROFILE))
+        ),
+        // 「隐私与安全」从个人与安全移入关于轻记：隐私说明、清数据属于 App 信息，不属于个人资料。
+        // V2.8：删掉「关于轻记」指向自身的重复行；分类卡点开即关于内容，
+        // 里面只保留「隐私与安全」作为子菜单。
+        DialogKind.CAT_ABOUT to listOf(
             EntryRow(s("隐私与安全"), "隐私说明、清除记录、恢复出厂", Icons.Filled.Info, SettingsIconGreen,
                 EntryDest.Dlg(DialogKind.PRIVACY))
         ),
@@ -264,6 +284,8 @@ fun SettingsScreen(
                 EntryDest.Dlg(DialogKind.UNIT))
         ),
         DialogKind.CAT_DISPLAY to listOf(
+            EntryRow(s("桌面小组件"), "今日剩余 / 体重 / 记一笔的外观与预览", Icons.Filled.Dashboard, SettingsIconGreen,
+                EntryDest.Page(PageRoute.WIDGET)),
             EntryRow(s("主题与外观"), "主题色、深浅模式、图标、字体、气泡", Icons.Filled.Dashboard, SettingsIconPurple,
                 EntryDest.Dlg(DialogKind.CAT_THEME)),
             EntryRow(s("首页布局"), "AI 分析、饮水卡、快捷按钮、小结、营养素比例", Icons.Filled.Dashboard, SettingsIconBlue,
@@ -300,8 +322,9 @@ fun SettingsScreen(
         addRows(DialogKind.CAT_GENERAL, s("通用设置"))
         addRows(DialogKind.CAT_DISPLAY, s("显示与交互"))
         addRows(DialogKind.CAT_AI_DATA, s("AI 与数据"))
-        add(SettingIndexItem("about", s("关于轻记"), listOf("关于", "版本", "更新记录", "算法", "开源", "许可", "源码"),
-            s("关于轻记"), "", EntryDest.Dlg(DialogKind.CAT_ABOUT)))
+        // 「关于轻记」与「隐私与安全」都从 categoryRows 取，搜索入口与分类落地页保持一致。
+        // 分类卡本身已在上方 categories.forEach 注册，这里只补行级入口。
+        addRows(DialogKind.CAT_ABOUT, s("关于轻记"))
         // 二级页里的具体设置项，直接定位到所在二级分类弹层
         val themeItems = listOf("主题色" to listOf("主色", "颜色", "配色"), "深浅模式" to listOf("夜间", "深色", "浅色", "跟随系统"),
             "应用图标" to listOf("桌面图标", "icon"), "自定义字体" to listOf("字体", "ttf", "otf"), "水杯气泡量" to listOf("气泡", "水杯"))
@@ -331,6 +354,8 @@ fun SettingsScreen(
     // ============================================================
     // 页面主体
     // ============================================================
+    // 二级设置打开时不组合主页，避免底层仍参与渲染/交互
+    if (dialog == null) {
     Column(modifier = modifier.fillMaxSize().background(SettingsPageBg)) {
         // 标题栏
         Row(
@@ -338,7 +363,7 @@ fun SettingsScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
-                modifier = Modifier.size(40.dp).clip(CircleShape).clickable { onBack() },
+                modifier = Modifier.size(40.dp).clip(CircleShape).clickableNoRipple { onBack() },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回",
@@ -366,7 +391,7 @@ fun SettingsScreen(
                         searchResults.forEachIndexed { index, item ->
                             Row(
                                 modifier = Modifier.fillMaxWidth().heightIn(min = 58.dp)
-                                    .clickable { go(item.dest) }.padding(horizontal = 14.dp, vertical = 8.dp),
+                                    .clickableNoRipple { go(item.dest) }.padding(horizontal = 14.dp, vertical = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
@@ -383,13 +408,48 @@ fun SettingsScreen(
                 }
                 Spacer(Modifier.height(28.dp))
             } else {
-                // ---- 6 个一级分类卡片 ----
+                // ---- 6 个一级分类卡片：点击就地展开，不再弹 bottom sheet ----
                 GroupTitle(s("设置分类"))
                 categories.forEach { cat ->
                     Spacer(Modifier.height(10.dp))
+                    val expanded = cat.kind in expandedCategories
                     SettingsCard {
-                        SettingIconRow(title = cat.title, icon = cat.icon, iconColor = cat.color) {
-                            dialog = cat.kind
+                        Column(
+                            modifier = Modifier.animateContentSize(tween(200))
+                        ) {
+                            SettingIconRow(
+                                title = cat.title, icon = cat.icon, iconColor = cat.color,
+                                onClick = {
+                                    if (cat.direct != null) go(cat.direct)
+                                    else expandedCategories = if (expanded) expandedCategories - cat.kind
+                                    else expandedCategories + cat.kind
+                                }
+                            )
+                            // 直达卡不显示展开箭头下的子项
+                            if (expanded && cat.direct == null) {
+                                val rows = categoryRows[cat.kind].orEmpty()
+                                com.qingji.app.ui.components.SectionCard(contentPadding = 0.dp) {
+                                    rows.forEachIndexed { index, row ->
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
+                                                .clickableNoRipple { go(row.dest) }
+                                                .padding(horizontal = 14.dp, vertical = 8.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            if (row.icon != null) SettingIconBadge(row.icon, row.iconColor)
+                                            Column(modifier = Modifier.weight(1f).padding(start = if (row.icon != null) 12.dp else 0.dp)) {
+                                                Text(row.title, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
+                                                if (row.subtitle.isNotBlank()) {
+                                                    Spacer(Modifier.height(2.dp))
+                                                    Text(row.subtitle, fontSize = 11.sp, color = TextSecondary)
+                                                }
+                                            }
+                                            Text("›", fontSize = 18.sp, color = TextSecondary.copy(alpha = 0.6f))
+                                        }
+                                        if (index < rows.lastIndex) RowDivider()
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -397,50 +457,22 @@ fun SettingsScreen(
             }
         }
     }
+    }
 
     // ============================================================
     // 弹层：分类落地页 + 具体设置页
     // ============================================================
     if (dialog != null) {
         when (val d = dialog!!) {
-            // ---------- 一级分类落地页 ----------
-            in setOf(DialogKind.CAT_PERSONAL, DialogKind.CAT_HEALTH, DialogKind.CAT_GENERAL,
-                DialogKind.CAT_DISPLAY, DialogKind.CAT_AI_DATA) -> {
-                val title = when (d) {
-                    DialogKind.CAT_PERSONAL -> s("个人与安全")
-                    DialogKind.CAT_HEALTH -> s("饮食与健康")
-                    DialogKind.CAT_GENERAL -> s("通用设置")
-                    DialogKind.CAT_DISPLAY -> s("显示与交互")
-                    else -> s("AI 与数据")
-                }
-                SettingsDetailSheet(title = title, onDismiss = { dialog = null }) {
-                    val rows = categoryRows[d].orEmpty()
-                    com.qingji.app.ui.components.SectionCard(contentPadding = 0.dp) {
-                        rows.forEachIndexed { index, row ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp)
-                                    .clickable { go(row.dest) }.padding(horizontal = 14.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                if (row.icon != null) {
-                                    SettingIconBadge(row.icon, row.iconColor)
-                                }
-                                Column(modifier = Modifier.weight(1f).padding(start = if (row.icon != null) 12.dp else 0.dp)) {
-                                    Text(row.title, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
-                                    if (row.subtitle.isNotBlank()) {
-                                        Spacer(Modifier.height(2.dp))
-                                        Text(row.subtitle, fontSize = 11.sp, color = TextSecondary)
-                                    }
-                                }
-                                Text("›", fontSize = 20.sp, color = TextSecondary.copy(alpha = 0.6f))
-                            }
-                            if (index < rows.lastIndex) RowDivider()
-                        }
-                    }
-                }
+            // 一级分类已改为页面内就地展开（见上方分类卡），不再走 SettingsDetailSheet。
+            DialogKind.CAT_PERSONAL, DialogKind.CAT_HEALTH, DialogKind.CAT_GENERAL,
+            DialogKind.CAT_DISPLAY, DialogKind.CAT_AI_DATA -> {
+                expandedCategories = expandedCategories + d
+                dialog = null
             }
 
-            DialogKind.CAT_ABOUT -> AboutScreen(onBack = { dialog = null }, useSheet = true)
+            DialogKind.CAT_ABOUT -> AboutScreen(onBack = { dialog = null }, useSheet = false,
+                onOpenPrivacy = { dialog = DialogKind.PRIVACY })
 
             // ---------- 显示与交互 · 4 个二级分类 ----------
             DialogKind.CAT_THEME -> ThemeSettingsPage(
@@ -451,7 +483,7 @@ fun SettingsScreen(
                 onSetFont = { vm.setCustomFontPath(it) },
                 onOpenIcon = { dialog = DialogKind.ICON },
                 onBack = { dialog = null },
-                useSheet = true
+                useSheet = false // 改为页面内全屏，不再底部弹窗
             )
 
             DialogKind.CAT_HOME_LAYOUT -> ToggleDetailPage(
@@ -464,7 +496,7 @@ fun SettingsScreen(
                     ToggleItem(s("本周小结"), "进展页显示近 7 天一句话小结（本地计算）", settings.showWeeklySummary) { vm.setShowWeeklySummary(it) },
                     ToggleItem(s("每餐营养素比例"), "餐次卡片底部显示蛋白·碳水·脂肪比例条", settings.showMealMacro) { vm.setShowMealMacro(it) }
                 ),
-                onBack = { dialog = null }, useSheet = true
+                onBack = { dialog = null }, useSheet = false // 改为页面内全屏，不再底部弹窗
             )
 
             DialogKind.CAT_NAVIGATION -> ToggleDetailPage(
@@ -477,7 +509,7 @@ fun SettingsScreen(
                     ToggleItem("显示我的 Tab", "个人资料、成就、设置入口", settings.showMineTab) { vm.setTabVisible("mine", it) },
                     ToggleItem(s("左右滑动切换页面"), "在首页等主页面左右滑动切换", settings.swipeNavigate) { vm.setSwipeNavigate(it) }
                 ),
-                onBack = { dialog = null }, useSheet = true
+                onBack = { dialog = null }, useSheet = false // 改为页面内全屏，不再底部弹窗
             )
 
             DialogKind.CAT_MOTION -> ToggleDetailPage(
@@ -497,7 +529,7 @@ fun SettingsScreen(
                         ) { vm.setShowRefreshRate(it) }
                     }
                 },
-                onBack = { dialog = null }, useSheet = true
+                onBack = { dialog = null }, useSheet = false // 改为页面内全屏，不再底部弹窗
             )
 
             // ---------- 具体设置弹层 ----------
@@ -511,7 +543,7 @@ fun SettingsScreen(
                     DetailGroupTitle(s("AI 识别语言"))
                     listOf(OptionItem("zh", s("简体中文")), OptionItem("auto", s("跟随输入"))).forEach { option ->
                         val selected = option.key == settings.aiLanguage
-                        Row(modifier = Modifier.fillMaxWidth().clickable { vm.setAiLanguage(option.key) }
+                        Row(modifier = Modifier.fillMaxWidth().clickableNoRipple { vm.setAiLanguage(option.key) }
                             .padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(option.label, fontSize = 14.sp,
                                 color = if (selected) QingJiGreenDark else TextPrimary, modifier = Modifier.weight(1f))
@@ -519,7 +551,7 @@ fun SettingsScreen(
                         }
                     }
                 },
-                onBack = { dialog = null }, useSheet = true
+                onBack = { dialog = null }, useSheet = false // 改为页面内全屏，不再底部弹窗
             )
 
             DialogKind.MACRO -> MacroRatioPage(
@@ -528,19 +560,19 @@ fun SettingsScreen(
                 calciumInit = profile?.calciumGoalMg ?: 800,
                 onSave = { p, c, f -> vm.setMacroRatio(p, c, f) },
                 onSaveGoals = { fiber, sodium, calcium -> vm.setNutrientGoals(fiber, sodium, calcium) },
-                onBack = { dialog = null }, useSheet = true
+                onBack = { dialog = null }, useSheet = false // 改为页面内全屏，不再底部弹窗
             )
 
             DialogKind.EXERCISE_PCT -> ExercisePctDetailPage(
                 pct = settings.exerciseCompensationPct, onSelect = { vm.setExerciseCompensationPct(it) },
-                onBack = { dialog = null }, useSheet = true
+                onBack = { dialog = null }, useSheet = false // 改为页面内全屏，不再底部弹窗
             )
 
             DialogKind.TIMEZONE -> OptionDetailPage(
                 title = s("记录时区"), subtitle = s("改这里会影响「今天」从几点开始算，跨时区出差时用得上"),
                 options = timezoneOptions().map { OptionItem(it.first, it.second) },
                 selectedKey = settings.timeZone, onPick = { vm.setTimezone(it); dialog = null },
-                onBack = { dialog = null }, useSheet = true
+                onBack = { dialog = null }, useSheet = false // 改为页面内全屏，不再底部弹窗
             )
 
             DialogKind.REMINDERS -> ReminderPage(
@@ -553,7 +585,7 @@ fun SettingsScreen(
                 onSetKcalTime = { hour, minute -> vm.setKcalReminder(settings.kcalReminder, hour, minute, showToast = false) },
                 onSetWaterSwitch = { on -> if (on) enableReminderWithPermission { vm.setWaterReminder(true) } else vm.setWaterReminder(false) },
                 onSetWaterTime = { hour, minute -> vm.setWaterReminder(settings.waterReminder, hour, minute, showToast = false) },
-                onBack = { dialog = null }, useSheet = true
+                onBack = { dialog = null }, useSheet = false // 改为页面内全屏，不再底部弹窗
             )
 
             DialogKind.UI_LANG -> OptionDetailPage(
@@ -561,31 +593,32 @@ fun SettingsScreen(
                 options = listOf(OptionItem("zh", "简体中文", s("界面默认中文，核心页可切英文")),
                     OptionItem("en", "English", s("Core screens in English; the rest stays Chinese"))),
                 selectedKey = settings.uiLanguage, onPick = { vm.setUiLanguage(it); dialog = null },
-                onBack = { dialog = null }, useSheet = true
+                onBack = { dialog = null }, useSheet = false // 改为页面内全屏，不再底部弹窗
             )
 
             DialogKind.UNIT -> OptionDetailPage(
                 title = s("体重单位"), subtitle = s("只改显示，数据库里永远存公斤"),
                 options = listOf(OptionItem("kg", "公斤（kg）"), OptionItem("jin", "斤（500g）")),
                 selectedKey = settings.unit, onPick = { vm.setUnit(it); dialog = null },
-                onBack = { dialog = null }, useSheet = true
+                onBack = { dialog = null }, useSheet = false // 改为页面内全屏，不再底部弹窗
             )
 
             DialogKind.WATER_GOAL -> NumberDetailPage(
                 title = s("饮水目标"), subtitle = s("首页水杯按这个目标灌满"), label = s("每天计划喝多少"),
                 initial = settings.waterGoalMl.toString(), suffix = "ml", hint = s("常见范围 1500～3000 毫升"),
                 onSave = { vm.setWaterGoal(it.toIntOrNull() ?: 2000) },
-                onBack = { dialog = null }, useSheet = true
+                onBack = { dialog = null }, useSheet = false // 改为页面内全屏，不再底部弹窗
             )
 
             DialogKind.PRIVACY -> PrivacyPage(
                 onClearRecords = { vm.clearRecords() }, onFactoryReset = { vm.factoryReset() },
-                onBack = { dialog = null }, useSheet = true
+                onBack = { dialog = null }, useSheet = false,
+                privacyVm = privacyVm
             )
 
             DialogKind.ICON -> com.qingji.app.ui.screen.settings.AppIconSettingsPage(
                 currentVariant = settings.iconVariant, onSelect = { vm.setIconVariant(it) },
-                onBack = { dialog = null }, useSheet = true
+                onBack = { dialog = null }, useSheet = false // 改为页面内全屏，不再底部弹窗
             )
 
             DialogKind.CACHE -> InfoDetailPage(
@@ -595,7 +628,7 @@ fun SettingsScreen(
                 actionText = s("清理缓存"),
                 onAction = { backup.clearCache(); cacheSize = backup.cacheSize()
                     Toast.makeText(context, "已清理", Toast.LENGTH_SHORT).show() },
-                onBack = { dialog = null }, useSheet = true
+                onBack = { dialog = null }, useSheet = false // 改为页面内全屏，不再底部弹窗
             )
 
             else -> Unit

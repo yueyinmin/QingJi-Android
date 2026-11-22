@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import com.qingji.app.domain.TimeFormat
@@ -58,7 +59,18 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setTheme(mode: String) = put(SettingsKeys.THEME_MODE, mode)
 
-    fun setUnit(unit: String) = put(SettingsKeys.UNIT, unit)
+    /** V2.1阶段A：单位既写 DataStore（App UI 用），也写档案（Widget 读 profile.unit），并刷新体重组件。 */
+    fun setUnit(unit: String) {
+        put(SettingsKeys.UNIT, unit)
+        viewModelScope.launch {
+            // 档案 unit 通过 Repository 写，触发 BODY_DATA + WEIGHT 定向刷新
+            val current = repo.observeProfile().firstOrNull() ?: return@launch
+            if (current.unit != unit) repo.saveProfile(current.copy(unit = unit))
+            com.qingji.app.widget.WidgetRefresher.refresh(context,
+                setOf(com.qingji.app.widget.WidgetTarget.BODY_DATA,
+                    com.qingji.app.widget.WidgetTarget.WEIGHT))
+        }
+    }
 
     fun setTimezone(zoneId: String) {
         viewModelScope.launch {
@@ -77,6 +89,8 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
             val safe = ml.coerceIn(500, 6000)
             SettingsStore.set(context, SettingsKeys.WATER_GOAL, safe)
             profile.value?.let { repo.saveProfile(it.copy(waterGoalMl = safe)) }
+            // V3：widget 读 waterGoalMl，持久化成功后使设置缓存失效
+            com.qingji.app.widget.WidgetRefresher.refresh(context)
             toast("饮水目标已改为 $safe ml")
         }
     }
@@ -127,12 +141,18 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
                     calciumGoalMg = calciumGoalMg.coerceIn(0, 5000)
                 )
             )
+            // V2.1阶段A：档案写入成功后刷新（纤维/钠/钙非今日剩余核心，仅刷新一次避免无意义全量）。
+            com.qingji.app.widget.WidgetRefresher.refresh(context,
+                setOf(com.qingji.app.widget.WidgetTarget.OVERVIEW))
             toast("膳食纤维 / 钠 / 钙目标已保存")
         }
     }
 
-    fun setExerciseCompensation(enabled: Boolean) =
+    fun setExerciseCompensation(enabled: Boolean) {
         put(SettingsKeys.EXERCISE_COMPENSATION, enabled)
+        // V3：补偿开关影响 widget 今日剩余
+        com.qingji.app.widget.WidgetRefresher.refresh(context)
+    }
 
     /** 补偿比例 0-100；0 等于关闭。滑杆四段（0/25/50/75/100）。
      *  2026-11-18：比例是唯一开关，选 0% 就等于关闭，同步写布尔键保持一致。 */
@@ -140,6 +160,8 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         val v = pct.coerceIn(0, 100)
         put(SettingsKeys.EXERCISE_COMPENSATION_PCT, v)
         put(SettingsKeys.EXERCISE_COMPENSATION, v > 0)
+        // V3：补偿比例影响 widget 今日剩余（put 是异步协程，refresh 合并 250ms 已覆盖最终值）
+        com.qingji.app.widget.WidgetRefresher.refresh(context)
     }
 
     fun setDietPreference(text: String) = put(SettingsKeys.DIET_PREFERENCE, text)
@@ -364,7 +386,7 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun setWidgetAlpha(percent: Int) =
-        putIntAndRefreshWidget(SettingsKeys.WIDGET_ALPHA, percent.coerceIn(30, 100))
+        putIntAndRefreshWidget(SettingsKeys.WIDGET_ALPHA, percent.coerceIn(com.qingji.app.widget.WidgetSpec.ALPHA_MIN, com.qingji.app.widget.WidgetSpec.ALPHA_MAX))
 
     fun setWidgetShowWater(show: Boolean) = putBoolAndRefreshWidget(SettingsKeys.WIDGET_SHOW_WATER, show)
 

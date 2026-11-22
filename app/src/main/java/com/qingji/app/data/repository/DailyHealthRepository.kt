@@ -36,6 +36,20 @@ class DailyHealthRepository(context: Context) {
     suspend fun summaryFor(date: LocalDate): DailyHealthSummaryEntity = summaryFor(date, null)
 
     /**
+     * _widget 专属_：只取当日训练时长（分钟），口径与 [summaryFor] 里的
+     * `session?.durationSum ?: 0` 完全一致。DAO 聚合对空表返回 count=0/sum=0，
+     * 即「真 0」；只有读库异常才由 WidgetSnapshotRepo 映射为 FAILED。
+     * 单独暴露是为了让 Widget 的训练/睡眠可用状态彼此独立（验收补充工单 P1），
+     * 一个数据源异常不会拖垮另一个；不改动 summaryFor 的任何既有行为。
+     */
+    suspend fun workoutMinutesFor(date: LocalDate): Int? =
+        sessionDao.dayAggregate(date.toString())?.durationSum
+
+    /** 同 [workoutMinutesFor]，只取睡眠分钟，口径 `sleep?.minutesSum ?: 0`。 */
+    suspend fun sleepMinutesFor(date: LocalDate): Int? =
+        sleepDao.dayAggregate(date.toString())?.minutesSum
+
+    /**
      * 内部单日实现。@param prefetched 区间批量时预取的缓存行（按日期），
      * 命中则免掉逐日 findByDate 的数据库往返；口径与 summaryFor 完全一致。
      */

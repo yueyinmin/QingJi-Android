@@ -28,7 +28,9 @@ object TrainingTemplateData {
          * null = 沿用模板默认（3组×10次×0kg）；UI 编辑器会填它。
          * 预置模板不传此参数，行为完全不变。
          */
-        val targets: Map<String, Triple<Int, Int, Double>>? = null
+        val targets: Map<String, Triple<Int, Int, Double>>? = null,
+        /** 统一体系 V2.1：非力量动作的目标配置（时长/距离/强度），按动作名索引。 */
+        val cardioTargets: Map<String, com.qingji.app.domain.TargetConfig>? = null
     )
 
     data class Template(

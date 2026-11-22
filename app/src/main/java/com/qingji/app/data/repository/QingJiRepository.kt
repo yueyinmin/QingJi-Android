@@ -40,6 +40,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
 
@@ -51,10 +53,17 @@ import java.time.LocalDate
  * 所有返回 Flow 的方法都是「数据一变，界面自动跟着变」。
  * ============================================================
  */
-class QingJiRepository(private val context: Context) {
+class QingJiRepository(
+    private val context: Context,
+    /** 阶段B：可注入刷新钩子（生产走 WidgetRefresher，测试记录 Target）。 */
+    private val refreshHook: (Context, Set<com.qingji.app.widget.WidgetTarget>) -> Unit =
+        { c, targets -> com.qingji.app.widget.WidgetRefresher.refresh(c, targets) },
+    /** V2.1阶段A4：独立数据库注入（仅测试用；生产 null 走进程单例）。 */
+    private val dbOverride: com.qingji.app.data.local.AppDatabase? = null
+) {
 
     /** 用户自己的数据（可写） */
-    private val db = AppDatabase.get(context)
+    private val db = dbOverride ?: AppDatabase.get(context)
     /** 标准食物库（只读，随 APK 预置） */
     private val catalog = FoodCatalogDatabase.get(context)
     /**
@@ -85,7 +94,31 @@ class QingJiRepository(private val context: Context) {
 
     // ---------- 个人档案 ----------
     fun observeProfile(): Flow<UserProfile?> = db.userProfileDao().observe()
-    suspend fun saveProfile(profile: UserProfile) = db.userProfileDao().save(profile)
+    /** 阶段B：档案字段差异 → 刷新目标（纯函数，可单测；不动 DB）。 */
+    internal fun targetsForProfileChange(
+        old: UserProfile?, new: UserProfile
+    ): Set<com.qingji.app.widget.WidgetTarget> {
+        val targets = mutableSetOf<com.qingji.app.widget.WidgetTarget>()
+        if (old == null || old.dailyKcalGoal != new.dailyKcalGoal ||
+            old.proteinGoalG != new.proteinGoalG ||
+            old.carbGoalG != new.carbGoalG || old.fatGoalG != new.fatGoalG
+        ) targets.add(com.qingji.app.widget.WidgetTarget.OVERVIEW)
+        if (old == null || old.heightCm != new.heightCm || old.birthday != new.birthday ||
+            old.gender != new.gender || old.targetWeight != new.targetWeight ||
+            old.startWeight != new.startWeight || old.unit != new.unit
+        ) targets.add(com.qingji.app.widget.WidgetTarget.BODY_DATA)
+        // V2.1：单位变化同时影响体重闪记显示
+        if (old != null && old.unit != new.unit) targets.add(com.qingji.app.widget.WidgetTarget.WEIGHT)
+        return targets
+    }
+
+    suspend fun saveProfile(profile: UserProfile) {
+        val old = db.userProfileDao().observe().firstOrNull()
+        db.userProfileDao().save(profile)
+        // 阶段B：按实际字段差异定向刷新，不一律 ALL。
+        val targets = targetsForProfileChange(old, profile)
+        if (targets.isNotEmpty()) refreshHook(context, targets)
+    }
 
     // ---------- AI 配置（多服务统一入口） ----------
     /** 观察全部服务配置（配置页列表用）。 */
@@ -149,10 +182,20 @@ class QingJiRepository(private val context: Context) {
     /** 按指定 id 读 Key（编辑某配置时「留空保持原 Key」用）。 */
     fun getApiKeyFor(id: Int): String = ApiKeyStore.load(context, id).orEmpty()
 
-    /** 观察当前激活配置（随切换实时刷新）。 */
+    /**
+     * 观察当前激活配置（随切换实时刷新）。
+     * 与 getActiveAiConfig() 同样处理「active id 未设置（0）或指向已删配置」：
+     * 回退到第一条现存配置，避免配置页显示「无当前服务」而实际 AI 调用在用第一条。
+     * 注意 Flow 里不写 DataStore（getActiveAiConfig 会在首次调用时写回），这里只做只读回退。
+     */
     fun observeAiConfig(): Flow<AiConfig?> =
         SettingsStore.observe(context).map { it.aiActiveProviderId }
-            .flatMapLatest { id -> db.aiConfigDao().observeById(id) }
+            .flatMapLatest { id ->
+                db.aiConfigDao().observeById(id).flatMapLatest { hit ->
+                    if (hit != null) flowOf(hit)
+                    else db.aiConfigDao().observeAll().map { it.firstOrNull() }
+                }
+            }
     suspend fun getAiConfig(): AiConfig? = getActiveAiConfig()
 
     // ---------- 首页当天数据 ----------
@@ -167,11 +210,31 @@ class QingJiRepository(private val context: Context) {
     // ---------- 体重 ----------
     fun observeWeightLogs(): Flow<List<WeightLog>> = db.weightLogDao().observeAll()
     suspend fun latestWeight(): WeightLog? = db.weightLogDao().latest()
+
+    /**
+     * Widget 专用当前有效体重（工单 A3）：排除未来日期回填/误录，同日多条取最新一条。
+     * 既有 latest() 保持不变，避免影响首页/曲线页的历史语义。
+     */
+    suspend fun latestEffectiveWeight(today: LocalDate): WeightLog? =
+        db.weightLogDao().latestEffective(today)
+
     suspend fun saveWeight(log: WeightLog) {
         db.weightLogDao().save(log)
         db.usageStatDao().increment(log.date, "weight")
-        // 桌面小组件显示「当前体重」，写完立刻推一把（PRD 要求 3 秒内数字变化）
-        com.qingji.app.widget.WidgetRefresher.refresh(context, setOf(com.qingji.app.widget.WidgetTarget.WEIGHT))
+        // 阶段B：体重变化 → 体重闪记 + 身体数据
+        refreshHook(context, setOf(com.qingji.app.widget.WidgetTarget.WEIGHT,
+            com.qingji.app.widget.WidgetTarget.BODY_DATA))
+    }
+
+    /** 阶段B：单条体重删除（DAO 已有 deleteByDate）。删 0 行不刷新；成功刷 WEIGHT + BODY_DATA。 */
+    suspend fun deleteWeight(date: java.time.LocalDate): Boolean {
+        // DAO deleteByDate 返回 Unit，先查存在性才知道是否真的删到行（删除 0 行不刷新）。
+        val exists = db.weightLogDao().findAll().any { it.date == date }
+        if (!exists) return false
+        db.weightLogDao().deleteByDate(date)
+        refreshHook(context, setOf(com.qingji.app.widget.WidgetTarget.WEIGHT,
+            com.qingji.app.widget.WidgetTarget.BODY_DATA))
+        return true
     }
 
     // ---------- 进展页：身体维度 / 进度照片 / 运动 / 饮水区间 ----------
@@ -206,6 +269,10 @@ class QingJiRepository(private val context: Context) {
             healthRepository().mirrorExerciseLog(log.copy(id = newId))
             db.usageStatDao().increment(log.date, "body")
         }
+        // 阶段B：新增运动 → 今日剩余（运动补偿）。仅当日影响 OVERVIEW。
+        if (log.date == com.qingji.app.domain.AppClock.today()) {
+            refreshHook(context, setOf(com.qingji.app.widget.WidgetTarget.OVERVIEW))
+        }
     }
 
     /** v1.3.7：按 id 取一条有氧记录，给确认页回填「修改」。 */
@@ -216,26 +283,44 @@ class QingJiRepository(private val context: Context) {
      * 旧镜像残留（sourceId 虽然一样，但 sourceType 会随 type 变）。
      */
     suspend fun updateExercise(log: ExerciseLog) {
+        // V2.1阶段A4：原日期必须在 update 前查（update 后查到的是新日期，会漏判"今天改历史"）。
+        val oldDate = db.exerciseLogDao().findById(log.id)?.date
         db.withTransaction {
             db.exerciseLogDao().update(log)
             // P1-04：先删旧镜像再重建，同事务、异常同回滚（不再 runCatching）
             healthRepository().deleteExerciseLogMirror(log.id)
             healthRepository().mirrorExerciseLog(log)
         }
+        // 原日期或新日期任一是今天都刷。
+        if (oldDate == com.qingji.app.domain.AppClock.today() ||
+            log.date == com.qingji.app.domain.AppClock.today()
+        ) {
+            refreshHook(context, setOf(com.qingji.app.widget.WidgetTarget.OVERVIEW))
+        }
     }
 
     suspend fun deleteExercise(id: Long) {
         // P1-04：删源记录与删账本镜像放在同一事务，同时成功或同时回滚，
         // 杜绝「源没了但账本残留孤儿行导致消耗多计」。
-        db.withTransaction {
-            db.exerciseLogDao().deleteById(id)
-            healthRepository().deleteExerciseLogMirror(id)
+        // 工单 A2：只有删除真的发生（影响行数 > 0）才刷新 OVERVIEW——
+        // Widget 的「今日剩余」含运动补偿，删运动后必须与首页同口径即时更新。
+        val deleted = db.withTransaction {
+            // 删除前先取日期：历史日期的删除不影响今日剩余，避免无差别刷新。
+            val logDate = db.exerciseLogDao().findById(id)?.date
+            val n = db.exerciseLogDao().deleteByIdCount(id)
+            if (n > 0) {
+                healthRepository().deleteExerciseLogMirror(id)
+                logDate == AppClock.today() || logDate == null
+            } else false
+        }
+        if (deleted) {
+            refreshHook(context, setOf(com.qingji.app.widget.WidgetTarget.OVERVIEW))
         }
     }
 
     /** 统一运动消耗账本（健康体系 V1.0）。懒加载避免和 AppDatabase 初始化抢顺序。 */
     private fun healthRepository(): HealthRepository =
-        _healthRepository ?: HealthRepository(context).also { _healthRepository = it }
+        _healthRepository ?: HealthRepository(context, dbOverride = dbOverride).also { _healthRepository = it }
     private var _healthRepository: HealthRepository? = null
 
     /** 近一周饮水：取原始记录，界面里按天汇总。 */
@@ -832,7 +917,17 @@ class QingJiRepository(private val context: Context) {
         logs.forEach { addFoodLog(it) }
     }
 
-    suspend fun deleteFoodLog(id: Long) = db.foodLogDao().deleteById(id)
+    /**
+     * 工单 A1：删除饮食记录后必须让 Widget 的今日总览即时反映新热量/营养。
+     * 只有实际删除了行（影响行数 > 0）才触发 OVERVIEW 定向刷新；
+     * id 不存在 / 删除失败 / 事务回滚时不发「数据已更新」的副作用。
+     */
+    suspend fun deleteFoodLog(id: Long) {
+        val deleted = db.foodLogDao().deleteByIdCount(id)
+        if (deleted > 0) {
+            refreshHook(context, setOf(com.qingji.app.widget.WidgetTarget.OVERVIEW))
+        }
+    }
 
     // ---------- 用餐详情 ----------
 

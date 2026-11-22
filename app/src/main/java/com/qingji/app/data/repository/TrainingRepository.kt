@@ -37,7 +37,12 @@ import kotlinx.coroutines.flow.map
  *    独立运动模块（exercise_log）的补偿通道行为不变，只是多了账本镜像。
  * ============================================================
  */
-class TrainingRepository(context: Context) {
+class TrainingRepository(
+    private val context: Context,
+    /** V3 最终缺陷修复：可注入刷新钩子（生产默认走 WidgetRefresher，测试可替换验证行为）。 */
+    private val refreshHook: (Context, Set<com.qingji.app.widget.WidgetTarget>) -> Unit =
+        { c, targets -> com.qingji.app.widget.WidgetRefresher.refresh(c, targets) }
+) {
 
     private val db = AppDatabase.get(context)
     private val exerciseDao = db.exerciseDao()
@@ -154,6 +159,9 @@ class TrainingRepository(context: Context) {
             // HealthRepository 对带 sourceId 的日志跳过账本镜像，消耗不会算两次。
             upsertTrainingDiaryLog(session, settledKcal)
         }
+        if (session.date == com.qingji.app.domain.AppClock.today()) {
+            refreshHook(context, setOf(com.qingji.app.widget.WidgetTarget.OVERVIEW))
+        }
         return settledKcal
     }
 
@@ -228,6 +236,10 @@ class TrainingRepository(context: Context) {
             // 6：运动日记摘要投影（sourceId=uuid → 不再次触发账本镜像）
             upsertTrainingDiaryLog(session, result.totalKcal)
         }
+        // 阶段B：保存/修改训练 → 今日剩余（统一账本消耗）。仅当日会话刷新。
+        if (session.date == com.qingji.app.domain.AppClock.today()) {
+            refreshHook(context, setOf(com.qingji.app.widget.WidgetTarget.OVERVIEW))
+        }
         return result
     }
 
@@ -272,15 +284,21 @@ class TrainingRepository(context: Context) {
 
     /** 删除会话要连明细、连消耗账本、连运动日记日志一起删，不留孤儿行。 */
     suspend fun deleteSession(uuid: String) {
-        db.withTransaction {
+        // V3 最终缺陷修复 P1：先在事务内取业务日期与实际删除行数，
+        // 事务成功提交后仅当「目标存在且业务日期==AppClock.today()」才刷新 OVERVIEW。
+        val shouldRefresh = db.withTransaction {
+            val sessionDate = sessionDao.findByUuid(uuid)?.date
             workoutExerciseDao.deleteBySession(uuid)
             workoutCardioDao.deleteBySession(uuid)
             sessionDao.deleteByUuid(uuid)
             healthRepository.ledgerDao().deleteBySource(
                 HealthRepository.SOURCE_STRENGTH_TRAINING, uuid
             )
-            // v1.4.2：联动删掉写进运动日记的那条，删训练后日记不残留
             exerciseLogDao.deleteBySourceId(uuid)
+            sessionDate != null && sessionDate == com.qingji.app.domain.AppClock.today()
+        }
+        if (shouldRefresh) {
+            refreshHook(context, setOf(com.qingji.app.widget.WidgetTarget.OVERVIEW))
         }
     }
 
@@ -350,13 +368,28 @@ class TrainingRepository(context: Context) {
                         // QJ 训练联动：优先用编辑器里填的目标参数（组/次/重量），
                         // 预置模板没填 targets → 沿用原来的 3组×10次×0kg，行为不变。
                         val t = tplDay.targets?.get(exerciseName)
+                        val cardioCfg = tplDay.cardioTargets?.get(exerciseName)
+                        val libExercise = library.firstOrNull { it.name == exerciseName }
+                        val resolvedType = com.qingji.app.domain.TrainingTypeResolver.resolve(
+                            persistedRecordType = libExercise?.recordType, name = exerciseName,
+                            englishName = libExercise?.englishName, exerciseType = libExercise?.exerciseType,
+                            category = libExercise?.category, isStretch = libExercise?.isStretch ?: false,
+                            exerciseUuid = libExercise?.uuid
+                        ).type
                         PlanExercise(
                             dayId = dayId,
-                            exerciseUuid = library.firstOrNull { it.name == exerciseName }?.uuid.orEmpty(),
+                            exerciseUuid = libExercise?.uuid.orEmpty(),
                             exerciseNameSnapshot = exerciseName,
                             targetSets = t?.first ?: 3,
                             targetReps = t?.second ?: 10,
                             targetWeightKg = t?.third ?: 0.0,
+                            // 统一体系 V2.1：非力量动作写 recordType + 版本化目标 JSON
+                            recordType = if (resolvedType == com.qingji.app.domain.ExerciseRecordType.STRENGTH)
+                                "" else resolvedType.key,
+                            targetConfigJson = if (cardioCfg != null)
+                                com.qingji.app.domain.TargetConfigJson.encode(
+                                    cardioCfg.copy(type = resolvedType)
+                                ) else "",
                             orderInDay = i
                         )
                     }

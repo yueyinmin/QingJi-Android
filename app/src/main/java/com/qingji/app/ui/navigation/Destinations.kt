@@ -72,6 +72,9 @@ object QingJiRoutes {
     /** editLogId > 0 表示修改已有记录，默认 -1 = 新建。可选参数，老调用不用改。 */
     fun exerciseConfirm(presetId: Long, editLogId: Long = -1L) =
         "exercise_confirm/$presetId?editLogId=$editLogId"
+    /** 阶段 C：力量动作快速补记（uuid 可能含冒号，传参时 encode）。 */
+    const val StrengthQuickRecord = "strength_quick/{uuid}"
+    fun strengthQuick(uuid: String) = "strength_quick/${java.net.URLEncoder.encode(uuid, "UTF-8")}"
 
     /** 训练中心 P0：进行中训练 / 训练日记。 */
     const val TrainingActive = "training_active"
@@ -117,7 +120,7 @@ object QingJiRoutes {
         Settings, SearchFood, TextAi, Weight, AiConfig, Profile,
         ImageRecord, VoiceRecord, Barcode, AiAnalysis, Backup, DiaryEdit, MealDetail,
         Fasting, FoodPreference, FoodLibrary, CustomFoodEdit, UserBrandManage, FoodLibrarySearch,
-        WidgetSettings, ExercisePicker, ExerciseConfirm,
+        WidgetSettings, ExercisePicker, ExerciseConfirm, StrengthQuickRecord, // 补记页也是全屏页：隐藏底栏避免遮挡保存按钮
         TrainingActive, TrainingHistory,
         ExerciseLibrary, ExerciseFavorites, ExerciseDetail, TrainingPlan, CustomPlanEdit, PersonalBest,
         Sleep,

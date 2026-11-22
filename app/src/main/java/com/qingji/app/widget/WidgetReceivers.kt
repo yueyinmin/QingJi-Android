@@ -30,3 +30,8 @@ class OverviewWidgetReceiver : GlanceAppWidgetReceiver() {
 class WeightWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = WeightWidget()
 }
+
+/** 4×2 身体数据（体重/体脂/BMI/减重进度）。 */
+class BodyWidgetReceiver : GlanceAppWidgetReceiver() {
+    override val glanceAppWidget: GlanceAppWidget = BodyWidget()
+}

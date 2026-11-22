@@ -18,11 +18,17 @@ import com.qingji.app.data.local.entity.PlanExercise
  */
 object PlanToDraftMapper {
 
-    /** 映射结果：草稿动作需要的三件事（动作 UUID / 名称快照 / 训练组）。 */
+    /**
+     * 映射结果：草稿动作需要的身份 + 明细。
+     * 力量：sets 非空、cardioConfig=null；
+     * 有氧/其他：sets 为空、cardioConfig 非空（由草稿层构造 WorkoutItem.Cardio）。
+     */
     data class Mapped(
         val exerciseUuid: String,
         val name: String,
-        val sets: List<WorkoutSet>
+        val sets: List<WorkoutSet>,
+        val recordType: ExerciseRecordType = ExerciseRecordType.STRENGTH,
+        val cardioConfig: TargetConfig? = null
     )
 
     /**
@@ -31,6 +37,29 @@ object PlanToDraftMapper {
      * 目标次数/重量 <= 0 视为"未指定"，目标字段存 null。
      */
     fun map(exercise: PlanExercise): Mapped {
+        // 统一体系 V2.1：计划目标配置优先（有氧/HIIT/柔韧等），空串时走 legacy 三列。
+        val cfg = TargetConfigJson.decode(exercise.targetConfigJson)
+        if (cfg != null && cfg.type != ExerciseRecordType.STRENGTH) {
+            return Mapped(
+                exerciseUuid = exercise.exerciseUuid,
+                name = exercise.exerciseNameSnapshot,
+                sets = emptyList(),
+                recordType = cfg.type,
+                cardioConfig = cfg
+            )
+        }
+        val recordType = runCatching { ExerciseRecordType.fromKey(exercise.recordType) }.getOrNull()
+        if (recordType != null && recordType != ExerciseRecordType.STRENGTH) {
+            // 只写了 recordType 没有 targetConfigJson 的旧数据：不伪造目标，
+            // 给一个空配置让用户在训练页填实际时长/距离。
+            return Mapped(
+                exerciseUuid = exercise.exerciseUuid,
+                name = exercise.exerciseNameSnapshot,
+                sets = emptyList(),
+                recordType = recordType,
+                cardioConfig = TargetConfig(type = recordType)
+            )
+        }
         val groupCount = exercise.targetSets.coerceAtLeast(1)
         val targetReps = exercise.targetReps.takeIf { it > 0 }
         val targetWeight = exercise.targetWeightKg.takeIf { it > 0.0 && it.isFinite() }

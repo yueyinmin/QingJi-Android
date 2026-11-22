@@ -230,6 +230,17 @@ fun ProgressCardManagerSheet(
         }
     }
 
+    // QJ-UI-PROGRESS-DRAG-004：003 重构时误删 ModalBottomSheet 包裹层，
+    // 导致管理卡片直接叠在页面顶部（无遮罩/无底部定位/非弹窗）。恢复之。
+    // sheet 固定策略不变：skipPartiallyExpanded + confirmValueChange 拒 Hidden
+    // + dragHandle=null + nestedScroll 吃掉溢出 → sheet 不跟随列表/拖拽手势。
+    ModalBottomSheet(
+        onDismissRequest = { commit(); onDismiss() },
+        sheetState = sheetState,
+        containerColor = CardWhite,
+        dragHandle = null,
+        properties = ModalBottomSheetProperties(shouldDismissOnBackPress = true)
+    ) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -291,66 +302,60 @@ fun ProgressCardManagerSheet(
                         val p = coords.positionInWindow()
                         listBounds = Rect(p.x, p.y, p.x + coords.size.width, p.y + coords.size.height)
                     },
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp) // V2.9：行间留余量，不挤
             ) {
                 items(items = localOrder, key = { it }) { id ->
                     val isDragging = draggingCardId == id
-                    // 被拖卡片在列表里只留等高占位项（完整卡片在 Overlay 绘制）。
-                    // 占位项同样 animateItem → 其他卡片平滑让位；占位项不参与任何位移补偿。
-                    if (isDragging) {
-                        Box(
-                            modifier = Modifier
-                                .animateItem()
-                                .height(52.dp)
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(PageBackground.copy(alpha = 0.5f))
-                        )
-                    } else {
-                        CardRow(
-                            id = id,
-                            name = names[id] ?: id,
-                            checked = id !in localHidden,
-                            isDragging = false,
-                            onCheckedChange = { checked ->
-                                localHidden = if (checked) localHidden - id else localHidden + id
-                                commit()
-                            },
-                            itemModifier = Modifier.animateItem(),
-                            dragHandleModifier = Modifier.pointerInput(id) {
-                                detectDragGesturesAfterLongPress(
-                                    onDragStart = {
-                                        draggingCardId = id
-                                        dragStartOrder = localOrder
-                                        targetIndex = localOrder.indexOf(id)
-                                        // 浮动卡片初始顶部 = 该项在列表中的真实位置（layoutInfo），
-                                        // 换算到容器局部坐标：列表窗口 Y + item offset - 容器窗口 Y。
-                                        val item = listState.layoutInfo.visibleItemsInfo
-                                            .firstOrNull { info -> info.key == id }
-                                        floatTopY = listBounds.top + (item?.offset ?: 0).toFloat() - containerWindowY
-                                    },
-                                    onDrag = { change, amount ->
-                                        change.consume()
-                                        // 浮动层位置唯一来源：累加的手指位移
-                                        floatTopY += amount.y
-                                        recomputeTargetIndex()
-                                    },
-                                    onDragEnd = {
-                                        // 松手：localOrder 已在拖动中稳定到目标位，一次提交
-                                        if (localOrder != dragStartOrder) commit()
-                                        draggingCardId = null
-                                        targetIndex = -1
-                                    },
-                                    onDragCancel = {
-                                        // 取消：回滚快照、清状态、不写盘
-                                        localOrder = dragStartOrder
-                                        draggingCardId = null
-                                        targetIndex = -1
-                                    }
-                                )
-                            }
-                        )
-                    }
+                    // QJ-UI-PROGRESS-DRAG-004：003 重构把被拖卡片换成无手势的占位 Box，
+                    // pointerInput 节点随 onDragStart 的重组被销毁 → detectDragGesturesAfterLongPress
+                    // 只能在 onDragStart 触发一次，后续 onDrag/onDragEnd 永不再回调（拖不动的根因）。
+                    // 修复：列表项始终渲染完整 CardRow（保留 pointerInput 节点与 key=id），
+                    // 被拖项仅用 alpha 淡化为占位；完整卡片在 Overlay 跟手绘制。
+                    CardRow(
+                        id = id,
+                        name = names[id] ?: id,
+                        checked = id !in localHidden,
+                        isDragging = false,
+                        onCheckedChange = { checked ->
+                            localHidden = if (checked) localHidden - id else localHidden + id
+                            commit()
+                        },
+                        itemModifier = Modifier
+                            .animateItem()
+                            .graphicsLayer { alpha = if (isDragging) 0.25f else 1f },
+                        dragHandleModifier = Modifier.pointerInput(id) {
+                            detectDragGesturesAfterLongPress(
+                                onDragStart = {
+                                    draggingCardId = id
+                                    dragStartOrder = localOrder
+                                    targetIndex = localOrder.indexOf(id)
+                                    // 浮动卡片初始顶部 = 该项在列表中的真实位置（layoutInfo），
+                                    // 换算到容器局部坐标：列表窗口 Y + item offset - 容器窗口 Y。
+                                    val item = listState.layoutInfo.visibleItemsInfo
+                                        .firstOrNull { info -> info.key == id }
+                                    floatTopY = listBounds.top + (item?.offset ?: 0).toFloat() - containerWindowY
+                                },
+                                onDrag = { change, amount ->
+                                    change.consume()
+                                    // 浮动层位置唯一来源：累加的手指位移
+                                    floatTopY += amount.y
+                                    recomputeTargetIndex()
+                                },
+                                onDragEnd = {
+                                    // 松手：localOrder 已在拖动中稳定到目标位，一次提交
+                                    if (localOrder != dragStartOrder) commit()
+                                    draggingCardId = null
+                                    targetIndex = -1
+                                },
+                                onDragCancel = {
+                                    // 取消：回滚快照、清状态、不写盘
+                                    localOrder = dragStartOrder
+                                    draggingCardId = null
+                                    targetIndex = -1
+                                }
+                            )
+                        }
+                    )
                 }
             }
             Spacer(Modifier.height(16.dp))
@@ -380,6 +385,7 @@ fun ProgressCardManagerSheet(
             }
         }
     }
+    } // ModalBottomSheet
 }
 
 /**
@@ -403,7 +409,7 @@ private fun CardRow(
     Row(
         modifier = modifier
             .then(itemModifier)
-            .height(52.dp)
+            .height(58.dp) // V2.9：行高增加余量
             .fillMaxWidth()
             .graphicsLayer {
                 scaleX = scale
@@ -413,7 +419,7 @@ private fun CardRow(
                 clip = true
             }
             .background(PageBackground, RoundedCornerShape(12.dp))
-            .padding(horizontal = 12.dp),
+            .padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
