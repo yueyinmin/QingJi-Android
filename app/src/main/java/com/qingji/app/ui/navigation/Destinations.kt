@@ -120,7 +120,7 @@ object QingJiRoutes {
         Settings, SearchFood, TextAi, Weight, AiConfig, Profile,
         ImageRecord, VoiceRecord, Barcode, AiAnalysis, Backup, DiaryEdit, MealDetail,
         Fasting, FoodPreference, FoodLibrary, CustomFoodEdit, UserBrandManage, FoodLibrarySearch,
-        WidgetSettings, ExercisePicker, ExerciseConfirm,
+        WidgetSettings, ExercisePicker, ExerciseConfirm, StrengthQuickRecord, // 补记页也是全屏页：隐藏底栏避免遮挡保存按钮
         TrainingActive, TrainingHistory,
         ExerciseLibrary, ExerciseFavorites, ExerciseDetail, TrainingPlan, CustomPlanEdit, PersonalBest,
         Sleep,

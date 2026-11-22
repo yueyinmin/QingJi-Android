@@ -51,6 +51,7 @@ import com.qingji.app.ui.components.ExerciseIcon
 import com.qingji.app.ui.components.LabeledTextField
 import com.qingji.app.ui.components.PageTopBar
 import com.qingji.app.ui.components.SectionCard
+import com.qingji.app.ui.components.TrainingExerciseThumbnail
 import com.qingji.app.ui.theme.CardWhite
 import com.qingji.app.ui.theme.DangerRed
 import com.qingji.app.ui.theme.DividerColor
@@ -305,8 +306,6 @@ fun ExercisePickerScreen(
             if (strengthItems.isNotEmpty() && tab != TAB_TRAINING) {
                 item {
                     SectionCard(contentPadding = 12.dp) {
-                        Text("力量动作 · 直接补记组数", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = TextSecondary)
-                        Spacer(Modifier.height(8.dp))
                         strengthItems.take(8).forEach { a ->
                             Row(
                                 modifier = Modifier.fillMaxWidth()
@@ -316,6 +315,11 @@ fun ExercisePickerScreen(
                                     .padding(horizontal = 10.dp, vertical = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
+                                // 复用训练选择动作同款缩略图（本地 SVG 首帧 + 首字兜底）
+                                a.exerciseUuid?.let { uuid ->
+                                    TrainingExerciseThumbnail(exerciseUuid = uuid, fallbackName = a.name, size = 40.dp)
+                                    Spacer(Modifier.width(10.dp))
+                                }
                                 Text(a.name, fontSize = 13.sp, color = TextPrimary, modifier = Modifier.weight(1f))
                                 Text("记组数 ›", fontSize = 11.sp, color = QingJiGreen)
                             }
