@@ -11,7 +11,8 @@
 - B1.1 报告：`8cd00eb8481e366f0f0e1f68a618dc94c7c27037`
 - B1.1.1 代码+测试+报告：`01e877be4a645a448b5b8857e7cb88eec3b69858`
 - B1.1.1 报告 HEAD 补充：`0b53767f244489da9d35dbfedc17817bb99c73cf`
-- 本地 HEAD：`0b53767f244489da9d35dbfedc17817bb99c73cf`
+- B1.1.1 ChatGPT 复审材料：`ac9635e8a5fcfdaa4dc3c842e47aeb91d5ae6e5c`
+- 本地 HEAD：`ac9635e8a5fcfdaa4dc3c842e47aeb91d5ae6e5c`
 - 远端 HEAD：`bacd2d04064865da5927956aa51519125cd4d0e0`（未含上述提交）
 - 完整 diff：`docs/reports/B1.1.1/B1.1.1完整diff.patch`（986 行，涵盖全部代码与测试改动）
 
