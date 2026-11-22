@@ -40,6 +40,13 @@ data class WidgetData(
     val waterGoal: Int = 3200,
 
     // ---- P0：分项可用状态（与数值分离，序列化保存） ----
+    /**
+     * 热量目标是否由【有效 Profile】配置（dailyKcalGoal > 0）。
+     * 收尾 P0：profile EMPTY（无档案）或 SUCCESS 但目标无效时为 false；
+     * 此时 goalKcal 的 2000 仅是字段初始化兜底，不是业务目标——不得用于展示剩余或营养条。
+     * 默认 true 仅兼容旧测试夹具；生产路径由 loadFresh/fromJson 显式赋值。
+     */
+    val goalConfigured: Boolean = true,
     /** 用户资料（热量/营养目标、单位）。FAILED 时 goal/proteinGoal 等不可信。 */
     val profileState: ItemState = ItemState.FAILED,
     /** 当日饮食汇总（热量与三营养素）。EMPTY = 真的没记录，0 是真值。 */
@@ -98,9 +105,10 @@ data class WidgetData(
     val workoutAvailable: Boolean get() = workoutState != ItemState.FAILED
     val sleepAvailable: Boolean get() = sleepState != ItemState.FAILED
 
-    /** 剩余热量的三个输入（目标/已吃/运动）全部可用才允许展示，否则不得用默认值冒充。 */
+    /** 剩余热量的输入（真实目标/已吃/运动）全部可用才允许展示；无有效目标一律 --。 */
     val canShowRemaining: Boolean get() =
-        profileState != ItemState.FAILED &&
+        goalConfigured &&
+            profileState != ItemState.FAILED &&
             dietState != ItemState.FAILED &&
             exerciseState != ItemState.FAILED
 
@@ -109,6 +117,7 @@ data class WidgetData(
          * P0：新增分项状态，schema 1 旧快照无法表达「真 0 与失败」区别，
          * 升到 2 后旧快照在 fromJson 直接作废（安全作废，不静默迁移）。
          */
-        const val SCHEMA_VERSION = 4  // 身体数据仪表盘字段
+        // 5 = 收尾 P0：新增 goalConfigured（目标有效性），旧 4 无法区分真目标与默认 2000 兜底，安全作废。
+        const val SCHEMA_VERSION = 5
     }
 }

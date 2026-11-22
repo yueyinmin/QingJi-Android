@@ -16,6 +16,7 @@ class WidgetSnapshotRepoTest {
 
     private fun sample() = WidgetData(
         goalKcal = 1800, eatenKcal = 700, remainingKcal = 1450,
+        goalConfigured = true,
         protein = 80, proteinGoal = 120, carb = 150, carbGoal = 200,
         fat = 40, fatGoal = 50, water = 1200, waterGoal = 3200,
         latestWeight = 68.5, unit = "kg",
@@ -102,6 +103,22 @@ class WidgetSnapshotRepoTest {
     /** P0/工单第 8 条：分项状态字段缺失必须作废（不能回落默认状态）。 */
     @Test
     fun `分项状态字段缺失被拒绝`() = assertRejected { it.remove("dietState") }
+
+    /** 收尾 P0：schema 4 无 goalConfigured，必须作废，不能被当作目标已配置的新快照。 */
+    @Test
+    fun `旧schema4快照被安全作废`() = assertRejected { it.put("schemaVersion", 4) }
+
+    @Test
+    fun `goalConfigured字段缺失被拒绝`() = assertRejected { it.remove("goalConfigured") }
+
+    @Test
+    fun `goalConfigured往返保留_false不被吞成true`() {
+        val d = sample().copy(profileState = ItemState.EMPTY, goalConfigured = false, goalKcal = 2000)
+        val r = WidgetSnapshotRepo.fromJson(WidgetSnapshotRepo.toJson(d))
+        assertFalse(r.goalConfigured)
+        assertFalse(r.canShowRemaining)
+        assertEquals(2000, r.goalKcal) // 占位值保留但被门控，不参与展示
+    }
 
     @Test
     fun `分项状态非法值被拒绝`() = assertRejected { it.put("waterState", "MAYBE") }
