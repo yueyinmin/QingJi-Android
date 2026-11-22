@@ -148,6 +148,18 @@
             android:name=".widget.WidgetPinReceiver"
             android:exported="false" />
 
+        <!-- 阶段B：跨日/时间/时区/开机 → 主动刷新 Widget 两个投影（非 Widget Provider） -->
+        <receiver
+            android:name=".widget.WidgetDateChangeReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.DATE_CHANGED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
         <receiver
             android:name=".notify.ReminderReceiver"
             android:exported="false" />

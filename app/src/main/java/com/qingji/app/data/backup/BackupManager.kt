@@ -520,6 +520,8 @@ class BackupManager(private val context: Context) {
             db.withTransaction {
                 restoreInto(db, parsed)
             }
+            // 阶段B：仅在整份恢复事务成功提交后统一刷新一次（不在事务内、不逐条刷）。
+            com.qingji.app.widget.WidgetRefresher.refresh(context)
 
             Result.success(summaryText(parsed))
         } catch (e: Exception) {

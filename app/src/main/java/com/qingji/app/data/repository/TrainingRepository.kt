@@ -159,6 +159,9 @@ class TrainingRepository(
             // HealthRepository 对带 sourceId 的日志跳过账本镜像，消耗不会算两次。
             upsertTrainingDiaryLog(session, settledKcal)
         }
+        if (session.date == com.qingji.app.domain.AppClock.today()) {
+            refreshHook(context, setOf(com.qingji.app.widget.WidgetTarget.OVERVIEW))
+        }
         return settledKcal
     }
 
@@ -232,6 +235,10 @@ class TrainingRepository(
 
             // 6：运动日记摘要投影（sourceId=uuid → 不再次触发账本镜像）
             upsertTrainingDiaryLog(session, result.totalKcal)
+        }
+        // 阶段B：保存/修改训练 → 今日剩余（统一账本消耗）。仅当日会话刷新。
+        if (session.date == com.qingji.app.domain.AppClock.today()) {
+            refreshHook(context, setOf(com.qingji.app.widget.WidgetTarget.OVERVIEW))
         }
         return result
     }
