@@ -32,6 +32,14 @@ import java.io.File
  * 用系统分享面板发到微信 / 网盘 / 电脑，不需要存储权限。
  * ============================================================
  */
+/**
+ * B1.1.2.1：恢复落库阶段产生的、必须等 Room 事务提交后才能应用的外部存储副作用。
+ * 不放进 ParsedBackup，也不写新表——只是一次性把待写值带回调用方。
+ */
+internal data class RestoreSideEffects(
+    val aiActiveProviderId: Int? = null
+)
+
 class BackupManager(private val context: Context) {
 
     private val db = AppDatabase.get(context)
@@ -525,11 +533,20 @@ class BackupManager(private val context: Context) {
 
             // ---------- 第二步：解析全部成功，才开事务落库 ----------
             // 清「记录类」+ 灌入新数据都在 restoreInto 里，任何一步失败整事务回滚。
-            db.withTransaction {
+            // restoreInto 只返回「待应用的外部存储副作用」，不在事务内写 SettingsStore(DataStore)。
+            val sideEffects = db.withTransaction {
                 restoreInto(db, parsed)
             }
-            // 阶段B：仅在整份恢复事务成功提交后统一刷新一次（不在事务内、不逐条刷）。
-            com.qingji.app.widget.WidgetRefresher.refresh(context)
+            // 阶段B：仅在整份恢复事务成功提交后才应用外部存储副作用/刷新。
+            // 这两步失败都不能把已经提交的数据库恢复误报成整体失败（B1.1.2.1 P1）。
+            runCatching {
+                sideEffects.aiActiveProviderId?.let { id ->
+                    com.qingji.app.data.prefs.SettingsStore.set(
+                        context, com.qingji.app.data.prefs.SettingsKeys.AI_ACTIVE_PROVIDER_ID, id
+                    )
+                }
+            }
+            runCatching { com.qingji.app.widget.WidgetRefresher.refresh(context) }
 
             Result.success(summaryText(parsed))
         } catch (e: Exception) {
@@ -548,7 +565,10 @@ class BackupManager(private val context: Context) {
      * - API Key 依然不进备份、不恢复，保留本机安全边界。
      * 抽成 internal 并显式传库：单测可以直接灌内存 Room 验证这套语义。
      */
-    internal suspend fun restoreInto(target: AppDatabase, p: ParsedBackup) {
+    internal suspend fun restoreInto(target: AppDatabase, p: ParsedBackup): RestoreSideEffects {
+        // B1.1.2.1：Room 事务内只改数据库；外部存储写入攒到副作用里，事务提交后再应用。
+        var pendingAiActiveProviderId: Int? = null
+
         // 清「记录类」+ 用户自建食物/收藏。
         // 预置运动库不动 —— 它是 App 自带的，不是用户数据。
         target.foodLogDao().clearAll()
@@ -598,9 +618,9 @@ class BackupManager(private val context: Context) {
             val restoredIds = p.aiConfigs.map { it.id }
             val active = com.qingji.app.data.prefs.SettingsStore.observe(context).first().aiActiveProviderId
             val valid = if (active in restoredIds) active else (restoredIds.firstOrNull() ?: 0)
-            com.qingji.app.data.prefs.SettingsStore.set(
-                context, com.qingji.app.data.prefs.SettingsKeys.AI_ACTIVE_PROVIDER_ID, valid
-            )
+            // 只记录待写值：SettingsStore 是 DataStore，属于 Room 事务之外的存储系统，
+            // 在事务内 set 会导致「DB 回滚了但设置已改」的不一致（B1.1.2.1 P1）。
+            pendingAiActiveProviderId = valid
         } else if (p.hasAiConfig) {
             val dao = target.aiConfigDao()
             if (p.aiConfig != null) dao.save(p.aiConfig!!) else dao.clearAll()
@@ -705,6 +725,8 @@ class BackupManager(private val context: Context) {
         // P1-01：备份恢复后清掉每日健康汇总缓存，否则下次查询仍读到恢复前的旧汇总。
         // 仍在调用方的 db.withTransaction 内，整份恢复失败时连带回滚。
         target.dailyHealthSummaryDao().clearAll()
+
+        return RestoreSideEffects(pendingAiActiveProviderId)
     }
 
     /**

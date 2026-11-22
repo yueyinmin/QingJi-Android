@@ -6,6 +6,7 @@ import com.qingji.app.data.local.AppDatabase
 import com.qingji.app.data.local.entity.ExerciseEntity
 import com.qingji.app.data.prefs.DraftExercise
 import com.qingji.app.data.prefs.WorkoutDraft
+import com.qingji.app.data.prefs.WorkoutDraftStore
 import com.qingji.app.data.repository.HealthRepository
 import com.qingji.app.data.repository.TrainingRepository
 import com.qingji.app.domain.ExerciseRecordType
@@ -33,6 +34,8 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -305,17 +308,115 @@ class TrainingViewModelB112Test {
         assertTrue(withTimeout(5_000) { ok.await() })
     }
 
-    // ==================== 复审收口：按 revision 条件清理，不与保存期间的新写入互相覆盖 ====================
+    // ==================== T21：不同训练相同 revision 不得互相清理 ====================
     @Test
-    fun `条件清理只删除指定revision的草稿`() = runBlocking {
+    fun `T21 不同训练相同revision不得互相清理草稿`() = runBlocking {
+        val gate = CompletableDeferred<Unit>()
+        val call = AtomicInteger(0)
+        val repo = repoWith(saveHook = { if (call.incrementAndGet() == 1) gate.await() })
+        repo.draftStore.save(strengthDraft("vm112-t21-a", revision = 1L))
+        val vm = vm(repo)
+
+        val first = CompletableDeferred<Boolean>()
+        vm.save { first.complete(it) }   // A 保存卡在事务内
+
+        // 保存期间创建训练 B：同为 revision=1，但 sessionUuid 不同
+        repo.draftStore.save(strengthDraft("vm112-t21-b", revision = 1L))
+        gate.complete(Unit)
+        assertTrue(withTimeout(5_000) { first.await() })
+
+        val stored = repo.draftStore.load()
+        assertNotNull("A 的保存不得清理掉 B 的草稿", stored)
+        assertEquals("B 的 sessionUuid 必须保持", "vm112-t21-b", stored!!.sessionUuid)
+        assertEquals("B 的 revision 必须保持", 1L, stored.revision)
+        assertEquals("A 的数据库保存结果必须正确", 1, sessionCount("vm112-t21-a"))
+        assertNotNull("A 的日记投影必须存在", diaryOf("vm112-t21-a"))
+    }
+
+    // ==================== T22：内存草稿为空时不得无条件清理新草稿 ====================
+    @Test
+    fun `T22 内存草稿为空时不得无条件清理新草稿`() = runBlocking {
+        val gate = CompletableDeferred<Unit>()
+        val call = AtomicInteger(0)
+        val repo = repoWith(saveHook = { if (call.incrementAndGet() == 1) gate.await() })
+        repo.draftStore.save(strengthDraft("vm112-t22-a", revision = 1L))
+        val vm = vm(repo)
+
+        val first = CompletableDeferred<Boolean>()
+        vm.save { first.complete(it) }   // A 保存卡在事务内
+
+        // 保存期间：内存清空，并在 SharedPreferences 写入训练 B 的新草稿
+        vm.discard()
+        repo.draftStore.save(strengthDraft("vm112-t22-b", revision = 3L))
+        assertNull("前置条件：内存草稿已空", vm.draft.value)
+
+        gate.complete(Unit)
+        assertTrue(withTimeout(5_000) { first.await() })
+
+        val stored = repo.draftStore.load()
+        assertNotNull("current==null 不得无条件 clear，B 的草稿必须保留", stored)
+        assertEquals("B 的 sessionUuid 必须保持", "vm112-t22-b", stored!!.sessionUuid)
+        assertEquals("B 的 revision 必须保持", 3L, stored.revision)
+        assertEquals("A 的数据库保存结果必须正确", 1, sessionCount("vm112-t22-a"))
+    }
+
+    // ==================== T24：多 Store 实例共享锁 ====================
+    @Test
+    fun `T24 不同Store实例共享同一把草稿锁`() = runBlocking {
+        val store1 = WorkoutDraftStore(ctx)
+        val store2 = WorkoutDraftStore(ctx)
+        val entered = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        store1.saveHook = {
+            entered.countDown()
+            release.await()   // 持有锁时阻塞，验证另一实例能否穿越
+        }
+
+        val t1 = Thread { store1.save(strengthDraft("vm112-t24-a", revision = 1L)) }
+        t1.start()
+        assertTrue("store1 应进入写入钩子", entered.await(5, TimeUnit.SECONDS))
+
+        val t2Done = CompletableDeferred<Unit>()
+        val t2 = Thread {
+            store2.save(strengthDraft("vm112-t24-b", revision = 2L))
+            t2Done.complete(Unit)
+        }
+        t2.start()
+        val finishedEarly = runCatching {
+            withTimeout(300) { t2Done.await() }
+            true
+        }.getOrDefault(false)
+        assertFalse("共享锁应阻塞另一实例的写入", finishedEarly)
+
+        release.countDown()
+        withTimeout(5_000) { t2Done.await() }
+        t1.join(5_000)
+        t2.join(5_000)
+        assertFalse("两个写入线程都应结束", t1.isAlive || t2.isAlive)
+
+        val finalDraft = store2.load()
+        assertNotNull(finalDraft)
+        assertEquals("后完成的写入应最终生效", "vm112-t24-b", finalDraft!!.sessionUuid)
+        assertEquals(2L, finalDraft.revision)
+    }
+
+    // ==================== T23：相同 sessionUuid 不同 revision 的条件清理 ====================
+    @Test
+    fun `T23 相同sessionUuid不同revision的条件清理`() = runBlocking {
         val store = repoWith().draftStore
-        store.save(strengthDraft("vm112-cond", revision = 7L))
+        store.save(strengthDraft("vm112-t23", revision = 2L))
 
-        assertFalse("旧 revision 不得删掉新草稿", store.clearIfRevision(6L))
-        assertNotNull("条件清理失败时草稿必须还在", store.load())
-        assertEquals(7L, store.load()!!.revision)
+        assertFalse("按 revision=1 清理必须失败",
+            store.clearIfMatches("vm112-t23", 1L))
+        assertNotNull("清理失败时草稿必须还在", store.load())
+        assertEquals(2L, store.load()!!.revision)
 
-        assertTrue("同 revision 才允许清理", store.clearIfRevision(7L))
+        assertFalse("不同 sessionUuid 同 revision 也必须失败",
+            store.clearIfMatches("vm112-t23-other", 2L))
+        assertNotNull("身份不匹配时草稿必须还在", store.load())
+
+        assertTrue("同身份同 revision 才允许清理",
+            store.clearIfMatches("vm112-t23", 2L))
         assertNull("条件清理成功后草稿应清空", store.load())
     }
 

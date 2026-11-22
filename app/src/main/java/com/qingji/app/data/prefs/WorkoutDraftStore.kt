@@ -86,20 +86,22 @@ class WorkoutDraftStore(context: Context) {
         .getSharedPreferences("workout_draft", Context.MODE_PRIVATE)
 
     /**
-     * B1.1.2 复审收口：草稿写入与「按 revision 条件清理」共用一把锁。
-     * SharedPreferences.apply() 本身线程安全，但「读当前 revision + 删除」必须是
-     * 一个不可分割的动作，否则保存完成时的清理可能误删保存期间刚写入的新草稿。
-     */
-    private val draftLock = Any()
-
-    /**
-     * B1.1.2：草稿写入前钩子，生产为空操作。internal + 默认空操作，仅测试注入异常以验证
+     * B1.1.2.1：草稿写入前钩子，生产为空操作。internal + 默认空操作，仅测试注入异常以验证
      * 「写入失败时内存 revision 与 SP 中 revision 保持一致」（T20）。
      * SharedPreferences.apply() 只保证内存立即可见，物理磁盘写入由系统异步完成。
      */
     internal var saveHook: () -> Unit = {}
 
     companion object {
+        /**
+         * B1.1.2.1：进程级共享锁。
+         * 生产架构里确实存在多个 WorkoutDraftStore 实例写同一个 workout_draft 文件
+         * （TrainingRepository 持有一个；QingJiRepository 在清草稿/恢复出厂时又 new 出实例），
+         * 实例级锁无法跨实例互斥，因此锁必须放在 companion 里。
+         * SharedPreferences 这里是 MODE_PRIVATE，不跨进程；多进程场景不在本类保证范围。
+         */
+        private val DRAFT_LOCK = Any()
+
         private const val KEY_DRAFT = "draft_json"
         private const val KEY_UNIT = "weight_unit"   // kg / lb，纯显示层，不进备份
         private const val KEY_REST_DEFAULT = "rest_default_sec"  // 组间休息默认时长（秒）
@@ -149,7 +151,7 @@ class WorkoutDraftStore(context: Context) {
         }.getOrNull()?.takeIf { it.sessionUuid.isNotBlank() && it.startedAt > 0L }
     }
 
-    fun save(draft: WorkoutDraft) = synchronized(draftLock) {
+    fun save(draft: WorkoutDraft) = synchronized(DRAFT_LOCK) {
         saveHook()   // B1.1.2：测试注入落盘失败（生产为空）
         val o = JSONObject().apply {
             put("sessionUuid", draft.sessionUuid)
@@ -186,21 +188,28 @@ class WorkoutDraftStore(context: Context) {
         sp.edit().putString(KEY_DRAFT, o.toString()).apply()
     }
 
-    fun clear() = synchronized(draftLock) { sp.edit().remove(KEY_DRAFT).apply() }
+    fun clear() = synchronized(DRAFT_LOCK) { sp.edit().remove(KEY_DRAFT).apply() }
 
     /**
-     * B1.1.2 复审收口：只在磁盘上的草稿仍是 expected 版本时才删除。
-     * 读 revision 与删除在同一把 draftLock 内完成，保存期间的新写入不会被旧保存任务清掉。
+     * B1.1.2.1：同时校验草稿身份与版本，两者都匹配才删除。
+     * B1.1.2 只比较 revision 是不充分的：不同训练会话都可能 revision=1，
+     * 旧保存完成后会误删另一份新训练的草稿。
+     * 读取、身份校验、版本校验、删除全部在 DRAFT_LOCK 内完成；任一条件不满足都保留草稿。
      * 返回是否真的删除；调用方据此决定内存 _draft 是否置空。
      */
-    internal fun clearIfRevision(expected: Long): Boolean = synchronized(draftLock) {
-        if (load()?.revision == expected) {
-            sp.edit().remove(KEY_DRAFT).apply()
-            true
-        } else {
-            false
+    internal fun clearIfMatches(expectedSessionUuid: String, expectedRevision: Long): Boolean =
+        synchronized(DRAFT_LOCK) {
+            val current = load()
+            if (current != null &&
+                current.sessionUuid == expectedSessionUuid &&
+                current.revision == expectedRevision
+            ) {
+                sp.edit().remove(KEY_DRAFT).apply()
+                true
+            } else {
+                false
+            }
         }
-    }
 
     /** kg/lb 只在显示层换算，库里永远存 kg。 */
     fun unit(): String = sp.getString(KEY_UNIT, UNIT_KG) ?: UNIT_KG

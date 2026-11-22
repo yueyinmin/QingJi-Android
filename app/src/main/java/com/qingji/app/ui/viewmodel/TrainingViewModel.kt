@@ -602,27 +602,25 @@ class TrainingViewModel(app: Application, repoOverride: TrainingRepository? = nu
 
                 // ---------- 第二段：数据库已成功提交，以下任何异常都不改变「已保存」事实 ----------
                 try {
-                    // B1.1.2 复审收口：版本比对和清理在 WorkoutDraftStore 的同一把锁内完成，
-                    // 且只删「本次保存的那一个 revision」，旧保存任务不可能清掉期间写入的新草稿。
+                    // B1.1.2.1：清理只看「磁盘上的草稿是否仍是本次保存的那一份」。
+                    // 身份（sessionUuid）与版本（revision）必须同时匹配，且校验+删除在
+                    // WorkoutDraftStore 的进程级共享锁内完成；current==null 也不再无条件 clear。
                     val current = _draft.value
+                    val cleared = runCatching {
+                        draftStore.clearIfMatches(snapshot.sessionUuid, snapshotRevision)
+                    }.getOrDefault(false)
                     when {
+                        cleared -> _draft.value = null
                         current == null -> {
-                            runCatching { draftStore.clear() }
-                            _draft.value = null
+                            // 内存已空但磁盘里是另一份草稿：原样保留，绝不能误删新训练（T22）
                         }
-                        current.revision == snapshotRevision -> {
-                            val cleared = runCatching {
-                                draftStore.clearIfRevision(snapshotRevision)
-                            }.getOrDefault(false)
-                            if (cleared) {
-                                _draft.value = null
-                            } else {
-                                runCatching { say("这次训练已保存，但草稿版本已变化，草稿已保留以便检查") }
-                            }
-                        }
-                        else -> {
+                        current.revision != snapshotRevision -> {
                             // 保存期间又有新修改：新草稿（含同一 sessionUuid）留给下一次保存（T15/T16）
                             runCatching { say("这次训练已保存；你在保存期间的新修改仍保留在草稿里，可再次保存") }
+                        }
+                        else -> {
+                            // 版本没变但身份变了（例如另一场训练），保留草稿并如实提示
+                            runCatching { say("这次训练已保存，但草稿身份或版本已变化，草稿已保留以便检查") }
                         }
                     }
                     val hasActual = snapshot.exercises.any { e ->

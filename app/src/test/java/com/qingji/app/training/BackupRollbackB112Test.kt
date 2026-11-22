@@ -8,13 +8,18 @@ import com.qingji.app.data.backup.TrainingBackup
 import com.qingji.app.data.backup.parseBackup
 import com.qingji.app.data.local.AppDatabase
 import com.qingji.app.data.local.entity.WorkoutSession
+import com.qingji.app.data.prefs.SettingsKeys
+import com.qingji.app.data.prefs.SettingsStore
 import com.qingji.app.data.repository.HealthRepository
 import com.qingji.app.data.repository.TrainingRepository
 import com.qingji.app.domain.BackupFormat
 import com.qingji.app.domain.WorkoutCalorieCalculator
 import com.qingji.app.domain.WorkoutItem
 import com.qingji.app.domain.WorkoutSet
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import org.json.JSONArray
+import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -110,5 +115,40 @@ class BackupRollbackB112Test {
         assertNotNull("日记投影必须回滚保留", db.exerciseLogDao().findBySourceId(uuid))
         assertEquals("训练备注不得被覆盖", "要保住的训练",
             db.workoutSessionDao().findByUuid(uuid)!!.note)
+    }
+
+    @Test
+    fun `恢复落库只返回AI激活设置副作用不在Room事务内写DataStore`() = runBlocking {
+        val newId = 42
+        val aiConfig = JSONObject().apply {
+            put("id", newId)
+            put("displayName", "测试服务")
+            put("provider", "custom")
+            put("baseUrl", "https://example.com/v1")
+            put("textModel", "text-model")
+            put("visionModel", "vision-model")
+            put("temperature", 0.2)
+            put("timeoutSec", 30)
+            put("dailyLimit", 100)
+            put("enabled", true)
+        }
+        val root = JSONObject().apply {
+            put("app", "qingji")
+            put("version", BackupFormat.VERSION)
+            put("aiConfigs", JSONArray().put(aiConfig))
+        }
+        val parsed = parseBackup(root.toString()).getOrThrow()
+        val before = SettingsStore.observe(ctx).first().aiActiveProviderId
+
+        val manager = BackupManager(ctx)
+        val effects = db.withTransaction { manager.restoreInto(db, parsed) }
+
+        assertEquals("应返回待提交后应用的 AI 激活 ID", newId, effects.aiActiveProviderId)
+        assertEquals("Room 事务内不得写 DataStore 设置", before,
+            SettingsStore.observe(ctx).first().aiActiveProviderId)
+
+        // 显式应用副作用后，设置才更新（模拟 importJson 事务提交后的行为）
+        SettingsStore.set(ctx, SettingsKeys.AI_ACTIVE_PROVIDER_ID, effects.aiActiveProviderId!!)
+        assertEquals(newId, SettingsStore.observe(ctx).first().aiActiveProviderId)
     }
 }
