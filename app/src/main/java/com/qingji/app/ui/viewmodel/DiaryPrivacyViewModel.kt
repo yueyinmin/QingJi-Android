@@ -27,10 +27,23 @@ import kotlinx.coroutines.launch
  * 进程重建 → 新 ViewModel → 新 Controller → Locked；解锁态绝不写入任何持久化存储。
  */
 class DiaryPrivacyViewModel(
-    app: Application,
-    /** 可注入网关；生产为 SystemBiometricGateway，测试可传 Fake。 */
-    private val gateway: BiometricGateway = SystemBiometricGateway()
+    app: Application
 ) : AndroidViewModel(app) {
+
+    /**
+     * 可注入网关；生产为 SystemBiometricGateway。
+     *
+     * 注意：不能把 gateway 放主构造函数并给默认值。Kotlin 会因此只生成
+     * (Application, BiometricGateway[, ...]) 构造，而 AndroidViewModel 默认
+     * factory 反射查找的是精确的 (Application) 构造——找不到即
+     * NoSuchMethodException，覆盖安装后启动闪退。测试注入改用 [gatewayOverride]。
+     */
+    private var gatewayOverride: BiometricGateway? = null
+    private val gateway: BiometricGateway
+        get() = gatewayOverride ?: SystemBiometricGateway()
+
+    /** 仅供测试注入 Fake 网关，不影响生产反射构造。 */
+    fun setGatewayForTest(gateway: BiometricGateway) { gatewayOverride = gateway }
 
     val controller = DiaryPrivacyController {
         gateway.availability(getApplication()) == BiometricAvailability.SUCCESS
