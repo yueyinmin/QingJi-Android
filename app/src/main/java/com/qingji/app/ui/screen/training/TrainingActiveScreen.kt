@@ -20,7 +20,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -36,9 +38,12 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.qingji.app.data.prefs.DraftExercise
 import com.qingji.app.data.prefs.WorkoutDraftStore
+import com.qingji.app.domain.ExerciseRecordType
 import com.qingji.app.domain.SessionCalorieCalculator
 import com.qingji.app.domain.TrainingMath
+import com.qingji.app.domain.WorkoutItem
 import com.qingji.app.ui.components.AppDialog
 import com.qingji.app.ui.components.PageTopBar
 import com.qingji.app.ui.components.PrimaryButton
@@ -231,26 +236,36 @@ fun TrainingActiveScreen(
 
                 d.exercises.forEach { e ->
                     val entity = library.firstOrNull { it.uuid == e.exerciseUuid }
-                    val met = vm.metForExercise(e.exerciseUuid, entity?.isStretch == true)
-                    SetEditorCard(
-                        name = e.name,
-                        exerciseUuid = e.exerciseUuid,
-                        sets = e.sets,
-                        unit = unit,
-                        fromLast = e.fromLast,
-                        setKcal = SessionCalorieCalculator.previewSetKcalList(
-                            metLow = met.first,
-                            metModerate = met.second,
-                            metHigh = met.third,
-                            weightKg = settleWeight,
-                            sets = e.sets
-                        ),
-                        onUpdate = { index, set -> vm.updateSet(e.key, index, set) },
-                        onAdd = { vm.addSet(e.key) },
-                        onRemoveSet = { index -> vm.removeSet(e.key, index) },
-                        onRemoveExercise = { vm.removeExercise(e.key) },
-                        onToggleComplete = { index -> vm.toggleSetComplete(e.key, index) }
-                    )
+                    val type = com.qingji.app.domain.TrainingItemMapper.resolveType(e.recordType, entity)
+                    if (type == ExerciseRecordType.STRENGTH) {
+                        val met = vm.metForExercise(e.exerciseUuid, entity?.isStretch == true)
+                        SetEditorCard(
+                            name = e.name,
+                            exerciseUuid = e.exerciseUuid,
+                            sets = e.sets,
+                            unit = unit,
+                            fromLast = e.fromLast,
+                            setKcal = SessionCalorieCalculator.previewSetKcalList(
+                                metLow = met.first,
+                                metModerate = met.second,
+                                metHigh = met.third,
+                                weightKg = settleWeight,
+                                sets = e.sets
+                            ),
+                            onUpdate = { index, set -> vm.updateSet(e.key, index, set) },
+                            onAdd = { vm.addSet(e.key) },
+                            onRemoveSet = { index -> vm.removeSet(e.key, index) },
+                            onRemoveExercise = { vm.removeExercise(e.key) },
+                            onToggleComplete = { index -> vm.toggleSetComplete(e.key, index) }
+                        )
+                    } else {
+                        NonStrengthEditorCard(
+                            draft = e,
+                            type = type,
+                            vm = vm,
+                            onRemoveExercise = { vm.removeExercise(e.key) }
+                        )
+                    }
                     Spacer(Modifier.height(8.dp))
                 }
 
@@ -375,6 +390,197 @@ fun TrainingActiveScreen(
         ) {
             Text("还没保存的动作和组数据都会清掉，已经保存过的训练不受影响。",
                 fontSize = 14.sp, color = TextPrimary)
+        }
+    }
+}
+
+/**
+ * B1.1：非力量项目录入卡。
+ * 目标配置只作为提示展示；实际值必须用户输入后才写进实际字段，绝不把目标伪装成成绩。
+ * 状态按 draft.key 绑定，删除/排序其他动作不会串数据。
+ */
+@Composable
+private fun NonStrengthEditorCard(
+    draft: DraftExercise,
+    type: ExerciseRecordType,
+    vm: TrainingViewModel,
+    onRemoveExercise: () -> Unit
+) {
+    val parsed = remember(draft.key) { WorkoutItem.fromJson(draft.actualJson) }
+    val target = remember(draft.targetConfigJson) {
+        com.qingji.app.domain.TargetConfigJson.decode(draft.targetConfigJson)
+    }
+    var minutes by remember(draft.key) {
+        mutableStateOf(((parsed as? WorkoutItem.Cardio)?.durationSec
+            ?: (parsed as? WorkoutItem.Hiit)?.durationSec
+            ?: (parsed as? WorkoutItem.Flexibility)?.durationSec
+            ?: (parsed as? WorkoutItem.Other)?.durationSec ?: 0L).toString())
+    }
+    var distanceKm by remember(draft.key) {
+        mutableStateOf(((parsed as? WorkoutItem.Cardio)?.distanceMeters ?: 0.0).toString())
+    }
+    var intensity by remember(draft.key) {
+        mutableStateOf((parsed as? WorkoutItem.Cardio)?.intensity
+            ?: (parsed as? WorkoutItem.Hiit)?.intensity ?: "medium")
+    }
+    var workSec by remember(draft.key) {
+        mutableStateOf(((parsed as? WorkoutItem.Hiit)?.workSec ?: 0).toString())
+    }
+    var restSec by remember(draft.key) {
+        mutableStateOf(((parsed as? WorkoutItem.Hiit)?.restSec ?: 0).toString())
+    }
+    var rounds by remember(draft.key) {
+        mutableStateOf(((parsed as? WorkoutItem.Hiit)?.rounds ?: 0).toString())
+    }
+    var content by remember(draft.key) {
+        mutableStateOf((parsed as? WorkoutItem.Flexibility)?.content.orEmpty())
+    }
+    var reps by remember(draft.key) {
+        mutableStateOf(((parsed as? WorkoutItem.Other)?.reps ?: 0).toString())
+    }
+
+    fun durationSec(): Long = (minutes.toIntOrNull() ?: 0).coerceIn(0, 600) * 60L
+
+    fun emit() {
+        val common = Triple(draft.key, draft.exerciseUuid, draft.name)
+        val item = when (type) {
+            ExerciseRecordType.CARDIO -> WorkoutItem.Cardio(
+                itemId = common.first, exerciseUuid = common.second, name = common.third, order = 0,
+                durationSec = durationSec(),
+                distanceMeters = distanceKm.toDoubleOrNull()?.takeIf { it > 0.0 && it <= 500.0 }?.times(1000.0),
+                intensity = intensity
+            )
+            ExerciseRecordType.HIIT -> WorkoutItem.Hiit(
+                itemId = common.first, exerciseUuid = common.second, name = common.third, order = 0,
+                durationSec = durationSec(),
+                workSec = (workSec.toIntOrNull() ?: 0).coerceIn(0, 3600),
+                restSec = (restSec.toIntOrNull() ?: 0).coerceIn(0, 3600),
+                rounds = (rounds.toIntOrNull() ?: 0).coerceIn(0, 100),
+                intensity = intensity
+            )
+            ExerciseRecordType.FLEXIBILITY -> WorkoutItem.Flexibility(
+                itemId = common.first, exerciseUuid = common.second, name = common.third, order = 0,
+                durationSec = durationSec(), content = content
+            )
+            ExerciseRecordType.OTHER -> WorkoutItem.Other(
+                itemId = common.first, exerciseUuid = common.second, name = common.third, order = 0,
+                durationSec = durationSec(), reps = reps.toIntOrNull()?.takeIf { it >= 0 }
+            )
+            else -> return
+        }
+        vm.updateActual(draft.key, item)
+    }
+
+    val typeLabel = when (type) {
+        ExerciseRecordType.CARDIO -> "有氧"
+        ExerciseRecordType.HIIT -> "HIIT 间歇"
+        ExerciseRecordType.FLEXIBILITY -> "柔韧"
+        else -> "其他"
+    }
+    val hint = buildString {
+        target?.durationSec?.let { append("目标时长 ${it / 60} 分钟；") }
+        target?.distanceMeters?.let { append("目标距离 ${"%.2f".format(it / 1000.0)} 公里；") }
+        target?.rounds?.let { append("目标 $it 轮；") }
+        if (isEmpty()) append("没有计划目标，填实际完成值即可")
+    }
+
+    SectionCard(contentPadding = Dimens.CardPaddingCompact) {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("$typeLabel · ${draft.name}", fontSize = TextSizes.CardTitle,
+                fontWeight = FontWeight.SemiBold, color = TextPrimary,
+                modifier = Modifier.weight(1f))
+            TextButton(onClick = onRemoveExercise) { Text("移除", color = TextSecondary) }
+        }
+        Text(hint, fontSize = TextSizes.Tiny, color = TextSecondary)
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            value = minutes,
+            onValueChange = { minutes = it; emit() },
+            label = { Text("实际时长（分钟）") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+        if (type == ExerciseRecordType.CARDIO) {
+            Spacer(Modifier.height(6.dp))
+            OutlinedTextField(
+                value = distanceKm,
+                onValueChange = { distanceKm = it; emit() },
+                label = { Text("实际距离（公里，可不填）") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(6.dp))
+            Text("强度", fontSize = TextSizes.Caption, color = TextSecondary)
+            Row {
+                listOf(
+                    com.qingji.app.domain.ExerciseCalculator.INTENSITY_LIGHT to "轻",
+                    com.qingji.app.domain.ExerciseCalculator.INTENSITY_MEDIUM to "中",
+                    com.qingji.app.domain.ExerciseCalculator.INTENSITY_HIGH to "强"
+                ).forEach { (key, label) ->
+                    Box(
+                        modifier = Modifier
+                            .padding(end = 6.dp)
+                            .clip(RoundedCornerShape(Dimens.PillCorner))
+                            .background(if (intensity == key) QingJiGreen else QingJiGreenLight)
+                            .clickable { intensity = key; emit() }
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Text(label, fontSize = TextSizes.Caption,
+                            color = if (intensity == key) CardWhite else QingJiGreen)
+                    }
+                }
+            }
+        }
+        if (type == ExerciseRecordType.HIIT) {
+            Spacer(Modifier.height(6.dp))
+            OutlinedTextField(
+                value = workSec,
+                onValueChange = { workSec = it; emit() },
+                label = { Text("工作时长（秒/轮）") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(6.dp))
+            OutlinedTextField(
+                value = restSec,
+                onValueChange = { restSec = it; emit() },
+                label = { Text("休息时长（秒/轮）") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(6.dp))
+            OutlinedTextField(
+                value = rounds,
+                onValueChange = { rounds = it; emit() },
+                label = { Text("完成轮数") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        if (type == ExerciseRecordType.FLEXIBILITY) {
+            Spacer(Modifier.height(6.dp))
+            OutlinedTextField(
+                value = content,
+                onValueChange = { content = it; emit() },
+                label = { Text("动作/部位说明（可不填）") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        if (type == ExerciseRecordType.OTHER) {
+            Spacer(Modifier.height(6.dp))
+            OutlinedTextField(
+                value = reps,
+                onValueChange = { reps = it; emit() },
+                label = { Text("次数（可不填）") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        if (type == ExerciseRecordType.HIIT || type == ExerciseRecordType.FLEXIBILITY || type == ExerciseRecordType.OTHER) {
+            Spacer(Modifier.height(6.dp))
+            Text("当前版本保留类型、目标配置和原始输入，不生成估算热量。",
+                fontSize = TextSizes.Tiny, color = TextSecondary)
         }
     }
 }

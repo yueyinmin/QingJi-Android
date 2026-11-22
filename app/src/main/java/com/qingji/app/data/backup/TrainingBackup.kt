@@ -4,6 +4,7 @@ import com.qingji.app.data.local.entity.ExerciseEntity
 import com.qingji.app.data.local.entity.PlanExercise
 import com.qingji.app.data.local.entity.TrainingPlan
 import com.qingji.app.data.local.entity.TrainingPlanDay
+import com.qingji.app.data.local.entity.WorkoutCardioDetail
 import com.qingji.app.data.local.entity.WorkoutExercise
 import com.qingji.app.data.local.entity.WorkoutSession
 import org.json.JSONArray
@@ -12,7 +13,7 @@ import java.time.LocalDate
 
 /**
  * ============================================================
- * 备份文件 v3 新增的 training 段（训练中心 6 张表）
+ * 备份文件 v3 新增的 training 段（训练中心 7 张表，B1.1 补入 workout_cardio_detail）
  * ------------------------------------------------------------
  * 为什么是 v3 不是 v2：BackupFormat.VERSION 在 v1.0.6 就已经是 2 了
  * （当时补了围度/照片/运动/断食/自建运动五段）。
@@ -30,10 +31,12 @@ data class TrainingBackup(
     val planDays: List<TrainingPlanDay> = emptyList(),
     val planExercises: List<PlanExercise> = emptyList(),
     val sessions: List<WorkoutSession> = emptyList(),
-    val workoutExercises: List<WorkoutExercise> = emptyList()
+    val workoutExercises: List<WorkoutExercise> = emptyList(),
+    /** B1.1：有氧明细必须随备份往返，且其 rawInputJson 承载类型/目标/实际。 */
+    val cardioDetails: List<WorkoutCardioDetail> = emptyList()
 ) {
     fun isEmpty(): Boolean = exercises.isEmpty() && plans.isEmpty() && planDays.isEmpty() &&
-        planExercises.isEmpty() && sessions.isEmpty() && workoutExercises.isEmpty()
+        planExercises.isEmpty() && sessions.isEmpty() && workoutExercises.isEmpty() && cardioDetails.isEmpty()
 
     fun toJson(): JSONObject = JSONObject().apply {
         put("exercises", JSONArray().apply {
@@ -46,6 +49,7 @@ data class TrainingBackup(
                 put("exerciseType", e.exerciseType); put("isStretch", e.isStretch)
                 put("assetPath", e.assetPath); put("attribution", e.attribution)
                 put("isBuiltIn", e.isBuiltIn); put("isFavorite", e.isFavorite)
+                put("recordType", e.recordType)
                 put("createdAt", e.createdAt); put("updatedAt", e.updatedAt)
             }) }
         })
@@ -67,6 +71,7 @@ data class TrainingBackup(
                 put("exerciseNameSnapshot", x.exerciseNameSnapshot)
                 put("targetSets", x.targetSets); put("targetReps", x.targetReps)
                 put("targetWeightKg", x.targetWeightKg); put("orderInDay", x.orderInDay)
+                put("recordType", x.recordType); put("targetConfigJson", x.targetConfigJson)
             }) }
         })
         put("sessions", JSONArray().apply {
@@ -84,6 +89,21 @@ data class TrainingBackup(
                 put("exerciseNameSnapshot", w.exerciseNameSnapshot)
                 put("orderInSession", w.orderInSession)
                 put("setsJson", w.setsJson); put("note", w.note)
+                put("itemMetaJson", w.itemMetaJson)
+            }) }
+        })
+        put("cardioDetails", JSONArray().apply {
+            cardioDetails.forEach { c -> put(JSONObject().apply {
+                put("id", c.id); put("sessionUuid", c.sessionUuid)
+                put("exerciseUuid", c.exerciseUuid); put("exerciseNameSnapshot", c.exerciseNameSnapshot)
+                put("orderInSession", c.orderInSession)
+                put("durationSeconds", c.durationSeconds)
+                c.distanceMeters?.let { put("distanceMeters", it) }
+                put("calculatedKcal", c.calculatedKcal)
+                put("calculationMethod", c.calculationMethod)
+                put("calculationVersion", c.calculationVersion)
+                c.weightSnapshot?.let { put("weightSnapshot", it) }
+                put("rawInputJson", c.rawInputJson); put("createdAt", c.createdAt)
             }) }
         })
     }
@@ -112,6 +132,7 @@ fun parseTraining(o: JSONObject?): TrainingBackup? {
                     attribution = e.optString("attribution", ""),
                     isBuiltIn = e.optBoolean("isBuiltIn", false),
                     isFavorite = e.optBoolean("isFavorite", false),
+                    recordType = e.optString("recordType", ""),
                     createdAt = e.optLong("createdAt", 0L),
                     updatedAt = e.optLong("updatedAt", 0L)
                 )
@@ -136,7 +157,9 @@ fun parseTraining(o: JSONObject?): TrainingBackup? {
                 exerciseNameSnapshot = x.optString("exerciseNameSnapshot", ""),
                 targetSets = x.optInt("targetSets", 0), targetReps = x.optInt("targetReps", 0),
                 targetWeightKg = x.optDouble("targetWeightKg", 0.0),
-                orderInDay = x.optInt("orderInDay", 0)
+                orderInDay = x.optInt("orderInDay", 0),
+                recordType = x.optString("recordType", ""),
+                targetConfigJson = x.optString("targetConfigJson", "")
             ) },
             sessions = o.items("sessions") { s ->
                 val uuid = s.optString("uuid", "")
@@ -154,8 +177,27 @@ fun parseTraining(o: JSONObject?): TrainingBackup? {
                 exerciseUuid = w.optString("exerciseUuid", ""),
                 exerciseNameSnapshot = w.optString("exerciseNameSnapshot", ""),
                 orderInSession = w.optInt("orderInSession", 0),
-                setsJson = w.optString("setsJson", ""), note = w.optString("note", "")
-            ) }
+                setsJson = w.optString("setsJson", ""), note = w.optString("note", ""),
+                itemMetaJson = w.optString("itemMetaJson", "")
+            ) },
+            cardioDetails = o.items("cardioDetails") { c ->
+                val sessionUuid = c.optString("sessionUuid", "")
+                if (sessionUuid.isEmpty()) null else WorkoutCardioDetail(
+                    id = c.optLong("id", 0L), sessionUuid = sessionUuid,
+                    exerciseUuid = c.optString("exerciseUuid", ""),
+                    exerciseNameSnapshot = c.optString("exerciseNameSnapshot", ""),
+                    orderInSession = c.optInt("orderInSession", 0),
+                    durationSeconds = c.optLong("durationSeconds", 0L),
+                    distanceMeters = c.optDouble("distanceMeters", Double.NaN)
+                        .takeIf { it.isFinite() },
+                    calculatedKcal = c.optDouble("calculatedKcal", 0.0).takeIf { it.isFinite() } ?: 0.0,
+                    calculationMethod = c.optString("calculationMethod", ""),
+                    calculationVersion = c.optString("calculationVersion", ""),
+                    weightSnapshot = c.optDouble("weightSnapshot", Double.NaN).takeIf { it.isFinite() },
+                    rawInputJson = c.optString("rawInputJson", ""),
+                    createdAt = c.optLong("createdAt", 0L)
+                )
+            }
         )
     } catch (e: Exception) {
         null

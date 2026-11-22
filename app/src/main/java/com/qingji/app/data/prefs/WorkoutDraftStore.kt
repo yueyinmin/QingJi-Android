@@ -18,7 +18,9 @@ data class DraftExercise(
     /** 统一体系 V2.1：非空 = 非力量动作（有氧/HIIT等），保存时走 WorkoutItem.Cardio。 */
     val recordType: String = "",
     /** 该动作的计划目标配置 JSON（TargetConfigJson），空串 = 力量或没目标。 */
-    val targetConfigJson: String = ""
+    val targetConfigJson: String = "",
+    /** B1.1：用户实际录入的时长/距离/间歇字段（WorkoutItem JSON）。目标字段与目标配置严格分离。 */
+    val actualJson: String = ""
 )
 
 /** 一次「还没保存」的训练。进程被杀掉后靠它恢复到离开前的样子。 */
@@ -103,7 +105,8 @@ class WorkoutDraftStore(context: Context) {
                     note = e.optString("note", ""),
                     fromLast = e.optBoolean("fromLast", false),
                     recordType = e.optString("recordType", ""),
-                    targetConfigJson = e.optString("targetConfigJson", "")
+                    targetConfigJson = e.optString("targetConfigJson", ""),
+                    actualJson = e.optString("actualJson", "")
                 )
             }.filter { it.name.isNotBlank() }
             WorkoutDraft(
@@ -153,6 +156,7 @@ class WorkoutDraftStore(context: Context) {
                         put("fromLast", e.fromLast)
                         put("recordType", e.recordType)
                         put("targetConfigJson", e.targetConfigJson)
+                        put("actualJson", e.actualJson)
                     })
                 }
             })

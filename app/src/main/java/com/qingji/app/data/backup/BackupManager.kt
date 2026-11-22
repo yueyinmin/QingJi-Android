@@ -151,7 +151,8 @@ class BackupManager(private val context: Context) {
             planDays = db.trainingPlanDayDao().findAll(),
             planExercises = db.planExerciseDao().findAll(),
             sessions = db.workoutSessionDao().findAll(),
-            workoutExercises = db.workoutExerciseDao().findAll()
+            workoutExercises = db.workoutExerciseDao().findAll(),
+            cardioDetails = db.workoutCardioDetailDao().findAll()
         )
         // v4：自律模块 7 张表整包带走，换手机不丢自律记录（settings 用已有的 getAll()）
         val selfDiscipline = SelfDisciplineBackup(
@@ -658,11 +659,13 @@ class BackupManager(private val context: Context) {
             target.planExerciseDao().clearAll()
             target.workoutSessionDao().clearAll()
             target.workoutExerciseDao().clearAll()
+            target.workoutCardioDetailDao().clearAll()
             if (t.plans.isNotEmpty()) target.trainingPlanDao().insertAll(t.plans)
             if (t.planDays.isNotEmpty()) target.trainingPlanDayDao().insertAll(t.planDays)
             if (t.planExercises.isNotEmpty()) target.planExerciseDao().insertAll(t.planExercises)
             if (t.sessions.isNotEmpty()) target.workoutSessionDao().insertAll(t.sessions)
             if (t.workoutExercises.isNotEmpty()) target.workoutExerciseDao().insertAll(t.workoutExercises)
+            if (t.cardioDetails.isNotEmpty()) target.workoutCardioDetailDao().insertAll(t.cardioDetails)
         }
 
         // ---------- v4 自律段 ----------

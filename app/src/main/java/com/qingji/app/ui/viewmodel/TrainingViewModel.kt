@@ -13,7 +13,9 @@ import com.qingji.app.domain.AppClock
 import com.qingji.app.domain.PlanToDraftMapper
 import com.qingji.app.domain.RestTimerState
 import com.qingji.app.domain.SessionCalorieCalculator
+import com.qingji.app.domain.TrainingItemMapper
 import com.qingji.app.domain.TrainingMath
+import com.qingji.app.domain.WorkoutItem
 import com.qingji.app.domain.WorkoutSet
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -44,9 +46,9 @@ enum class TrainingInitState {
     Failed          // 计划读取失败（已按空白继续，界面给重试提示）
 }
 
-class TrainingViewModel(app: Application) : AndroidViewModel(app) {
+class TrainingViewModel(app: Application, repoOverride: TrainingRepository? = null) : AndroidViewModel(app) {
 
-    private val repo = TrainingRepository(app)
+    private val repo = repoOverride ?: TrainingRepository(app)
     val draftStore = repo.draftStore
 
     // ---------- v1.4 健康体系：组间休息计时 ----------
@@ -94,6 +96,10 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
 
     /** 所有训练明细，按 sessionUuid 分组后给历史列表算组数 / 训练量。 */
     val allWorkoutExercises: StateFlow<List<WorkoutExercise>> = repo.observeAllWorkoutExercises()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** B1.1：历史/日记统一数据源——所有训练类型都从这里读，不再只读力量表。 */
+    val allSessionItems: StateFlow<List<WorkoutItem>> = repo.observeAllSessionItems()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     // ---------- v1.4 健康体系：热量估算支持 ----------
@@ -266,19 +272,24 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
     /** 当天已保存的会话可以继续改明细；时间与时长保留原值。 */
     fun editSession(uuid: String, onLoaded: () -> Unit = {}) {
         viewModelScope.launch {
-            val (session, items) = repo.sessionDetail(uuid)
+            val detail = repo.sessionDetail(uuid)
+            val session = detail.session
             if (session == null) {
                 say("这次训练已经不在了")
                 return@launch
             }
             val t = System.currentTimeMillis()
-            val draftExercises = items.map { item ->
+            // B1.1：完整会话回草稿——力量、有氧和 HIIT/柔韧/其他都带类型、目标与原始输入回来。
+            val draftExercises = detail.items.map { item ->
                 DraftExercise(
                     key = UUID.randomUUID().toString(),
                     exerciseUuid = item.exerciseUuid,
-                    name = item.exerciseNameSnapshot,
-                    sets = TrainingMath.decodeSets(item.setsJson),
-                    note = item.note
+                    name = item.name,
+                    sets = (item as? WorkoutItem.Strength)?.sets.orEmpty(),
+                    note = item.note,
+                    recordType = item.recordType.key,
+                    targetConfigJson = item.targetConfigJson,
+                    actualJson = WorkoutItem.toJson(item)
                 )
             }
             persist(
@@ -313,14 +324,17 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val last = repo.lastSets(item.uuid, item.name)
             val sets = if (last.isNotEmpty()) last else listOf(WorkoutSet())
+            // B1.1：手动添加统一走 TrainingTypeResolver，有氧动作不再被默认成力量。
+            val type = TrainingItemMapper.resolveType(item.recordType, item)
             persist(
                 d.copy(
                     exercises = d.exercises + DraftExercise(
                         key = UUID.randomUUID().toString(),
                         exerciseUuid = item.uuid,
                         name = item.name,
-                        sets = sets,
-                        fromLast = last.isNotEmpty()
+                        sets = if (type == com.qingji.app.domain.ExerciseRecordType.STRENGTH) sets else emptyList(),
+                        fromLast = last.isNotEmpty() && type == com.qingji.app.domain.ExerciseRecordType.STRENGTH,
+                        recordType = type.key
                     )
                 )
             )
@@ -340,6 +354,14 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
         persist(d.copy(exercises = d.exercises.map { e ->
             if (e.key != key) e
             else e.copy(sets = e.sets.mapIndexed { i, s -> if (i == index) set else s })
+        }))
+    }
+
+    /** B1.1：非力量项目的实际录入（时长/距离/间歇字段），按动作 key 稳定绑定。 */
+    fun updateActual(key: String, actual: WorkoutItem) {
+        val d = _draft.value ?: return
+        persist(d.copy(exercises = d.exercises.map { e ->
+            if (e.key != key) e else e.copy(actualJson = WorkoutItem.toJson(actual))
         }))
     }
 
@@ -438,14 +460,21 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
     /** 保存：整包写库，成功后草稿作废。返回 false 表示没达到「至少 1 组」的门槛。 */
     fun save(onDone: (Boolean) -> Unit) {
         val d = _draft.value ?: run { onDone(false); return }
-        // 统一体系 V2.1：力量项按"至少一组有效"；有氧/HIIT 项按 recordType 分流，
-        // 它们没有 sets，不能沿用力量门槛（这是之前有氧计划保存不进去的根因之一）。
-        val cardioExercises = d.exercises.filter { it.recordType.isNotBlank() }
-        val cleaned = d.exercises.filter { it.recordType.isBlank() }.map { e ->
-            e.copy(sets = e.sets.filter { it.reps > 0 || it.weightKg > 0.0 })
-        }.filter { it.sets.isNotEmpty() }
-        if (cleaned.isEmpty() && cardioExercises.isEmpty()) {
-            say("至少要记一组或一个有氧项目才能保存")
+        // B1.1 P0：强类型分流。空串按历史语义回退 STRENGTH；未知 key 降级 OTHER，绝不默认 CARDIO。
+        val typed = d.exercises.map { e ->
+            val entity = exercises.value.firstOrNull { it.uuid == e.exerciseUuid }
+            val type = TrainingItemMapper.resolveType(e.recordType, entity)
+            e to type
+        }
+        val strengthDrafts = typed.filter { (e, type) ->
+            type == com.qingji.app.domain.ExerciseRecordType.STRENGTH &&
+                e.sets.any { s -> s.reps > 0 || s.weightKg > 0.0 || (s.durationSec ?: 0) > 0 }
+        }.map { (e, _) ->
+            e.copy(sets = e.sets.filter { s -> s.reps > 0 || s.weightKg > 0.0 || (s.durationSec ?: 0) > 0 })
+        }
+        val nonStrength = typed.filter { (_, type) -> type != com.qingji.app.domain.ExerciseRecordType.STRENGTH }
+        if (strengthDrafts.isEmpty() && nonStrength.isEmpty()) {
+            say("至少要记一组有效力量或一个非力量项目才能保存")
             onDone(false)
             return
         }
@@ -498,36 +527,34 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
             )
         }
 
-        val items = cleaned.mapIndexed { i, e ->
-            WorkoutExercise(
-                sessionUuid = d.sessionUuid,
-                exerciseUuid = e.exerciseUuid,
-                exerciseNameSnapshot = e.name,
-                orderInSession = i,
-                setsJson = TrainingMath.encodeSets(e.sets),
-                note = e.note
-            )
-        }
-        // 有氧/HIIT 项目：目标时长/距离作为实际值预填（无目标时留 0，由结算判不可算）。
-        val cardioDetails = cardioExercises.mapIndexed { i, e ->
-            val cfg = com.qingji.app.domain.TargetConfigJson.decode(e.targetConfigJson)
-            com.qingji.app.data.local.entity.WorkoutCardioDetail(
-                exerciseUuid = e.exerciseUuid,
-                exerciseNameSnapshot = e.name,
-                orderInSession = cleaned.size + i,
-                durationSeconds = cfg?.durationSec ?: 0L,
-                distanceMeters = cfg?.distanceMeters,
-                rawInputJson = cfg?.intensity?.let { intensity ->
-                    org.json.JSONObject().put("intensity", intensity).toString()
-                }.orEmpty(),
-                createdAt = System.currentTimeMillis()
-            )
-        }
-
         viewModelScope.launch {
             val weight = settleWeight.value
-            // 统一入口：有氧明细与力量明细同场落库，整场只写一条账本，不双结算。
-            val result = repo.saveUnifiedSession(session, items, cardioDetails, weight)
+            val mets = metDefaults.value
+            // 按草稿顺序构建统一项目；目标只在 targetConfigJson，实际值只来自用户录入。
+            val ordered = d.exercises
+            val allItems = ordered.mapIndexed { i, e ->
+                val entity = exercises.value.firstOrNull { it.uuid == e.exerciseUuid }
+                val type = TrainingItemMapper.resolveType(e.recordType, entity)
+                if (type == com.qingji.app.domain.ExerciseRecordType.STRENGTH) {
+                    val cleaned = if (strengthDrafts.any { it.key == e.key }) {
+                        e.copy(sets = e.sets.filter { s -> s.reps > 0 || s.weightKg > 0.0 || (s.durationSec ?: 0) > 0 })
+                    } else e
+                    TrainingItemMapper.draftToItem(cleaned, type, d.sessionUuid, i)
+                } else {
+                    var item = TrainingItemMapper.draftToItem(e, type, d.sessionUuid, i)
+                    if (item is WorkoutItem.Cardio) {
+                        item = TrainingItemMapper.withCardioKcal(item, entity, mets, weight)
+                    }
+                    item
+                }
+            }
+            val strengthItems = allItems.filterIsInstance<WorkoutItem.Strength>()
+            val cardioItems = allItems.filterIsInstance<WorkoutItem.Cardio>()
+            val otherItems = allItems.filter {
+                it !is WorkoutItem.Strength && it !is WorkoutItem.Cardio
+            }
+            // 统一入口：力量 + HIIT/柔韧/其他写 workout_exercise，只有 CARDIO 写有氧明细。
+            val result = repo.saveUnifiedSession(session, strengthItems + otherItems, cardioItems, weight)
             draftStore.clear()
             _draft.value = null
             val kcalText = if (result.totalKcal > 0.0)
@@ -535,7 +562,7 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
             else ""
             say(
                 when {
-                    result.hasSkipped -> "训练已保存${kcalText}；${result.notComputableItems} 项有氧缺少时长/距离未计入消耗"
+                    result.hasSkipped -> "训练已保存${kcalText}；${result.notComputableItems} 项缺少可靠时长/参数未计入消耗"
                     !editing -> "训练已保存${kcalText}"
                     else -> "已更新这次训练，消耗已重新结算${kcalText}"
                 }

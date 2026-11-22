@@ -36,6 +36,8 @@ object WorkoutItemJson {
     const val K_MET = "met"
     const val K_CONTENT = "c"
     const val K_REPS = "rp"
+    /** B1.1：计划目标配置（TargetConfigJson），与实际完成数据分开保存。 */
+    const val K_TARGET_CONFIG = "tc"
 }
 
 sealed class WorkoutItem {
@@ -47,6 +49,8 @@ sealed class WorkoutItem {
     abstract val mode: WorkoutMode
     abstract val note: String
     abstract val sessionUuid: String
+    /** B1.1：计划目标 JSON。空串 = 无目标或旧数据；绝不从实际完成值反推。 */
+    open val targetConfigJson: String = ""
 
     data class Strength(
         override val itemId: String,
@@ -56,7 +60,8 @@ sealed class WorkoutItem {
         override val mode: WorkoutMode = WorkoutMode.NORMAL,
         override val note: String = "",
         override val sessionUuid: String = "",
-        val sets: List<WorkoutSet> = emptyList()
+        val sets: List<WorkoutSet> = emptyList(),
+        override val targetConfigJson: String = ""
     ) : WorkoutItem() {
         override val recordType get() = ExerciseRecordType.STRENGTH
     }
@@ -75,7 +80,8 @@ sealed class WorkoutItem {
         val calculatedKcal: Double = 0.0,
         val calculationMethod: String = "",
         val calculationVersion: String = "",
-        val weightSnapshot: Double? = null
+        val weightSnapshot: Double? = null,
+        override val targetConfigJson: String = ""
     ) : WorkoutItem() {
         override val recordType get() = ExerciseRecordType.CARDIO
     }
@@ -97,7 +103,8 @@ sealed class WorkoutItem {
         val rounds: Int = 0,
         val calculatedKcal: Double = 0.0,
         val calculationVersion: String = "",
-        val weightSnapshot: Double? = null
+        val weightSnapshot: Double? = null,
+        override val targetConfigJson: String = ""
     ) : WorkoutItem() {
         override val recordType get() = ExerciseRecordType.HIIT
     }
@@ -111,7 +118,8 @@ sealed class WorkoutItem {
         override val note: String = "",
         override val sessionUuid: String = "",
         val durationSec: Long = 0L,
-        val content: String = ""
+        val content: String = "",
+        override val targetConfigJson: String = ""
     ) : WorkoutItem() {
         override val recordType get() = ExerciseRecordType.FLEXIBILITY
     }
@@ -125,7 +133,8 @@ sealed class WorkoutItem {
         override val note: String = "",
         override val sessionUuid: String = "",
         val durationSec: Long = 0L,
-        val reps: Int? = null
+        val reps: Int? = null,
+        override val targetConfigJson: String = ""
     ) : WorkoutItem() {
         override val recordType get() = ExerciseRecordType.OTHER
     }
@@ -146,14 +155,16 @@ sealed class WorkoutItem {
                     order = o.optInt(WorkoutItemJson.K_ORDER, 0),
                     mode = WorkoutMode.fromKey(o.optString(WorkoutItemJson.K_MODE, null)),
                     note = o.optString(WorkoutItemJson.K_NOTE, ""),
-                    sessionUuid = o.optString(WorkoutItemJson.K_SESSION, "")
+                    sessionUuid = o.optString(WorkoutItemJson.K_SESSION, ""),
+                    targetConfigJson = o.optString(WorkoutItemJson.K_TARGET_CONFIG, "")
                 )
                 if (common.name.isBlank() && common.exerciseUuid.isBlank()) return@runCatching null
                 when (type) {
                     ExerciseRecordType.STRENGTH -> Strength(
                         common.itemId, common.exerciseUuid, common.name, common.order, common.mode,
                         common.note, common.sessionUuid,
-                        sets = TrainingMath.decodeSets(o.optString("sets"))
+                        sets = TrainingMath.decodeSets(o.optString("sets")),
+                        targetConfigJson = common.targetConfigJson
                     )
                     ExerciseRecordType.CARDIO -> Cardio(
                         common.itemId, common.exerciseUuid, common.name, common.order, common.mode,
@@ -164,7 +175,8 @@ sealed class WorkoutItem {
                         calculatedKcal = o.optDouble(WorkoutItemJson.K_KCAL, 0.0).takeIf { it.isFinite() } ?: 0.0,
                         calculationMethod = o.optString(WorkoutItemJson.K_METHOD, ""),
                         calculationVersion = o.optString(WorkoutItemJson.K_CALC_VERSION, ""),
-                        weightSnapshot = o.optDouble(WorkoutItemJson.K_WEIGHT_SNAP, Double.NaN).takeIf { it.isFinite() }
+                        weightSnapshot = o.optDouble(WorkoutItemJson.K_WEIGHT_SNAP, Double.NaN).takeIf { it.isFinite() },
+                        targetConfigJson = common.targetConfigJson
                     )
                     ExerciseRecordType.HIIT -> Hiit(
                         common.itemId, common.exerciseUuid, common.name, common.order, common.mode,
@@ -177,19 +189,22 @@ sealed class WorkoutItem {
                         rounds = o.optInt(WorkoutItemJson.K_ROUNDS, 0),
                         calculatedKcal = o.optDouble(WorkoutItemJson.K_KCAL, 0.0).takeIf { it.isFinite() } ?: 0.0,
                         calculationVersion = o.optString(WorkoutItemJson.K_CALC_VERSION, ""),
-                        weightSnapshot = o.optDouble(WorkoutItemJson.K_WEIGHT_SNAP, Double.NaN).takeIf { it.isFinite() }
+                        weightSnapshot = o.optDouble(WorkoutItemJson.K_WEIGHT_SNAP, Double.NaN).takeIf { it.isFinite() },
+                        targetConfigJson = common.targetConfigJson
                     )
                     ExerciseRecordType.FLEXIBILITY -> Flexibility(
                         common.itemId, common.exerciseUuid, common.name, common.order, common.mode,
                         common.note, common.sessionUuid,
                         durationSec = o.optLong(WorkoutItemJson.K_DURATION, 0L),
-                        content = o.optString(WorkoutItemJson.K_CONTENT, "")
+                        content = o.optString(WorkoutItemJson.K_CONTENT, ""),
+                        targetConfigJson = common.targetConfigJson
                     )
                     ExerciseRecordType.OTHER -> Other(
                         common.itemId, common.exerciseUuid, common.name, common.order, common.mode,
                         common.note, common.sessionUuid,
                         durationSec = o.optLong(WorkoutItemJson.K_DURATION, 0L),
-                        reps = o.optInt(WorkoutItemJson.K_REPS, -1).takeIf { it >= 0 }
+                        reps = o.optInt(WorkoutItemJson.K_REPS, -1).takeIf { it >= 0 },
+                        targetConfigJson = common.targetConfigJson
                     )
                 }
             }.getOrNull()
@@ -206,6 +221,7 @@ sealed class WorkoutItem {
             put(WorkoutItemJson.K_MODE, item.mode.key)
             put(WorkoutItemJson.K_NOTE, item.note)
             put(WorkoutItemJson.K_SESSION, item.sessionUuid)
+            if (item.targetConfigJson.isNotBlank()) put(WorkoutItemJson.K_TARGET_CONFIG, item.targetConfigJson)
             when (item) {
                 is Strength -> put("sets", TrainingMath.encodeSets(item.sets))
                 is Cardio -> {
@@ -241,7 +257,8 @@ sealed class WorkoutItem {
 
         private data class Common(
             val itemId: String, val exerciseUuid: String, val name: String, val order: Int,
-            val mode: WorkoutMode, val note: String, val sessionUuid: String
+            val mode: WorkoutMode, val note: String, val sessionUuid: String,
+            val targetConfigJson: String = ""
         )
     }
 }
