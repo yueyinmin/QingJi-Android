@@ -221,6 +221,7 @@ dependencies {
 
     // 偏好设置
     implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.biometric) // 日记隐私锁：系统生物识别
 
     // 图片加载（M2 再说，先放着）
     implementation(libs.coil.compose)
