@@ -63,12 +63,16 @@ import kotlinx.coroutines.flow.first
  */
 
 // ---------- 小组件统一配色（写死，保证任何主题下都看得清） ----------
-private val W_CARD get() = WidgetSpec.CARD
-private val W_TEXT get() = WidgetSpec.TEXT
-private val W_SUB get() = WidgetSpec.SUB
-private val W_GREEN get() = WidgetSpec.GREEN
-private val W_GREEN_LIGHT get() = WidgetSpec.GREEN_LIGHT
-private val W_BLUE_LIGHT get() = WidgetSpec.BLUE_LIGHT
+// V2.1阶段B：按系统 uiMode 选主题；provideGlance 入口设置，provideContent 内 getter 读取。
+private val widgetPalette = ThreadLocal.withInitial { WidgetTheme.LIGHT }
+private fun currentPalette(): WidgetPalette = widgetPalette.get()
+
+private val W_CARD get() = currentPalette().card
+private val W_TEXT get() = currentPalette().text
+private val W_SUB get() = currentPalette().sub
+private val W_GREEN get() = currentPalette().green
+private val W_GREEN_LIGHT get() = currentPalette().greenLight
+private val W_BLUE_LIGHT get() = currentPalette().greenLight
 
 /**
  * 三大营养素固定色（v3.5.1 与设置页预览对齐）。
@@ -76,9 +80,9 @@ private val W_BLUE_LIGHT get() = WidgetSpec.BLUE_LIGHT
  * 所以不能用 ui.theme 的 MacroProtein 等 getter，取默认主题（green）的三个值写死：
  * 蛋白蓝 / 碳水绿 / 脂肪橙黄——和「桌面小组件」页预览里那三条一个颜色。
  */
-private val W_MACRO_PROTEIN get() = WidgetSpec.MACRO_PROTEIN
-private val W_MACRO_CARB get() = WidgetSpec.MACRO_CARB
-private val W_MACRO_FAT get() = WidgetSpec.MACRO_FAT
+private val W_MACRO_PROTEIN get() = currentPalette().macroProtein
+private val W_MACRO_CARB get() = currentPalette().macroCarb
+private val W_MACRO_FAT get() = currentPalette().macroFat
 
 /** 背景透明度：设置里存的是 30..100 的百分比，这里换成 Color 的 0..1 alpha。 */
 private fun cardBg(alphaPercent: Int = 100) =
@@ -181,6 +185,7 @@ class QuickRecordWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val trace = WidgetPerf.begin("provideGlance", "QUICK")
         val appearance = loadWidgetAppearance(context)
+        widgetPalette.set(WidgetTheme.of(context))
         WidgetPerf.end(trace, cache = "appearance")
         provideContent {
             val size = LocalSize.current
@@ -305,7 +310,8 @@ class OverviewWidget : GlanceAppWidget() {
         setOf(
             DpSize(110.dp, 110.dp),   // 2×2
             DpSize(250.dp, 110.dp),   // 4×2
-            DpSize(250.dp, 250.dp)    // 4×4 主档
+            DpSize(250.dp, 250.dp),   // 4×4 主档
+            DpSize(320.dp, 250.dp)    // 5×4 扩展档
         )
     )
 
@@ -313,12 +319,15 @@ class OverviewWidget : GlanceAppWidget() {
         val trace = WidgetPerf.begin("provideGlance", "OVERVIEW")
         val data = WidgetSnapshotRepo.loadToday(context)
         val appearance = loadWidgetAppearance(context)
+        widgetPalette.set(WidgetTheme.of(context))
         WidgetPerf.end(trace, cache = if (data.stale) "stale" else "fresh",
             extra = "hasSnapshot=${data.hasSnapshot}")
         provideContent {
             val size = LocalSize.current
-            val full = size.height >= 200.dp
-            val compact = !full && size.width < 200.dp
+            // V2.1阶段C：按实际 LocalSize 分档，不假设 XML targetCell 等于 Launcher 分配。
+            val wide = size.width >= 300.dp && size.height >= 200.dp  // 5×4 扩展
+            val full = !wide && size.height >= 200.dp                 // 4×4 主档
+            val compact = !wide && !full && size.height < 200.dp      // 4×3/4×2 紧凑档
             Box(
                 modifier = GlanceModifier
                     .fillMaxSize()
@@ -337,11 +346,11 @@ class OverviewWidget : GlanceAppWidget() {
                     Row(modifier = GlanceModifier.fillMaxWidth(),
                         verticalAlignment = Alignment.Vertical.CenterVertically) {
                         Text(WidgetSpec.LABEL_REMAINING,
-                            style = TextStyle(color = textColor(WidgetSpec.TEXT), fontSize = 12.sp,
+                            style = TextStyle(color = textColor(currentPalette().text), fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium))
                         Spacer(GlanceModifier.defaultWeight())
                         if (!compact) {
-                            Box(modifier = GlanceModifier.background(ColorProvider(WidgetSpec.GREEN_LIGHT))
+                            Box(modifier = GlanceModifier.background(ColorProvider(currentPalette().greenLight))
                                 .cornerRadius(999.dp).padding(horizontal = 7.dp, vertical = 3.dp)) {
                                 Text(when (data.goalMode) {
                                     "gain" -> "增肌"; "keep" -> "保持"; else -> "减脂"
@@ -365,10 +374,10 @@ class OverviewWidget : GlanceAppWidget() {
                         Text(remainingText, style = TextStyle(
                             color = textColor(when {
                                 !data.canShowRemaining -> W_SUB
-                                data.remainingKcal < 0 -> WidgetSpec.OVER_LIMIT
+                                data.remainingKcal < 0 -> currentPalette().overLimit
                                 else -> W_GREEN
                             }),
-                            fontSize = if (full) 34.sp else WidgetSpec.REMAINING_NUMBER_SP.sp,
+                            fontSize = if (full || wide) 34.sp else WidgetSpec.REMAINING_NUMBER_SP.sp,
                             fontWeight = FontWeight.Bold))
                         Spacer(GlanceModifier.width(4.dp))
                         Text(WidgetSpec.LABEL_KCAL_UNIT,
@@ -381,10 +390,14 @@ class OverviewWidget : GlanceAppWidget() {
                         Text("已摄入 ${data.eatenKcal} · 目标 ${data.goalKcal}" +
                             if (data.bonusKcal > 0) " · 运动补偿 +${data.bonusKcal}" else "",
                             style = TextStyle(color = textColor(W_SUB), fontSize = 10.sp))
+                        if (wide && data.exerciseKcal > 0) {
+                            Text("运动消耗 ${data.exerciseKcal} 千卡${if (data.bonusKcal > 0) " · 已按 ${data.bonusKcal} 计入补偿" else ""}",
+                                style = TextStyle(color = textColor(currentPalette().warnOrange), fontSize = 9.sp))
+                        }
                         Spacer(GlanceModifier.height(5.dp))
                         val p = WidgetProgress.fraction(data.eatenKcal, data.goalKcal)
                         Box(modifier = GlanceModifier.fillMaxWidth().height(4.dp)
-                            .background(ColorProvider(WidgetSpec.GREEN_LIGHT)).cornerRadius(2.dp)) {
+                            .background(ColorProvider(currentPalette().greenLight)).cornerRadius(2.dp)) {
                             if (p > 0f) Box(modifier = GlanceModifier.width(
                                 WidgetLayout.macroTrackWidth(size.width) * p
                             ).height(4.dp).background(ColorProvider(W_GREEN)).cornerRadius(2.dp)) {}
@@ -392,12 +405,12 @@ class OverviewWidget : GlanceAppWidget() {
                     }
 
                     // 4×4 主档：三营养素完整（名称+数字+进度+目标）
-                    if (full) {
+                    if (full || wide) {
                         Spacer(GlanceModifier.height(10.dp))
                         Box(modifier = GlanceModifier.fillMaxWidth().height(1.dp)
-                            .background(ColorProvider(WidgetSpec.DIVIDER))) {}
+                            .background(ColorProvider(currentPalette().divider))) {}
                         Spacer(GlanceModifier.height(7.dp))
-                        Text("营养素 (g)", style = TextStyle(color = textColor(WidgetSpec.TEXT),
+                        Text("营养素 (g)", style = TextStyle(color = textColor(currentPalette().text),
                             fontSize = 11.sp, fontWeight = FontWeight.Medium))
                         Spacer(GlanceModifier.height(6.dp))
                         val track = WidgetLayout.macroTrackWidth(size.width)
@@ -451,7 +464,7 @@ private fun TodayMacro(
     Column(modifier = modifier) {
         Text(label, style = TextStyle(color = textColor(W_SUB), fontSize = 9.sp))
         Text(if (progress == null) "--" else "$current",
-            style = TextStyle(color = textColor(WidgetSpec.TEXT), fontSize = 17.sp, fontWeight = FontWeight.Bold))
+            style = TextStyle(color = textColor(currentPalette().text), fontSize = 17.sp, fontWeight = FontWeight.Bold))
         Spacer(GlanceModifier.height(2.dp))
         Box(modifier = GlanceModifier.fillMaxWidth().height(WidgetSpec.MACRO_BAR_HEIGHT_DP.dp)
             .background(ColorProvider(color.copy(alpha = WidgetSpec.MACRO_TRACK_ALPHA))).cornerRadius(2.5.dp)) {
@@ -475,6 +488,7 @@ class WeightWidget : GlanceAppWidget() {
         val trace = WidgetPerf.begin("provideGlance", "WEIGHT")
         val data = loadWidgetData(context)
         val appearance = loadWidgetAppearance(context)
+        widgetPalette.set(WidgetTheme.of(context))
         WidgetPerf.end(trace, cache = if (data.stale) "stale" else "fresh")
         provideContent {
             Box(
@@ -564,7 +578,8 @@ class BodyWidget : GlanceAppWidget() {
      */
     override val sizeMode: SizeMode = SizeMode.Responsive(
         setOf(
-            DpSize(110.dp, 110.dp), DpSize(250.dp, 110.dp), DpSize(250.dp, 250.dp)
+            DpSize(110.dp, 110.dp), DpSize(250.dp, 110.dp),
+            DpSize(250.dp, 250.dp), DpSize(320.dp, 250.dp)  // 5×4 扩展
         )
     )
 
@@ -572,11 +587,14 @@ class BodyWidget : GlanceAppWidget() {
         val trace = WidgetPerf.begin("provideGlance", "BODY")
         val data = WidgetSnapshotRepo.loadBody(context)
         val appearance = loadWidgetAppearance(context)
+        widgetPalette.set(WidgetTheme.of(context))
         WidgetPerf.end(trace, cache = if (data.stale) "stale" else "fresh")
         provideContent {
             val size = LocalSize.current
-            val full = size.height >= 200.dp
-            val compact = !full && size.width < 200.dp
+            // V2.1阶段C：按实际 LocalSize 分档，不假设 XML targetCell 等于 Launcher 分配。
+            val wide = size.width >= 300.dp && size.height >= 200.dp  // 5×4 扩展
+            val full = !wide && size.height >= 200.dp                 // 4×4 主档
+            val compact = !wide && !full && size.height < 200.dp      // 4×3/4×2 紧凑档
             Box(
                 modifier = GlanceModifier.fillMaxSize()
                     .background(cardBg(appearance.alphaPercent))
@@ -585,7 +603,7 @@ class BodyWidget : GlanceAppWidget() {
                     .clickable(actionStartActivity(openApp(context, WidgetRefresher.TARGET_PROGRESS)))
             ) {
                 Column(modifier = GlanceModifier.fillMaxSize()) {
-                    Text("身体数据", style = TextStyle(color = textColor(WidgetSpec.TEXT),
+                    Text("身体数据", style = TextStyle(color = textColor(currentPalette().text),
                         fontSize = 12.sp, fontWeight = FontWeight.Medium))
                     if (data.stale) {
                         Spacer(GlanceModifier.height(3.dp))
@@ -600,7 +618,7 @@ class BodyWidget : GlanceAppWidget() {
                         // 主视觉：当前体重
                         Row(verticalAlignment = Alignment.Vertical.Bottom) {
                             Text(if (data.latestWeight > 0) WeightUnit.format(data.latestWeight, data.unit) else "--",
-                                style = TextStyle(color = textColor(WidgetSpec.TEXT), fontSize = if (full) 32.sp else 24.sp,
+                                style = TextStyle(color = textColor(currentPalette().text), fontSize = if (full || wide) 32.sp else 24.sp,
                                     fontWeight = FontWeight.Bold))
                             Spacer(GlanceModifier.width(3.dp))
                             Text(WeightUnit.symbol(data.unit),
@@ -615,7 +633,7 @@ class BodyWidget : GlanceAppWidget() {
                             Spacer(GlanceModifier.height(6.dp))
                             val p = data.lossProgress.coerceIn(0f, 1f)
                             Box(modifier = GlanceModifier.fillMaxWidth().height(5.dp)
-                                .background(ColorProvider(WidgetSpec.GREEN_LIGHT)).cornerRadius(2.5.dp)) {
+                                .background(ColorProvider(currentPalette().greenLight)).cornerRadius(2.5.dp)) {
                                 if (p > 0f) Box(modifier = GlanceModifier.width(
                                     WidgetLayout.macroTrackWidth(size.width) * p
                                 ).height(5.dp).background(ColorProvider(W_GREEN)).cornerRadius(2.5.dp)) {}
@@ -634,7 +652,7 @@ class BodyWidget : GlanceAppWidget() {
                         // BMI / 体脂双栏（4×3 也保留）
                         Spacer(GlanceModifier.height(8.dp))
                         Box(modifier = GlanceModifier.fillMaxWidth().height(1.dp)
-                            .background(ColorProvider(WidgetSpec.DIVIDER))) {}
+                            .background(ColorProvider(currentPalette().divider))) {}
                         Spacer(GlanceModifier.height(6.dp))
                         Row(modifier = GlanceModifier.fillMaxWidth()) {
                             Column(modifier = GlanceModifier.defaultWeight()) {
@@ -649,14 +667,14 @@ class BodyWidget : GlanceAppWidget() {
                             Column(modifier = GlanceModifier.defaultWeight()) {
                                 Text("体脂率", style = TextStyle(color = textColor(W_SUB), fontSize = 9.sp))
                                 Text(if (data.bodyFat != null) "${String.format("%.1f", data.bodyFat)}%" else "--",
-                                    style = TextStyle(color = textColor(WidgetSpec.TEXT),
+                                    style = TextStyle(color = textColor(currentPalette().text),
                                         fontSize = 20.sp, fontWeight = FontWeight.Bold))
                                 Text(bodyFatSourceLabel(data.bodyFatSource),
-                                    style = TextStyle(color = textColor(if (data.bodyFatSource == "estimated") WidgetSpec.WARN_ORANGE else W_SUB),
+                                    style = TextStyle(color = textColor(if (data.bodyFatSource == "estimated") currentPalette().warnOrange else W_SUB),
                                         fontSize = 9.sp))
                             }
                         }
-                        if (full) {
+                        if (full || wide) {
                             Spacer(GlanceModifier.height(6.dp))
                             Text("最近记录 " + (data.latestRecordDate?.toString() ?: "--") +
                                 " · 共 ${data.recordCount} 次",
@@ -687,8 +705,8 @@ private fun bodyFatSourceLabel(source: String) = when (source) {
 }
 
 private fun bmiColor(category: String) = when (category) {
-    "正常" -> WidgetSpec.GREEN
-    "超重" -> WidgetSpec.WARN_ORANGE
-    "肥胖" -> WidgetSpec.OVER_LIMIT
+    "正常" -> currentPalette().green
+    "超重" -> currentPalette().warnOrange
+    "肥胖" -> currentPalette().overLimit
     else -> W_SUB
 }
