@@ -6,6 +6,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -114,6 +116,14 @@ fun QuickWaterSheet(
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 28.dp)
         ) {
+            // V3.1：内容区可滚动，取消/确认按钮固定在底部，永远不用上滑才能看到。
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    // 限制内容高度：超出滚动，按钮区永远留在弹窗内可见
+                    .heightIn(max = 380.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(text = "💧", fontSize = 18.sp)
                 Spacer(Modifier.size(6.dp))
@@ -307,7 +317,10 @@ fun QuickWaterSheet(
                 }
             }
 
-            // ---------- 取消 / 确认：唯一的写库时机 ----------
+            } // end 可滚动内容区
+
+            Spacer(Modifier.height(12.dp))
+            // ---------- 取消 / 确认：唯一的写库时机（固定底部） ----------
             Spacer(Modifier.height(16.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Box(
