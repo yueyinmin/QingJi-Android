@@ -371,7 +371,7 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun setWidgetAlpha(percent: Int) =
-        putIntAndRefreshWidget(SettingsKeys.WIDGET_ALPHA, percent.coerceIn(30, 100))
+        putIntAndRefreshWidget(SettingsKeys.WIDGET_ALPHA, percent.coerceIn(com.qingji.app.widget.WidgetSpec.ALPHA_MIN, com.qingji.app.widget.WidgetSpec.ALPHA_MAX))
 
     fun setWidgetShowWater(show: Boolean) = putBoolAndRefreshWidget(SettingsKeys.WIDGET_SHOW_WATER, show)
 

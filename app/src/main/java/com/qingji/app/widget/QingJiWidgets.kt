@@ -346,10 +346,10 @@ class OverviewWidget : GlanceAppWidget() {
                             text = remainingText(data),
                             style = TextStyle(
                                 color = textColor(
-                                    if (!data.stale && data.canShowRemaining && data.remainingKcal < 0) {
-                                        WidgetSpec.OVER_LIMIT
-                                    } else {
-                                        W_TEXT
+                                    when {
+                                        !data.stale && data.canShowRemaining && data.remainingKcal < 0 -> WidgetSpec.OVER_LIMIT
+                                        data.stale || !data.canShowRemaining -> W_TEXT
+                                        else -> W_GREEN // 视觉精修：可用时主数字主题绿，对齐竞品视觉重点
                                     }
                                 ),
                                 fontSize = WidgetSpec.REMAINING_NUMBER_SP.sp,
@@ -516,7 +516,9 @@ class WeightWidget : GlanceAppWidget() {
                                     } ?: WidgetSpec.LABEL_WEIGHT_EMPTY)
                             },
                             style = TextStyle(
-                                color = textColor(W_TEXT),
+                                color = textColor(
+                                    if (!appearance.showWeight || data.weightState == ItemState.FAILED) W_TEXT else W_GREEN
+                                ), // 视觉精修：有效体重用主题绿，对齐竞品
                                 fontSize = WidgetSpec.WEIGHT_NUMBER_SP.sp,
                                 fontWeight = FontWeight.Bold
                             )
