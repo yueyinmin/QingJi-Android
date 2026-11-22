@@ -40,10 +40,12 @@ class HealthRepository(
     private val refreshHook: (Context) -> Unit = { c ->
         com.qingji.app.widget.WidgetRefresher.refresh(c,
             setOf(com.qingji.app.widget.WidgetTarget.OVERVIEW))
-    }
+    },
+    /** V2.1阶段A4：独立数据库注入（仅测试用）。 */
+    dbOverride: com.qingji.app.data.local.AppDatabase? = null
 ) {
 
-    private val db = AppDatabase.get(context)
+    private val db = dbOverride ?: AppDatabase.get(context)
     private val configDao = db.exerciseCalorieConfigDao()
     private val ledgerDao = db.exerciseSessionCalorieDao()
 

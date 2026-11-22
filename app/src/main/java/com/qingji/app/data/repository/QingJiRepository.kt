@@ -57,11 +57,13 @@ class QingJiRepository(
     private val context: Context,
     /** 阶段B：可注入刷新钩子（生产走 WidgetRefresher，测试记录 Target）。 */
     private val refreshHook: (Context, Set<com.qingji.app.widget.WidgetTarget>) -> Unit =
-        { c, targets -> com.qingji.app.widget.WidgetRefresher.refresh(c, targets) }
+        { c, targets -> com.qingji.app.widget.WidgetRefresher.refresh(c, targets) },
+    /** V2.1阶段A4：独立数据库注入（仅测试用；生产 null 走进程单例）。 */
+    private val dbOverride: com.qingji.app.data.local.AppDatabase? = null
 ) {
 
     /** 用户自己的数据（可写） */
-    private val db = AppDatabase.get(context)
+    private val db = dbOverride ?: AppDatabase.get(context)
     /** 标准食物库（只读，随 APK 预置） */
     private val catalog = FoodCatalogDatabase.get(context)
     /**
@@ -281,14 +283,15 @@ class QingJiRepository(
      * 旧镜像残留（sourceId 虽然一样，但 sourceType 会随 type 变）。
      */
     suspend fun updateExercise(log: ExerciseLog) {
+        // V2.1阶段A4：原日期必须在 update 前查（update 后查到的是新日期，会漏判"今天改历史"）。
+        val oldDate = db.exerciseLogDao().findById(log.id)?.date
         db.withTransaction {
             db.exerciseLogDao().update(log)
             // P1-04：先删旧镜像再重建，同事务、异常同回滚（不再 runCatching）
             healthRepository().deleteExerciseLogMirror(log.id)
             healthRepository().mirrorExerciseLog(log)
         }
-        // V2.1阶段A：原日期或新日期任一是今天都要刷（原来只判新日期，今天改历史会漏刷）。
-        val oldDate = db.exerciseLogDao().findById(log.id)?.date
+        // 原日期或新日期任一是今天都刷。
         if (oldDate == com.qingji.app.domain.AppClock.today() ||
             log.date == com.qingji.app.domain.AppClock.today()
         ) {
@@ -317,7 +320,7 @@ class QingJiRepository(
 
     /** 统一运动消耗账本（健康体系 V1.0）。懒加载避免和 AppDatabase 初始化抢顺序。 */
     private fun healthRepository(): HealthRepository =
-        _healthRepository ?: HealthRepository(context).also { _healthRepository = it }
+        _healthRepository ?: HealthRepository(context, dbOverride = dbOverride).also { _healthRepository = it }
     private var _healthRepository: HealthRepository? = null
 
     /** 近一周饮水：取原始记录，界面里按天汇总。 */
