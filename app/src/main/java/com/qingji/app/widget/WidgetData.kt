@@ -82,6 +82,8 @@ data class WidgetData(
     val lossProgress: Float = 0f,
     /** 距目标还差多少（正数=还需减）。 */
     val remainToTarget: Double = 0.0,
+    /** 阶段D：方向感知的目标是否达成（与进展页 goalProgress 同源）。 */
+    val goalReached: Boolean = false,
     /** 身体数据整体可用性：资料/体重任一失败则不可用。 */
     val bodyState: ItemState = ItemState.FAILED,
 

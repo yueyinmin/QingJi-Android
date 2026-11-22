@@ -194,9 +194,9 @@ object WidgetSnapshotRepo {
         }
         val measuredFat = bm.latestBodyFat(bodyLogs.value.orEmpty())
         val fatDisplay = bm.bodyFatDisplay(measuredFat, bmi, ageYears, p?.gender)
-        val lossProgress = if (targetW > 0 && startW > 0)
-            (bm.lossProgressPercent(startW, currentW, targetW) / 100.0).toFloat().coerceIn(0f, 1f)
-        else 0f
+        // 阶段D：统一走方向感知 goalProgress（增重/减重/维持同一口径，与进展页一致）。
+        val bodyGoal = bm.goalProgress(currentW, startW, targetW)
+        val lossProgress = if (bodyGoal.computable) bodyGoal.progress else 0f
 
         // 只有三项输入都可用时才计算剩余；否则 remainingKcal 保持默认值但 UI 显示 --。
         val canShowRemaining = profile.state != ItemState.FAILED &&
@@ -249,7 +249,8 @@ object WidgetSnapshotRepo {
             targetWeight = targetW,
             startWeight = startW,
             lossProgress = lossProgress,
-            remainToTarget = bm.remainingToTarget(currentW, targetW),
+            remainToTarget = bodyGoal.remaining,
+            goalReached = bodyGoal.reached,
             bodyState = if (bodyOk) ItemState.SUCCESS else ItemState.FAILED,
             dataDate = today,
             zoneId = AppClock.zone.id,
@@ -364,6 +365,7 @@ object WidgetSnapshotRepo {
         put("bodyFat", d.bodyFat ?: JSONObject.NULL); put("bodyFatSource", d.bodyFatSource)
         put("targetWeight", d.targetWeight); put("startWeight", d.startWeight)
         put("lossProgress", d.lossProgress); put("remainToTarget", d.remainToTarget)
+        put("goalReached", d.goalReached)
         put("bodyState", d.bodyState.name)
         put("dataDate", d.dataDate?.toString() ?: "")
         put("zoneId", d.zoneId); put("snapshotAt", d.snapshotAt)
@@ -420,6 +422,7 @@ object WidgetSnapshotRepo {
         val startWeight = o.optDouble("startWeight", 0.0)
         val lossProgress = o.optDouble("lossProgress", 0.0).toFloat().coerceIn(0f, 1f)
         val remainToTarget = o.optDouble("remainToTarget", 0.0)
+        val goalReached = o.optBoolean("goalReached", false)
         val bodyState = runCatching { ItemState.valueOf(o.optString("bodyState", "FAILED")) }.getOrDefault(ItemState.FAILED)
 
         return WidgetData(
@@ -437,7 +440,8 @@ object WidgetSnapshotRepo {
             workoutMinutes = workoutMinutes, sleepMinutes = sleepMinutes,
             bmi = bmi, bmiCategory = bmiCategory, bodyFat = bodyFat, bodyFatSource = bodyFatSource,
             targetWeight = targetWeight, startWeight = startWeight,
-            lossProgress = lossProgress, remainToTarget = remainToTarget, bodyState = bodyState,
+            lossProgress = lossProgress, remainToTarget = remainToTarget,
+            goalReached = goalReached, bodyState = bodyState,
             hasSnapshot = true,
             dataDate = dataDate, zoneId = zoneId, snapshotAt = snapshotAt
         )
@@ -557,6 +561,116 @@ object WidgetSnapshotRepo {
         put("exerciseState", d.exerciseState.name)
         put("snapshotAt", d.snapshotAt); put("stale", d.stale); put("hasSnapshot", d.hasSnapshot)
     }
+
+    // ---------- 阶段 D：身体数据独立投影 ----------
+
+    /** 只查身体数据所需：档案 + 完整体重记录。不查饮食/运动/睡眠/饮水。 */
+    suspend fun loadBodyData(context: Context): BodyDataWidgetData {
+        restoreZone(context)
+        val today = com.qingji.app.domain.AppClock.today()
+        val repo = QingJiRepository(context)
+        val profile = query("body.profile") { repo.observeProfile().first() }
+        val logs = query("body.logs") { repo.observeWeightLogs().first() }
+        val bm = com.qingji.app.domain.BodyMetricsCalculator
+        val p = profile.value
+        val all = logs.value.orEmpty()
+        val startW = p?.startWeight ?: 0.0
+        val targetW = p?.targetWeight ?: 0.0
+        val currentW = bm.latestWeightKg(all, startW)
+        val bmi = if (p != null && currentW > 0.0 && p.heightCm > 0)
+            com.qingji.app.domain.NutritionCalculator.bmi(currentW, p.heightCm) else 0.0
+        val ageYears = p?.birthday?.let {
+            java.time.Period.between(it, today).years.takeIf { y -> y > 0 }
+        }
+        val fat = bm.bodyFatDisplay(bm.latestBodyFat(all), bmi, ageYears, p?.gender)
+        val goal = bm.goalProgress(currentW, startW, targetW)
+        val data = BodyDataWidgetData(
+            latestWeight = currentW, unit = p?.unit ?: "kg", heightCm = p?.heightCm ?: 0.0,
+            targetWeight = targetW, startWeight = startW,
+            bmi = bmi, bmiCategory = if (bmi > 0) com.qingji.app.domain.NutritionCalculator.bmiCategory(bmi) else "",
+            bodyFat = fat.value, bodyFatSource = fat.source.name.lowercase(),
+            lossProgress = if (goal.computable) goal.progress else 0f,
+            remainToTarget = goal.remaining, goalReached = goal.reached,
+            goalDirection = goal.direction, goalComputable = goal.computable,
+            latestRecordDate = all.firstOrNull { it.weightKg > 0 }?.date,
+            recordCount = all.count { it.weightKg > 0 },
+            bodyState = if (profile.state != ItemState.FAILED && logs.state != ItemState.FAILED)
+                ItemState.SUCCESS else ItemState.FAILED,
+            date = today, zoneId = com.qingji.app.domain.AppClock.zone.id,
+            snapshotAt = System.currentTimeMillis(), hasSnapshot = true
+        )
+        saveBody(context, data)
+        return data
+    }
+
+    suspend fun loadBody(context: Context): BodyDataWidgetData {
+        restoreZone(context)
+        val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_BODY, null)
+            ?: return BodyDataWidgetData(stale = true, hasSnapshot = false)
+        return try {
+            val d = bodyFromJson(org.json.JSONObject(raw))
+            if (d.schemaVersion != BodyDataWidgetData.SCHEMA_VERSION ||
+                d.date != com.qingji.app.domain.AppClock.today() ||
+                d.zoneId != com.qingji.app.domain.AppClock.zone.id
+            ) BodyDataWidgetData(stale = true, hasSnapshot = false) else d
+        } catch (e: Exception) {
+            BodyDataWidgetData(stale = true, hasSnapshot = false)
+        }
+    }
+
+    private suspend fun saveBody(context: Context, d: BodyDataWidgetData) {
+        writeMutex.withLock {
+            try {
+                val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                val existing = prefs.getString(KEY_BODY, null)
+                val at = if (existing != null) {
+                    try { bodyFromJson(org.json.JSONObject(existing)).snapshotAt } catch (e: Exception) { Long.MIN_VALUE }
+                } else Long.MIN_VALUE
+                if (d.snapshotAt <= at) return@withLock
+                prefs.edit().putString(KEY_BODY, bodyToJson(d).toString()).apply()
+            } catch (e: Exception) { /* 保留上一份 */ }
+        }
+    }
+
+    private fun bodyToJson(d: BodyDataWidgetData) = org.json.JSONObject().apply {
+        put("schemaVersion", d.schemaVersion)
+        put("date", d.date?.toString().orEmpty()); put("zoneId", d.zoneId)
+        put("latestWeight", d.latestWeight); put("unit", d.unit); put("heightCm", d.heightCm)
+        put("targetWeight", d.targetWeight); put("startWeight", d.startWeight)
+        put("bmi", d.bmi); put("bmiCategory", d.bmiCategory)
+        put("bodyFat", d.bodyFat ?: org.json.JSONObject.NULL); put("bodyFatSource", d.bodyFatSource)
+        put("lossProgress", d.lossProgress); put("remainToTarget", d.remainToTarget)
+        put("goalReached", d.goalReached); put("goalDirection", d.goalDirection.name)
+        put("goalComputable", d.goalComputable)
+        put("latestRecordDate", d.latestRecordDate?.toString().orEmpty())
+        put("recordCount", d.recordCount); put("bodyState", d.bodyState.name)
+        put("snapshotAt", d.snapshotAt); put("stale", d.stale); put("hasSnapshot", d.hasSnapshot)
+    }
+
+    private fun bodyFromJson(o: org.json.JSONObject) = BodyDataWidgetData(
+        schemaVersion = o.getInt("schemaVersion"),
+        date = o.optString("date").takeIf { it.isNotBlank() }?.let { java.time.LocalDate.parse(it) },
+        zoneId = o.optString("zoneId"),
+        latestWeight = o.optDouble("latestWeight", 0.0), unit = o.optString("unit", "kg"),
+        heightCm = o.optDouble("heightCm", 0.0), targetWeight = o.optDouble("targetWeight", 0.0),
+        startWeight = o.optDouble("startWeight", 0.0),
+        bmi = o.optDouble("bmi", 0.0), bmiCategory = o.optString("bmiCategory", ""),
+        bodyFat = if (o.isNull("bodyFat")) null else o.getDouble("bodyFat"),
+        bodyFatSource = o.optString("bodyFatSource", "none"),
+        lossProgress = o.optDouble("lossProgress", 0.0).toFloat().coerceIn(0f, 1f),
+        remainToTarget = o.optDouble("remainToTarget", 0.0),
+        goalReached = o.optBoolean("goalReached", false),
+        goalDirection = runCatching {
+            com.qingji.app.domain.BodyMetricsCalculator.GoalDirection.valueOf(o.optString("goalDirection", "LOSE"))
+        }.getOrDefault(com.qingji.app.domain.BodyMetricsCalculator.GoalDirection.LOSE),
+        goalComputable = o.optBoolean("goalComputable", false),
+        latestRecordDate = o.optString("latestRecordDate").takeIf { it.isNotBlank() }
+            ?.let { java.time.LocalDate.parse(it) },
+        recordCount = o.optInt("recordCount", 0),
+        bodyState = runCatching { ItemState.valueOf(o.getString("bodyState")) }.getOrDefault(ItemState.FAILED),
+        snapshotAt = o.getLong("snapshotAt"), stale = o.optBoolean("stale", false),
+        hasSnapshot = o.optBoolean("hasSnapshot", true)
+    )
 
     private fun todayFromJson(o: org.json.JSONObject) = TodayRemainingWidgetData(
         schemaVersion = o.getInt("schemaVersion"),

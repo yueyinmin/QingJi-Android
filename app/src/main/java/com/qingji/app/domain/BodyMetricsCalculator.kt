@@ -59,6 +59,55 @@ object BodyMetricsCalculator {
     fun isGoalReached(currentWeight: Double, targetWeight: Double): Boolean =
         currentWeight.isFinite() && targetWeight.isFinite() && currentWeight <= targetWeight
 
+    // ---------- 阶段D：方向感知统一进度（减重/增重/维持） ----------
+    enum class GoalDirection { LOSE, GAIN, MAINTAIN }
+
+    /**
+     * 统一目标进度结果。progress 永远在 0..1；remaining 语义随方向：
+     * LOSE = 当前还超出目标多少；GAIN = 距离目标还差多少；达成/超过都为 0。
+     * computable=false 表示目标缺失，UI 必须显示不可计算。
+     */
+    data class GoalProgress(
+        val progress: Float,
+        val remaining: Double,
+        val reached: Boolean,
+        val computable: Boolean,
+        val direction: GoalDirection
+    )
+
+    fun goalProgress(currentWeight: Double, startWeight: Double, targetWeight: Double): GoalProgress {
+        if (!currentWeight.isFinite() || !startWeight.isFinite() || !targetWeight.isFinite() ||
+            targetWeight <= 0.0
+        ) return GoalProgress(0f, 0.0, false, false, GoalDirection.LOSE)
+        val direction = when {
+            targetWeight < startWeight -> GoalDirection.LOSE
+            targetWeight > startWeight -> GoalDirection.GAIN
+            else -> GoalDirection.MAINTAIN
+        }
+        val reached = when (direction) {
+            GoalDirection.GAIN -> currentWeight >= targetWeight
+            GoalDirection.LOSE -> currentWeight <= targetWeight
+            GoalDirection.MAINTAIN -> kotlin.math.abs(currentWeight - targetWeight) <= 0.05
+        }
+        val remaining = when (direction) {
+            GoalDirection.GAIN -> (targetWeight - currentWeight).coerceAtLeast(0.0)
+            GoalDirection.LOSE -> (currentWeight - targetWeight).coerceAtLeast(0.0)
+            GoalDirection.MAINTAIN -> 0.0
+        }
+        val span = when (direction) {
+            GoalDirection.GAIN -> targetWeight - startWeight
+            GoalDirection.LOSE -> startWeight - targetWeight
+            GoalDirection.MAINTAIN -> 0.0
+        }
+        val raw = if (span <= 0.0) (if (reached) 1f else 0f) else
+            (when (direction) {
+                GoalDirection.GAIN -> currentWeight - startWeight
+                else -> startWeight - currentWeight
+            } / span).toFloat().coerceIn(0f, 1f)
+        // 初始体重缺失（start<=0）：进度不可信，但仍可给出达成/剩余（computable=true）。
+        return GoalProgress(raw, remaining, reached, true, direction)
+    }
+
     // ---------- 体脂率：实测优先 / Deurenberg 估算回退（身体数据卡片工单 2026-11-21）----------
 
     /** 体脂展示来源。UI 只能展示这些状态，不自行判断数据来源。 */

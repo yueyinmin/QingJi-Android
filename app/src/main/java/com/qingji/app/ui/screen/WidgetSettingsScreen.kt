@@ -53,6 +53,7 @@ import com.qingji.app.ui.theme.QingJiGreenLight
 import com.qingji.app.ui.theme.TextPrimary
 import com.qingji.app.ui.theme.TextSecondary
 import com.qingji.app.ui.theme.TextSizes
+import com.qingji.app.widget.BodyWidgetReceiver
 import com.qingji.app.widget.OverviewWidgetReceiver
 import com.qingji.app.widget.QuickRecordWidgetReceiver
 import com.qingji.app.widget.WeightWidgetReceiver
@@ -177,7 +178,7 @@ fun WidgetSettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = viewModel()
 
             // 2. 今日概览 4×2
             WidgetCard(
-                title = "今日概览（4×2）",
+                title = "今日剩余（4×4）",
                 desc = "剩余热量 + 三条营养条 + 饮水",
                 onAdd = { requestPin(context, OverviewWidgetReceiver::class.java, WidgetTarget.OVERVIEW) },
                 previewAlpha = settings.widgetAlpha / 100f
@@ -244,6 +245,28 @@ fun WidgetSettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = viewModel()
                             .background(WidgetSpec.GREEN_LIGHT)
                             .padding(horizontal = 12.dp, vertical = 8.dp)
                     )
+                }
+            }
+
+            Spacer(Modifier.height(Dimens.Gap))
+
+            // 阶段D：身体数据（复用 BodyWidget，不新增第二套 Provider）
+            WidgetCard(
+                title = "身体数据（4×4）",
+                desc = "当前体重 · 目标进度 · BMI · 体脂率（实测/估算）",
+                onAdd = { requestPin(context, BodyWidgetReceiver::class.java, WidgetTarget.BODY_DATA) },
+                previewAlpha = settings.widgetAlpha / 100f
+            ) {
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(text = "当前体重", fontSize = 10.sp, color = TextSecondary)
+                        Text(text = "82.4 kg", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                        Text(text = "目标 75.0 kg · 还差 7.4 kg", fontSize = 9.sp, color = TextSecondary)
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(text = "BMI 24.4 · 正常", fontSize = 11.sp, color = WidgetSpec.GREEN)
+                        Text(text = "体脂率 21.5% · 估算", fontSize = 11.sp, color = TextSecondary)
+                    }
                 }
             }
 

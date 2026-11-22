@@ -150,18 +150,29 @@ private fun staleLabel(data: WidgetData): String {
  * P0：分项数值展示。FAILED → "--"（读失败，绝不显示伪 0）；
  * SUCCESS/EMPTY → 真值（EMPTY 的 0 是「确实没有记录」的真实 0）。
  */
-private fun itemText(state: ItemState, value: String): String =
+internal fun itemText(state: ItemState, value: String): String =
     if (state == ItemState.FAILED) "--" else value
 
 /** P0：剩余热量。stale 无快照 / 计算输入不全 / 分项失败 → "--"，不显示默认 2000。 */
-private fun remainingText(data: WidgetData): String =
+internal fun remainingText(data: WidgetData): String =
     if (data.stale && !data.hasSnapshot) "--"
     else if (!data.canShowRemaining) "--"
     else "${data.remainingKcal}"
 
-/** P0：营养条进度。饮食读取失败 → null（UI 显示 -- 而非空轨道伪进度）。 */
-private fun macroProgress(state: ItemState, current: Int, goal: Int): Float? =
-    if (state == ItemState.FAILED) null else WidgetProgress.fraction(current, goal)
+/**
+ * P0：营养条进度。
+ * - 饮食读取失败 → null（UI 显示 -- 而非空轨道伪进度）；
+ * - 用户资料读取失败 → null：三营养素目标（proteinGoal/carbGoal/fatGoal）来自 profile，
+ *   profile 失败时目标是伪装出来的 0，空轨道会被误读成「没吃」，必须一并显示 --。
+ */
+internal fun macroProgress(
+    dietState: ItemState,
+    profileState: ItemState,
+    current: Int,
+    goal: Int
+): Float? =
+    if (dietState == ItemState.FAILED || profileState == ItemState.FAILED) null
+    else WidgetProgress.fraction(current, goal)
 
 // ============================================================
 // 1. 快捷记录 2×2
@@ -286,33 +297,28 @@ private fun QuickTile(
 // ============================================================
 class OverviewWidget : GlanceAppWidget() {
     /**
-     * 阶段 3：响应启动器实际分配的空间，按 2×2 / 4×2 / 4×4 三档切换内容密度，
-     * 不把同一布局整体缩放（工单 §5）。Provider 身份与 targetCell 均不变。
+     * 阶段C：从大快照切到今日剩余独立投影（只查档案/饮食/运动，不查体重历史/睡眠/饮水）。
+     * Provider 身份、Receiver、Manifest、WidgetTarget.OVERVIEW、Pin code=2 全部不变。
+     * 4×4 主档完整信息；4×2/2×2 保留可用布局但用新投影字段渲染。
      */
     override val sizeMode: SizeMode = SizeMode.Responsive(
         setOf(
             DpSize(110.dp, 110.dp),   // 2×2
             DpSize(250.dp, 110.dp),   // 4×2
-            DpSize(250.dp, 250.dp)    // 4×4
+            DpSize(250.dp, 250.dp)    // 4×4 主档
         )
     )
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val trace = WidgetPerf.begin("provideGlance", "OVERVIEW")
-        val data = loadWidgetData(context)
+        val data = WidgetSnapshotRepo.loadToday(context)
         val appearance = loadWidgetAppearance(context)
-        WidgetPerf.end(
-            trace,
-            cache = if (data.stale) "stale" else "fresh",
-            extra = "hasSnapshot=${data.hasSnapshot}"
-        )
+        WidgetPerf.end(trace, cache = if (data.stale) "stale" else "fresh",
+            extra = "hasSnapshot=${data.hasSnapshot}")
         provideContent {
             val size = LocalSize.current
-            val density = when {
-                size.height >= 200.dp -> 3   // 4×4：完整概览
-                size.width >= 200.dp -> 2    // 4×2：营养+饮水
-                else -> 1                     // 2×2：只要关键数字
-            }
+            val full = size.height >= 200.dp
+            val compact = !full && size.width < 200.dp
             Box(
                 modifier = GlanceModifier
                     .fillMaxSize()
@@ -326,173 +332,99 @@ class OverviewWidget : GlanceAppWidget() {
                         )
                     )
             ) {
-                // v3.5.1：布局与「桌面小组件」页预览对齐——
-                // 大数字 + 三个并排彩色营养短条 + 左下角饮水，去掉旧的右侧数字与全宽白条
                 Column(modifier = GlanceModifier.fillMaxSize()) {
-                    // 首页同款标题行：今日剩余 ›   |   减脂胶囊
-                    Row(
-                        modifier = GlanceModifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.Vertical.CenterVertically
-                    ) {
-                        Text(
-                            text = WidgetSpec.LABEL_REMAINING,
-                            style = TextStyle(color = textColor(WidgetSpec.TEXT), fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                        )
-                        Text(
-                            text = "›",
-                            style = TextStyle(color = textColor(W_SUB), fontSize = 12.sp)
-                        )
+                    // 标题行 + 目标胶囊
+                    Row(modifier = GlanceModifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.Vertical.CenterVertically) {
+                        Text(WidgetSpec.LABEL_REMAINING,
+                            style = TextStyle(color = textColor(WidgetSpec.TEXT), fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium))
                         Spacer(GlanceModifier.defaultWeight())
-                        // 目标模式胶囊（首页同款），仅空间足够时显示
-                        if (density >= 2) {
-                            Box(
-                                modifier = GlanceModifier
-                                    .background(ColorProvider(WidgetSpec.GREEN_LIGHT))
-                                    .cornerRadius(999.dp)
-                                    .padding(horizontal = 7.dp, vertical = 3.dp)
-                            ) {
-                                Text(
-                                    text = when (data.goalMode) {
-                                        "gain" -> "增肌"
-                                        "keep" -> "保持"
-                                        else -> "减脂"
-                                    },
-                                    style = TextStyle(color = textColor(W_GREEN), fontSize = 9.sp)
-                                )
+                        if (!compact) {
+                            Box(modifier = GlanceModifier.background(ColorProvider(WidgetSpec.GREEN_LIGHT))
+                                .cornerRadius(999.dp).padding(horizontal = 7.dp, vertical = 3.dp)) {
+                                Text(when (data.goalMode) {
+                                    "gain" -> "增肌"; "keep" -> "保持"; else -> "减脂"
+                                }, style = TextStyle(color = textColor(W_GREEN), fontSize = 9.sp))
                             }
                         }
                     }
                     if (data.stale) {
-                        Text(
-                            // W-03：旧快照必须标注更新时间，不能伪装成刚刷新
-                            text = staleLabel(data),
-                            style = TextStyle(color = textColor(W_SUB), fontSize = 9.sp)
-                        )
+                        Spacer(GlanceModifier.height(3.dp))
+                        Text(todayStaleLabel(data), style = TextStyle(color = textColor(W_SUB), fontSize = 8.sp))
+                    }
+                    Spacer(GlanceModifier.height(6.dp))
+
+                    // 主数字：可用时主题绿；无目标/失败/负值时对应文案
+                    val remainingText = when {
+                        !data.hasSnapshot || !data.goalConfigured -> "--"
+                        !data.canShowRemaining -> "--"
+                        else -> "${data.remainingKcal}"
                     }
                     Row(verticalAlignment = Alignment.Vertical.Bottom) {
-                        Text(
-                            // P0：计算依赖（资料/饮食/运动）任一读失败 → "--"，不显示默认 2000。
-                            text = remainingText(data),
-                            style = TextStyle(
-                                color = textColor(
-                                    when {
-                                        !data.stale && data.canShowRemaining && data.remainingKcal < 0 -> WidgetSpec.OVER_LIMIT
-                                        data.stale || !data.canShowRemaining -> W_TEXT
-                                        else -> W_GREEN // 视觉精修：可用时主数字主题绿，对齐竞品视觉重点
-                                    }
-                                ),
-                                fontSize = WidgetSpec.REMAINING_NUMBER_SP.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        )
+                        Text(remainingText, style = TextStyle(
+                            color = textColor(when {
+                                !data.canShowRemaining -> W_SUB
+                                data.remainingKcal < 0 -> WidgetSpec.OVER_LIMIT
+                                else -> W_GREEN
+                            }),
+                            fontSize = if (full) 34.sp else WidgetSpec.REMAINING_NUMBER_SP.sp,
+                            fontWeight = FontWeight.Bold))
                         Spacer(GlanceModifier.width(4.dp))
-                        Text(
-                            text = WidgetSpec.LABEL_KCAL_UNIT,
-                            style = TextStyle(color = textColor(W_SUB), fontSize = 13.sp),
-                            modifier = GlanceModifier.padding(bottom = 5.dp)
-                        )
+                        Text(WidgetSpec.LABEL_KCAL_UNIT,
+                            style = TextStyle(color = textColor(W_SUB), fontSize = 12.sp),
+                            modifier = GlanceModifier.padding(bottom = 4.dp))
                     }
 
-                    // 首页同款：运动消耗橙字 + 进度条 + 已吃/预期缺口
-                    if (density >= 2 && data.canShowRemaining) {
-                        if (data.exerciseKcal > 0) {
-                            Text(
-                                text = "运动消耗 ${data.exerciseKcal} 千卡",
-                                style = TextStyle(color = ColorProvider(WidgetSpec.WARN_ORANGE), fontSize = 9.sp)
-                            )
-                        }
+                    if (!compact && data.hasSnapshot && data.canShowRemaining) {
                         Spacer(GlanceModifier.height(5.dp))
-                        val kcalProgress = WidgetProgress.fraction(data.eatenKcal, data.goalKcal)
+                        Text("已摄入 ${data.eatenKcal} · 目标 ${data.goalKcal}" +
+                            if (data.bonusKcal > 0) " · 运动补偿 +${data.bonusKcal}" else "",
+                            style = TextStyle(color = textColor(W_SUB), fontSize = 10.sp))
+                        Spacer(GlanceModifier.height(5.dp))
+                        val p = WidgetProgress.fraction(data.eatenKcal, data.goalKcal)
                         Box(modifier = GlanceModifier.fillMaxWidth().height(4.dp)
                             .background(ColorProvider(WidgetSpec.GREEN_LIGHT)).cornerRadius(2.dp)) {
-                            if (kcalProgress > 0f) {
-                                Box(modifier = GlanceModifier.width(
-                                    WidgetLayout.macroTrackWidth(size.width) * kcalProgress
-                                ).height(4.dp).background(ColorProvider(W_GREEN)).cornerRadius(2.dp)) {}
-                            }
-                        }
-                        Spacer(GlanceModifier.height(3.dp))
-                        Row(modifier = GlanceModifier.fillMaxWidth()) {
-                            Text("${data.eatenKcal}/${data.goalKcal}",
-                                style = TextStyle(color = textColor(W_SUB), fontSize = 9.sp))
-                            Spacer(GlanceModifier.defaultWeight())
-                            Text(
-                                text = if (data.remainingFoodOnly >= 0) "预期缺口：${data.remainingFoodOnly}"
-                                       else "反超 ${-data.remainingFoodOnly}",
-                                style = TextStyle(color = textColor(if (data.remainingFoodOnly < 0) WidgetSpec.OVER_LIMIT else W_SUB), fontSize = 9.sp)
-                            )
+                            if (p > 0f) Box(modifier = GlanceModifier.width(
+                                WidgetLayout.macroTrackWidth(size.width) * p
+                            ).height(4.dp).background(ColorProvider(W_GREEN)).cornerRadius(2.dp)) {}
                         }
                     }
 
-                    // 2×2 只保留关键数字；4×2 起才显示营养与饮水
-                    if (density >= 2 && appearance.showMacro) {
-                        Spacer(GlanceModifier.height(7.dp))
+                    // 4×4 主档：三营养素完整（名称+数字+进度+目标）
+                    if (full) {
+                        Spacer(GlanceModifier.height(10.dp))
                         Box(modifier = GlanceModifier.fillMaxWidth().height(1.dp)
                             .background(ColorProvider(WidgetSpec.DIVIDER))) {}
-                        Spacer(GlanceModifier.height(5.dp))
-                        Text("营养素 (g) ›", style = TextStyle(color = textColor(WidgetSpec.TEXT), fontSize = 11.sp, fontWeight = FontWeight.Medium))
-                        Spacer(GlanceModifier.height(5.dp))
-                        // P1/C1：轨道宽度由 Responsive 声明尺寸 + padding/gap 精确推导，
-                        // 算法集中在 WidgetLayout（有单测覆盖 2×2/4×2/4×4），不用经验系数。
-                        val trackWidth = WidgetLayout.macroTrackWidth(size.width)
-                        Row(modifier = GlanceModifier.fillMaxWidth()) {
-                            MacroBar(
-                                label = WidgetSpec.LABEL_PROTEIN,
-                                current = data.protein, goal = data.proteinGoal,
-                                progress = macroProgress(data.dietState, data.protein, data.proteinGoal),
-                                color = W_MACRO_PROTEIN,
-                                trackWidth = trackWidth,
-                                modifier = GlanceModifier.defaultWeight()
-                            )
-                            Spacer(GlanceModifier.width(WidgetSpec.MACRO_GAP_DP.dp))
-                            MacroBar(
-                                label = WidgetSpec.LABEL_CARB,
-                                current = data.carb, goal = data.carbGoal,
-                                progress = macroProgress(data.dietState, data.carb, data.carbGoal),
-                                color = W_MACRO_CARB,
-                                trackWidth = trackWidth,
-                                modifier = GlanceModifier.defaultWeight()
-                            )
-                            Spacer(GlanceModifier.width(WidgetSpec.MACRO_GAP_DP.dp))
-                            MacroBar(
-                                label = WidgetSpec.LABEL_FAT,
-                                current = data.fat, goal = data.fatGoal,
-                                progress = macroProgress(data.dietState, data.fat, data.fatGoal),
-                                color = W_MACRO_FAT,
-                                trackWidth = trackWidth,
-                                modifier = GlanceModifier.defaultWeight()
-                            )
-                        }
-                    }
-
-                    // V2 阶段2：去掉 defaultWeight 弹性留白，三层信息紧凑排列，
-                    // 饮水紧贴营养素区，不再被推到卡片底部造成中间大块空白。
-                    if (density >= 2 && appearance.showWater) {
+                        Spacer(GlanceModifier.height(7.dp))
+                        Text("营养素 (g)", style = TextStyle(color = textColor(WidgetSpec.TEXT),
+                            fontSize = 11.sp, fontWeight = FontWeight.Medium))
                         Spacer(GlanceModifier.height(6.dp))
-                        // P0：饮水读失败显示 --；EMPTY 的 0 是真值照常显示。
-                        Text(
-                            text = if (data.waterState == ItemState.FAILED) {
-                                "${WidgetSpec.LABEL_WATER_SHORT} --"
-                            } else {
-                                "${WidgetSpec.LABEL_WATER_SHORT} ${data.water} / ${data.waterGoal} ml"
-                            },
-                            style = TextStyle(color = textColor(W_SUB), fontSize = 10.sp)
-                        )
-                    }
-
-                    // 4×4：完整健康概览。W-06 体重遵守 showWeight；P1 训练/睡眠各自独立判失败。
-                    if (density >= 3) {
-                        Spacer(GlanceModifier.height(4.dp))
-                        val workoutText = itemText(data.workoutState, "${data.workoutMinutes} 分")
-                        val sleepText = itemText(data.sleepState, "${data.sleepMinutes} 分")
-                        val weightText = if (!appearance.showWeight) "" else
-                            itemText(data.weightState,
-                                data.latestWeight?.let { " · 体重 ${WeightUnit.formatWithSymbol(it, data.unit)}" }
-                                    ?: " · 体重 --")
-                        Text(
-                            text = "训练 $workoutText · 睡眠 $sleepText$weightText",
-                            style = TextStyle(color = textColor(W_SUB), fontSize = 9.sp)
-                        )
+                        val track = WidgetLayout.macroTrackWidth(size.width)
+                        Row(modifier = GlanceModifier.fillMaxWidth()) {
+                            TodayMacro("蛋白质", data.proteinCurrent, data.proteinGoal, data.dietState,
+                                W_MACRO_PROTEIN, track, GlanceModifier.defaultWeight())
+                            Spacer(GlanceModifier.width(WidgetSpec.MACRO_GAP_DP.dp))
+                            TodayMacro("碳水", data.carbCurrent, data.carbGoal, data.dietState,
+                                W_MACRO_CARB, track, GlanceModifier.defaultWeight())
+                            Spacer(GlanceModifier.width(WidgetSpec.MACRO_GAP_DP.dp))
+                            TodayMacro("脂肪", data.fatCurrent, data.fatGoal, data.dietState,
+                                W_MACRO_FAT, track, GlanceModifier.defaultWeight())
+                        }
+                    } else if (!compact && data.hasSnapshot) {
+                        // 4×2：三营养素短条（旧档位兼容）
+                        Spacer(GlanceModifier.height(8.dp))
+                        val track = WidgetLayout.macroTrackWidth(size.width)
+                        Row(modifier = GlanceModifier.fillMaxWidth()) {
+                            TodayMacro("蛋白", data.proteinCurrent, data.proteinGoal, data.dietState,
+                                W_MACRO_PROTEIN, track, GlanceModifier.defaultWeight())
+                            Spacer(GlanceModifier.width(WidgetSpec.MACRO_GAP_DP.dp))
+                            TodayMacro("碳水", data.carbCurrent, data.carbGoal, data.dietState,
+                                W_MACRO_CARB, track, GlanceModifier.defaultWeight())
+                            Spacer(GlanceModifier.width(WidgetSpec.MACRO_GAP_DP.dp))
+                            TodayMacro("脂肪", data.fatCurrent, data.fatGoal, data.dietState,
+                                W_MACRO_FAT, track, GlanceModifier.defaultWeight())
+                        }
                     }
                 }
             }
@@ -500,53 +432,38 @@ class OverviewWidget : GlanceAppWidget() {
     }
 }
 
-/**
- * 一条彩色营养短条（对齐预览样式）：标签小字在上，下面一条细彩条，
- * 淡色做轨道、同色做进度；和预览一致，不显示数字。
- */
+/** 今日剩余投影的 stale 文案：安全降级不伪造实时。 */
+private fun todayStaleLabel(d: TodayRemainingWidgetData): String {
+    if (!d.hasSnapshot) return WidgetSpec.LABEL_STALE_TODAY
+    val time = java.time.Instant.ofEpochMilli(d.snapshotAt)
+        .atZone(java.time.ZoneId.systemDefault())
+        .format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+    return "数据较旧 · 最近成功 $time"
+}
+
+/** 今日剩余的营养素列：失败显示 --，目标为 0 不除零。 */
 @Composable
-private fun MacroBar(
-    label: String,
-    current: Int,
-    goal: Int,
-    progress: Float?,
-    color: Color,
-    trackWidth: androidx.compose.ui.unit.Dp,
-    modifier: GlanceModifier = GlanceModifier
+private fun TodayMacro(
+    label: String, current: Int, goal: Int, state: ItemState, color: Color,
+    trackWidth: androidx.compose.ui.unit.Dp, modifier: GlanceModifier = GlanceModifier
 ) {
+    val progress = if (state == ItemState.FAILED) null else WidgetProgress.fraction(current, goal)
     Column(modifier = modifier) {
-        Text(
-            // P0：读失败时显示 -- 而不是空轨道（避免被误认为「没吃」）。
-            text = label,
-            style = TextStyle(color = textColor(W_SUB), fontSize = 9.sp)
-        )
-        Text(
-            text = if (progress == null) "--" else "$current",
-            style = TextStyle(color = textColor(WidgetSpec.TEXT), fontSize = 17.sp, fontWeight = FontWeight.Bold)
-        )
+        Text(label, style = TextStyle(color = textColor(W_SUB), fontSize = 9.sp))
+        Text(if (progress == null) "--" else "$current",
+            style = TextStyle(color = textColor(WidgetSpec.TEXT), fontSize = 17.sp, fontWeight = FontWeight.Bold))
         Spacer(GlanceModifier.height(2.dp))
-        Box(
-            modifier = GlanceModifier
-                .fillMaxWidth()
-                .height(WidgetSpec.MACRO_BAR_HEIGHT_DP.dp)
-                .background(ColorProvider(color.copy(alpha = WidgetSpec.MACRO_TRACK_ALPHA)))
-                .cornerRadius(2.5.dp)
-        ) {
+        Box(modifier = GlanceModifier.fillMaxWidth().height(WidgetSpec.MACRO_BAR_HEIGHT_DP.dp)
+            .background(ColorProvider(color.copy(alpha = WidgetSpec.MACRO_TRACK_ALPHA))).cornerRadius(2.5.dp)) {
             if (progress != null && progress > 0f && trackWidth > 0.dp) {
-                Box(
-                    modifier = GlanceModifier
-                        .width(trackWidth * progress)
-                        .height(WidgetSpec.MACRO_BAR_HEIGHT_DP.dp)
-                        .background(ColorProvider(color))
-                        .cornerRadius(2.5.dp)
-                ) {}
+                Box(modifier = GlanceModifier.width(trackWidth * progress)
+                    .height(WidgetSpec.MACRO_BAR_HEIGHT_DP.dp)
+                    .background(ColorProvider(color)).cornerRadius(2.5.dp)) {}
             }
         }
         Spacer(GlanceModifier.height(2.dp))
-        Text(
-            text = if (progress == null) "--" else "$current/$goal",
-            style = TextStyle(color = textColor(W_SUB), fontSize = 8.sp)
-        )
+        Text(if (progress == null) "--" else "$current/$goal",
+            style = TextStyle(color = textColor(W_SUB), fontSize = 8.sp))
     }
 }
 
@@ -641,93 +558,132 @@ class WeightWidget : GlanceAppWidget() {
  * 数据来自 WidgetSnapshotRepo（与进展页同一套 domain 纯函数口径），不造假、失败显示 --。
  */
 class BodyWidget : GlanceAppWidget() {
+    /**
+     * 阶段D：复用现有 Provider 身份，切换到身体数据独立投影（body_data_v1）。
+     * 4×4 主档完整指标；4×3 保留 BMI/体脂；旧 4×2 实例兼容。
+     */
+    override val sizeMode: SizeMode = SizeMode.Responsive(
+        setOf(
+            DpSize(110.dp, 110.dp), DpSize(250.dp, 110.dp), DpSize(250.dp, 250.dp)
+        )
+    )
+
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val trace = WidgetPerf.begin("provideGlance", "BODY")
-        val data = loadWidgetData(context)
+        val data = WidgetSnapshotRepo.loadBody(context)
         val appearance = loadWidgetAppearance(context)
         WidgetPerf.end(trace, cache = if (data.stale) "stale" else "fresh")
         provideContent {
             val size = LocalSize.current
-            val compact = size.height < 140.dp
+            val full = size.height >= 200.dp
+            val compact = !full && size.width < 200.dp
             Box(
-                modifier = GlanceModifier
-                    .fillMaxSize()
+                modifier = GlanceModifier.fillMaxSize()
                     .background(cardBg(appearance.alphaPercent))
                     .cornerRadius(WidgetSpec.CORNER_CARD_DP.dp)
                     .padding(WidgetSpec.CARD_PADDING_DP.dp)
-                    .clickable(
-                        actionStartActivity(openApp(context, WidgetRefresher.TARGET_PROGRESS))
-                    )
+                    .clickable(actionStartActivity(openApp(context, WidgetRefresher.TARGET_PROGRESS)))
             ) {
                 Column(modifier = GlanceModifier.fillMaxSize()) {
-                    Text(
-                        text = "身体数据",
-                        style = TextStyle(color = textColor(WidgetSpec.TEXT), fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                    )
-                    Spacer(GlanceModifier.height(6.dp))
-                    Row(modifier = GlanceModifier.fillMaxWidth()) {
-                        // 左栏：体重主体 + 体脂
-                        Column(modifier = GlanceModifier.defaultWeight()) {
-                            Text("体重", style = TextStyle(color = textColor(W_SUB), fontSize = 9.sp))
-                            Text(
-                                text = if (data.bodyState == ItemState.FAILED || data.latestWeight == null || data.latestWeight <= 0)
-                                    "--" else WeightUnit.format(data.latestWeight, data.unit),
-                                style = TextStyle(color = textColor(WidgetSpec.TEXT), fontSize = 26.sp, fontWeight = FontWeight.Bold)
-                            )
-                            Text(
-                                text = "目标 " + if (data.targetWeight > 0) WeightUnit.format(data.targetWeight, data.unit) else "--",
-                                style = TextStyle(color = textColor(W_SUB), fontSize = 9.sp)
-                            )
-                            if (!compact) {
-                                Spacer(GlanceModifier.height(5.dp))
-                                Text(
-                                    text = "体脂 ${if (data.bodyFat != null) "${String.format("%.1f", data.bodyFat)}%" else "--"}" +
-                                        if (data.bodyFatSource == "estimated") " ·估算" else "",
-                                    style = TextStyle(color = textColor(W_SUB), fontSize = 9.sp)
-                                )
-                            }
-                        }
-                        Spacer(GlanceModifier.width(8.dp))
-                        // 右栏：BMI
-                        Column(modifier = GlanceModifier.defaultWeight()) {
-                            Text("BMI", style = TextStyle(color = textColor(W_SUB), fontSize = 9.sp))
-                            Text(
-                                text = if (data.bodyState == ItemState.FAILED || data.bmi <= 0) "--"
-                                       else String.format("%.1f", data.bmi),
-                                style = TextStyle(color = textColor(bmiColor(data.bmiCategory)), fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                            )
-                            Text(
-                                text = data.bmiCategory.ifBlank { "--" },
-                                style = TextStyle(color = textColor(bmiColor(data.bmiCategory)), fontSize = 9.sp)
-                            )
-                        }
+                    Text("身体数据", style = TextStyle(color = textColor(WidgetSpec.TEXT),
+                        fontSize = 12.sp, fontWeight = FontWeight.Medium))
+                    if (data.stale) {
+                        Spacer(GlanceModifier.height(3.dp))
+                        Text(bodyStaleLabel(data), style = TextStyle(color = textColor(W_SUB), fontSize = 8.sp))
                     }
-                    if (!compact) {
+                    Spacer(GlanceModifier.height(6.dp))
+
+                    if (!data.canShowBody) {
+                        Text(if (data.stale && !data.hasSnapshot) WidgetSpec.LABEL_NO_DATA else WidgetSpec.LABEL_WEIGHT_EMPTY,
+                            style = TextStyle(color = textColor(W_SUB), fontSize = 12.sp))
+                    } else {
+                        // 主视觉：当前体重
+                        Row(verticalAlignment = Alignment.Vertical.Bottom) {
+                            Text(if (data.latestWeight > 0) WeightUnit.format(data.latestWeight, data.unit) else "--",
+                                style = TextStyle(color = textColor(WidgetSpec.TEXT), fontSize = if (full) 32.sp else 24.sp,
+                                    fontWeight = FontWeight.Bold))
+                            Spacer(GlanceModifier.width(3.dp))
+                            Text(WeightUnit.symbol(data.unit),
+                                style = TextStyle(color = textColor(W_SUB), fontSize = 11.sp),
+                                modifier = GlanceModifier.padding(bottom = 4.dp))
+                        }
+                        Spacer(GlanceModifier.height(3.dp))
+                        Text("目标 " + if (data.targetWeight > 0) WeightUnit.format(data.targetWeight, data.unit) else "--",
+                            style = TextStyle(color = textColor(W_SUB), fontSize = 10.sp))
+
+                        if (!compact && data.goalComputable && data.targetWeight > 0) {
+                            Spacer(GlanceModifier.height(6.dp))
+                            val p = data.lossProgress.coerceIn(0f, 1f)
+                            Box(modifier = GlanceModifier.fillMaxWidth().height(5.dp)
+                                .background(ColorProvider(WidgetSpec.GREEN_LIGHT)).cornerRadius(2.5.dp)) {
+                                if (p > 0f) Box(modifier = GlanceModifier.width(
+                                    WidgetLayout.macroTrackWidth(size.width) * p
+                                ).height(5.dp).background(ColorProvider(W_GREEN)).cornerRadius(2.5.dp)) {}
+                            }
+                            Spacer(GlanceModifier.height(3.dp))
+                            val dir = when (data.goalDirection) {
+                                com.qingji.app.domain.BodyMetricsCalculator.GoalDirection.GAIN -> "增重"
+                                com.qingji.app.domain.BodyMetricsCalculator.GoalDirection.MAINTAIN -> "维持"
+                                else -> "减重"
+                            }
+                            Text(if (data.goalReached) "${dir}目标已达成" else
+                                "${dir}目标 ${(p * 100).toInt()}% · 还差 ${WeightUnit.format(data.remainToTarget, data.unit)} ${WeightUnit.symbol(data.unit)}",
+                                style = TextStyle(color = textColor(W_SUB), fontSize = 9.sp))
+                        }
+
+                        // BMI / 体脂双栏（4×3 也保留）
                         Spacer(GlanceModifier.height(8.dp))
                         Box(modifier = GlanceModifier.fillMaxWidth().height(1.dp)
                             .background(ColorProvider(WidgetSpec.DIVIDER))) {}
                         Spacer(GlanceModifier.height(6.dp))
-                        // 减重进度（首页同款细条 + 差距）
-                        val p = data.lossProgress.coerceIn(0f, 1f)
-                        Box(modifier = GlanceModifier.fillMaxWidth().height(5.dp)
-                            .background(ColorProvider(WidgetSpec.GREEN_LIGHT)).cornerRadius(2.5.dp)) {
-                            if (p > 0f) {
-                                Box(modifier = GlanceModifier.width(
-                                    WidgetLayout.macroTrackWidth(size.width) * p
-                                ).height(5.dp).background(ColorProvider(W_GREEN)).cornerRadius(2.5.dp)) {}
+                        Row(modifier = GlanceModifier.fillMaxWidth()) {
+                            Column(modifier = GlanceModifier.defaultWeight()) {
+                                Text("BMI", style = TextStyle(color = textColor(W_SUB), fontSize = 9.sp))
+                                Text(if (data.bmi > 0) String.format("%.1f", data.bmi) else "--",
+                                    style = TextStyle(color = textColor(bmiColor(data.bmiCategory)),
+                                        fontSize = 20.sp, fontWeight = FontWeight.Bold))
+                                Text(data.bmiCategory.ifBlank { "--" },
+                                    style = TextStyle(color = textColor(bmiColor(data.bmiCategory)), fontSize = 9.sp))
+                            }
+                            Spacer(GlanceModifier.width(8.dp))
+                            Column(modifier = GlanceModifier.defaultWeight()) {
+                                Text("体脂率", style = TextStyle(color = textColor(W_SUB), fontSize = 9.sp))
+                                Text(if (data.bodyFat != null) "${String.format("%.1f", data.bodyFat)}%" else "--",
+                                    style = TextStyle(color = textColor(WidgetSpec.TEXT),
+                                        fontSize = 20.sp, fontWeight = FontWeight.Bold))
+                                Text(bodyFatSourceLabel(data.bodyFatSource),
+                                    style = TextStyle(color = textColor(if (data.bodyFatSource == "estimated") WidgetSpec.WARN_ORANGE else W_SUB),
+                                        fontSize = 9.sp))
                             }
                         }
-                        Spacer(GlanceModifier.height(4.dp))
-                        Text(
-                            text = if (data.targetWeight <= 0) "设置目标体重后显示进度"
-                                   else "减重进度 ${(p * 100).toInt()}% · 还差 ${String.format("%.1f", data.remainToTarget)} ${data.unit}",
-                            style = TextStyle(color = textColor(W_SUB), fontSize = 9.sp)
-                        )
+                        if (full) {
+                            Spacer(GlanceModifier.height(6.dp))
+                            Text("最近记录 " + (data.latestRecordDate?.toString() ?: "--") +
+                                " · 共 ${data.recordCount} 次",
+                                style = TextStyle(color = textColor(W_SUB), fontSize = 8.sp))
+                        }
                     }
                 }
             }
         }
     }
+}
+
+/** 身体数据 stale 文案。 */
+private fun bodyStaleLabel(d: BodyDataWidgetData): String {
+    if (!d.hasSnapshot) return WidgetSpec.LABEL_STALE_WEIGHT
+    val time = java.time.Instant.ofEpochMilli(d.snapshotAt)
+        .atZone(java.time.ZoneId.systemDefault())
+        .format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+    return "数据较旧 · 最近成功 $time"
+}
+
+/** 体脂来源必须明确区分实测/估算，不能让用户误认。 */
+private fun bodyFatSourceLabel(source: String) = when (source) {
+    "measured" -> "实测"
+    "estimated" -> "估算 · 仅趋势参考"
+    "unsupported" -> "暂不支持估算"
+    else -> "完善资料后估算"
 }
 
 private fun bmiColor(category: String) = when (category) {
