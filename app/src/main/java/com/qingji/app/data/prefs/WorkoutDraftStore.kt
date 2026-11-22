@@ -93,8 +93,9 @@ class WorkoutDraftStore(context: Context) {
     private val draftLock = Any()
 
     /**
-     * B1.1.2：落盘前钩子，生产为空操作。internal + 默认空操作，仅测试注入异常以验证
-     * 「落盘失败时内存 revision 与磁盘 revision 保持一致」（T20）。
+     * B1.1.2：草稿写入前钩子，生产为空操作。internal + 默认空操作，仅测试注入异常以验证
+     * 「写入失败时内存 revision 与 SP 中 revision 保持一致」（T20）。
+     * SharedPreferences.apply() 只保证内存立即可见，物理磁盘写入由系统异步完成。
      */
     internal var saveHook: () -> Unit = {}
 

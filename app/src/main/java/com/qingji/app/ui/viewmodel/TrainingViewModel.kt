@@ -664,9 +664,12 @@ class TrainingViewModel(app: Application, repoOverride: TrainingRepository? = nu
     }
 
     /**
-     * 每次改动都同步落盘，进程被杀也能恢复；revision 单调递增供保存版本比对。
-     * B1.1.2：先落盘成功、再更新内存，保证内存 revision 与磁盘 revision 一致；
-     * 落盘失败则内存保持旧值并明确提示，绝不出现「内存已改、磁盘没改」的版本错位（T20）。
+     * 每次改动都写 SharedPreferences，进程被杀也能恢复；revision 单调递增供保存版本比对。
+     * B1.1.2：先调用 draftStore.save() 成功、再更新内存，保证内存 revision 与
+     * SharedPreferences 中的 revision 一致；写入调用失败则内存保持旧值并明确提示，
+     * 绝不出现「内存已改、SP 未改」的版本错位（T20）。
+     * 注意：SharedPreferences.apply() 只保证内存立即可见，物理磁盘写入由系统异步完成，
+     * 这里不宣称已同步刷盘。
      */
     private fun persist(d: WorkoutDraft) {
         val versioned = d.copy(revision = d.revision + 1L)
