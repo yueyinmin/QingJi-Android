@@ -71,7 +71,7 @@ class BodyProjectionTest {
     @Test
     fun `两个投影schema独立`() {
         assertEquals(1, BodyDataWidgetData.SCHEMA_VERSION)
-        assertEquals(1, TodayRemainingWidgetData.SCHEMA_VERSION)
+        assertEquals(2, TodayRemainingWidgetData.SCHEMA_VERSION)
         // 收尾 P0 新增 goalConfigured，大快照 schema 4 → 5（两独立投影仍为 1，不受影响）。
         assertEquals(5, WidgetData.SCHEMA_VERSION)
     }

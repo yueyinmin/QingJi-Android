@@ -321,7 +321,8 @@ class OverviewWidget : GlanceAppWidget() {
                         )
                     )
             ) {
-                Column(modifier = GlanceModifier.fillMaxSize()) {
+                Row(modifier = GlanceModifier.fillMaxSize()) {
+                Column(modifier = GlanceModifier.defaultWeight()) {
                     // 标题行 + 目标胶囊
                     Row(modifier = GlanceModifier.fillMaxWidth(),
                         verticalAlignment = Alignment.Vertical.CenterVertically) {
@@ -419,6 +420,24 @@ class OverviewWidget : GlanceAppWidget() {
                                 palette.macroFat, track, GlanceModifier.defaultWeight(), palette)
                         }
                     }
+                }
+                // V2.3 高保真：右侧水杯（与首页同款梯形杯+水位，4×4/5×4 显示）
+                if ((full || wide) && data.hasSnapshot && data.waterState != ItemState.FAILED) {
+                    Spacer(GlanceModifier.width(10.dp))
+                    Column(modifier = GlanceModifier.width(78.dp),
+                        horizontalAlignment = Alignment.Horizontal.CenterHorizontally) {
+                        Image(
+                            provider = ImageProvider(waterCupBitmap(data.waterPercent / 100f)),
+                            contentDescription = "饮水 ${data.waterMl}/${data.waterGoalMl} 毫升",
+                            modifier = GlanceModifier.size(width = 78.dp, height = 190.dp)
+                                .clickable(actionRunCallback<AddWaterAction>())
+                        )
+                        Spacer(GlanceModifier.height(6.dp))
+                        Text("${data.waterMl}/${data.waterGoalMl}ml · ${data.waterPercent.toInt()}%",
+                            style = TextStyle(color = textColor(palette.sub), fontSize = 9.sp),
+                            maxLines = 1)
+                    }
+                }
                 }
             }
         }
@@ -652,8 +671,19 @@ class BodyWidget : GlanceAppWidget() {
                                 Text(if (data.bmi > 0) String.format("%.1f", data.bmi) else "--",
                                     style = TextStyle(color = textColor(bmiColor(data.bmiCategory, palette)),
                                         fontSize = 20.sp, fontWeight = FontWeight.Bold))
-                                Text(data.bmiCategory.ifBlank { "--" },
-                                    style = TextStyle(color = textColor(bmiColor(data.bmiCategory, palette)), fontSize = 9.sp))
+                                // V2.3 高保真：BMI 半圆仪表盘（与进展页同款四段弧+指针）
+                                if (full || wide) {
+                                    Spacer(GlanceModifier.height(3.dp))
+                                    Image(
+                                        provider = ImageProvider(bmiGaugeBitmap(
+                                            if (data.canShowBody) data.bmi else 0.0, palette)),
+                                        contentDescription = "BMI ${data.bmiCategory}",
+                                        modifier = GlanceModifier.width(120.dp).height(62.dp)
+                                    )
+                                } else {
+                                    Text(data.bmiCategory.ifBlank { "--" },
+                                        style = TextStyle(color = textColor(bmiColor(data.bmiCategory, palette)), fontSize = 9.sp))
+                                }
                             }
                             Spacer(GlanceModifier.width(8.dp))
                             Column(modifier = GlanceModifier.defaultWeight()) {
@@ -695,6 +725,32 @@ private fun bodyFatSourceLabel(source: String) = when (source) {
     "unsupported" -> "暂不支持估算"
     else -> "完善资料后估算"
 }
+
+/** V2.3 高保真：生成水杯静态帧（与首页 WaterCup 同形状/配色，固定语义色不随主题）。 */
+private fun waterCupBitmap(level: Float): android.graphics.Bitmap =
+    WidgetArtwork.waterCup(
+        widthPx = 156, heightPx = 380, level = level,
+        outline = android.graphics.Color.parseColor("#9FC9DA"),
+        fill = android.graphics.Color.parseColor("#7EC8E3"),
+        surface = android.graphics.Color.parseColor("#AEDCEC"),
+        bubbleTint = android.graphics.Color.parseColor("#E6F4FA")
+    )
+
+/** Compose Color → Android ARGB Int（WidgetArtwork 用 Android Canvas 绘制需要）。 */
+private fun argb(c: Color): Int =
+    android.graphics.Color.argb((c.alpha * 255).toInt(), (c.red * 255).toInt(),
+        (c.green * 255).toInt(), (c.blue * 255).toInt())
+
+/** 生成 BMI 仪表盘 Bitmap（与 App MiniBmiGauge 同算法）。 */
+private fun bmiGaugeBitmap(bmi: Double, palette: WidgetPalette): android.graphics.Bitmap =
+    WidgetArtwork.bmiGauge(
+        bmi = bmi, widthPx = 240, heightPx = 124,
+        green = argb(palette.green),
+        warn = argb(palette.warnOrange),
+        danger = argb(palette.overLimit),
+        needle = argb(palette.text),
+        track = argb(palette.divider)
+    )
 
 private fun bmiColor(category: String, palette: WidgetPalette) = when (category) {
     "正常" -> palette.green

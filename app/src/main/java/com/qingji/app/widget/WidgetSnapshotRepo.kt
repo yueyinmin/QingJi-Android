@@ -500,6 +500,7 @@ object WidgetSnapshotRepo {
             HealthRepository(context, dbOverride = dbOverride)
                 .observeDailyExerciseCalories(today).first()
         }
+        val water = query("today.water") { repo.observeWaterMl(today).first() }
         val goalRaw = profile.value?.dailyKcalGoal ?: 0
         val goalConfigured = goalRaw > 0
         val goal = if (goalConfigured) goalRaw else 0
@@ -523,12 +524,19 @@ object WidgetSnapshotRepo {
             carbGoal = profile.value?.carbGoalG ?: 0,
             fatCurrent = (summary.value?.totalFat ?: 0.0).toInt(),
             fatGoal = profile.value?.fatGoalG ?: 0,
+            waterMl = water.value ?: 0,
+            waterGoalMl = settings.waterGoalMl.takeIf { it > 0 }
+                ?: profile.value?.waterGoalMl?.takeIf { it > 0 } ?: 2000,
+            waterState = water.state,
             profileState = profile.state, dietState = summary.state, exerciseState = exercise.state,
             goalConfigured = goalConfigured,
             snapshotAt = System.currentTimeMillis(), hasSnapshot = true
         )
-        saveToday(context, data)
-        return data
+        val finalData = data.copy(
+            waterPercent = (data.waterMl * 100f / data.waterGoalMl.coerceAtLeast(1)).coerceIn(0f, 100f)
+        )
+        saveToday(context, finalData)
+        return finalData
     }
 
     /** 今日剩余投影读取：新 Key 不存在时安全降级为空态，不复用大快照的伪默认值。 */
@@ -590,6 +598,8 @@ object WidgetSnapshotRepo {
         put("proteinCurrent", d.proteinCurrent); put("proteinGoal", d.proteinGoal)
         put("carbCurrent", d.carbCurrent); put("carbGoal", d.carbGoal)
         put("fatCurrent", d.fatCurrent); put("fatGoal", d.fatGoal)
+        put("waterMl", d.waterMl); put("waterGoalMl", d.waterGoalMl)
+        put("waterPercent", d.waterPercent); put("waterState", d.waterState.name)
         put("profileState", d.profileState.name); put("dietState", d.dietState.name)
         put("exerciseState", d.exerciseState.name)
         put("snapshotAt", d.snapshotAt); put("stale", d.stale); put("hasSnapshot", d.hasSnapshot)
@@ -748,6 +758,9 @@ object WidgetSnapshotRepo {
         proteinCurrent = o.getInt("proteinCurrent"), proteinGoal = o.getInt("proteinGoal"),
         carbCurrent = o.getInt("carbCurrent"), carbGoal = o.getInt("carbGoal"),
         fatCurrent = o.getInt("fatCurrent"), fatGoal = o.getInt("fatGoal"),
+        waterMl = o.optInt("waterMl", 0), waterGoalMl = o.optInt("waterGoalMl", 2000),
+        waterPercent = o.optDouble("waterPercent", 0.0).toFloat().coerceIn(0f, 100f),
+        waterState = runCatching { ItemState.valueOf(o.getString("waterState")) }.getOrDefault(ItemState.FAILED),
         profileState = ItemState.valueOf(o.getString("profileState")),
         dietState = ItemState.valueOf(o.getString("dietState")),
         exerciseState = ItemState.valueOf(o.getString("exerciseState")),

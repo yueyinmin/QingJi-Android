@@ -25,6 +25,11 @@ data class TodayRemainingWidgetData(
     val carbGoal: Int = 0,
     val fatCurrent: Int = 0,
     val fatGoal: Int = 0,
+    /** V2.3 水杯：当日饮水 ml / 目标 ml / 完成度 0..1（与首页 WaterCup 同口径） */
+    val waterMl: Int = 0,
+    val waterGoalMl: Int = 0,
+    val waterPercent: Float = 0f,
+    val waterState: ItemState = ItemState.FAILED,
     val profileState: ItemState = ItemState.FAILED,
     val dietState: ItemState = ItemState.FAILED,
     val exerciseState: ItemState = ItemState.FAILED,
@@ -40,6 +45,6 @@ data class TodayRemainingWidgetData(
             dietState != ItemState.FAILED && exerciseState != ItemState.FAILED
 
     companion object {
-        const val SCHEMA_VERSION = 1
+        const val SCHEMA_VERSION = 2 // V2.3 加水杯字段
     }
 }

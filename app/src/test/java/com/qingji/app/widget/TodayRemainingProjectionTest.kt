@@ -12,7 +12,7 @@ class TodayRemainingProjectionTest {
 
     @Test
     fun `schema版本独立于大快照`() {
-        assertEquals(1, TodayRemainingWidgetData.SCHEMA_VERSION)
+        assertEquals(2, TodayRemainingWidgetData.SCHEMA_VERSION)
         assertTrue(TodayRemainingWidgetData.SCHEMA_VERSION != WidgetData.SCHEMA_VERSION)
     }
 

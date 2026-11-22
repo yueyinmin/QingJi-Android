@@ -131,6 +131,6 @@ class TodayMacroRenderTest {
         assertNull(todayMacroProgress(legacy.dietState, legacy.goalConfigured, 30, legacy.proteinGoal))
         // schema 1 独立投影；旧大快照 schema 4 不能当作投影 1 使用
         assertNotEquals(4, TodayRemainingWidgetData.SCHEMA_VERSION)
-        assertEquals(1, TodayRemainingWidgetData.SCHEMA_VERSION)
+        assertEquals(2, TodayRemainingWidgetData.SCHEMA_VERSION)
     }
 }

@@ -28,7 +28,7 @@ class WidgetProjectionIsolationTest {
 
     @Test
     fun `两个投影schema独立`() {
-        assertEquals(1, TodayRemainingWidgetData.SCHEMA_VERSION)
+        assertEquals(2, TodayRemainingWidgetData.SCHEMA_VERSION)
         assertEquals(1, BodyDataWidgetData.SCHEMA_VERSION)
         assertNotEquals(TodayRemainingWidgetData.SCHEMA_VERSION, WidgetData.SCHEMA_VERSION)
     }
