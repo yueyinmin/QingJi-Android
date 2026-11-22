@@ -85,6 +85,12 @@ class WorkoutDraftStore(context: Context) {
     private val sp = context.applicationContext
         .getSharedPreferences("workout_draft", Context.MODE_PRIVATE)
 
+    /**
+     * B1.1.2：落盘前钩子，生产为空操作。测试可注入异常以验证
+     * 「落盘失败时内存 revision 与磁盘 revision 保持一致」（T20）。
+     */
+    var saveHook: () -> Unit = {}
+
     companion object {
         private const val KEY_DRAFT = "draft_json"
         private const val KEY_UNIT = "weight_unit"   // kg / lb，纯显示层，不进备份
@@ -136,6 +142,7 @@ class WorkoutDraftStore(context: Context) {
     }
 
     fun save(draft: WorkoutDraft) {
+        saveHook()   // B1.1.2：测试注入落盘失败（生产为空）
         val o = JSONObject().apply {
             put("sessionUuid", draft.sessionUuid)
             put("startedAt", draft.startedAt)

@@ -36,6 +36,12 @@ class BackupManager(private val context: Context) {
 
     private val db = AppDatabase.get(context)
 
+    /**
+     * B1.1.2：恢复事务中途钩子，生产为空操作。
+     * 测试在训练段清表之后、灌入之前注入异常，真实验证 db.withTransaction 的整事务回滚。
+     */
+    var restoreHook: suspend () -> Unit = {}
+
     /** 备份目录：App 私有外部目录，卸载 App 会被清掉，所以务必先分享出去。 */
     private fun backupDir(): File {
         val base = context.getExternalFilesDir(null) ?: context.filesDir
@@ -660,6 +666,8 @@ class BackupManager(private val context: Context) {
             target.workoutSessionDao().clearAll()
             target.workoutExerciseDao().clearAll()
             target.workoutCardioDetailDao().clearAll()
+            // B1.1.2：训练段「已清表、未灌入」的中途点注入异常，验证整事务回滚。
+            restoreHook()
             if (t.plans.isNotEmpty()) target.trainingPlanDao().insertAll(t.plans)
             if (t.planDays.isNotEmpty()) target.trainingPlanDayDao().insertAll(t.planDays)
             if (t.planExercises.isNotEmpty()) target.planExerciseDao().insertAll(t.planExercises)
