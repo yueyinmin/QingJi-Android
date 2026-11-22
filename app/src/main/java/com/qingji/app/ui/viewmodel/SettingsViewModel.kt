@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import com.qingji.app.domain.TimeFormat
@@ -58,7 +59,18 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setTheme(mode: String) = put(SettingsKeys.THEME_MODE, mode)
 
-    fun setUnit(unit: String) = put(SettingsKeys.UNIT, unit)
+    /** V2.1阶段A：单位既写 DataStore（App UI 用），也写档案（Widget 读 profile.unit），并刷新体重组件。 */
+    fun setUnit(unit: String) {
+        put(SettingsKeys.UNIT, unit)
+        viewModelScope.launch {
+            // 档案 unit 通过 Repository 写，触发 BODY_DATA + WEIGHT 定向刷新
+            val current = repo.observeProfile().firstOrNull() ?: return@launch
+            if (current.unit != unit) repo.saveProfile(current.copy(unit = unit))
+            com.qingji.app.widget.WidgetRefresher.refresh(context,
+                setOf(com.qingji.app.widget.WidgetTarget.BODY_DATA,
+                    com.qingji.app.widget.WidgetTarget.WEIGHT))
+        }
+    }
 
     fun setTimezone(zoneId: String) {
         viewModelScope.launch {
@@ -129,6 +141,9 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
                     calciumGoalMg = calciumGoalMg.coerceIn(0, 5000)
                 )
             )
+            // V2.1阶段A：档案写入成功后刷新（纤维/钠/钙非今日剩余核心，仅刷新一次避免无意义全量）。
+            com.qingji.app.widget.WidgetRefresher.refresh(context,
+                setOf(com.qingji.app.widget.WidgetTarget.OVERVIEW))
             toast("膳食纤维 / 钠 / 钙目标已保存")
         }
     }

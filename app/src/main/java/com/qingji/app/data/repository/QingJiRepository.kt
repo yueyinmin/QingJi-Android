@@ -103,8 +103,10 @@ class QingJiRepository(
         ) targets.add(com.qingji.app.widget.WidgetTarget.OVERVIEW)
         if (old == null || old.heightCm != new.heightCm || old.birthday != new.birthday ||
             old.gender != new.gender || old.targetWeight != new.targetWeight ||
-            old.startWeight != new.startWeight
+            old.startWeight != new.startWeight || old.unit != new.unit
         ) targets.add(com.qingji.app.widget.WidgetTarget.BODY_DATA)
+        // V2.1：单位变化同时影响体重闪记显示
+        if (old != null && old.unit != new.unit) targets.add(com.qingji.app.widget.WidgetTarget.WEIGHT)
         return targets
     }
 
@@ -285,8 +287,11 @@ class QingJiRepository(
             healthRepository().deleteExerciseLogMirror(log.id)
             healthRepository().mirrorExerciseLog(log)
         }
-        // 阶段B：修改运动可能改日期，原日期或新日期是今天都要刷。
-        if (log.date == com.qingji.app.domain.AppClock.today()) {
+        // V2.1阶段A：原日期或新日期任一是今天都要刷（原来只判新日期，今天改历史会漏刷）。
+        val oldDate = db.exerciseLogDao().findById(log.id)?.date
+        if (oldDate == com.qingji.app.domain.AppClock.today() ||
+            log.date == com.qingji.app.domain.AppClock.today()
+        ) {
             refreshHook(context, setOf(com.qingji.app.widget.WidgetTarget.OVERVIEW))
         }
     }
