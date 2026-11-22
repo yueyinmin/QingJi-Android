@@ -334,11 +334,13 @@ fun TrainingActiveScreen(
             OutlinedButton(onClick = { showDiscard = true }, modifier = Modifier.weight(1f)) {
                 Text("放弃", fontSize = TextSizes.Body)
             }
+            val saving by vm.isSaving.collectAsState()
             Button(
                 onClick = { vm.save { ok -> if (ok) onBack() } },
-                modifier = Modifier.weight(2f)
+                modifier = Modifier.weight(2f),
+                enabled = !saving
             ) {
-                Text("保存训练", fontSize = TextSizes.Body)
+                Text(if (saving) "保存中…" else "保存训练", fontSize = TextSizes.Body)
             }
         }
     }

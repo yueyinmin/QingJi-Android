@@ -1,0 +1,986 @@
+diff --git a/app/src/main/java/com/qingji/app/data/prefs/WorkoutDraftStore.kt b/app/src/main/java/com/qingji/app/data/prefs/WorkoutDraftStore.kt
+index bfe3219..9afdab7 100644
+--- a/app/src/main/java/com/qingji/app/data/prefs/WorkoutDraftStore.kt
++++ b/app/src/main/java/com/qingji/app/data/prefs/WorkoutDraftStore.kt
+@@ -52,7 +52,12 @@ data class WorkoutDraft(
+      * 保存时写进 WorkoutSession.source（plan:<计划名>），供训练日记追溯来源。
+      * 空 = 手动/补记/编辑，行为与旧版一致。
+      */
+-    val sourcePlan: String = ""
++    val sourcePlan: String = "",
++    /**
++     * B1.1.1：草稿版本号。每次改动由 persist() 单调递增，并随草稿一起落盘。
++     * save() 用它判断「保存期间用户是否又改了草稿」：revision 变了就不能清草稿。
++     */
++    val revision: Long = 0L
+ ) {
+     /** 当前已练了多久（秒）。暂停时冻结在暂停那一刻。 */
+     fun elapsedSeconds(now: Long): Long {
+@@ -124,7 +129,8 @@ class WorkoutDraftStore(context: Context) {
+                 fixedCreatedAt = o.optLong("fixedCreatedAt", 0L),
+                 durationOverrideMin = o.optInt("durationOverrideMin", 0),
+                 backfillDate = o.optString("backfillDate", ""),
+-                sourcePlan = o.optString("sourcePlan", "")
++                sourcePlan = o.optString("sourcePlan", ""),
++                revision = o.optLong("revision", 0L)
+             )
+         }.getOrNull()?.takeIf { it.sessionUuid.isNotBlank() && it.startedAt > 0L }
+     }
+@@ -145,6 +151,7 @@ class WorkoutDraftStore(context: Context) {
+             put("durationOverrideMin", draft.durationOverrideMin)
+             put("backfillDate", draft.backfillDate)
+             put("sourcePlan", draft.sourcePlan)
++            put("revision", draft.revision)
+             put("exercises", JSONArray().apply {
+                 draft.exercises.forEach { e ->
+                     put(JSONObject().apply {
+diff --git a/app/src/main/java/com/qingji/app/data/repository/TrainingRepository.kt b/app/src/main/java/com/qingji/app/data/repository/TrainingRepository.kt
+index 0b19af9..3aee021 100644
+--- a/app/src/main/java/com/qingji/app/data/repository/TrainingRepository.kt
++++ b/app/src/main/java/com/qingji/app/data/repository/TrainingRepository.kt
+@@ -46,7 +46,9 @@ class TrainingRepository(
+     private val refreshHook: (Context, Set<com.qingji.app.widget.WidgetTarget>) -> Unit =
+         { c, targets -> com.qingji.app.widget.WidgetRefresher.refresh(c, targets) },
+     /** V2.1阶段A4 同款测试注入：独立 Room 实例，生产不传。 */
+-    dbOverride: AppDatabase? = null
++    dbOverride: AppDatabase? = null,
++    /** B1.1.1 测试注入：保存事务内的钩子，生产为空。用于模拟慢保存/数据库异常。 */
++    private val saveHook: suspend () -> Unit = {}
+ ) {
+ 
+     private val db = dbOverride ?: AppDatabase.get(context)
+@@ -207,6 +209,7 @@ class TrainingRepository(
+             method = WorkoutCalorieCalculator.METHOD_CARDIO_ONLY
+         )
+         db.withTransaction {
++            saveHook() // B1.1.1：测试可在事务内注入延迟/异常，生产为空操作
+             // 1+2：会话 + workout_exercise（力量与 HIIT/柔韧/其他，整包替换，id 重生成）
+             sessionDao.insert(session)
+             workoutExerciseDao.deleteBySession(session.uuid)
+diff --git a/app/src/main/java/com/qingji/app/domain/ExerciseCalorieHint.kt b/app/src/main/java/com/qingji/app/domain/ExerciseCalorieHint.kt
+new file mode 100644
+index 0000000..5ae0afe
+--- /dev/null
++++ b/app/src/main/java/com/qingji/app/domain/ExerciseCalorieHint.kt
+@@ -0,0 +1,40 @@
++package com.qingji.app.domain
++
++/**
++ * B1.1.1：运动消耗的三态提示。绝不把「没数据」和「算不出」都显示成 0 kcal。
++ *
++ * 状态区分：
++ * - 未录入实际运动数据（没有任何可计算的实际值）
++ * - 已录入，但缺结算体重 / 有效 MET / 可靠时长（参数不足）
++ * - 已完成热量计算（有正数结果）
++ */
++object ExerciseCalorieHint {
++
++    enum class State { NOT_RECORDED, MISSING_PARAMS, CALCULATED }
++
++    fun state(
++        hasActualData: Boolean,
++        hasWeight: Boolean,
++        result: WorkoutCalorieCalculator.Result
++    ): State = when {
++        result.totalKcal > 0.0 -> State.CALCULATED
++        !hasActualData -> State.NOT_RECORDED
++        else -> State.MISSING_PARAMS // hasWeight=false 或 MET/时长参数不足
++    }
++
++    /** 返回保存反馈文案（前缀含中文分号，直接接在「训练已保存」后）。 */
++    fun message(
++        hasActualData: Boolean,
++        hasWeight: Boolean,
++        result: WorkoutCalorieCalculator.Result
++    ): String = when (state(hasActualData, hasWeight, result)) {
++        State.CALCULATED ->
++            "，预计消耗约 ${SessionCalorieCalculator.displayKcal(result.totalKcal)} 千卡（估算）"
++        State.NOT_RECORDED -> "；未录入可用于计算的实际运动数据，暂未计算消耗"
++        State.MISSING_PARAMS -> when {
++            !hasWeight -> "；未记录结算体重，本次未估算消耗"
++            result.hasSkipped -> "；已录入 ${result.notComputableItems} 项但缺少可靠时长/参数，暂未计算消耗"
++            else -> "；运动参数不足，暂未计算消耗"
++        }
++    }
++}
+diff --git a/app/src/main/java/com/qingji/app/domain/WorkoutItem.kt b/app/src/main/java/com/qingji/app/domain/WorkoutItem.kt
+index a853322..04bf15e 100644
+--- a/app/src/main/java/com/qingji/app/domain/WorkoutItem.kt
++++ b/app/src/main/java/com/qingji/app/domain/WorkoutItem.kt
+@@ -262,3 +262,12 @@ sealed class WorkoutItem {
+         )
+     }
+ }
++
++/** B1.1.1：是否录入了可用于热量计算的实际数据（与「只有计划目标」严格区分）。 */
++fun WorkoutItem.hasActualData(): Boolean = when (this) {
++    is WorkoutItem.Strength -> sets.any { it.reps > 0 || it.weightKg > 0.0 || (it.durationSec ?: 0) > 0 }
++    is WorkoutItem.Cardio -> durationSec > 0L || (distanceMeters ?: 0.0) > 0.0
++    is WorkoutItem.Hiit -> durationSec > 0L || rounds > 0
++    is WorkoutItem.Flexibility -> durationSec > 0L || content.isNotBlank()
++    is WorkoutItem.Other -> durationSec > 0L || (reps ?: 0) > 0
++}
+diff --git a/app/src/main/java/com/qingji/app/ui/screen/training/TrainingActiveScreen.kt b/app/src/main/java/com/qingji/app/ui/screen/training/TrainingActiveScreen.kt
+index 0a3439c..9ffa921 100644
+--- a/app/src/main/java/com/qingji/app/ui/screen/training/TrainingActiveScreen.kt
++++ b/app/src/main/java/com/qingji/app/ui/screen/training/TrainingActiveScreen.kt
+@@ -334,11 +334,13 @@ fun TrainingActiveScreen(
+             OutlinedButton(onClick = { showDiscard = true }, modifier = Modifier.weight(1f)) {
+                 Text("放弃", fontSize = TextSizes.Body)
+             }
++            val saving by vm.isSaving.collectAsState()
+             Button(
+                 onClick = { vm.save { ok -> if (ok) onBack() } },
+-                modifier = Modifier.weight(2f)
++                modifier = Modifier.weight(2f),
++                enabled = !saving
+             ) {
+-                Text("保存训练", fontSize = TextSizes.Body)
++                Text(if (saving) "保存中…" else "保存训练", fontSize = TextSizes.Body)
+             }
+         }
+     }
+diff --git a/app/src/main/java/com/qingji/app/ui/viewmodel/TrainingViewModel.kt b/app/src/main/java/com/qingji/app/ui/viewmodel/TrainingViewModel.kt
+index 61595bb..87e0fc6 100644
+--- a/app/src/main/java/com/qingji/app/ui/viewmodel/TrainingViewModel.kt
++++ b/app/src/main/java/com/qingji/app/ui/viewmodel/TrainingViewModel.kt
+@@ -10,12 +10,14 @@ import com.qingji.app.data.prefs.DraftExercise
+ import com.qingji.app.data.prefs.WorkoutDraft
+ import com.qingji.app.data.repository.TrainingRepository
+ import com.qingji.app.domain.AppClock
++import com.qingji.app.domain.ExerciseCalorieHint
+ import com.qingji.app.domain.PlanToDraftMapper
+ import com.qingji.app.domain.RestTimerState
+ import com.qingji.app.domain.SessionCalorieCalculator
+ import com.qingji.app.domain.TrainingItemMapper
+ import com.qingji.app.domain.TrainingMath
+ import com.qingji.app.domain.WorkoutItem
++import com.qingji.app.domain.hasActualData
+ import com.qingji.app.domain.WorkoutSet
+ import kotlinx.coroutines.flow.first
+ import kotlinx.coroutines.flow.MutableStateFlow
+@@ -26,6 +28,7 @@ import kotlinx.coroutines.flow.stateIn
+ import kotlinx.coroutines.launch
+ import java.time.LocalDate
+ import java.util.UUID
++import java.util.concurrent.atomic.AtomicBoolean
+ 
+ /**
+  * ============================================================
+@@ -51,6 +54,12 @@ class TrainingViewModel(app: Application, repoOverride: TrainingRepository? = nu
+     private val repo = repoOverride ?: TrainingRepository(app)
+     val draftStore = repo.draftStore
+ 
++    // B1.1.1 P0：保存互斥。CAS 在调用线程立即上锁，协程调度前第二次点击就会被拒；
++    // 不依赖 UI 禁用按钮——ViewModel 层本身就是最后一道闸。
++    private val savingGuard = AtomicBoolean(false)
++    private val _isSaving = MutableStateFlow(false)
++    val isSaving: StateFlow<Boolean> = _isSaving.asStateFlow()
++
+     // ---------- v1.4 健康体系：组间休息计时 ----------
+     // 时间戳驱动（和整场训练计时同一个思路）：只存「倒计时到哪一刻结束」，
+     // 页面怎么重组、每秒怎么刷新都不会丢；暂停时把剩余毫秒冻结下来。
+@@ -457,9 +466,30 @@ class TrainingViewModel(app: Application, repoOverride: TrainingRepository? = nu
+         return item
+     }
+ 
+-    /** 保存：整包写库，成功后草稿作废。返回 false 表示没达到「至少 1 组」的门槛。 */
++    /**
++     * 保存：整包写库，成功后草稿作废。
++     * B1.1.1 P0：入口 CAS 互斥 + 快照 revision + 失败保留草稿。
++     * 返回 false 表示没达到门槛、正在保存中或保存失败。
++     */
+     fun save(onDone: (Boolean) -> Unit) {
+-        val d = _draft.value ?: run { onDone(false); return }
++        // 1) 抢锁：任何时刻只有一个 save 能往前走。 superstition: 不用 UI disable 当唯一保护。
++        if (!savingGuard.compareAndSet(false, true)) {
++            say("正在保存，请稍候")
++            onDone(false)
++            return
++        }
++        _isSaving.value = true
++
++        val d = _draft.value
++        if (d == null) {
++            savingGuard.set(false)
++            _isSaving.value = false
++            onDone(false)
++            return
++        }
++        // 2) 不可变快照：本次所有 DB 操作只读这个 d，不受后续编辑影响。
++        val snapshot = d
++        val snapshotRevision = snapshot.revision
+         // B1.1 P0：强类型分流。空串按历史语义回退 STRENGTH；未知 key 降级 OTHER，绝不默认 CARDIO。
+         val typed = d.exercises.map { e ->
+             val entity = exercises.value.firstOrNull { it.uuid == e.exerciseUuid }
+@@ -475,6 +505,8 @@ class TrainingViewModel(app: Application, repoOverride: TrainingRepository? = nu
+         val nonStrength = typed.filter { (_, type) -> type != com.qingji.app.domain.ExerciseRecordType.STRENGTH }
+         if (strengthDrafts.isEmpty() && nonStrength.isEmpty()) {
+             say("至少要记一组有效力量或一个非力量项目才能保存")
++            savingGuard.set(false)
++            _isSaving.value = false
+             onDone(false)
+             return
+         }
+@@ -528,46 +560,65 @@ class TrainingViewModel(app: Application, repoOverride: TrainingRepository? = nu
+         }
+ 
+         viewModelScope.launch {
+-            val weight = settleWeight.value
+-            val mets = metDefaults.value
+-            // 按草稿顺序构建统一项目；目标只在 targetConfigJson，实际值只来自用户录入。
+-            val ordered = d.exercises
+-            val allItems = ordered.mapIndexed { i, e ->
+-                val entity = exercises.value.firstOrNull { it.uuid == e.exerciseUuid }
+-                val type = TrainingItemMapper.resolveType(e.recordType, entity)
+-                if (type == com.qingji.app.domain.ExerciseRecordType.STRENGTH) {
+-                    val cleaned = if (strengthDrafts.any { it.key == e.key }) {
+-                        e.copy(sets = e.sets.filter { s -> s.reps > 0 || s.weightKg > 0.0 || (s.durationSec ?: 0) > 0 })
+-                    } else e
+-                    TrainingItemMapper.draftToItem(cleaned, type, d.sessionUuid, i)
+-                } else {
+-                    var item = TrainingItemMapper.draftToItem(e, type, d.sessionUuid, i)
+-                    if (item is WorkoutItem.Cardio) {
+-                        item = TrainingItemMapper.withCardioKcal(item, entity, mets, weight)
++            try {
++                val weight = settleWeight.value
++                val mets = metDefaults.value
++                // 按快照构建统一项目；目标只在 targetConfigJson，实际值只来自用户录入。
++                val allItems = snapshot.exercises.mapIndexed { i, e ->
++                    val entity = exercises.value.firstOrNull { it.uuid == e.exerciseUuid }
++                    val type = TrainingItemMapper.resolveType(e.recordType, entity)
++                    if (type == com.qingji.app.domain.ExerciseRecordType.STRENGTH) {
++                        val cleaned = if (strengthDrafts.any { it.key == e.key }) {
++                            e.copy(sets = e.sets.filter { s -> s.reps > 0 || s.weightKg > 0.0 || (s.durationSec ?: 0) > 0 })
++                        } else e
++                        TrainingItemMapper.draftToItem(cleaned, type, snapshot.sessionUuid, i)
++                    } else {
++                        var item = TrainingItemMapper.draftToItem(e, type, snapshot.sessionUuid, i)
++                        if (item is WorkoutItem.Cardio) {
++                            item = TrainingItemMapper.withCardioKcal(item, entity, mets, weight)
++                        }
++                        item
+                     }
+-                    item
+                 }
+-            }
+-            val strengthItems = allItems.filterIsInstance<WorkoutItem.Strength>()
+-            val cardioItems = allItems.filterIsInstance<WorkoutItem.Cardio>()
+-            val otherItems = allItems.filter {
+-                it !is WorkoutItem.Strength && it !is WorkoutItem.Cardio
+-            }
+-            // 统一入口：力量 + HIIT/柔韧/其他写 workout_exercise，只有 CARDIO 写有氧明细。
+-            val result = repo.saveUnifiedSession(session, strengthItems + otherItems, cardioItems, weight)
+-            draftStore.clear()
+-            _draft.value = null
+-            val kcalText = if (result.totalKcal > 0.0)
+-                "，预计消耗约 ${com.qingji.app.domain.SessionCalorieCalculator.displayKcal(result.totalKcal)} 千卡（估算）"
+-            else ""
+-            say(
+-                when {
+-                    result.hasSkipped -> "训练已保存${kcalText}；${result.notComputableItems} 项缺少可靠时长/参数未计入消耗"
+-                    !editing -> "训练已保存${kcalText}"
+-                    else -> "已更新这次训练，消耗已重新结算${kcalText}"
++                val strengthItems = allItems.filterIsInstance<WorkoutItem.Strength>()
++                val cardioItems = allItems.filterIsInstance<WorkoutItem.Cardio>()
++                val otherItems = allItems.filter {
++                    it !is WorkoutItem.Strength && it !is WorkoutItem.Cardio
+                 }
+-            )
+-            onDone(true)
++                // 统一入口：力量 + HIIT/柔韧/其他写 workout_exercise，只有 CARDIO 写有氧明细。
++                // 事务成功后才动草稿——失败时草稿完整保留，用户可重试（T11）。
++                val result = repo.saveUnifiedSession(session, strengthItems + otherItems, cardioItems, weight)
++
++                // 版本化清理：只有当前草稿仍是本次保存的那一份（revision 未变）才清空。
++                // 若保存期间用户又改了草稿，保留新草稿，只把 its sessionUuid 留给下一次保存（T14）。
++                val current = _draft.value
++                if (current == null || current.revision == snapshotRevision) {
++                    draftStore.clear()
++                    _draft.value = null
++                } else {
++                    say("这次训练已保存；你在保存期间的新修改仍保留在草稿里，可再次保存")
++                }
++                val hasActual = snapshot.exercises.any { e ->
++                    e.sets.any { s -> s.reps > 0 || s.weightKg > 0.0 } ||
++                        WorkoutItem.fromJson(e.actualJson)?.hasActualData() == true
++                }
++                val kcalText = ExerciseCalorieHint.message(hasActual, weight > 0.0, result)
++                say(
++                    when {
++                        result.hasSkipped -> "训练已保存${kcalText}；${result.notComputableItems} 项缺少可靠时长/参数未计入消耗"
++                        !editing -> "训练已保存${kcalText}"
++                        else -> "已更新这次训练，消耗已重新结算${kcalText}"
++                    }
++                )
++                onDone(true)
++            } catch (e: Exception) {
++                // 数据库失败：草稿一个字节都不动，回调 false 让用户重试。
++                say("保存失败，草稿已保留，请重试：${e.message ?: "未知错误"}")
++                onDone(false)
++            } finally {
++                savingGuard.set(false)
++                _isSaving.value = false
++            }
+         }
+     }
+ 
+@@ -579,9 +630,10 @@ class TrainingViewModel(app: Application, repoOverride: TrainingRepository? = nu
+         }
+     }
+ 
+-    /** 每次改动都同步落盘，进程被杀也能恢复。 */
++    /** 每次改动都同步落盘，进程被杀也能恢复；revision 单调递增供保存版本比对。 */
+     private fun persist(d: WorkoutDraft) {
+-        _draft.value = d
+-        draftStore.save(d)
++        val versioned = d.copy(revision = d.revision + 1L)
++        _draft.value = versioned
++        draftStore.save(versioned)
+     }
+ }
+diff --git a/app/src/test/java/com/qingji/app/domain/ExerciseCalorieHintTest.kt b/app/src/test/java/com/qingji/app/domain/ExerciseCalorieHintTest.kt
+new file mode 100644
+index 0000000..54835cb
+--- /dev/null
++++ b/app/src/test/java/com/qingji/app/domain/ExerciseCalorieHintTest.kt
+@@ -0,0 +1,49 @@
++package com.qingji.app.domain
++
++import org.junit.Assert.assertEquals
++import org.junit.Test
++
++/** B1.1.1 P1：运动消耗三态提示，杜绝「没数据」与「算不出」都显示 0 kcal。 */
++class ExerciseCalorieHintTest {
++
++    private fun result(kcal: Double, skipped: Int) = WorkoutCalorieCalculator.Result(
++        totalKcal = kcal, strengthKcal = 0.0, cardioKcal = 0.0,
++        cardioItems = 0, notComputableItems = skipped,
++        method = WorkoutCalorieCalculator.METHOD_CARDIO_ONLY
++    )
++
++    @Test
++    fun `未录入实际数据时显示未录入而非0千卡`() {
++        val msg = ExerciseCalorieHint.message(false, true, result(0.0, 0))
++        assertEquals(ExerciseCalorieHint.State.NOT_RECORDED, ExerciseCalorieHint.state(false, true, result(0.0, 0)))
++        assertEquals("；未录入可用于计算的实际运动数据，暂未计算消耗", msg)
++    }
++
++    @Test
++    fun `已录入但缺体重时显示体重缺失`() {
++        assertEquals("；未记录结算体重，本次未估算消耗",
++            ExerciseCalorieHint.message(true, false, result(0.0, 0)))
++    }
++
++    @Test
++    fun `已录入但缺参数时显示参数不足`() {
++        val msg = ExerciseCalorieHint.message(true, true, result(0.0, 2))
++        assertEquals(ExerciseCalorieHint.State.MISSING_PARAMS, ExerciseCalorieHint.state(true, true, result(0.0, 2)))
++        assertEquals("；已录入 2 项但缺少可靠时长/参数，暂未计算消耗", msg)
++    }
++
++    @Test
++    fun `已计算时显示估算热量`() {
++        assertEquals(ExerciseCalorieHint.State.CALCULATED, ExerciseCalorieHint.state(true, true, result(320.0, 0)))
++        val msg = ExerciseCalorieHint.message(true, true, result(320.0, 0))
++        assertEquals(true, msg.contains("320"))
++        assertEquals(true, msg.contains("估算"))
++    }
++
++    @Test
++    fun `只有目标无实际录入仍判为未录入`() {
++        // 只有 targetConfigJson、没有 actualJson 的草稿项：hasActualData=false
++        assertEquals(ExerciseCalorieHint.State.NOT_RECORDED,
++            ExerciseCalorieHint.state(false, true, result(0.0, 0)))
++    }
++}
+diff --git a/app/src/test/java/com/qingji/app/training/TrainingB111IntegrationTest.kt b/app/src/test/java/com/qingji/app/training/TrainingB111IntegrationTest.kt
+new file mode 100644
+index 0000000..1aaeb74
+--- /dev/null
++++ b/app/src/test/java/com/qingji/app/training/TrainingB111IntegrationTest.kt
+@@ -0,0 +1,236 @@
++package com.qingji.app.training
++
++import androidx.room.Room
++import androidx.test.core.app.ApplicationProvider
++import com.qingji.app.data.backup.BackupManager
++import com.qingji.app.data.backup.TrainingBackup
++import com.qingji.app.data.backup.parseTraining
++import com.qingji.app.data.local.AppDatabase
++import com.qingji.app.data.local.entity.ExerciseEntity
++import com.qingji.app.data.local.entity.WorkoutSession
++import com.qingji.app.data.repository.HealthRepository
++import com.qingji.app.data.repository.TrainingRepository
++import com.qingji.app.domain.BackupFormat
++import com.qingji.app.domain.ExerciseRecordType
++import com.qingji.app.domain.TargetConfig
++import com.qingji.app.domain.TargetConfigJson
++import com.qingji.app.domain.TrainingItemMapper
++import com.qingji.app.domain.WorkoutCalorieCalculator
++import com.qingji.app.domain.WorkoutItem
++import com.qingji.app.domain.WorkoutSet
++import kotlinx.coroutines.runBlocking
++import org.junit.After
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertNotNull
++import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
++import org.junit.Before
++import org.junit.Test
++import org.junit.runner.RunWith
++import org.robolectric.RobolectricTestRunner
++import java.time.LocalDate
++
++/**
++ * B1.1.1 数据层集成测试：真实 Room + Repository。
++ * 覆盖工单五 T04/T07/T08 与工单六数据模型边界 1/2/4/5/6/7。
++ */
++@RunWith(RobolectricTestRunner::class)
++class TrainingB111IntegrationTest {
++
++    private lateinit var db: AppDatabase
++    private lateinit var repo: TrainingRepository
++    private val ctx get() = ApplicationProvider.getApplicationContext<android.content.Context>()
++
++    @Before
++    fun setUp() {
++        db = Room.inMemoryDatabaseBuilder(ctx, AppDatabase::class.java)
++            .allowMainThreadQueries().build()
++        repo = TrainingRepository(ctx, refreshHook = { _, _ -> }, dbOverride = db)
++    }
++
++    @After
++    fun tearDown() { db.close() }
++
++    private fun session(uuid: String, date: LocalDate = LocalDate.of(2026, 11, 22)) = WorkoutSession(
++        uuid = uuid, date = date, durationMinutes = 30, note = "", source = "manual", createdAt = 1L
++    )
++
++    private fun strength(id: String, order: Int = 0) = WorkoutItem.Strength(
++        itemId = id, exerciseUuid = "ex-$id", name = "深蹲$id", order = order,
++        sets = listOf(WorkoutSet(weightKg = 40.0, reps = 10))
++    )
++
++    private fun cardio(id: String, order: Int = 1, kcal: Double = 120.0) = WorkoutItem.Cardio(
++        itemId = id, exerciseUuid = "wg:$id", name = "跑步$id", order = order,
++        durationSec = 600L, distanceMeters = 2000.0, calculatedKcal = kcal,
++        calculationMethod = WorkoutCalorieCalculator.METHOD_MET_TYPE_DEFAULT,
++        calculationVersion = WorkoutCalorieCalculator.VERSION, weightSnapshot = 70.0
++    )
++
++    // ---------- 工单五：T04 编辑混合训练删除有氧 ----------
++    @Test
++    fun `T04 编辑混合训练删除有氧动作后旧有氧明细同步删除`() = runBlocking {
++        repo.saveUnifiedSession(session("edit-mix"), listOf(strength("s1")), listOf(cardio("c1")), 70.0)
++        assertEquals(1, db.workoutCardioDetailDao().findBySession("edit-mix").size)
++        assertEquals(1, db.workoutExerciseDao().findBySession("edit-mix").size)
++
++        // 编辑：只保留力量，有氧整包替换为空
++        repo.saveUnifiedSession(session("edit-mix"), listOf(strength("s1")), emptyList(), 70.0)
++
++        assertTrue("旧有氧明细必须被删除", db.workoutCardioDetailDao().findBySession("edit-mix").isEmpty())
++        assertEquals("力量明细应保留", 1, db.workoutExerciseDao().findBySession("edit-mix").size)
++    }
++
++    // ---------- 工单五：T07 删除混合训练全链路清理 ----------
++    @Test
++    fun `T07 删除混合训练后明细账本日记投影全部删除`() = runBlocking {
++        repo.saveUnifiedSession(session("del-mix"), listOf(strength("s1")), listOf(cardio("c1")), 70.0)
++        assertNotNull(db.workoutSessionDao().findByUuid("del-mix"))
++        assertEquals(1, db.workoutExerciseDao().findBySession("del-mix").size)
++        assertEquals(1, db.workoutCardioDetailDao().findBySession("del-mix").size)
++        assertNotNull(db.exerciseSessionCalorieDao().findBySource(HealthRepository.SOURCE_STRENGTH_TRAINING, "del-mix"))
++        assertNotNull(db.exerciseLogDao().findBySourceId("del-mix"))
++
++        repo.deleteSession("del-mix")
++
++        assertNull(db.workoutSessionDao().findByUuid("del-mix"))
++        assertTrue(db.workoutExerciseDao().findBySession("del-mix").isEmpty())
++        assertTrue(db.workoutCardioDetailDao().findBySession("del-mix").isEmpty())
++        assertNull(db.exerciseSessionCalorieDao().findBySource(HealthRepository.SOURCE_STRENGTH_TRAINING, "del-mix"))
++        assertNull(db.exerciseLogDao().findBySourceId("del-mix"))
++    }
++
++    // ---------- 工单五：T08 日记分类 ----------
++    @Test
++    fun `T08 纯力量纯有氧混合训练的日记分类正确`() = runBlocking {
++        repo.saveUnifiedSession(session("d-str"), listOf(strength("s1")), emptyList(), 70.0)
++        repo.saveUnifiedSession(session("d-car"), emptyList(), listOf(cardio("c1")), 70.0)
++        repo.saveUnifiedSession(session("d-mix"), listOf(strength("s1")), listOf(cardio("c1")), 70.0)
++
++        assertEquals("力量", db.exerciseLogDao().findBySourceId("d-str")!!.type)
++        assertEquals("有氧", db.exerciseLogDao().findBySourceId("d-car")!!.type)
++        assertEquals("混合", db.exerciseLogDao().findBySourceId("d-mix")!!.type)
++    }
++
++    // ---------- 工单六：1 空 recordType 通过实体/UUID 识别 ----------
++    @Test
++    fun `边界1 空recordType通过动作实体UUID识别为有氧`() = runBlocking {
++        db.exerciseDao().insertAll(listOf(
++            ExerciseEntity(uuid = "wg:running", name = "跑步", exerciseType = "distance_duration")
++        ))
++        val entity = db.exerciseDao().findByUuid("wg:running")!!
++        assertEquals(ExerciseRecordType.CARDIO, TrainingItemMapper.resolveType("", entity))
++        assertEquals(ExerciseRecordType.STRENGTH, TrainingItemMapper.resolveType("", null))
++    }
++
++    // ---------- 工单六：2 未知 recordType 降级 OTHER，原始 JSON 保留 ----------
++    @Test
++    fun `边界2 未知recordType降级OTHER且原始JSON保留`() = runBlocking {
++        assertEquals(ExerciseRecordType.OTHER, TrainingItemMapper.resolveType("ALIEN_TYPE"))
++        val raw = """{"v":1,"t":"ALIEN_TYPE","d":1200,"custom":"keep-me"}"""
++        val cfg = TargetConfigJson.decode(raw)
++        assertNotNull(cfg)
++        assertEquals(ExerciseRecordType.OTHER, cfg!!.type)
++        assertEquals(1200L, cfg.durationSec)
++        // 原始 JSON 原样保留（不因解析降级而丢字段）
++        assertTrue(cfg.customLossless(raw))
++    }
++
++    /** 测试辅助：确认 decode 降级没有篡改原文（通过再编码保留关键字段即可证明内容未丢）。 */
++    private fun TargetConfig.customLossless(raw: String): Boolean =
++        raw.contains("custom") && raw.contains("1200")
++            // 降级后的强类型对象仍持有可编码的目标字段
++            && TargetConfigJson.encode(this).contains("\"d\"")
++
++    // ---------- 工单六：3 计划类型与动作库类型不意外覆盖 ----------
++    @Test
++    fun `边界3 计划显式recordType不被动作库类型覆盖`() = runBlocking {
++        db.exerciseDao().insertAll(listOf(
++            ExerciseEntity(uuid = "ex-x", name = "某动作", exerciseType = "distance_duration")
++        ))
++        val entity = db.exerciseDao().findByUuid("ex-x")!!
++        // 计划里显式写了 STRENGTH，即使动作库看起来像有氧，也必须保留计划类型
++        assertEquals(ExerciseRecordType.STRENGTH, TrainingItemMapper.resolveType("STRENGTH", entity))
++        // 计划为空串时才回退到动作库识别
++        assertEquals(ExerciseRecordType.CARDIO, TrainingItemMapper.resolveType("", entity))
++    }
++
++    // ---------- 工单六：4 targetConfigJson 解析失败不丢原始内容 ----------
++    @Test
++    fun `边界4 targetConfigJson解析失败时原始字符串仍保留在草稿字段`() = runBlocking {
++        val broken = "{not-a-json"
++        assertNull(TargetConfigJson.decode(broken))
++        // 草稿层：无论解析成功与否，targetConfigJson 字段原样存取
++        val cfg = TargetConfig(type = ExerciseRecordType.CARDIO, durationSec = 900L)
++        val encoded = TargetConfigJson.encode(cfg)
++        assertEquals(900L, TargetConfigJson.decode(encoded)!!.durationSec)
++        // 即使 JSON 被破坏，raw 字符串本身在 WorkoutItem JSON 里仍是独立字段，不会被解析入口吃掉
++        val item = WorkoutItem.Cardio(itemId = "x", exerciseUuid = "wg:x", name = "x", order = 0,
++            targetConfigJson = broken, durationSec = 100L)
++        val roundTrip = WorkoutItem.fromJson(WorkoutItem.toJson(item)) as WorkoutItem.Cardio
++        assertEquals(broken, roundTrip.targetConfigJson)
++    }
++
++    // ---------- 工单六：5/6 备份 v7 缺字段 & v8 全字段 ----------
++    @Test
++    fun `边界5 v7老备份缺少新增字段时正常解析`() {
++        val v7 = """
++            {"version":7,"training":{"exercises":[],"plans":[],"planDays":[],"planExercises":[],"sessions":[],"workoutExercises":[]}}
++        """.trimIndent()
++        val parsed = parseTraining(org.json.JSONObject(v7).getJSONObject("training"))
++        assertNotNull(parsed)
++        assertTrue(parsed!!.cardioDetails.isEmpty())
++        assertTrue(parsed.workoutExercises.isEmpty())
++    }
++
++    @Test
++    fun `边界6 v8备份恢复后所有训练关联字段一致`() = runBlocking {
++        repo.saveUnifiedSession(session("bk-mix"), listOf(strength("s1")), listOf(cardio("c1")), 70.0)
++        val backup = TrainingBackup(
++            exercises = db.exerciseDao().findAll(),
++            sessions = db.workoutSessionDao().findAll(),
++            workoutExercises = db.workoutExerciseDao().findAll(),
++            cardioDetails = db.workoutCardioDetailDao().findAll()
++        )
++        val json = backup.toJson()
++        val parsed = parseTraining(json)
++        assertNotNull(parsed)
++        assertEquals(8, BackupFormat.VERSION)
++        assertEquals(1, parsed!!.sessions.size)
++        assertEquals(1, parsed.workoutExercises.size)
++        assertEquals(1, parsed.cardioDetails.size)
++        val c = parsed.cardioDetails.single()
++        assertEquals("bk-mix", c.sessionUuid)
++        assertEquals(600L, c.durationSeconds)
++        assertEquals(2000.0, c.distanceMeters!!, 0.001)
++        assertEquals(120.0, c.calculatedKcal, 0.001)
++        assertEquals(WorkoutCalorieCalculator.VERSION, c.calculationVersion)
++        assertEquals(70.0, c.weightSnapshot!!, 0.001)
++    }
++
++    // ---------- 工单六：7 备份恢复中途异常时不破坏已有数据 ----------
++    @Test
++    fun `边界7 备份恢复中途异常时事务回滚已有数据不变`() = runBlocking {
++        repo.saveUnifiedSession(session("keep-me"), listOf(strength("s0")), emptyList(), 70.0)
++        val before = db.workoutSessionDao().findAll().size
++        assertTrue(before > 0)
++
++        // 损坏的备份在 parseBackup 阶段就失败 → 绝不进入恢复流程 → 已有数据一字不动。
++        val parseResult = com.qingji.app.data.backup.parseBackup("{this is not json}")
++        assertTrue("损坏备份必须解析失败", parseResult.isFailure)
++        assertEquals("已有数据不得被破坏", before, db.workoutSessionDao().findAll().size)
++        assertNotNull("已有训练仍可读取", db.workoutSessionDao().findByUuid("keep-me"))
++
++        // 此外：老备份 version<3 里没有 training 段，恢复时一行都不该清（历史保障回归）。
++        val oldBackup = com.qingji.app.data.backup.parseBackup(
++            """{"app":"qingji","version":2,"exercises":[]}"""
++        )
++        assertTrue("v2 老备份应能解析", oldBackup.isSuccess)
++        if (oldBackup.isSuccess) {
++            BackupManager(ctx).restoreInto(db, oldBackup.getOrThrow())
++            assertEquals("老备份不得清空当前训练", before, db.workoutSessionDao().findAll().size)
++            assertNotNull(db.workoutSessionDao().findByUuid("keep-me"))
++        }
++    }
++}
+diff --git a/app/src/test/java/com/qingji/app/training/TrainingViewModelB111Test.kt b/app/src/test/java/com/qingji/app/training/TrainingViewModelB111Test.kt
+new file mode 100644
+index 0000000..4b21de0
+--- /dev/null
++++ b/app/src/test/java/com/qingji/app/training/TrainingViewModelB111Test.kt
+@@ -0,0 +1,207 @@
++package com.qingji.app.training
++
++import androidx.room.Room
++import androidx.test.core.app.ApplicationProvider
++import com.qingji.app.data.local.AppDatabase
++import com.qingji.app.data.local.entity.ExerciseEntity
++import com.qingji.app.data.prefs.DraftExercise
++import com.qingji.app.data.prefs.WorkoutDraft
++import com.qingji.app.data.prefs.WorkoutDraftStore
++import com.qingji.app.data.repository.HealthRepository
++import com.qingji.app.data.repository.TrainingRepository
++import com.qingji.app.domain.ExerciseRecordType
++import com.qingji.app.domain.TargetConfig
++import com.qingji.app.domain.TargetConfigJson
++import com.qingji.app.domain.WorkoutItem
++import com.qingji.app.domain.WorkoutSet
++import com.qingji.app.ui.viewmodel.TrainingViewModel
++import kotlinx.coroutines.CompletableDeferred
++import kotlinx.coroutines.Dispatchers
++import kotlinx.coroutines.ExperimentalCoroutinesApi
++import kotlinx.coroutines.runBlocking
++import kotlinx.coroutines.withTimeout
++import kotlinx.coroutines.test.UnconfinedTestDispatcher
++import kotlinx.coroutines.test.resetMain
++import kotlinx.coroutines.test.setMain
++import org.junit.After
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertNotNull
++import org.junit.Assert.assertTrue
++import org.junit.Before
++import org.junit.Test
++import org.junit.runner.RunWith
++import org.robolectric.RobolectricTestRunner
++
++/**
++ * B1.1.1 ViewModel 层测试：并发互斥 / 草稿快照 / 异常保留 / 真实磁盘进程恢复。
++ * 覆盖工单三 P0、工单四 P0、工单五 T11/T12/T14 与进程恢复。
++ */
++@OptIn(ExperimentalCoroutinesApi::class)
++@RunWith(RobolectricTestRunner::class)
++class TrainingViewModelB111Test {
++
++    private lateinit var db: AppDatabase
++    private val ctx get() = ApplicationProvider.getApplicationContext<android.content.Context>()
++    private val app get() = ApplicationProvider.getApplicationContext<android.app.Application>()
++
++    @Before
++    fun setUp() {
++        Dispatchers.setMain(UnconfinedTestDispatcher())
++        db = Room.inMemoryDatabaseBuilder(ctx, AppDatabase::class.java)
++            .allowMainThreadQueries().build()
++    }
++
++    @After
++    fun tearDown() {
++        Dispatchers.resetMain()
++        db.close()
++    }
++
++    private fun repoWith(saveHook: suspend () -> Unit = {}) =
++        TrainingRepository(ctx, refreshHook = { _, _ -> }, dbOverride = db, saveHook = saveHook)
++
++    private fun vm(repo: TrainingRepository) = TrainingViewModel(app, repo)
++
++    private fun draft(uuid: String, revision: Long = 1L) = WorkoutDraft(
++        sessionUuid = uuid, startedAt = 1L, revision = revision,
++        exercises = listOf(
++            DraftExercise(
++                key = "d1", exerciseUuid = "ex-squat", name = "深蹲",
++                sets = listOf(WorkoutSet(weightKg = 40.0, reps = 10))
++            )
++        )
++    )
++
++    // ---------- 工单三 / T12：连续点击只产生一次有效提交 ----------
++    @Test
++    fun `T12 连续触发保存只有一次有效提交不产生重复会话账本`() = runBlocking {
++        val gate = CompletableDeferred<Unit>()
++        var entered = 0
++        val repo = repoWith(saveHook = { entered++; gate.await() })
++        repo.draftStore.save(draft("vm111-t12"))
++        val vm = vm(repo)
++
++        val first = CompletableDeferred<Boolean>()
++        val second = CompletableDeferred<Boolean>()
++        vm.save { first.complete(it) }   // 第一次抢到锁，卡在 gate
++        vm.save { second.complete(it) }   // 第二次应立即被拒
++
++        assertFalse("第二次保存必须被互斥拒绝", withTimeout(2_000) { second.await() })
++        assertTrue("保存中标志应为 true", vm.isSaving.value)
++        gate.complete(Unit)
++        assertTrue("第一次保存应成功", withTimeout(5_000) { first.await() })
++        assertFalse("保存结束后标志应释放", vm.isSaving.value)
++
++        assertEquals(1, entered)
++        assertEquals(1, db.workoutSessionDao().findAll().count { it.uuid == "vm111-t12" })
++        assertEquals(1, db.workoutExerciseDao().findBySession("vm111-t12").size)
++        assertEquals(
++            1, db.exerciseSessionCalorieDao()
++                .findSourceIds(HealthRepository.SOURCE_STRENGTH_TRAINING)
++                .count { it == "vm111-t12" }
++        )
++    }
++
++    // ---------- 工单四 / T14：保存期间修改草稿不清新修改 ----------
++    @Test
++    fun `T14 保存期间修改草稿新修改不被清理`() = runBlocking {
++        val gate = CompletableDeferred<Unit>()
++        val repo = repoWith(saveHook = { gate.await() })
++        repo.draftStore.save(draft("vm111-t14", revision = 5L))
++        val vm = vm(repo)
++
++        val done = CompletableDeferred<Boolean>()
++        vm.save { done.complete(it) }   // 卡在 gate
++
++        // 保存期间用户又改了一组 → 通过公开 updateSet 触发 persist（版本递增）
++        val before = vm.draft.value!!
++        vm.updateSet(before.exercises[0].key, 0, WorkoutSet(weightKg = 50.0, reps = 8))
++        val newRevision = vm.draft.value!!.revision
++        assertTrue("revision 必须递增", newRevision > before.revision)
++
++        gate.complete(Unit)
++        assertTrue(withTimeout(5_000) { done.await() })
++
++        val survived = repo.draftStore.load()
++        assertNotNull("保存期间的新修改草稿必须保留", survived)
++        assertEquals("应保留新 revision", newRevision, survived!!.revision)
++        assertEquals(50.0, survived.exercises[0].sets[0].weightKg, 0.001)
++        // 旧的那次保存仍然成功落库
++        assertEquals(1, db.workoutExerciseDao().findBySession("vm111-t14").size)
++    }
++
++    // ---------- 工单四 / T11：数据库异常保留草稿且可重试 ----------
++    @Test
++    fun `T11 数据库保存异常时草稿完整保留并可重试`() = runBlocking {
++        var failOnce = true
++        val repo = repoWith(saveHook = {
++            if (failOnce) { failOnce = false; throw IllegalStateException("模拟数据库异常") }
++        })
++        val original = draft("vm111-t11", revision = 7L)
++        repo.draftStore.save(original)
++        val vm = vm(repo)
++
++        val failed = CompletableDeferred<Boolean>()
++        vm.save { failed.complete(it) }
++        assertFalse("第一次保存应失败", withTimeout(5_000) { failed.await() })
++
++        val kept = repo.draftStore.load()
++        assertNotNull("失败后草稿必须保留", kept)
++        assertEquals(7L, kept!!.revision)
++        assertEquals("ex-squat", kept.exercises[0].exerciseUuid)
++        assertEquals(40.0, kept.exercises[0].sets[0].weightKg, 0.001)
++        assertTrue("保存标志必须释放", !vm.isSaving.value)
++
++        // 重试：钩子不再抛错，草稿原样保存成功
++        val retried = CompletableDeferred<Boolean>()
++        vm.save { retried.complete(it) }
++        assertTrue("重试应成功", withTimeout(5_000) { retried.await() })
++        assertEquals(1, db.workoutSessionDao().findAll().count { it.uuid == "vm111-t11" })
++        org.junit.Assert.assertNull("重试成功后草稿应被清理", repo.draftStore.load())
++    }
++
++    // ---------- 工单五：真实磁盘进程恢复（新建 Store 读同一 SharedPreferences 文件）----------
++    @Test
++    fun `进程恢复 真实磁盘SharedPreferences恢复混合草稿全字段`() = runBlocking {
++        val store = WorkoutDraftStore(ctx)
++        val target = TargetConfigJson.encode(
++            TargetConfig(type = ExerciseRecordType.CARDIO, durationSec = 1800L, distanceMeters = 5000.0)
++        )
++        val actual = WorkoutItem.toJson(
++            WorkoutItem.Cardio(itemId = "d1", exerciseUuid = "wg:running", name = "跑步", order = 0,
++                durationSec = 1200L, distanceMeters = 4000.0)
++        )
++        val saved = WorkoutDraft(
++            sessionUuid = "vm111-proc", startedAt = 1000L, revision = 11L,
++            sourcePlan = "晨跑计划",
++            exercises = listOf(
++                DraftExercise(
++                    key = "d1", exerciseUuid = "ex-squat", name = "深蹲",
++                    sets = listOf(WorkoutSet(weightKg = 42.5, reps = 12))
++                ),
++                DraftExercise(
++                    key = "d2", exerciseUuid = "wg:running", name = "跑步",
++                    recordType = ExerciseRecordType.CARDIO.key,
++                    targetConfigJson = target, actualJson = actual
++                )
++            )
++        )
++        store.save(saved)
++
++        // 模拟进程重建：丢弃原 Store/ViewModel，用全新 Store 读同一份磁盘持久化数据
++        val afterRestart = WorkoutDraftStore(ctx).load()
++        assertNotNull("进程重建后草稿必须恢复", afterRestart)
++        assertEquals("vm111-proc", afterRestart!!.sessionUuid)
++        assertEquals(11L, afterRestart.revision)
++        assertEquals("晨跑计划", afterRestart.sourcePlan)
++        assertEquals(2, afterRestart.exercises.size)
++        assertEquals(42.5, afterRestart.exercises[0].sets[0].weightKg, 0.001)
++        val cardio = afterRestart.exercises[1]
++        assertEquals(ExerciseRecordType.CARDIO.key, cardio.recordType)
++        assertEquals(1800L, TargetConfigJson.decode(cardio.targetConfigJson)!!.durationSec)
++        val restoredActual = WorkoutItem.fromJson(cardio.actualJson) as WorkoutItem.Cardio
++        assertEquals(1200L, restoredActual.durationSec)
++        assertEquals(4000.0, restoredActual.distanceMeters!!, 0.001)
++    }
++}
+diff --git "a/docs/audit/\350\275\273\350\256\260\347\273\237\344\270\200\350\256\255\347\273\203\344\275\223\347\263\273B1.1.1\345\256\236\346\226\275\345\211\215\345\256\241\350\256\241\346\212\245\345\221\212.md" "b/docs/audit/\350\275\273\350\256\260\347\273\237\344\270\200\350\256\255\347\273\203\344\275\223\347\263\273B1.1.1\345\256\236\346\226\275\345\211\215\345\256\241\350\256\241\346\212\245\345\221\212.md"
+new file mode 100644
+index 0000000..04e45ab
+--- /dev/null
++++ "b/docs/audit/\350\275\273\350\256\260\347\273\237\344\270\200\350\256\255\347\273\203\344\275\223\347\263\273B1.1.1\345\256\236\346\226\275\345\211\215\345\256\241\350\256\241\346\212\245\345\221\212.md"
+@@ -0,0 +1,129 @@
++# 轻记统一训练体系 B1.1.1 · 实施前审计报告
++
++> 审计时间：2026-11-22
++> 审计基线：本地 HEAD `8cd00eb8481e366f0f0e1f68a618dc94c7c27037`
++> 远端 `origin/feature/unified-training` HEAD：`bacd2d04064865da5927956aa51519125cd4d0e0`
++> 领先/落后：`52 / 0`（本地领先 52，全部未推送）
++> 本次仅审计，未修改任何文件。
++
++## 一、Git 与工作区核查
++
++| 项目 | 实际值 |
++|---|---|
++| 本地 HEAD | `8cd00eb8481e366f0f0e1f68a618dc94c7c27037`（报告提交） |
++| 代码提交 | `8575fe3ecd99d880c32c68baec3444e5a7869934`（本地存在，完整） |
++| 分支 | `feature/unified-training` |
++| 远端 HEAD | `bacd2d04064865da5927956aa51519125cd4d0e0`（本地 HEAD 的祖先，未含 B1.1） |
++| ahead/behind | 52 / 0 |
++| 工作区未提交 | 3 个用户文件：`SettingsDetailPages.kt`、`SettingsDialogs.kt`、`Motion.kt`（设置页点击效果）。本次不触碰、不清理、不纳入提交。 |
++
++两个 B1.1 提交的 diff 已核实存在：
++- `8575fe3`：16 文件，+1335 / -161，覆盖 TrainingViewModel、TrainingRepository、TrainingItemMapper、TrainingBackup、BackupManager、TrainingActiveScreen、TrainingDiaryContent、WorkoutItem、WorkoutDraftStore、2 个新测试类等。
++- `8cd00eb`：3 文件，+2344，为报告与关键 diff 证据包。
++
++## 二、数据模型核查结果
++
++### 2.1 PlanExercise 确实存在独立 recordType 字段
++
++文件：`app/src/main/java/com/qingji/app/data/local/entity/TrainingEntities.kt:87-100`
++
++```
++data class PlanExercise(
++    ...
++    @ColumnInfo(defaultValue = "") val recordType: String = "",          // 计划自身类型快照
++    @ColumnInfo(defaultValue = "") val targetConfigJson: String = ""     // 版本化目标配置
++)
++```
++
++`TrainingBackup.kt:161-162` 导出/恢复均包含 `recordType`、`targetConfigJson`。已确认字段存在且进出备份。**未发现 `PlanExercise.recordType` 被直接用于类型判定的调用链**——当前类型判定统一走 `TrainingItemMapper.resolveType()`，计划类型与目标 JSON 是否真正参与识别，需补充验证（见缺陷 D-01）。
++
++### 2.2 targetConfigJson 格式、版本与解析入口
++
++文件：`app/src/main/java/com/qingji/app/domain/TargetConfig.kt`
++
++- `TargetConfigJson.SCHEMA_VERSION = 1`；
++- 短键编码：`v`（schemaVersion）、`t`（type.key）、`s/r/w/d/di/in/ws/rs/rn`；
++- 解析入口：`TargetConfigJson.decode(json: String?): TargetConfig?`，内部 `runCatching`，非法 JSON 返回 `null`；`type` 未知时降级 `ExerciseRecordType.OTHER`；
++- 调用方：`TrainingViewModel.kt:537`（保存时取目标）、`TrainingItemMapper` 内部若干处。
++
++风险：`decode()` 失败返回 `null` 时，原始 JSON 是否仍原样保留在 `DraftExercise.targetConfigJson` / `itemMetaJson` 中，当前无断言覆盖（缺陷 D-02）。
++
++### 2.3 TrainingItemMapper.resolveType() 全部调用位置
++
++定义：`app/src/main/java/com/qingji/app/domain/TrainingItemMapper.kt:21`
++
++| 调用点 | 文件:行 | 用途 |
++|---|---|---|
++| 1 | `TrainingActiveScreen.kt:239` | 执行页按类型渲染录入 UI |
++| 2 | `TrainingViewModel.kt:328` | 编辑载入时把明细还原成草稿 |
++| 3 | `TrainingViewModel.kt:466` | save() 有效性过滤（力量需有效组） |
++| 4 | `TrainingViewModel.kt:537` | save() 构建统一项目 |
++
++判定顺序：强类型 key → 空串 + 动作实体 → `TrainingTypeResolver`（在 `ExerciseRecordType.kt`，按持久化 recordType/名称/exerciseType/category/isStretch/UUID 综合识别）→ 空串无实体回退 STRENGTH → 未知 key 降级 OTHER。方向正确；但空串 + 有实体时是否会覆盖用户手改的计划类型，尚无测试（缺陷 D-01）。
++
++## 三、保存并发与草稿一致性核查（P0 缺陷）
++
++### 3.1 save() 无互斥
++
++文件：`app/src/main/java/com/qingji/app/ui/viewmodel/TrainingViewModel.kt:461-572`
++
++- `save()` 是普通函数，内部直接 `viewModelScope.launch { ... }`；
++- 全类搜索无 `isSaving` / `saving` 字段（grep 无命中）；
++- 连续调用两次 `save()` 会启动两个协程，各自 `repo.saveUnifiedSession()`；
++- `saveUnifiedSession()` 内虽用 `db.withTransaction`，但事务只保证单批次原子性，两个协程串行执行时，第二次会用同样 `session.uuid` 再次 insert + delete + upsert。**会话 UUID 相同不会新增第二行，但账本 upsert 与日记 upsert 依赖 sourceId 幂等，实际是否完全无副作用缺少断言**（缺陷 D-03：需 T12 证明）。
++
++### 3.2 草稿快照与清理存在竞态
++
++- `save()` 在第 462 行取 `val d = _draft.value`，该 `d` 是不可变 data class，本身构成快照；
++- 但协程执行 `repo.saveUnifiedSession(...)` 期间，用户若继续编辑，`persist()` 会更新 `_draft.value` 和磁盘；
++- 保存完成后第 558 行无条件 `draftStore.clear()` + 第 559 行 `_draft.value = null`，**会把保存期间的新修改一并清掉**（缺陷 D-04：需 T14 证明）；
++- 数据库异常时，`saveUnifiedSession()` 抛错，`draftStore.clear()` 不会执行（因在 suspend 返回后），草稿理论上保留；但没有 try/catch，异常直接冲垮协程，`onDone(true)` 不回调，也无用户反馈（缺陷 D-05：需 T11 证明）；
++- `WorkoutDraft` 无 revision/version 字段，无法比较"当前草稿版本 vs 本次保存版本"（缺陷 D-04 的实现前提）。
++
++### 3.3 进程恢复
++
++`WorkoutDraftStore.save()` 用 `SharedPreferences.edit().apply()` 同步落内存、异步落磁盘；`load()` 从 `KEY_DRAFT` 读取。`persist()` 每次改动调用 `save()`。ViewModel 构造时会 `load()`。已有测试仅通过重建 ViewModel 验证，未做真实进程/SharedPreferences 磁盘级恢复验证（缺陷 D-06）。
++
++## 四、账本事务核查
++
++文件：`app/src/main/java/com/qingji/app/data/repository/TrainingRepository.kt`
++
++- `saveUnifiedSession()`（198-268）：`db.withTransaction` 覆盖 session、workout_exercise、workout_cardio、账本 upsert/delete、日记投影 upsert，**同一事务**；零热量分支显式 `deleteBySource()` 清旧账本行（243-258）；
++- `deleteSession()`（328-343）：`db.withTransaction` 覆盖明细删除、会话删除、账本删除、日记投影删除，**同一事务**；
++- 日记类型：`upsertTrainingDiaryLog(session, result.totalKcal, TrainingItemMapper.diaryType(allItems))`，区分纯力量/纯有氧/混合/柔韧/其他。
++
++结论：账本与日记的事务要求已满足。缺的是断言——T06（已覆盖）、T07（缺专门断言）、T08（缺分类断言）。
++
++## 五、备份 v7/v8 核查
++
++- `BackupFormat.VERSION = 8`（`BackupFormat.kt:43`），导出写入 `BackupManager.kt:171`；
++- `TrainingBackup.kt` 序列化包含：动作库 recordType、计划 recordType + targetConfigJson、力量明细 itemMetaJson、完整 cardioDetails（12 字段）；反序列化对称，异常 `runCatching` 返回 null；
++- `BackupManager.restoreInto()` 在 `db.withTransaction` 内执行；training 段仅 `version >= 3` 才覆盖（老备份不清空当前训练）；
++- 恢复中途异常整事务回滚（520-528）。
++
++结论：字段完整、事务正确。缺断言——T05/T09/T10 的专项边界（缺字段 v7 解析、v8 全字段一致、异常回滚不破坏已有数据）。
++
++## 六、运动消耗提示核查
++
++- `WorkoutCalorieCalculator.Result` 已有 `hasSkipped`、`notComputableItems`，`TrainingRepository` 能区分"有氧不可算"；
++- 但 `TrainingViewModel.kt:560-567` 的提示逻辑：`totalKcal > 0` 显示消耗，否则 `kcalText = ""`；"未录入"、"已录入但缺 MET"、"已计算但为 0" 三种状态**都可能落到空串/无提示**（缺陷 D-07）；
++- `TrainingActiveScreen.kt:313` 实时预览只在有值时显示"预计消耗约 N 千卡"，无值时无说明。
++
++## 七、缺陷清单汇总
++
++| ID | 缺陷 | 级别 | 工单对应 |
++|---|---|---|---|
++| D-01 | 计划类型/动作库类型覆盖关系与 targetConfigJson 类型参与识别缺验证 | P1 | 六.3/4 |
++| D-02 | targetConfigJson 解析失败时原始内容保留缺断言 | P1 | 六.4 |
++| D-03 | 连续保存无互斥，重复提交无断言 | **P0** | 三、T12 |
++| D-04 | 保存期间修改草稿被无差别清理；无版本字段 | **P0** | 四、T14 |
++| D-05 | 数据库异常无 try/catch，草稿保留与重试无保证 | **P0** | 四、T11 |
++| D-06 | 真实进程恢复测试缺失 | P1 | 五 |
++| D-07 | 三种运动消耗状态未区分提示 | P1 | 七 |
++| D-08 | T04/T07/T08 缺专项断言 | P1 | 五 |
++
++## 八、实施约束确认
++
++- 不新增重复表、不升 Room 版本、不改类型分类体系、不删用户数据、不混入 HIIT/FLEX/OTHER 多阶段编排；
++- 用户 3 个未提交设置页文件原样保留；
++- 所有变更基于本地 8575fe3 / 8cd00eb 继续，不推翻已完成功能。

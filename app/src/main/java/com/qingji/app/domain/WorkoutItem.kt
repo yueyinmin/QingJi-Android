@@ -262,3 +262,12 @@ sealed class WorkoutItem {
         )
     }
 }
+
+/** B1.1.1：是否录入了可用于热量计算的实际数据（与「只有计划目标」严格区分）。 */
+fun WorkoutItem.hasActualData(): Boolean = when (this) {
+    is WorkoutItem.Strength -> sets.any { it.reps > 0 || it.weightKg > 0.0 || (it.durationSec ?: 0) > 0 }
+    is WorkoutItem.Cardio -> durationSec > 0L || (distanceMeters ?: 0.0) > 0.0
+    is WorkoutItem.Hiit -> durationSec > 0L || rounds > 0
+    is WorkoutItem.Flexibility -> durationSec > 0L || content.isNotBlank()
+    is WorkoutItem.Other -> durationSec > 0L || (reps ?: 0) > 0
+}

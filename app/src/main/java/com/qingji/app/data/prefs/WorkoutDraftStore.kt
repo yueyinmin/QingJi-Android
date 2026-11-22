@@ -52,7 +52,12 @@ data class WorkoutDraft(
      * 保存时写进 WorkoutSession.source（plan:<计划名>），供训练日记追溯来源。
      * 空 = 手动/补记/编辑，行为与旧版一致。
      */
-    val sourcePlan: String = ""
+    val sourcePlan: String = "",
+    /**
+     * B1.1.1：草稿版本号。每次改动由 persist() 单调递增，并随草稿一起落盘。
+     * save() 用它判断「保存期间用户是否又改了草稿」：revision 变了就不能清草稿。
+     */
+    val revision: Long = 0L
 ) {
     /** 当前已练了多久（秒）。暂停时冻结在暂停那一刻。 */
     fun elapsedSeconds(now: Long): Long {
@@ -124,7 +129,8 @@ class WorkoutDraftStore(context: Context) {
                 fixedCreatedAt = o.optLong("fixedCreatedAt", 0L),
                 durationOverrideMin = o.optInt("durationOverrideMin", 0),
                 backfillDate = o.optString("backfillDate", ""),
-                sourcePlan = o.optString("sourcePlan", "")
+                sourcePlan = o.optString("sourcePlan", ""),
+                revision = o.optLong("revision", 0L)
             )
         }.getOrNull()?.takeIf { it.sessionUuid.isNotBlank() && it.startedAt > 0L }
     }
@@ -145,6 +151,7 @@ class WorkoutDraftStore(context: Context) {
             put("durationOverrideMin", draft.durationOverrideMin)
             put("backfillDate", draft.backfillDate)
             put("sourcePlan", draft.sourcePlan)
+            put("revision", draft.revision)
             put("exercises", JSONArray().apply {
                 draft.exercises.forEach { e ->
                     put(JSONObject().apply {

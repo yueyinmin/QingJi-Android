@@ -46,7 +46,9 @@ class TrainingRepository(
     private val refreshHook: (Context, Set<com.qingji.app.widget.WidgetTarget>) -> Unit =
         { c, targets -> com.qingji.app.widget.WidgetRefresher.refresh(c, targets) },
     /** V2.1阶段A4 同款测试注入：独立 Room 实例，生产不传。 */
-    dbOverride: AppDatabase? = null
+    dbOverride: AppDatabase? = null,
+    /** B1.1.1 测试注入：保存事务内的钩子，生产为空。用于模拟慢保存/数据库异常。 */
+    private val saveHook: suspend () -> Unit = {}
 ) {
 
     private val db = dbOverride ?: AppDatabase.get(context)
@@ -207,6 +209,7 @@ class TrainingRepository(
             method = WorkoutCalorieCalculator.METHOD_CARDIO_ONLY
         )
         db.withTransaction {
+            saveHook() // B1.1.1：测试可在事务内注入延迟/异常，生产为空操作
             // 1+2：会话 + workout_exercise（力量与 HIIT/柔韧/其他，整包替换，id 重生成）
             sessionDao.insert(session)
             workoutExerciseDao.deleteBySession(session.uuid)
