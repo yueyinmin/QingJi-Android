@@ -50,7 +50,17 @@ enum class TrainingInitState {
     Failed          // 计划读取失败（已按空白继续，界面给重试提示）
 }
 
-class TrainingViewModel(app: Application, repoOverride: TrainingRepository? = null) : AndroidViewModel(app) {
+/**
+ * 用 @JvmOverloads 生成 <init>(Application) 与 <init>(Application, TrainingRepository) 两个 Java 构造。
+ * Compose 的 viewModel() 走 AndroidViewModel 默认工厂，按 <init>(Application) 精确反射；
+ * 若省略 @JvmOverloads，带默认值的第二参数会让 Kotlin 只生成两参合成构造，
+ * 反射抛 NoSuchMethodException → 启动闪退（DiaryPrivacyViewModel 同款坑）。
+ * 第二个构造保留供测试注入仓库替身。
+ */
+class TrainingViewModel @JvmOverloads constructor(
+    app: Application,
+    repoOverride: TrainingRepository? = null
+) : AndroidViewModel(app) {
 
     private val repo = repoOverride ?: TrainingRepository(app)
     val draftStore = repo.draftStore
