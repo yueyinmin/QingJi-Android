@@ -18,7 +18,9 @@ data class DraftExercise(
     /** 统一体系 V2.1：非空 = 非力量动作（有氧/HIIT等），保存时走 WorkoutItem.Cardio。 */
     val recordType: String = "",
     /** 该动作的计划目标配置 JSON（TargetConfigJson），空串 = 力量或没目标。 */
-    val targetConfigJson: String = ""
+    val targetConfigJson: String = "",
+    /** B1.1：用户实际录入的时长/距离/间歇字段（WorkoutItem JSON）。目标字段与目标配置严格分离。 */
+    val actualJson: String = ""
 )
 
 /** 一次「还没保存」的训练。进程被杀掉后靠它恢复到离开前的样子。 */
@@ -50,7 +52,12 @@ data class WorkoutDraft(
      * 保存时写进 WorkoutSession.source（plan:<计划名>），供训练日记追溯来源。
      * 空 = 手动/补记/编辑，行为与旧版一致。
      */
-    val sourcePlan: String = ""
+    val sourcePlan: String = "",
+    /**
+     * B1.1.1：草稿版本号。每次改动由 persist() 单调递增，并随草稿一起落盘。
+     * save() 用它判断「保存期间用户是否又改了草稿」：revision 变了就不能清草稿。
+     */
+    val revision: Long = 0L
 ) {
     /** 当前已练了多久（秒）。暂停时冻结在暂停那一刻。 */
     fun elapsedSeconds(now: Long): Long {
@@ -58,6 +65,17 @@ data class WorkoutDraft(
         return ((end - startedAt - pausedMs).coerceAtLeast(0L)) / 1000L
     }
 }
+
+/**
+ * B1.1.2.2：条件清理的结果。
+ * [cleared] 表示本次保存的草稿是否真的被删除；
+ * [draftRemains] 表示操作结束后磁盘上是否仍有草稿（身份/版本不匹配，或清理本身失败）。
+ * 调用方据此在「草稿仍在」的所有分支给出提示，磁盘本来就空时不会误报「草稿已保留」。
+ */
+internal data class DraftClearOutcome(
+    val cleared: Boolean,
+    val draftRemains: Boolean
+)
 
 /**
  * ============================================================
@@ -78,7 +96,23 @@ class WorkoutDraftStore(context: Context) {
     private val sp = context.applicationContext
         .getSharedPreferences("workout_draft", Context.MODE_PRIVATE)
 
+    /**
+     * B1.1.2.1：草稿写入前钩子，生产为空操作。internal + 默认空操作，仅测试注入异常以验证
+     * 「写入失败时内存 revision 与 SP 中 revision 保持一致」（T20）。
+     * SharedPreferences.apply() 只保证内存立即可见，物理磁盘写入由系统异步完成。
+     */
+    internal var saveHook: () -> Unit = {}
+
     companion object {
+        /**
+         * B1.1.2.1：进程级共享锁。
+         * 生产架构里确实存在多个 WorkoutDraftStore 实例写同一个 workout_draft 文件
+         * （TrainingRepository 持有一个；QingJiRepository 在清草稿/恢复出厂时又 new 出实例），
+         * 实例级锁无法跨实例互斥，因此锁必须放在 companion 里。
+         * SharedPreferences 这里是 MODE_PRIVATE，不跨进程；多进程场景不在本类保证范围。
+         */
+        private val DRAFT_LOCK = Any()
+
         private const val KEY_DRAFT = "draft_json"
         private const val KEY_UNIT = "weight_unit"   // kg / lb，纯显示层，不进备份
         private const val KEY_REST_DEFAULT = "rest_default_sec"  // 组间休息默认时长（秒）
@@ -103,7 +137,8 @@ class WorkoutDraftStore(context: Context) {
                     note = e.optString("note", ""),
                     fromLast = e.optBoolean("fromLast", false),
                     recordType = e.optString("recordType", ""),
-                    targetConfigJson = e.optString("targetConfigJson", "")
+                    targetConfigJson = e.optString("targetConfigJson", ""),
+                    actualJson = e.optString("actualJson", "")
                 )
             }.filter { it.name.isNotBlank() }
             WorkoutDraft(
@@ -121,12 +156,14 @@ class WorkoutDraftStore(context: Context) {
                 fixedCreatedAt = o.optLong("fixedCreatedAt", 0L),
                 durationOverrideMin = o.optInt("durationOverrideMin", 0),
                 backfillDate = o.optString("backfillDate", ""),
-                sourcePlan = o.optString("sourcePlan", "")
+                sourcePlan = o.optString("sourcePlan", ""),
+                revision = o.optLong("revision", 0L)
             )
         }.getOrNull()?.takeIf { it.sessionUuid.isNotBlank() && it.startedAt > 0L }
     }
 
-    fun save(draft: WorkoutDraft) {
+    fun save(draft: WorkoutDraft) = synchronized(DRAFT_LOCK) {
+        saveHook()   // B1.1.2：测试注入落盘失败（生产为空）
         val o = JSONObject().apply {
             put("sessionUuid", draft.sessionUuid)
             put("startedAt", draft.startedAt)
@@ -142,6 +179,7 @@ class WorkoutDraftStore(context: Context) {
             put("durationOverrideMin", draft.durationOverrideMin)
             put("backfillDate", draft.backfillDate)
             put("sourcePlan", draft.sourcePlan)
+            put("revision", draft.revision)
             put("exercises", JSONArray().apply {
                 draft.exercises.forEach { e ->
                     put(JSONObject().apply {
@@ -153,6 +191,7 @@ class WorkoutDraftStore(context: Context) {
                         put("fromLast", e.fromLast)
                         put("recordType", e.recordType)
                         put("targetConfigJson", e.targetConfigJson)
+                        put("actualJson", e.actualJson)
                     })
                 }
             })
@@ -160,7 +199,37 @@ class WorkoutDraftStore(context: Context) {
         sp.edit().putString(KEY_DRAFT, o.toString()).apply()
     }
 
-    fun clear() = sp.edit().remove(KEY_DRAFT).apply()
+    fun clear() = synchronized(DRAFT_LOCK) { sp.edit().remove(KEY_DRAFT).apply() }
+
+    /**
+     * B1.1.2.1：同时校验草稿身份与版本，两者都匹配才删除。
+     * B1.1.2 只比较 revision 是不充分的：不同训练会话都可能 revision=1，
+     * 旧保存完成后会误删另一份新训练的草稿。
+     * 读取、身份校验、版本校验、删除全部在 DRAFT_LOCK 内完成；任一条件不满足都保留草稿。
+     * 返回是否真的删除；调用方据此决定内存 _draft 是否置空。
+     */
+    internal fun clearIfMatches(expectedSessionUuid: String, expectedRevision: Long): Boolean =
+        clearIfMatchesDetailed(expectedSessionUuid, expectedRevision).cleared
+
+    /**
+     * B1.1.2.2：与 [clearIfMatches] 同一把锁，但额外返回「磁盘上是否仍有草稿」。
+     * 供保存后处理区分三种情况：清掉了本次草稿 / 磁盘本来就是空的 / 有别的草稿被保留。
+     * 只读 SP 与删除仍在同一临界区内完成，不会出现检查完又被别的实例写入的窗口。
+     */
+    internal fun clearIfMatchesDetailed(
+        expectedSessionUuid: String,
+        expectedRevision: Long
+    ): DraftClearOutcome = synchronized(DRAFT_LOCK) {
+        val current = load()
+        when {
+            current == null -> DraftClearOutcome(cleared = false, draftRemains = false)
+            current.sessionUuid == expectedSessionUuid && current.revision == expectedRevision -> {
+                sp.edit().remove(KEY_DRAFT).apply()
+                DraftClearOutcome(cleared = true, draftRemains = false)
+            }
+            else -> DraftClearOutcome(cleared = false, draftRemains = true)
+        }
+    }
 
     /** kg/lb 只在显示层换算，库里永远存 kg。 */
     fun unit(): String = sp.getString(KEY_UNIT, UNIT_KG) ?: UNIT_KG

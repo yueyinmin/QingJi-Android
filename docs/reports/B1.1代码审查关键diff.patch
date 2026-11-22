@@ -1,0 +1,2110 @@
+diff --git a/app/src/main/java/com/qingji/app/data/backup/BackupManager.kt b/app/src/main/java/com/qingji/app/data/backup/BackupManager.kt
+index b4cb5f3..b086c71 100644
+--- a/app/src/main/java/com/qingji/app/data/backup/BackupManager.kt
++++ b/app/src/main/java/com/qingji/app/data/backup/BackupManager.kt
+@@ -151,7 +151,8 @@ class BackupManager(private val context: Context) {
+             planDays = db.trainingPlanDayDao().findAll(),
+             planExercises = db.planExerciseDao().findAll(),
+             sessions = db.workoutSessionDao().findAll(),
+-            workoutExercises = db.workoutExerciseDao().findAll()
++            workoutExercises = db.workoutExerciseDao().findAll(),
++            cardioDetails = db.workoutCardioDetailDao().findAll()
+         )
+         // v4：自律模块 7 张表整包带走，换手机不丢自律记录（settings 用已有的 getAll()）
+         val selfDiscipline = SelfDisciplineBackup(
+@@ -658,11 +659,13 @@ class BackupManager(private val context: Context) {
+             target.planExerciseDao().clearAll()
+             target.workoutSessionDao().clearAll()
+             target.workoutExerciseDao().clearAll()
++            target.workoutCardioDetailDao().clearAll()
+             if (t.plans.isNotEmpty()) target.trainingPlanDao().insertAll(t.plans)
+             if (t.planDays.isNotEmpty()) target.trainingPlanDayDao().insertAll(t.planDays)
+             if (t.planExercises.isNotEmpty()) target.planExerciseDao().insertAll(t.planExercises)
+             if (t.sessions.isNotEmpty()) target.workoutSessionDao().insertAll(t.sessions)
+             if (t.workoutExercises.isNotEmpty()) target.workoutExerciseDao().insertAll(t.workoutExercises)
++            if (t.cardioDetails.isNotEmpty()) target.workoutCardioDetailDao().insertAll(t.cardioDetails)
+         }
+ 
+         // ---------- v4 自律段 ----------
+diff --git a/app/src/main/java/com/qingji/app/data/backup/TrainingBackup.kt b/app/src/main/java/com/qingji/app/data/backup/TrainingBackup.kt
+index 2367a3d..ad74b39 100644
+--- a/app/src/main/java/com/qingji/app/data/backup/TrainingBackup.kt
++++ b/app/src/main/java/com/qingji/app/data/backup/TrainingBackup.kt
+@@ -4,6 +4,7 @@ import com.qingji.app.data.local.entity.ExerciseEntity
+ import com.qingji.app.data.local.entity.PlanExercise
+ import com.qingji.app.data.local.entity.TrainingPlan
+ import com.qingji.app.data.local.entity.TrainingPlanDay
++import com.qingji.app.data.local.entity.WorkoutCardioDetail
+ import com.qingji.app.data.local.entity.WorkoutExercise
+ import com.qingji.app.data.local.entity.WorkoutSession
+ import org.json.JSONArray
+@@ -12,7 +13,7 @@ import java.time.LocalDate
+ 
+ /**
+  * ============================================================
+- * 备份文件 v3 新增的 training 段（训练中心 6 张表）
++ * 备份文件 v3 新增的 training 段（训练中心 7 张表，B1.1 补入 workout_cardio_detail）
+  * ------------------------------------------------------------
+  * 为什么是 v3 不是 v2：BackupFormat.VERSION 在 v1.0.6 就已经是 2 了
+  * （当时补了围度/照片/运动/断食/自建运动五段）。
+@@ -30,10 +31,12 @@ data class TrainingBackup(
+     val planDays: List<TrainingPlanDay> = emptyList(),
+     val planExercises: List<PlanExercise> = emptyList(),
+     val sessions: List<WorkoutSession> = emptyList(),
+-    val workoutExercises: List<WorkoutExercise> = emptyList()
++    val workoutExercises: List<WorkoutExercise> = emptyList(),
++    /** B1.1：有氧明细必须随备份往返，且其 rawInputJson 承载类型/目标/实际。 */
++    val cardioDetails: List<WorkoutCardioDetail> = emptyList()
+ ) {
+     fun isEmpty(): Boolean = exercises.isEmpty() && plans.isEmpty() && planDays.isEmpty() &&
+-        planExercises.isEmpty() && sessions.isEmpty() && workoutExercises.isEmpty()
++        planExercises.isEmpty() && sessions.isEmpty() && workoutExercises.isEmpty() && cardioDetails.isEmpty()
+ 
+     fun toJson(): JSONObject = JSONObject().apply {
+         put("exercises", JSONArray().apply {
+@@ -46,6 +49,7 @@ data class TrainingBackup(
+                 put("exerciseType", e.exerciseType); put("isStretch", e.isStretch)
+                 put("assetPath", e.assetPath); put("attribution", e.attribution)
+                 put("isBuiltIn", e.isBuiltIn); put("isFavorite", e.isFavorite)
++                put("recordType", e.recordType)
+                 put("createdAt", e.createdAt); put("updatedAt", e.updatedAt)
+             }) }
+         })
+@@ -67,6 +71,7 @@ data class TrainingBackup(
+                 put("exerciseNameSnapshot", x.exerciseNameSnapshot)
+                 put("targetSets", x.targetSets); put("targetReps", x.targetReps)
+                 put("targetWeightKg", x.targetWeightKg); put("orderInDay", x.orderInDay)
++                put("recordType", x.recordType); put("targetConfigJson", x.targetConfigJson)
+             }) }
+         })
+         put("sessions", JSONArray().apply {
+@@ -84,6 +89,21 @@ data class TrainingBackup(
+                 put("exerciseNameSnapshot", w.exerciseNameSnapshot)
+                 put("orderInSession", w.orderInSession)
+                 put("setsJson", w.setsJson); put("note", w.note)
++                put("itemMetaJson", w.itemMetaJson)
++            }) }
++        })
++        put("cardioDetails", JSONArray().apply {
++            cardioDetails.forEach { c -> put(JSONObject().apply {
++                put("id", c.id); put("sessionUuid", c.sessionUuid)
++                put("exerciseUuid", c.exerciseUuid); put("exerciseNameSnapshot", c.exerciseNameSnapshot)
++                put("orderInSession", c.orderInSession)
++                put("durationSeconds", c.durationSeconds)
++                c.distanceMeters?.let { put("distanceMeters", it) }
++                put("calculatedKcal", c.calculatedKcal)
++                put("calculationMethod", c.calculationMethod)
++                put("calculationVersion", c.calculationVersion)
++                c.weightSnapshot?.let { put("weightSnapshot", it) }
++                put("rawInputJson", c.rawInputJson); put("createdAt", c.createdAt)
+             }) }
+         })
+     }
+@@ -112,6 +132,7 @@ fun parseTraining(o: JSONObject?): TrainingBackup? {
+                     attribution = e.optString("attribution", ""),
+                     isBuiltIn = e.optBoolean("isBuiltIn", false),
+                     isFavorite = e.optBoolean("isFavorite", false),
++                    recordType = e.optString("recordType", ""),
+                     createdAt = e.optLong("createdAt", 0L),
+                     updatedAt = e.optLong("updatedAt", 0L)
+                 )
+@@ -136,7 +157,9 @@ fun parseTraining(o: JSONObject?): TrainingBackup? {
+                 exerciseNameSnapshot = x.optString("exerciseNameSnapshot", ""),
+                 targetSets = x.optInt("targetSets", 0), targetReps = x.optInt("targetReps", 0),
+                 targetWeightKg = x.optDouble("targetWeightKg", 0.0),
+-                orderInDay = x.optInt("orderInDay", 0)
++                orderInDay = x.optInt("orderInDay", 0),
++                recordType = x.optString("recordType", ""),
++                targetConfigJson = x.optString("targetConfigJson", "")
+             ) },
+             sessions = o.items("sessions") { s ->
+                 val uuid = s.optString("uuid", "")
+@@ -154,8 +177,27 @@ fun parseTraining(o: JSONObject?): TrainingBackup? {
+                 exerciseUuid = w.optString("exerciseUuid", ""),
+                 exerciseNameSnapshot = w.optString("exerciseNameSnapshot", ""),
+                 orderInSession = w.optInt("orderInSession", 0),
+-                setsJson = w.optString("setsJson", ""), note = w.optString("note", "")
+-            ) }
++                setsJson = w.optString("setsJson", ""), note = w.optString("note", ""),
++                itemMetaJson = w.optString("itemMetaJson", "")
++            ) },
++            cardioDetails = o.items("cardioDetails") { c ->
++                val sessionUuid = c.optString("sessionUuid", "")
++                if (sessionUuid.isEmpty()) null else WorkoutCardioDetail(
++                    id = c.optLong("id", 0L), sessionUuid = sessionUuid,
++                    exerciseUuid = c.optString("exerciseUuid", ""),
++                    exerciseNameSnapshot = c.optString("exerciseNameSnapshot", ""),
++                    orderInSession = c.optInt("orderInSession", 0),
++                    durationSeconds = c.optLong("durationSeconds", 0L),
++                    distanceMeters = c.optDouble("distanceMeters", Double.NaN)
++                        .takeIf { it.isFinite() },
++                    calculatedKcal = c.optDouble("calculatedKcal", 0.0).takeIf { it.isFinite() } ?: 0.0,
++                    calculationMethod = c.optString("calculationMethod", ""),
++                    calculationVersion = c.optString("calculationVersion", ""),
++                    weightSnapshot = c.optDouble("weightSnapshot", Double.NaN).takeIf { it.isFinite() },
++                    rawInputJson = c.optString("rawInputJson", ""),
++                    createdAt = c.optLong("createdAt", 0L)
++                )
++            }
+         )
+     } catch (e: Exception) {
+         null
+diff --git a/app/src/main/java/com/qingji/app/data/prefs/WorkoutDraftStore.kt b/app/src/main/java/com/qingji/app/data/prefs/WorkoutDraftStore.kt
+index c66006e..bfe3219 100644
+--- a/app/src/main/java/com/qingji/app/data/prefs/WorkoutDraftStore.kt
++++ b/app/src/main/java/com/qingji/app/data/prefs/WorkoutDraftStore.kt
+@@ -18,7 +18,9 @@ data class DraftExercise(
+     /** 统一体系 V2.1：非空 = 非力量动作（有氧/HIIT等），保存时走 WorkoutItem.Cardio。 */
+     val recordType: String = "",
+     /** 该动作的计划目标配置 JSON（TargetConfigJson），空串 = 力量或没目标。 */
+-    val targetConfigJson: String = ""
++    val targetConfigJson: String = "",
++    /** B1.1：用户实际录入的时长/距离/间歇字段（WorkoutItem JSON）。目标字段与目标配置严格分离。 */
++    val actualJson: String = ""
+ )
+ 
+ /** 一次「还没保存」的训练。进程被杀掉后靠它恢复到离开前的样子。 */
+@@ -103,7 +105,8 @@ class WorkoutDraftStore(context: Context) {
+                     note = e.optString("note", ""),
+                     fromLast = e.optBoolean("fromLast", false),
+                     recordType = e.optString("recordType", ""),
+-                    targetConfigJson = e.optString("targetConfigJson", "")
++                    targetConfigJson = e.optString("targetConfigJson", ""),
++                    actualJson = e.optString("actualJson", "")
+                 )
+             }.filter { it.name.isNotBlank() }
+             WorkoutDraft(
+@@ -153,6 +156,7 @@ class WorkoutDraftStore(context: Context) {
+                         put("fromLast", e.fromLast)
+                         put("recordType", e.recordType)
+                         put("targetConfigJson", e.targetConfigJson)
++                        put("actualJson", e.actualJson)
+                     })
+                 }
+             })
+diff --git a/app/src/main/java/com/qingji/app/data/repository/TrainingRepository.kt b/app/src/main/java/com/qingji/app/data/repository/TrainingRepository.kt
+index 1b926e5..0b19af9 100644
+--- a/app/src/main/java/com/qingji/app/data/repository/TrainingRepository.kt
++++ b/app/src/main/java/com/qingji/app/data/repository/TrainingRepository.kt
+@@ -19,9 +19,12 @@ import com.qingji.app.data.prefs.WorkoutDraftStore
+ import com.qingji.app.domain.PlanExerciseResolver
+ import com.qingji.app.domain.SessionCalorieCalculator
+ import com.qingji.app.domain.WorkoutCalorieCalculator
++import com.qingji.app.domain.TrainingItemMapper
+ import com.qingji.app.domain.TrainingMath
++import com.qingji.app.domain.WorkoutItem
+ import com.qingji.app.domain.WorkoutSet
+ import kotlinx.coroutines.flow.Flow
++import kotlinx.coroutines.flow.combine
+ import kotlinx.coroutines.flow.first
+ import kotlinx.coroutines.flow.map
+ 
+@@ -41,10 +44,12 @@ class TrainingRepository(
+     private val context: Context,
+     /** V3 最终缺陷修复：可注入刷新钩子（生产默认走 WidgetRefresher，测试可替换验证行为）。 */
+     private val refreshHook: (Context, Set<com.qingji.app.widget.WidgetTarget>) -> Unit =
+-        { c, targets -> com.qingji.app.widget.WidgetRefresher.refresh(c, targets) }
++        { c, targets -> com.qingji.app.widget.WidgetRefresher.refresh(c, targets) },
++    /** V2.1阶段A4 同款测试注入：独立 Room 实例，生产不传。 */
++    dbOverride: AppDatabase? = null
+ ) {
+ 
+-    private val db = AppDatabase.get(context)
++    private val db = dbOverride ?: AppDatabase.get(context)
+     private val exerciseDao = db.exerciseDao()
+     private val libraryMetaDao = db.libraryMetaDao()
+     private val planDao = db.trainingPlanDao()
+@@ -56,7 +61,7 @@ class TrainingRepository(
+     private val exerciseLogDao = db.exerciseLogDao()
+ 
+     /** 健康体系 V1.0：统一运动消耗账本（结算/删除联动都在这里做）。 */
+-    private val healthRepository = HealthRepository(context)
++    private val healthRepository = HealthRepository(context, dbOverride = dbOverride)
+ 
+     /** 进行中草稿与 kg/lb 偏好（SharedPreferences，不进数据库）。 */
+     val draftStore = WorkoutDraftStore(context)
+@@ -74,6 +79,15 @@ class TrainingRepository(
+     fun observeAllWorkoutExercises(): Flow<List<WorkoutExercise>> =
+         workoutExerciseDao.observeAll()
+ 
++    /** B1.1：历史/日记统一读取入口——力量 + 有氧 + HIIT/柔韧/其他全部映射成同一领域模型。 */
++    fun observeAllSessionItems(): Flow<List<WorkoutItem>> = combine(
++        workoutExerciseDao.observeAll(),
++        workoutCardioDao.observeAll()
++    ) { strengthRows, cardioRows ->
++        strengthRows.map(TrainingItemMapper::workoutExerciseToItem) +
++            cardioRows.map(TrainingItemMapper::cardioToItem)
++    }
++
+     /**
+      * 按 UUID 增量补齐 Workout Guide 302 条内置动作。
+      *
+@@ -157,7 +171,7 @@ class TrainingRepository(
+             // v1.4.2：同一事务里写一条 exercise_log，力量训练才能进「运动日记」。
+             // 带 sourceId=场次uuid → 防重复（一次训练一条）、编辑复用同一条；
+             // HealthRepository 对带 sourceId 的日志跳过账本镜像，消耗不会算两次。
+-            upsertTrainingDiaryLog(session, settledKcal)
++            upsertTrainingDiaryLog(session, settledKcal, DIARY_TYPE_STRENGTH)
+         }
+         if (session.date == com.qingji.app.domain.AppClock.today()) {
+             refreshHook(context, setOf(com.qingji.app.widget.WidgetTarget.OVERVIEW))
+@@ -182,79 +196,103 @@ class TrainingRepository(
+      */
+     suspend fun saveUnifiedSession(
+         session: WorkoutSession,
+-        items: List<WorkoutExercise>,
+-        cardio: List<WorkoutCardioDetail>,
++        items: List<WorkoutItem>,
++        cardio: List<WorkoutItem.Cardio>,
+         settleWeightKg: Double
+     ): WorkoutCalorieCalculator.Result {
++        val allItems: List<WorkoutItem> = items + cardio
+         var result = WorkoutCalorieCalculator.Result(
+             totalKcal = 0.0, strengthKcal = 0.0, cardioKcal = 0.0,
+-            cardioItems = 0, notComputableItems = cardio.count { !WorkoutCalorieCalculator.isComputable(it) },
++            cardioItems = 0, notComputableItems = cardio.count { it.calculatedKcal <= 0.0 || !it.calculatedKcal.isFinite() },
+             method = WorkoutCalorieCalculator.METHOD_CARDIO_ONLY
+         )
+         db.withTransaction {
+-            // 1+2：会话 + 力量明细（整包替换，id 重生成，编辑不带老 id）
++            // 1+2：会话 + workout_exercise（力量与 HIIT/柔韧/其他，整包替换，id 重生成）
+             sessionDao.insert(session)
+             workoutExerciseDao.deleteBySession(session.uuid)
+-            val insertedItems = items.map { it.copy(id = 0L) }
+-            workoutExerciseDao.insertAll(insertedItems)
++            val insertedRows = items.mapIndexed { i, item ->
++                TrainingItemMapper.itemToWorkoutExercise(item, session.uuid, item.order.takeIf { it >= 0 } ?: i)
++                    .copy(id = 0L)
++            }
++            workoutExerciseDao.insertAll(insertedRows)
+ 
+-            // 3：有氧明细（整包替换）
++            // 3：有氧明细（整包替换，只有 CARDIO 进这张表）
+             workoutCardioDao.deleteBySession(session.uuid)
+-            val insertedCardio = cardio.map { it.copy(id = 0L, sessionUuid = session.uuid) }
++            val insertedCardio = cardio.mapIndexed { i, item ->
++                TrainingItemMapper.itemToCardio(item, session.uuid, item.order.takeIf { it >= 0 } ?: (items.size + i))
++                    .copy(id = 0L, sessionUuid = session.uuid)
++            }
+             if (insertedCardio.isNotEmpty()) workoutCardioDao.insertAll(insertedCardio)
+ 
+             // 4+5：整场热量汇总 → 一条账本（不重算有氧、不双结算）
+             if (settleWeightKg > 0.0) {
+-                val strengthKcal = if (insertedItems.isEmpty()) 0.0 else {
++                val strengthRows = insertedRows.filter { row ->
++                    val type = WorkoutItem.fromJson(row.itemMetaJson)?.recordType
++                    type == null || type == com.qingji.app.domain.ExerciseRecordType.STRENGTH
++                }
++                val strengthKcal = if (strengthRows.isEmpty()) 0.0 else {
+                     healthRepository.settleStrengthSession(
+                         session = session,
+-                        items = insertedItems,
++                        items = strengthRows,
+                         weightKg = settleWeightKg,
+                         method = SessionCalorieCalculator.METHOD_SEGMENTED
+                     ).caloriesGross
+                 }
+                 val combined = WorkoutCalorieCalculator.combine(strengthKcal, insertedCardio)
+                 result = combined
+-                // 整场只写一条账本：sourceId=uuid，upsert 覆盖（力量结算那条被本行覆盖为整场值）。
+-                // 纯力量场次 combined.totalKcal 与力量结算值一致，写下去数值不变。
+-                healthRepository.ledgerDao().upsert(
+-                    com.qingji.app.data.local.entity.ExerciseSessionCalorieEntity(
+-                        sourceType = HealthRepository.SOURCE_STRENGTH_TRAINING,
+-                        sourceId = session.uuid,
+-                        date = session.date,
+-                        durationSeconds = session.durationMinutes * 60,
+-                        caloriesGross = combined.totalKcal,
+-                        weightSnapshot = settleWeightKg,
+-                        calculationMethod = combined.method,
+-                        calculationVersion = combined.version,
+-                        createdAt = System.currentTimeMillis(),
+-                        updatedAt = System.currentTimeMillis()
++                // 若整场可计算热量为 0，不写“0 千卡成功结算”的账本行；历史行由 upsert 覆盖清除。
++                if (combined.totalKcal > 0.0) {
++                    healthRepository.ledgerDao().upsert(
++                        com.qingji.app.data.local.entity.ExerciseSessionCalorieEntity(
++                            sourceType = HealthRepository.SOURCE_STRENGTH_TRAINING,
++                            sourceId = session.uuid,
++                            date = session.date,
++                            durationSeconds = session.durationMinutes * 60,
++                            caloriesGross = combined.totalKcal,
++                            weightSnapshot = settleWeightKg,
++                            calculationMethod = combined.method,
++                            calculationVersion = combined.version,
++                            createdAt = System.currentTimeMillis(),
++                            updatedAt = System.currentTimeMillis()
++                        )
+                     )
+-                )
++                } else {
++                    healthRepository.ledgerDao().deleteBySource(
++                        HealthRepository.SOURCE_STRENGTH_TRAINING, session.uuid
++                    )
++                }
+             }
+ 
+             // 6：运动日记摘要投影（sourceId=uuid → 不再次触发账本镜像）
+-            upsertTrainingDiaryLog(session, result.totalKcal)
++            upsertTrainingDiaryLog(session, result.totalKcal, TrainingItemMapper.diaryType(allItems))
+         }
+-        // 阶段B：保存/修改训练 → 今日剩余（统一账本消耗）。仅当日会话刷新。
+         if (session.date == com.qingji.app.domain.AppClock.today()) {
+             refreshHook(context, setOf(com.qingji.app.widget.WidgetTarget.OVERVIEW))
+         }
+         return result
+     }
+ 
+-    /** 读一场训练的力量 + 有氧明细（历史统一展示用）。 */
+-    suspend fun sessionDetailWithCardio(uuid: String): SessionDetail =
+-        SessionDetail(
++    /** 读一场训练的完整明细：力量 + 有氧 + HIIT/柔韧/其他，统一返回领域模型。 */
++    suspend fun sessionDetail(uuid: String): SessionDetail {
++        val strengthRows = workoutExerciseDao.findBySession(uuid)
++        val cardioRows = workoutCardioDao.findBySession(uuid)
++        return SessionDetail(
+             session = sessionDao.findByUuid(uuid),
+-            strength = workoutExerciseDao.findBySession(uuid),
+-            cardio = workoutCardioDao.findBySession(uuid)
++            strength = strengthRows,
++            cardio = cardioRows,
++            items = strengthRows.map(TrainingItemMapper::workoutExerciseToItem) +
++                cardioRows.map(TrainingItemMapper::cardioToItem)
+         )
++    }
++
++    /** 兼容旧调用名；语义已与 sessionDetail 相同（完整会话）。 */
++    suspend fun sessionDetailWithCardio(uuid: String): SessionDetail = sessionDetail(uuid)
+ 
+     data class SessionDetail(
+         val session: WorkoutSession?,
+         val strength: List<WorkoutExercise>,
+-        val cardio: List<WorkoutCardioDetail>
++        val cardio: List<WorkoutCardioDetail>,
++        val items: List<WorkoutItem> = emptyList()
+     )
+ 
+     /**
+@@ -263,12 +301,12 @@ class TrainingRepository(
+      * 重复保存也不会多记。kcal 用本场结算值，日记显示与账本一致。
+      * type 固定「力量」，与运动日记卡、手动记运动的分类口径一致。
+      */
+-    private suspend fun upsertTrainingDiaryLog(session: WorkoutSession, kcal: Double) {
++    private suspend fun upsertTrainingDiaryLog(session: WorkoutSession, kcal: Double, type: String) {
+         val existing = exerciseLogDao.findBySourceId(session.uuid)
+         val log = ExerciseLog(
+             id = existing?.id ?: 0L,
+             date = session.date,
+-            type = DIARY_TYPE_STRENGTH,
++            type = type,
+             minutes = session.durationMinutes,
+             kcal = kcal,
+             sourceId = session.uuid,
+@@ -280,6 +318,10 @@ class TrainingRepository(
+     companion object {
+         /** 力量训练写进运动日记的固定分类名（与手动「记一次运动」的力量分类同词）。 */
+         const val DIARY_TYPE_STRENGTH = "力量"
++        const val DIARY_TYPE_CARDIO = "有氧"
++        const val DIARY_TYPE_MIXED = "混合"
++        const val DIARY_TYPE_FLEXIBILITY = "柔韧"
++        const val DIARY_TYPE_OTHER = "其他"
+     }
+ 
+     /** 删除会话要连明细、连消耗账本、连运动日记日志一起删，不留孤儿行。 */
+@@ -302,9 +344,6 @@ class TrainingRepository(
+         }
+     }
+ 
+-    suspend fun sessionDetail(uuid: String): Pair<WorkoutSession?, List<WorkoutExercise>> =
+-        sessionDao.findByUuid(uuid) to workoutExerciseDao.findBySession(uuid)
+-
+     /**
+      * 只改一次训练的标题/速记（note 单列），不触碰动作、重量、次数、组数、时长、
+      * 来源与消耗结算。训练日记的备注编辑走这里，绝不走 saveSession 整包保存。
+@@ -412,19 +451,17 @@ class TrainingRepository(
+      * @return Pair(planUuid, 动作库里找不到的动作名列表)
+      */
+     suspend fun saveSessionAsTemplate(sessionUuid: String, name: String): Pair<String, List<String>> {
+-        val session = sessionDao.findByUuid(sessionUuid)
+-            ?: throw IllegalArgumentException("训练记录不存在或已删除")
+-        val items = workoutExerciseDao.findBySession(sessionUuid)
+-        require(items.any { it.exerciseNameSnapshot.isNotBlank() }) { "这场训练没有动作明细" }
++        val detail = sessionDetail(sessionUuid)
++        val session = detail.session ?: throw IllegalArgumentException("训练记录不存在或已删除")
++        val items = detail.items.filter { it.name.isNotBlank() }.sortedBy { it.order }
++        require(items.isNotEmpty()) { "这场训练没有动作明细" }
+         val library = exerciseDao.findAll()
+-        // v1.3.7：UUID 优先、名字兜底（纯函数在 domain/PlanExerciseResolver）。
+-        // 动作库改名后，历史里的 UUID 还能对上；老数据 UUID 为空才退回名字快照。
++        // UUID 优先、名字兜底；历史复制不修改动作库，也不改原会话。
+         val uuids = library.map { it.uuid }.toSet()
+         val names = library.associate { it.name to it.uuid }
+-        val resolved = items.filter { it.exerciseNameSnapshot.isNotBlank() }.map { item ->
++        val resolved = items.map { item ->
+             item to PlanExerciseResolver.resolve(
+-                PlanExerciseResolver.Ref(item.exerciseUuid, item.exerciseNameSnapshot),
+-                uuids, names
++                PlanExerciseResolver.Ref(item.exerciseUuid, item.name), uuids, names
+             )
+         }
+         val missing = resolved.mapNotNull { it.second.missingName }
+@@ -433,21 +470,39 @@ class TrainingRepository(
+         val uuid = "plan-${java.util.UUID.randomUUID()}"
+         val now = System.currentTimeMillis()
+         db.withTransaction {
+-            // 只存不激活：不调 deactivateAll，isActive=false，用户在计划历史里自己启用
+             planDao.insertAll(listOf(TrainingPlan(uuid, name, "history:${sessionUuid}", false, now)))
+             val dayId = planDayDao.insertOne(
+                 TrainingPlanDay(planUuid = uuid, weekday = weekday, title = title, isRest = false)
+             )
+             planExerciseDao.insertAll(resolved.mapIndexed { i, (item, hit) ->
++                val isStrength = item is WorkoutItem.Strength
++                val sets = (item as? WorkoutItem.Strength)?.sets.orEmpty()
++                // 计划目标优先取历史里保存的 targetReps/targetWeight；没有才用当次实际值作为可复用建议。
++                val targetReps = sets.firstOrNull { it.targetReps != null && it.targetReps!! > 0 }?.targetReps
++                    ?: sets.firstOrNull { it.reps > 0 }?.reps ?: 0
++                val targetWeight = sets.firstOrNull { it.targetWeightKg != null && it.targetWeightKg!! > 0.0 }?.targetWeightKg
++                    ?: sets.firstOrNull { it.weightKg > 0.0 }?.weightKg ?: 0.0
++                val targetJson = if (item.targetConfigJson.isNotBlank()) item.targetConfigJson else {
++                    com.qingji.app.domain.TargetConfigJson.encode(
++                        com.qingji.app.domain.TargetConfig(
++                            type = item.recordType,
++                            sets = sets.size.takeIf { it > 0 },
++                            reps = targetReps.takeIf { it > 0 },
++                            weightKg = targetWeight.takeIf { it > 0.0 }
++                        )
++                    )
++                }
+                 PlanExercise(
+                     dayId = dayId,
+-                    // 找不到也保留名字快照，计划照存；UI 用 missing 名单提示兼容
+                     exerciseUuid = hit.exerciseUuid,
+-                    exerciseNameSnapshot = item.exerciseNameSnapshot,
+-                    targetSets = 3,
+-                    targetReps = 10,
+-                    targetWeightKg = 0.0,
+-                    orderInDay = i
++                    exerciseNameSnapshot = item.name,
++                    targetSets = if (isStrength) sets.size.coerceAtLeast(1) else 0,
++                    targetReps = if (isStrength) targetReps else 0,
++                    targetWeightKg = if (isStrength) targetWeight else 0.0,
++                    orderInDay = i,
++                    // 力量保持空串走旧三列；非力量写明确类型与目标配置，不复制实际成绩为目标。
++                    recordType = if (isStrength) "" else item.recordType.key,
++                    targetConfigJson = targetJson
+                 )
+             })
+         }
+diff --git a/app/src/main/java/com/qingji/app/domain/BackupFormat.kt b/app/src/main/java/com/qingji/app/domain/BackupFormat.kt
+index a432ac9..897b841 100644
+--- a/app/src/main/java/com/qingji/app/domain/BackupFormat.kt
++++ b/app/src/main/java/com/qingji/app/domain/BackupFormat.kt
+@@ -35,7 +35,12 @@ object BackupFormat {
+      * version < 3 / < 4 / < 5 / < 6 / < 7 的老备份**不清本机对应表**（那时还没有这个模块），
+      * 免得导旧备份把新记的数据弄丢；version >= 对应版本才整包覆盖。
+      */
+-    const val VERSION = 7
++    /**
++     * 8 = B1.1 训练段补入 workout_cardio_detail 与 recordType/targetConfigJson/itemMetaJson。
++     *     老备份缺这些字段时按安全默认值读取；version < 8 的训练段仍按 v3 规则整包覆盖，
++     *     有氧明细缺省为空，不会把老备份误判成“没有训练模块”。
++     */
++    const val VERSION = 8
+ 
+     /** CSV 表头，顺序不能乱，Excel 里看到的列顺序就是它。 */
+     val CSV_HEADER = listOf(
+diff --git a/app/src/main/java/com/qingji/app/domain/TrainingItemMapper.kt b/app/src/main/java/com/qingji/app/domain/TrainingItemMapper.kt
+new file mode 100644
+index 0000000..3a09158
+--- /dev/null
++++ b/app/src/main/java/com/qingji/app/domain/TrainingItemMapper.kt
+@@ -0,0 +1,262 @@
++package com.qingji.app.domain
++
++import com.qingji.app.data.local.entity.ExerciseEntity
++import com.qingji.app.data.local.entity.WorkoutCardioDetail
++import com.qingji.app.data.local.entity.WorkoutExercise
++import com.qingji.app.data.prefs.DraftExercise
++
++/**
++ * B1.1：草稿 ↔ 统一领域模型 ↔ Room 行的唯一映射入口。
++ *
++ * 设计边界：
++ * - recordType 只通过强类型解析；空串按历史语义回退 STRENGTH，未知 key 降级 OTHER，绝不默认 CARDIO；
++ * - 计划目标放在 targetConfigJson，实际完成值放在 WorkoutItem 的 duration/distance/work/rest/rounds 等字段；
++ * - WorkoutCardioDetail 只存 CARDIO；HIIT/FLEXIBILITY/OTHER 存 workout_exercise.itemMetaJson（版本化 JSON），
++ *   保留类型、目标配置和原始输入，不伪装成力量组或普通有氧；
++ * - 全部使用已有 Room 列，不新增表、不升数据库版本。
++ */
++object TrainingItemMapper {
++
++    /** 空串 = 历史未标记 → STRENGTH；未知/非法 key → OTHER，禁止默认 CARDIO。 */
++    fun resolveType(recordTypeKey: String?, entity: ExerciseEntity? = null): ExerciseRecordType {
++        ExerciseRecordType.fromKey(recordTypeKey)?.let { return it }
++        if (recordTypeKey.isNullOrBlank()) {
++            if (entity != null) {
++                return TrainingTypeResolver.resolve(
++                    persistedRecordType = entity.recordType,
++                    name = entity.name,
++                    englishName = entity.englishName,
++                    exerciseType = entity.exerciseType,
++                    category = entity.category,
++                    isStretch = entity.isStretch,
++                    exerciseUuid = entity.uuid
++                ).type
++            }
++            return ExerciseRecordType.STRENGTH
++        }
++        return ExerciseRecordType.OTHER
++    }
++
++    /** 从草稿里读出已录入的实际数据（旧草稿没有 actualJson 时返回 null）。 */
++    fun actualOf(draft: DraftExercise): WorkoutItem? = WorkoutItem.fromJson(draft.actualJson)
++
++    /** 草稿 → 统一项目。actualJson 只提供实际值；目标只来自 targetConfigJson。 */
++    fun draftToItem(
++        draft: DraftExercise,
++        type: ExerciseRecordType,
++        sessionUuid: String,
++        order: Int,
++        kcal: Double = 0.0,
++        method: String = "",
++        version: String = "",
++        weightSnapshot: Double? = null
++    ): WorkoutItem {
++        val parsed = actualOf(draft)
++        val target = draft.targetConfigJson
++        return when (type) {
++            ExerciseRecordType.STRENGTH -> WorkoutItem.Strength(
++                itemId = draft.key,
++                exerciseUuid = draft.exerciseUuid,
++                name = draft.name,
++                order = order,
++                note = draft.note,
++                sessionUuid = sessionUuid,
++                sets = draft.sets,
++                targetConfigJson = target
++            )
++            ExerciseRecordType.CARDIO -> {
++                val a = parsed as? WorkoutItem.Cardio
++                WorkoutItem.Cardio(
++                    itemId = draft.key,
++                    exerciseUuid = draft.exerciseUuid,
++                    name = draft.name,
++                    order = order,
++                    mode = a?.mode ?: WorkoutMode.NORMAL,
++                    note = draft.note,
++                    sessionUuid = sessionUuid,
++                    durationSec = a?.durationSec ?: 0L,
++                    distanceMeters = a?.distanceMeters,
++                    intensity = a?.intensity,
++                    calculatedKcal = kcal,
++                    calculationMethod = method,
++                    calculationVersion = version,
++                    weightSnapshot = weightSnapshot,
++                    targetConfigJson = target
++                )
++            }
++            ExerciseRecordType.HIIT -> {
++                val a = parsed as? WorkoutItem.Hiit
++                WorkoutItem.Hiit(
++                    itemId = draft.key,
++                    exerciseUuid = draft.exerciseUuid,
++                    name = draft.name,
++                    order = order,
++                    mode = a?.mode ?: WorkoutMode.INTERVAL,
++                    note = draft.note,
++                    sessionUuid = sessionUuid,
++                    durationSec = a?.durationSec ?: 0L,
++                    intensity = a?.intensity,
++                    met = a?.met,
++                    workSec = a?.workSec ?: 0,
++                    restSec = a?.restSec ?: 0,
++                    rounds = a?.rounds ?: 0,
++                    calculatedKcal = kcal,
++                    calculationVersion = version,
++                    weightSnapshot = weightSnapshot,
++                    targetConfigJson = target
++                )
++            }
++            ExerciseRecordType.FLEXIBILITY -> {
++                val a = parsed as? WorkoutItem.Flexibility
++                WorkoutItem.Flexibility(
++                    itemId = draft.key,
++                    exerciseUuid = draft.exerciseUuid,
++                    name = draft.name,
++                    order = order,
++                    note = draft.note,
++                    sessionUuid = sessionUuid,
++                    durationSec = a?.durationSec ?: 0L,
++                    content = a?.content.orEmpty(),
++                    targetConfigJson = target
++                )
++            }
++            ExerciseRecordType.OTHER -> {
++                val a = parsed as? WorkoutItem.Other
++                WorkoutItem.Other(
++                    itemId = draft.key,
++                    exerciseUuid = draft.exerciseUuid,
++                    name = draft.name,
++                    order = order,
++                    note = draft.note,
++                    sessionUuid = sessionUuid,
++                    durationSec = a?.durationSec ?: 0L,
++                    reps = a?.reps,
++                    targetConfigJson = target
++                )
++            }
++        }
++    }
++
++    /** 统一项目 → workout_exercise 行。仅 STRENGTH 写 setsJson；其余写 itemMetaJson。 */
++    fun itemToWorkoutExercise(item: WorkoutItem, sessionUuid: String, order: Int): WorkoutExercise =
++        WorkoutExercise(
++            sessionUuid = sessionUuid,
++            exerciseUuid = item.exerciseUuid,
++            exerciseNameSnapshot = item.name,
++            orderInSession = if (item.order >= 0) item.order else order,
++            setsJson = if (item is WorkoutItem.Strength) TrainingMath.encodeSets(item.sets) else "",
++            note = item.note,
++            itemMetaJson = WorkoutItem.toJson(item.copyOrder(order).copySession(sessionUuid))
++        )
++
++    /** 只有 CARDIO 进入有氧明细表；rawInputJson 保存完整 WorkoutItem JSON（含目标与实际）。 */
++    fun itemToCardio(item: WorkoutItem.Cardio, sessionUuid: String, order: Int): WorkoutCardioDetail =
++        WorkoutCardioDetail(
++            sessionUuid = sessionUuid,
++            exerciseUuid = item.exerciseUuid,
++            exerciseNameSnapshot = item.name,
++            orderInSession = if (item.order >= 0) item.order else order,
++            durationSeconds = item.durationSec.coerceAtLeast(0L),
++            distanceMeters = item.distanceMeters?.takeIf { it.isFinite() && it > 0.0 },
++            calculatedKcal = item.calculatedKcal.takeIf { it.isFinite() && it > 0.0 } ?: 0.0,
++            calculationMethod = item.calculationMethod,
++            calculationVersion = item.calculationVersion,
++            weightSnapshot = item.weightSnapshot,
++            rawInputJson = WorkoutItem.toJson(item.copyOrder(order).copySession(sessionUuid)),
++            createdAt = System.currentTimeMillis()
++        )
++
++    /** workout_exercise 行 → 统一项目；旧行（itemMetaJson 空）按力量兼容。 */
++    fun workoutExerciseToItem(row: WorkoutExercise): WorkoutItem {
++        val parsed = WorkoutItem.fromJson(row.itemMetaJson)
++        if (parsed != null && parsed.recordType != ExerciseRecordType.STRENGTH) return parsed
++        return WorkoutItem.Strength(
++            itemId = parsed?.itemId ?: "legacy-${row.id}",
++            exerciseUuid = row.exerciseUuid,
++            name = row.exerciseNameSnapshot,
++            order = row.orderInSession,
++            note = row.note,
++            sessionUuid = row.sessionUuid,
++            sets = TrainingMath.decodeSets(row.setsJson),
++            targetConfigJson = parsed?.targetConfigJson.orEmpty()
++        )
++    }
++
++    /** workout_cardio_detail 行 → 统一项目；列优先，rawInputJson 仅补目标与低频字段。 */
++    fun cardioToItem(row: WorkoutCardioDetail): WorkoutItem {
++        val parsed = WorkoutItem.fromJson(row.rawInputJson) as? WorkoutItem.Cardio
++        return WorkoutItem.Cardio(
++            itemId = parsed?.itemId ?: "cardio-${row.id}",
++            exerciseUuid = row.exerciseUuid,
++            name = row.exerciseNameSnapshot,
++            order = row.orderInSession,
++            mode = parsed?.mode ?: WorkoutMode.NORMAL,
++            note = parsed?.note.orEmpty(),
++            sessionUuid = row.sessionUuid,
++            durationSec = row.durationSeconds,
++            distanceMeters = row.distanceMeters,
++            intensity = parsed?.intensity,
++            calculatedKcal = row.calculatedKcal,
++            calculationMethod = row.calculationMethod,
++            calculationVersion = row.calculationVersion,
++            weightSnapshot = row.weightSnapshot,
++            targetConfigJson = parsed?.targetConfigJson.orEmpty()
++        )
++    }
++
++    /** 有氧热量：只使用参数库里真实存在的类型 MET；无匹配 MET 时不造数。 */
++    fun withCardioKcal(
++        item: WorkoutItem.Cardio,
++        entity: ExerciseEntity?,
++        metDefaults: Map<String, Triple<Double, Double, Double>>,
++        weightKg: Double
++    ): WorkoutItem.Cardio {
++        val activityType = entity?.slug?.takeIf { it.isNotBlank() && metDefaults.containsKey(it) }
++            ?: return item.copy(calculatedKcal = 0.0, calculationMethod = "", calculationVersion = "", weightSnapshot = null)
++        if (item.durationSec <= 0L || weightKg <= 0.0) {
++            return item.copy(calculatedKcal = 0.0, calculationMethod = "", calculationVersion = "", weightSnapshot = null)
++        }
++        val met = metDefaults.getValue(activityType).second
++        val estimate = ExerciseCalculator.estimate(
++            met = met,
++            weightKg = weightKg,
++            mode = ExerciseCalculator.MODE_MINUTES,
++            amount = item.durationSec / 60.0,
++            intensity = item.intensity
++        )
++        return item.copy(
++            calculatedKcal = estimate.kcal,
++            calculationMethod = WorkoutCalorieCalculator.METHOD_MET_TYPE_DEFAULT,
++            calculationVersion = WorkoutCalorieCalculator.VERSION,
++            weightSnapshot = weightKg
++        )
++    }
++
++    /** 运动日记分类：按会话实际构成判定，不再固定“力量”。 */
++    fun diaryType(items: List<WorkoutItem>): String {
++        if (items.isEmpty()) return "力量"
++        val hasStrength = items.any { it is WorkoutItem.Strength }
++        val hasNonStrength = items.any { it !is WorkoutItem.Strength }
++        if (hasStrength && hasNonStrength) return "混合"
++        if (hasStrength) return "力量"
++        if (items.all { it is WorkoutItem.Cardio }) return "有氧"
++        if (items.all { it is WorkoutItem.Flexibility }) return "柔韧"
++        return "其他"
++    }
++
++    private fun WorkoutItem.copyOrder(order: Int): WorkoutItem = when (this) {
++        is WorkoutItem.Strength -> copy(order = order)
++        is WorkoutItem.Cardio -> copy(order = order)
++        is WorkoutItem.Hiit -> copy(order = order)
++        is WorkoutItem.Flexibility -> copy(order = order)
++        is WorkoutItem.Other -> copy(order = order)
++    }
++
++    private fun WorkoutItem.copySession(sessionUuid: String): WorkoutItem = when (this) {
++        is WorkoutItem.Strength -> copy(sessionUuid = sessionUuid)
++        is WorkoutItem.Cardio -> copy(sessionUuid = sessionUuid)
++        is WorkoutItem.Hiit -> copy(sessionUuid = sessionUuid)
++        is WorkoutItem.Flexibility -> copy(sessionUuid = sessionUuid)
++        is WorkoutItem.Other -> copy(sessionUuid = sessionUuid)
++    }
++}
+diff --git a/app/src/main/java/com/qingji/app/domain/WorkoutCalorieCalculator.kt b/app/src/main/java/com/qingji/app/domain/WorkoutCalorieCalculator.kt
+index 7ef8741..752b966 100644
+--- a/app/src/main/java/com/qingji/app/domain/WorkoutCalorieCalculator.kt
++++ b/app/src/main/java/com/qingji/app/domain/WorkoutCalorieCalculator.kt
+@@ -32,6 +32,8 @@ object WorkoutCalorieCalculator {
+     const val METHOD_STRENGTH_ONLY = "met_segmented"      // 与力量既有口径一致，纯力量场次可直接复用
+     const val METHOD_MIXED = "workout_mixed"              // 力量+有氧混合
+     const val METHOD_CARDIO_ONLY = "workout_cardio"       // 纯有氧场次
++    /** 有氧项目级：使用参数库真实存在的类型 MET + 体重 + 实际时长；无 MET 时留空不计算。 */
++    const val METHOD_MET_TYPE_DEFAULT = "met_type_default"
+ 
+     /**
+      * 整场热量汇总结果。
+diff --git a/app/src/main/java/com/qingji/app/domain/WorkoutItem.kt b/app/src/main/java/com/qingji/app/domain/WorkoutItem.kt
+index e00c208..a853322 100644
+--- a/app/src/main/java/com/qingji/app/domain/WorkoutItem.kt
++++ b/app/src/main/java/com/qingji/app/domain/WorkoutItem.kt
+@@ -36,6 +36,8 @@ object WorkoutItemJson {
+     const val K_MET = "met"
+     const val K_CONTENT = "c"
+     const val K_REPS = "rp"
++    /** B1.1：计划目标配置（TargetConfigJson），与实际完成数据分开保存。 */
++    const val K_TARGET_CONFIG = "tc"
+ }
+ 
+ sealed class WorkoutItem {
+@@ -47,6 +49,8 @@ sealed class WorkoutItem {
+     abstract val mode: WorkoutMode
+     abstract val note: String
+     abstract val sessionUuid: String
++    /** B1.1：计划目标 JSON。空串 = 无目标或旧数据；绝不从实际完成值反推。 */
++    open val targetConfigJson: String = ""
+ 
+     data class Strength(
+         override val itemId: String,
+@@ -56,7 +60,8 @@ sealed class WorkoutItem {
+         override val mode: WorkoutMode = WorkoutMode.NORMAL,
+         override val note: String = "",
+         override val sessionUuid: String = "",
+-        val sets: List<WorkoutSet> = emptyList()
++        val sets: List<WorkoutSet> = emptyList(),
++        override val targetConfigJson: String = ""
+     ) : WorkoutItem() {
+         override val recordType get() = ExerciseRecordType.STRENGTH
+     }
+@@ -75,7 +80,8 @@ sealed class WorkoutItem {
+         val calculatedKcal: Double = 0.0,
+         val calculationMethod: String = "",
+         val calculationVersion: String = "",
+-        val weightSnapshot: Double? = null
++        val weightSnapshot: Double? = null,
++        override val targetConfigJson: String = ""
+     ) : WorkoutItem() {
+         override val recordType get() = ExerciseRecordType.CARDIO
+     }
+@@ -97,7 +103,8 @@ sealed class WorkoutItem {
+         val rounds: Int = 0,
+         val calculatedKcal: Double = 0.0,
+         val calculationVersion: String = "",
+-        val weightSnapshot: Double? = null
++        val weightSnapshot: Double? = null,
++        override val targetConfigJson: String = ""
+     ) : WorkoutItem() {
+         override val recordType get() = ExerciseRecordType.HIIT
+     }
+@@ -111,7 +118,8 @@ sealed class WorkoutItem {
+         override val note: String = "",
+         override val sessionUuid: String = "",
+         val durationSec: Long = 0L,
+-        val content: String = ""
++        val content: String = "",
++        override val targetConfigJson: String = ""
+     ) : WorkoutItem() {
+         override val recordType get() = ExerciseRecordType.FLEXIBILITY
+     }
+@@ -125,7 +133,8 @@ sealed class WorkoutItem {
+         override val note: String = "",
+         override val sessionUuid: String = "",
+         val durationSec: Long = 0L,
+-        val reps: Int? = null
++        val reps: Int? = null,
++        override val targetConfigJson: String = ""
+     ) : WorkoutItem() {
+         override val recordType get() = ExerciseRecordType.OTHER
+     }
+@@ -146,14 +155,16 @@ sealed class WorkoutItem {
+                     order = o.optInt(WorkoutItemJson.K_ORDER, 0),
+                     mode = WorkoutMode.fromKey(o.optString(WorkoutItemJson.K_MODE, null)),
+                     note = o.optString(WorkoutItemJson.K_NOTE, ""),
+-                    sessionUuid = o.optString(WorkoutItemJson.K_SESSION, "")
++                    sessionUuid = o.optString(WorkoutItemJson.K_SESSION, ""),
++                    targetConfigJson = o.optString(WorkoutItemJson.K_TARGET_CONFIG, "")
+                 )
+                 if (common.name.isBlank() && common.exerciseUuid.isBlank()) return@runCatching null
+                 when (type) {
+                     ExerciseRecordType.STRENGTH -> Strength(
+                         common.itemId, common.exerciseUuid, common.name, common.order, common.mode,
+                         common.note, common.sessionUuid,
+-                        sets = TrainingMath.decodeSets(o.optString("sets"))
++                        sets = TrainingMath.decodeSets(o.optString("sets")),
++                        targetConfigJson = common.targetConfigJson
+                     )
+                     ExerciseRecordType.CARDIO -> Cardio(
+                         common.itemId, common.exerciseUuid, common.name, common.order, common.mode,
+@@ -164,7 +175,8 @@ sealed class WorkoutItem {
+                         calculatedKcal = o.optDouble(WorkoutItemJson.K_KCAL, 0.0).takeIf { it.isFinite() } ?: 0.0,
+                         calculationMethod = o.optString(WorkoutItemJson.K_METHOD, ""),
+                         calculationVersion = o.optString(WorkoutItemJson.K_CALC_VERSION, ""),
+-                        weightSnapshot = o.optDouble(WorkoutItemJson.K_WEIGHT_SNAP, Double.NaN).takeIf { it.isFinite() }
++                        weightSnapshot = o.optDouble(WorkoutItemJson.K_WEIGHT_SNAP, Double.NaN).takeIf { it.isFinite() },
++                        targetConfigJson = common.targetConfigJson
+                     )
+                     ExerciseRecordType.HIIT -> Hiit(
+                         common.itemId, common.exerciseUuid, common.name, common.order, common.mode,
+@@ -177,19 +189,22 @@ sealed class WorkoutItem {
+                         rounds = o.optInt(WorkoutItemJson.K_ROUNDS, 0),
+                         calculatedKcal = o.optDouble(WorkoutItemJson.K_KCAL, 0.0).takeIf { it.isFinite() } ?: 0.0,
+                         calculationVersion = o.optString(WorkoutItemJson.K_CALC_VERSION, ""),
+-                        weightSnapshot = o.optDouble(WorkoutItemJson.K_WEIGHT_SNAP, Double.NaN).takeIf { it.isFinite() }
++                        weightSnapshot = o.optDouble(WorkoutItemJson.K_WEIGHT_SNAP, Double.NaN).takeIf { it.isFinite() },
++                        targetConfigJson = common.targetConfigJson
+                     )
+                     ExerciseRecordType.FLEXIBILITY -> Flexibility(
+                         common.itemId, common.exerciseUuid, common.name, common.order, common.mode,
+                         common.note, common.sessionUuid,
+                         durationSec = o.optLong(WorkoutItemJson.K_DURATION, 0L),
+-                        content = o.optString(WorkoutItemJson.K_CONTENT, "")
++                        content = o.optString(WorkoutItemJson.K_CONTENT, ""),
++                        targetConfigJson = common.targetConfigJson
+                     )
+                     ExerciseRecordType.OTHER -> Other(
+                         common.itemId, common.exerciseUuid, common.name, common.order, common.mode,
+                         common.note, common.sessionUuid,
+                         durationSec = o.optLong(WorkoutItemJson.K_DURATION, 0L),
+-                        reps = o.optInt(WorkoutItemJson.K_REPS, -1).takeIf { it >= 0 }
++                        reps = o.optInt(WorkoutItemJson.K_REPS, -1).takeIf { it >= 0 },
++                        targetConfigJson = common.targetConfigJson
+                     )
+                 }
+             }.getOrNull()
+@@ -206,6 +221,7 @@ sealed class WorkoutItem {
+             put(WorkoutItemJson.K_MODE, item.mode.key)
+             put(WorkoutItemJson.K_NOTE, item.note)
+             put(WorkoutItemJson.K_SESSION, item.sessionUuid)
++            if (item.targetConfigJson.isNotBlank()) put(WorkoutItemJson.K_TARGET_CONFIG, item.targetConfigJson)
+             when (item) {
+                 is Strength -> put("sets", TrainingMath.encodeSets(item.sets))
+                 is Cardio -> {
+@@ -241,7 +257,8 @@ sealed class WorkoutItem {
+ 
+         private data class Common(
+             val itemId: String, val exerciseUuid: String, val name: String, val order: Int,
+-            val mode: WorkoutMode, val note: String, val sessionUuid: String
++            val mode: WorkoutMode, val note: String, val sessionUuid: String,
++            val targetConfigJson: String = ""
+         )
+     }
+ }
+diff --git a/app/src/main/java/com/qingji/app/ui/screen/training/TrainingActiveScreen.kt b/app/src/main/java/com/qingji/app/ui/screen/training/TrainingActiveScreen.kt
+index c581407..0a3439c 100644
+--- a/app/src/main/java/com/qingji/app/ui/screen/training/TrainingActiveScreen.kt
++++ b/app/src/main/java/com/qingji/app/ui/screen/training/TrainingActiveScreen.kt
+@@ -20,7 +20,9 @@ import androidx.compose.material.icons.Icons
+ import androidx.compose.material.icons.filled.Add
+ import androidx.compose.material3.Button
+ import androidx.compose.material3.OutlinedButton
++import androidx.compose.material3.OutlinedTextField
+ import androidx.compose.material3.Text
++import androidx.compose.material3.TextButton
+ import androidx.compose.runtime.Composable
+ import androidx.compose.runtime.LaunchedEffect
+ import androidx.compose.runtime.collectAsState
+@@ -36,9 +38,12 @@ import androidx.compose.ui.text.TextStyle
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.sp
++import com.qingji.app.data.prefs.DraftExercise
+ import com.qingji.app.data.prefs.WorkoutDraftStore
++import com.qingji.app.domain.ExerciseRecordType
+ import com.qingji.app.domain.SessionCalorieCalculator
+ import com.qingji.app.domain.TrainingMath
++import com.qingji.app.domain.WorkoutItem
+ import com.qingji.app.ui.components.AppDialog
+ import com.qingji.app.ui.components.PageTopBar
+ import com.qingji.app.ui.components.PrimaryButton
+@@ -231,26 +236,36 @@ fun TrainingActiveScreen(
+ 
+                 d.exercises.forEach { e ->
+                     val entity = library.firstOrNull { it.uuid == e.exerciseUuid }
+-                    val met = vm.metForExercise(e.exerciseUuid, entity?.isStretch == true)
+-                    SetEditorCard(
+-                        name = e.name,
+-                        exerciseUuid = e.exerciseUuid,
+-                        sets = e.sets,
+-                        unit = unit,
+-                        fromLast = e.fromLast,
+-                        setKcal = SessionCalorieCalculator.previewSetKcalList(
+-                            metLow = met.first,
+-                            metModerate = met.second,
+-                            metHigh = met.third,
+-                            weightKg = settleWeight,
+-                            sets = e.sets
+-                        ),
+-                        onUpdate = { index, set -> vm.updateSet(e.key, index, set) },
+-                        onAdd = { vm.addSet(e.key) },
+-                        onRemoveSet = { index -> vm.removeSet(e.key, index) },
+-                        onRemoveExercise = { vm.removeExercise(e.key) },
+-                        onToggleComplete = { index -> vm.toggleSetComplete(e.key, index) }
+-                    )
++                    val type = com.qingji.app.domain.TrainingItemMapper.resolveType(e.recordType, entity)
++                    if (type == ExerciseRecordType.STRENGTH) {
++                        val met = vm.metForExercise(e.exerciseUuid, entity?.isStretch == true)
++                        SetEditorCard(
++                            name = e.name,
++                            exerciseUuid = e.exerciseUuid,
++                            sets = e.sets,
++                            unit = unit,
++                            fromLast = e.fromLast,
++                            setKcal = SessionCalorieCalculator.previewSetKcalList(
++                                metLow = met.first,
++                                metModerate = met.second,
++                                metHigh = met.third,
++                                weightKg = settleWeight,
++                                sets = e.sets
++                            ),
++                            onUpdate = { index, set -> vm.updateSet(e.key, index, set) },
++                            onAdd = { vm.addSet(e.key) },
++                            onRemoveSet = { index -> vm.removeSet(e.key, index) },
++                            onRemoveExercise = { vm.removeExercise(e.key) },
++                            onToggleComplete = { index -> vm.toggleSetComplete(e.key, index) }
++                        )
++                    } else {
++                        NonStrengthEditorCard(
++                            draft = e,
++                            type = type,
++                            vm = vm,
++                            onRemoveExercise = { vm.removeExercise(e.key) }
++                        )
++                    }
+                     Spacer(Modifier.height(8.dp))
+                 }
+ 
+@@ -378,3 +393,194 @@ fun TrainingActiveScreen(
+         }
+     }
+ }
++
++/**
++ * B1.1：非力量项目录入卡。
++ * 目标配置只作为提示展示；实际值必须用户输入后才写进实际字段，绝不把目标伪装成成绩。
++ * 状态按 draft.key 绑定，删除/排序其他动作不会串数据。
++ */
++@Composable
++private fun NonStrengthEditorCard(
++    draft: DraftExercise,
++    type: ExerciseRecordType,
++    vm: TrainingViewModel,
++    onRemoveExercise: () -> Unit
++) {
++    val parsed = remember(draft.key) { WorkoutItem.fromJson(draft.actualJson) }
++    val target = remember(draft.targetConfigJson) {
++        com.qingji.app.domain.TargetConfigJson.decode(draft.targetConfigJson)
++    }
++    var minutes by remember(draft.key) {
++        mutableStateOf(((parsed as? WorkoutItem.Cardio)?.durationSec
++            ?: (parsed as? WorkoutItem.Hiit)?.durationSec
++            ?: (parsed as? WorkoutItem.Flexibility)?.durationSec
++            ?: (parsed as? WorkoutItem.Other)?.durationSec ?: 0L).toString())
++    }
++    var distanceKm by remember(draft.key) {
++        mutableStateOf(((parsed as? WorkoutItem.Cardio)?.distanceMeters ?: 0.0).toString())
++    }
++    var intensity by remember(draft.key) {
++        mutableStateOf((parsed as? WorkoutItem.Cardio)?.intensity
++            ?: (parsed as? WorkoutItem.Hiit)?.intensity ?: "medium")
++    }
++    var workSec by remember(draft.key) {
++        mutableStateOf(((parsed as? WorkoutItem.Hiit)?.workSec ?: 0).toString())
++    }
++    var restSec by remember(draft.key) {
++        mutableStateOf(((parsed as? WorkoutItem.Hiit)?.restSec ?: 0).toString())
++    }
++    var rounds by remember(draft.key) {
++        mutableStateOf(((parsed as? WorkoutItem.Hiit)?.rounds ?: 0).toString())
++    }
++    var content by remember(draft.key) {
++        mutableStateOf((parsed as? WorkoutItem.Flexibility)?.content.orEmpty())
++    }
++    var reps by remember(draft.key) {
++        mutableStateOf(((parsed as? WorkoutItem.Other)?.reps ?: 0).toString())
++    }
++
++    fun durationSec(): Long = (minutes.toIntOrNull() ?: 0).coerceIn(0, 600) * 60L
++
++    fun emit() {
++        val common = Triple(draft.key, draft.exerciseUuid, draft.name)
++        val item = when (type) {
++            ExerciseRecordType.CARDIO -> WorkoutItem.Cardio(
++                itemId = common.first, exerciseUuid = common.second, name = common.third, order = 0,
++                durationSec = durationSec(),
++                distanceMeters = distanceKm.toDoubleOrNull()?.takeIf { it > 0.0 && it <= 500.0 }?.times(1000.0),
++                intensity = intensity
++            )
++            ExerciseRecordType.HIIT -> WorkoutItem.Hiit(
++                itemId = common.first, exerciseUuid = common.second, name = common.third, order = 0,
++                durationSec = durationSec(),
++                workSec = (workSec.toIntOrNull() ?: 0).coerceIn(0, 3600),
++                restSec = (restSec.toIntOrNull() ?: 0).coerceIn(0, 3600),
++                rounds = (rounds.toIntOrNull() ?: 0).coerceIn(0, 100),
++                intensity = intensity
++            )
++            ExerciseRecordType.FLEXIBILITY -> WorkoutItem.Flexibility(
++                itemId = common.first, exerciseUuid = common.second, name = common.third, order = 0,
++                durationSec = durationSec(), content = content
++            )
++            ExerciseRecordType.OTHER -> WorkoutItem.Other(
++                itemId = common.first, exerciseUuid = common.second, name = common.third, order = 0,
++                durationSec = durationSec(), reps = reps.toIntOrNull()?.takeIf { it >= 0 }
++            )
++            else -> return
++        }
++        vm.updateActual(draft.key, item)
++    }
++
++    val typeLabel = when (type) {
++        ExerciseRecordType.CARDIO -> "有氧"
++        ExerciseRecordType.HIIT -> "HIIT 间歇"
++        ExerciseRecordType.FLEXIBILITY -> "柔韧"
++        else -> "其他"
++    }
++    val hint = buildString {
++        target?.durationSec?.let { append("目标时长 ${it / 60} 分钟；") }
++        target?.distanceMeters?.let { append("目标距离 ${"%.2f".format(it / 1000.0)} 公里；") }
++        target?.rounds?.let { append("目标 $it 轮；") }
++        if (isEmpty()) append("没有计划目标，填实际完成值即可")
++    }
++
++    SectionCard(contentPadding = Dimens.CardPaddingCompact) {
++        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
++            Text("$typeLabel · ${draft.name}", fontSize = TextSizes.CardTitle,
++                fontWeight = FontWeight.SemiBold, color = TextPrimary,
++                modifier = Modifier.weight(1f))
++            TextButton(onClick = onRemoveExercise) { Text("移除", color = TextSecondary) }
++        }
++        Text(hint, fontSize = TextSizes.Tiny, color = TextSecondary)
++        Spacer(Modifier.height(8.dp))
++        OutlinedTextField(
++            value = minutes,
++            onValueChange = { minutes = it; emit() },
++            label = { Text("实际时长（分钟）") },
++            singleLine = true,
++            modifier = Modifier.fillMaxWidth()
++        )
++        if (type == ExerciseRecordType.CARDIO) {
++            Spacer(Modifier.height(6.dp))
++            OutlinedTextField(
++                value = distanceKm,
++                onValueChange = { distanceKm = it; emit() },
++                label = { Text("实际距离（公里，可不填）") },
++                singleLine = true,
++                modifier = Modifier.fillMaxWidth()
++            )
++            Spacer(Modifier.height(6.dp))
++            Text("强度", fontSize = TextSizes.Caption, color = TextSecondary)
++            Row {
++                listOf(
++                    com.qingji.app.domain.ExerciseCalculator.INTENSITY_LIGHT to "轻",
++                    com.qingji.app.domain.ExerciseCalculator.INTENSITY_MEDIUM to "中",
++                    com.qingji.app.domain.ExerciseCalculator.INTENSITY_HIGH to "强"
++                ).forEach { (key, label) ->
++                    Box(
++                        modifier = Modifier
++                            .padding(end = 6.dp)
++                            .clip(RoundedCornerShape(Dimens.PillCorner))
++                            .background(if (intensity == key) QingJiGreen else QingJiGreenLight)
++                            .clickable { intensity = key; emit() }
++                            .padding(horizontal = 12.dp, vertical = 6.dp)
++                    ) {
++                        Text(label, fontSize = TextSizes.Caption,
++                            color = if (intensity == key) CardWhite else QingJiGreen)
++                    }
++                }
++            }
++        }
++        if (type == ExerciseRecordType.HIIT) {
++            Spacer(Modifier.height(6.dp))
++            OutlinedTextField(
++                value = workSec,
++                onValueChange = { workSec = it; emit() },
++                label = { Text("工作时长（秒/轮）") },
++                singleLine = true,
++                modifier = Modifier.fillMaxWidth()
++            )
++            Spacer(Modifier.height(6.dp))
++            OutlinedTextField(
++                value = restSec,
++                onValueChange = { restSec = it; emit() },
++                label = { Text("休息时长（秒/轮）") },
++                singleLine = true,
++                modifier = Modifier.fillMaxWidth()
++            )
++            Spacer(Modifier.height(6.dp))
++            OutlinedTextField(
++                value = rounds,
++                onValueChange = { rounds = it; emit() },
++                label = { Text("完成轮数") },
++                singleLine = true,
++                modifier = Modifier.fillMaxWidth()
++            )
++        }
++        if (type == ExerciseRecordType.FLEXIBILITY) {
++            Spacer(Modifier.height(6.dp))
++            OutlinedTextField(
++                value = content,
++                onValueChange = { content = it; emit() },
++                label = { Text("动作/部位说明（可不填）") },
++                singleLine = true,
++                modifier = Modifier.fillMaxWidth()
++            )
++        }
++        if (type == ExerciseRecordType.OTHER) {
++            Spacer(Modifier.height(6.dp))
++            OutlinedTextField(
++                value = reps,
++                onValueChange = { reps = it; emit() },
++                label = { Text("次数（可不填）") },
++                singleLine = true,
++                modifier = Modifier.fillMaxWidth()
++            )
++        }
++        if (type == ExerciseRecordType.HIIT || type == ExerciseRecordType.FLEXIBILITY || type == ExerciseRecordType.OTHER) {
++            Spacer(Modifier.height(6.dp))
++            Text("当前版本保留类型、目标配置和原始输入，不生成估算热量。",
++                fontSize = TextSizes.Tiny, color = TextSecondary)
++        }
++    }
++}
+diff --git a/app/src/main/java/com/qingji/app/ui/screen/training/TrainingDiaryContent.kt b/app/src/main/java/com/qingji/app/ui/screen/training/TrainingDiaryContent.kt
+index 7940abf..a9fb7ee 100644
+--- a/app/src/main/java/com/qingji/app/ui/screen/training/TrainingDiaryContent.kt
++++ b/app/src/main/java/com/qingji/app/ui/screen/training/TrainingDiaryContent.kt
+@@ -121,6 +121,8 @@ fun TrainingDiaryContent(
+ ) {
+     val sessions by vm.sessions.collectAsState()
+     val allExercises by vm.allWorkoutExercises.collectAsState()
++    // B1.1：历史展示的统一数据源（力量 + 有氧 + HIIT/柔韧/其他）
++    val allItems by vm.allSessionItems.collectAsState()
+     val unit by vm.unit.collectAsState()
+     val message by vm.message.collectAsState()
+ 
+@@ -166,6 +168,7 @@ fun TrainingDiaryContent(
+     }
+ 
+     val bySession = remember(allExercises) { allExercises.groupBy { it.sessionUuid } }
++    val byItemSession = remember(allItems) { allItems.groupBy { it.sessionUuid } }
+     val trainingDates = remember(sessions) { sessions.map { it.date }.toSet() }
+     val monthSessions = sessions.filter { YearMonth.from(it.date) == month }
+     val monthMinutes = monthSessions.sumOf { it.durationMinutes }
+@@ -308,6 +311,8 @@ fun TrainingDiaryContent(
+                             SessionRow(
+                                 session = s,
+                                 exercises = bySession[s.uuid].orEmpty(),
++                                extraItems = byItemSession[s.uuid].orEmpty()
++                                    .filter { it !is com.qingji.app.domain.WorkoutItem.Strength },
+                                 unit = unit,
+                                 onDetail = { detailUuid = s.uuid },
+                                 onEdit = { vm.editSession(s.uuid) { onEditSession() } },
+@@ -335,8 +340,16 @@ fun TrainingDiaryContent(
+     detailUuid?.let { uuid ->
+         val session = sessions.firstOrNull { it.uuid == uuid }
+         val items = bySession[uuid].orEmpty()
++        val sessionItems = byItemSession[uuid].orEmpty()
++        val nonStrengthItems = sessionItems.filter { it !is com.qingji.app.domain.WorkoutItem.Strength }
++        val sheetTitle = session?.note?.takeIf { it.isNotBlank() }
++            ?: when {
++                items.isEmpty() -> "训练记录"
++                nonStrengthItems.isEmpty() -> "力量训练"
++                else -> "混合训练"
++            }
+         AppBottomSheet(
+-            title = session?.note?.takeIf { it.isNotBlank() } ?: "力量训练",
++            title = sheetTitle,
+             subtitle = session?.date?.toString().orEmpty(),
+             skipPartiallyExpanded = true,
+             onDismiss = { detailUuid = null }
+@@ -394,6 +407,28 @@ fun TrainingDiaryContent(
+                     }
+                     Spacer(Modifier.height(10.dp))
+                 }
++                // B1.1：有氧 / HIIT / 柔韧 / 其他按各自字段展示，不再空白组或混入力量。
++                nonStrengthItems.sortedBy { it.order }.forEach { item ->
++                    val (label, detail) = when (item) {
++                        is com.qingji.app.domain.WorkoutItem.Cardio -> "有氧" to buildString {
++                            if (item.durationSec > 0) append("${item.durationSec / 60} 分钟")
++                            item.distanceMeters?.let { append(" · ${"%.2f".format(it / 1000.0)} 公里") }
++                            item.intensity?.let { append(" · 强度 $it") }
++                            if (item.calculatedKcal > 0) append(" · 约 ${item.calculatedKcal.toInt()} 千卡")
++                        }
++                        is com.qingji.app.domain.WorkoutItem.Hiit -> "HIIT" to
++                            "${item.workSec}s 工作 / ${item.restSec}s 休息 × ${item.rounds} 轮"
++                        is com.qingji.app.domain.WorkoutItem.Flexibility -> "柔韧" to
++                            "${item.durationSec / 60} 分钟${item.content.takeIf { it.isNotBlank() }?.let { " · $it" }.orEmpty()}"
++                        is com.qingji.app.domain.WorkoutItem.Other -> "其他" to
++                            "${item.durationSec / 60} 分钟${item.reps?.let { " · $it 次" }.orEmpty()}"
++                        else -> "未知" to "保留原始数据"
++                    }
++                    Spacer(Modifier.height(8.dp))
++                    Text("$label · ${item.name}", fontSize = TextSizes.CardTitle,
++                        fontWeight = FontWeight.SemiBold, color = TextPrimary)
++                    Text("  $detail", fontSize = TextSizes.Body, color = TextPrimary)
++                }
+                 val allSets = items.flatMap { TrainingMath.decodeSets(it.setsJson) }
+                 val volume = TrainingMath.sessionVolume(allSets)
+                 Text(
+@@ -442,6 +477,7 @@ fun TrainingDiaryContent(
+ private fun SessionRow(
+     session: WorkoutSession,
+     exercises: List<WorkoutExercise>,
++    extraItems: List<com.qingji.app.domain.WorkoutItem> = emptyList(),
+     unit: String,
+     onDetail: () -> Unit,
+     onEdit: () -> Unit,
+@@ -455,12 +491,13 @@ private fun SessionRow(
+         Column {
+         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+             Column(modifier = Modifier.weight(1f)) {
+-                Text(session.note.takeIf { it.isNotBlank() } ?: "力量训练",
++                Text(session.note.takeIf { it.isNotBlank() }
++                    ?: if (extraItems.isEmpty()) "力量训练" else "混合训练",
+                     fontSize = TextSizes.CardTitle,
+                     fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                 Spacer(Modifier.height(3.dp))
+                 Text(
+-                    "${session.date} · ${session.durationMinutes} 分钟 · ${exercises.size} 个动作 · ${allSets.size} 组 · 训练量 ${TrainingMath.formatVolume(volume)}",
++                    "${session.date} · ${session.durationMinutes} 分钟 · ${exercises.size + extraItems.size} 个动作 · ${allSets.size} 组 · 训练量 ${TrainingMath.formatVolume(volume)}",
+                     fontSize = TextSizes.Tiny, color = TextSecondary
+                 )
+             }
+@@ -498,6 +535,24 @@ private fun SessionRow(
+                 }
+             }
+         }
++        extraItems.sortedBy { it.order }.forEach { item ->
++            Spacer(Modifier.height(6.dp))
++            val label = when (item) {
++                is com.qingji.app.domain.WorkoutItem.Cardio -> "有氧"
++                is com.qingji.app.domain.WorkoutItem.Hiit -> "HIIT"
++                is com.qingji.app.domain.WorkoutItem.Flexibility -> "柔韧"
++                else -> "其他"
++            }
++            val sub = when (item) {
++                is com.qingji.app.domain.WorkoutItem.Cardio ->
++                    "${item.durationSec / 60} 分钟" + (item.distanceMeters?.let { " · ${"%.2f".format(it / 1000.0)} 公里" }.orEmpty())
++                is com.qingji.app.domain.WorkoutItem.Hiit -> "${item.workSec}s/${item.restSec}s × ${item.rounds} 轮"
++                is com.qingji.app.domain.WorkoutItem.Flexibility -> "${item.durationSec / 60} 分钟"
++                is com.qingji.app.domain.WorkoutItem.Other -> "${item.durationSec / 60} 分钟"
++                else -> "已保留"
++            }
++            Text("$label · ${item.name} · $sub", fontSize = TextSizes.Tiny, color = TextPrimary)
++        }
+         Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+             if (session.date == AppClock.today()) {
+                 TextButton(onClick = onEdit) { Text("修改", fontSize = TextSizes.Caption, color = QingJiGreen) }
+diff --git a/app/src/main/java/com/qingji/app/ui/viewmodel/ExerciseViewModel.kt b/app/src/main/java/com/qingji/app/ui/viewmodel/ExerciseViewModel.kt
+index f213827..92cfc5c 100644
+--- a/app/src/main/java/com/qingji/app/ui/viewmodel/ExerciseViewModel.kt
++++ b/app/src/main/java/com/qingji/app/ui/viewmodel/ExerciseViewModel.kt
+@@ -122,17 +122,10 @@ class ExerciseViewModel(app: Application) : AndroidViewModel(app) {
+                     uuid = uuid, date = today, startedAt = 0L, endedAt = 0L,
+                     durationMinutes = 0, note = "快速补记", source = "quick_log"
+                 )
+-                val item = com.qingji.app.data.local.entity.WorkoutExercise(
+-                    sessionUuid = uuid, exerciseUuid = exerciseUuid,
+-                    exerciseNameSnapshot = exerciseName, orderInSession = 0,
+-                    setsJson = com.qingji.app.domain.TrainingMath.encodeSets(sets),
+-                    itemMetaJson = com.qingji.app.domain.WorkoutItem.toJson(
+-                        com.qingji.app.domain.WorkoutItem.Strength(
+-                            itemId = java.util.UUID.randomUUID().toString(),
+-                            exerciseUuid = exerciseUuid, name = exerciseName, order = 0,
+-                            sessionUuid = uuid, sets = sets
+-                        )
+-                    )
++                val item = com.qingji.app.domain.WorkoutItem.Strength(
++                    itemId = java.util.UUID.randomUUID().toString(),
++                    exerciseUuid = exerciseUuid, name = exerciseName, order = 0,
++                    sessionUuid = uuid, sets = sets
+                 )
+                 // saveUnifiedSession：力量+有氧整场一条账本（有氧列表为空）
+                 trainingRepo.saveUnifiedSession(session, listOf(item), emptyList(), weightKg)
+diff --git a/app/src/main/java/com/qingji/app/ui/viewmodel/TrainingViewModel.kt b/app/src/main/java/com/qingji/app/ui/viewmodel/TrainingViewModel.kt
+index 8ce5491..61595bb 100644
+--- a/app/src/main/java/com/qingji/app/ui/viewmodel/TrainingViewModel.kt
++++ b/app/src/main/java/com/qingji/app/ui/viewmodel/TrainingViewModel.kt
+@@ -13,7 +13,9 @@ import com.qingji.app.domain.AppClock
+ import com.qingji.app.domain.PlanToDraftMapper
+ import com.qingji.app.domain.RestTimerState
+ import com.qingji.app.domain.SessionCalorieCalculator
++import com.qingji.app.domain.TrainingItemMapper
+ import com.qingji.app.domain.TrainingMath
++import com.qingji.app.domain.WorkoutItem
+ import com.qingji.app.domain.WorkoutSet
+ import kotlinx.coroutines.flow.first
+ import kotlinx.coroutines.flow.MutableStateFlow
+@@ -44,9 +46,9 @@ enum class TrainingInitState {
+     Failed          // 计划读取失败（已按空白继续，界面给重试提示）
+ }
+ 
+-class TrainingViewModel(app: Application) : AndroidViewModel(app) {
++class TrainingViewModel(app: Application, repoOverride: TrainingRepository? = null) : AndroidViewModel(app) {
+ 
+-    private val repo = TrainingRepository(app)
++    private val repo = repoOverride ?: TrainingRepository(app)
+     val draftStore = repo.draftStore
+ 
+     // ---------- v1.4 健康体系：组间休息计时 ----------
+@@ -96,6 +98,10 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
+     val allWorkoutExercises: StateFlow<List<WorkoutExercise>> = repo.observeAllWorkoutExercises()
+         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+ 
++    /** B1.1：历史/日记统一数据源——所有训练类型都从这里读，不再只读力量表。 */
++    val allSessionItems: StateFlow<List<WorkoutItem>> = repo.observeAllSessionItems()
++        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
++
+     // ---------- v1.4 健康体系：热量估算支持 ----------
+     /** 结算/预览用体重（口径与现有运动模块一致：档案起始体重，兜底 70kg）。 */
+     val settleWeight: StateFlow<Double> = repo.observeSettleWeight()
+@@ -266,19 +272,24 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
+     /** 当天已保存的会话可以继续改明细；时间与时长保留原值。 */
+     fun editSession(uuid: String, onLoaded: () -> Unit = {}) {
+         viewModelScope.launch {
+-            val (session, items) = repo.sessionDetail(uuid)
++            val detail = repo.sessionDetail(uuid)
++            val session = detail.session
+             if (session == null) {
+                 say("这次训练已经不在了")
+                 return@launch
+             }
+             val t = System.currentTimeMillis()
+-            val draftExercises = items.map { item ->
++            // B1.1：完整会话回草稿——力量、有氧和 HIIT/柔韧/其他都带类型、目标与原始输入回来。
++            val draftExercises = detail.items.map { item ->
+                 DraftExercise(
+                     key = UUID.randomUUID().toString(),
+                     exerciseUuid = item.exerciseUuid,
+-                    name = item.exerciseNameSnapshot,
+-                    sets = TrainingMath.decodeSets(item.setsJson),
+-                    note = item.note
++                    name = item.name,
++                    sets = (item as? WorkoutItem.Strength)?.sets.orEmpty(),
++                    note = item.note,
++                    recordType = item.recordType.key,
++                    targetConfigJson = item.targetConfigJson,
++                    actualJson = WorkoutItem.toJson(item)
+                 )
+             }
+             persist(
+@@ -313,14 +324,17 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
+         viewModelScope.launch {
+             val last = repo.lastSets(item.uuid, item.name)
+             val sets = if (last.isNotEmpty()) last else listOf(WorkoutSet())
++            // B1.1：手动添加统一走 TrainingTypeResolver，有氧动作不再被默认成力量。
++            val type = TrainingItemMapper.resolveType(item.recordType, item)
+             persist(
+                 d.copy(
+                     exercises = d.exercises + DraftExercise(
+                         key = UUID.randomUUID().toString(),
+                         exerciseUuid = item.uuid,
+                         name = item.name,
+-                        sets = sets,
+-                        fromLast = last.isNotEmpty()
++                        sets = if (type == com.qingji.app.domain.ExerciseRecordType.STRENGTH) sets else emptyList(),
++                        fromLast = last.isNotEmpty() && type == com.qingji.app.domain.ExerciseRecordType.STRENGTH,
++                        recordType = type.key
+                     )
+                 )
+             )
+@@ -343,6 +357,14 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
+         }))
+     }
+ 
++    /** B1.1：非力量项目的实际录入（时长/距离/间歇字段），按动作 key 稳定绑定。 */
++    fun updateActual(key: String, actual: WorkoutItem) {
++        val d = _draft.value ?: return
++        persist(d.copy(exercises = d.exercises.map { e ->
++            if (e.key != key) e else e.copy(actualJson = WorkoutItem.toJson(actual))
++        }))
++    }
++
+     /**
+      * v1.4 健康体系：标记 / 取消某组完成。
+      * 勾选完成时，如果这场训练还有下一组要练，就按默认时长自动开始组间休息；
+@@ -438,14 +460,21 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
+     /** 保存：整包写库，成功后草稿作废。返回 false 表示没达到「至少 1 组」的门槛。 */
+     fun save(onDone: (Boolean) -> Unit) {
+         val d = _draft.value ?: run { onDone(false); return }
+-        // 统一体系 V2.1：力量项按"至少一组有效"；有氧/HIIT 项按 recordType 分流，
+-        // 它们没有 sets，不能沿用力量门槛（这是之前有氧计划保存不进去的根因之一）。
+-        val cardioExercises = d.exercises.filter { it.recordType.isNotBlank() }
+-        val cleaned = d.exercises.filter { it.recordType.isBlank() }.map { e ->
+-            e.copy(sets = e.sets.filter { it.reps > 0 || it.weightKg > 0.0 })
+-        }.filter { it.sets.isNotEmpty() }
+-        if (cleaned.isEmpty() && cardioExercises.isEmpty()) {
+-            say("至少要记一组或一个有氧项目才能保存")
++        // B1.1 P0：强类型分流。空串按历史语义回退 STRENGTH；未知 key 降级 OTHER，绝不默认 CARDIO。
++        val typed = d.exercises.map { e ->
++            val entity = exercises.value.firstOrNull { it.uuid == e.exerciseUuid }
++            val type = TrainingItemMapper.resolveType(e.recordType, entity)
++            e to type
++        }
++        val strengthDrafts = typed.filter { (e, type) ->
++            type == com.qingji.app.domain.ExerciseRecordType.STRENGTH &&
++                e.sets.any { s -> s.reps > 0 || s.weightKg > 0.0 || (s.durationSec ?: 0) > 0 }
++        }.map { (e, _) ->
++            e.copy(sets = e.sets.filter { s -> s.reps > 0 || s.weightKg > 0.0 || (s.durationSec ?: 0) > 0 })
++        }
++        val nonStrength = typed.filter { (_, type) -> type != com.qingji.app.domain.ExerciseRecordType.STRENGTH }
++        if (strengthDrafts.isEmpty() && nonStrength.isEmpty()) {
++            say("至少要记一组有效力量或一个非力量项目才能保存")
+             onDone(false)
+             return
+         }
+@@ -498,36 +527,34 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
+             )
+         }
+ 
+-        val items = cleaned.mapIndexed { i, e ->
+-            WorkoutExercise(
+-                sessionUuid = d.sessionUuid,
+-                exerciseUuid = e.exerciseUuid,
+-                exerciseNameSnapshot = e.name,
+-                orderInSession = i,
+-                setsJson = TrainingMath.encodeSets(e.sets),
+-                note = e.note
+-            )
+-        }
+-        // 有氧/HIIT 项目：目标时长/距离作为实际值预填（无目标时留 0，由结算判不可算）。
+-        val cardioDetails = cardioExercises.mapIndexed { i, e ->
+-            val cfg = com.qingji.app.domain.TargetConfigJson.decode(e.targetConfigJson)
+-            com.qingji.app.data.local.entity.WorkoutCardioDetail(
+-                exerciseUuid = e.exerciseUuid,
+-                exerciseNameSnapshot = e.name,
+-                orderInSession = cleaned.size + i,
+-                durationSeconds = cfg?.durationSec ?: 0L,
+-                distanceMeters = cfg?.distanceMeters,
+-                rawInputJson = cfg?.intensity?.let { intensity ->
+-                    org.json.JSONObject().put("intensity", intensity).toString()
+-                }.orEmpty(),
+-                createdAt = System.currentTimeMillis()
+-            )
+-        }
+-
+         viewModelScope.launch {
+             val weight = settleWeight.value
+-            // 统一入口：有氧明细与力量明细同场落库，整场只写一条账本，不双结算。
+-            val result = repo.saveUnifiedSession(session, items, cardioDetails, weight)
++            val mets = metDefaults.value
++            // 按草稿顺序构建统一项目；目标只在 targetConfigJson，实际值只来自用户录入。
++            val ordered = d.exercises
++            val allItems = ordered.mapIndexed { i, e ->
++                val entity = exercises.value.firstOrNull { it.uuid == e.exerciseUuid }
++                val type = TrainingItemMapper.resolveType(e.recordType, entity)
++                if (type == com.qingji.app.domain.ExerciseRecordType.STRENGTH) {
++                    val cleaned = if (strengthDrafts.any { it.key == e.key }) {
++                        e.copy(sets = e.sets.filter { s -> s.reps > 0 || s.weightKg > 0.0 || (s.durationSec ?: 0) > 0 })
++                    } else e
++                    TrainingItemMapper.draftToItem(cleaned, type, d.sessionUuid, i)
++                } else {
++                    var item = TrainingItemMapper.draftToItem(e, type, d.sessionUuid, i)
++                    if (item is WorkoutItem.Cardio) {
++                        item = TrainingItemMapper.withCardioKcal(item, entity, mets, weight)
++                    }
++                    item
++                }
++            }
++            val strengthItems = allItems.filterIsInstance<WorkoutItem.Strength>()
++            val cardioItems = allItems.filterIsInstance<WorkoutItem.Cardio>()
++            val otherItems = allItems.filter {
++                it !is WorkoutItem.Strength && it !is WorkoutItem.Cardio
++            }
++            // 统一入口：力量 + HIIT/柔韧/其他写 workout_exercise，只有 CARDIO 写有氧明细。
++            val result = repo.saveUnifiedSession(session, strengthItems + otherItems, cardioItems, weight)
+             draftStore.clear()
+             _draft.value = null
+             val kcalText = if (result.totalKcal > 0.0)
+@@ -535,7 +562,7 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
+             else ""
+             say(
+                 when {
+-                    result.hasSkipped -> "训练已保存${kcalText}；${result.notComputableItems} 项有氧缺少时长/距离未计入消耗"
++                    result.hasSkipped -> "训练已保存${kcalText}；${result.notComputableItems} 项缺少可靠时长/参数未计入消耗"
+                     !editing -> "训练已保存${kcalText}"
+                     else -> "已更新这次训练，消耗已重新结算${kcalText}"
+                 }
+diff --git a/app/src/test/java/com/qingji/app/data/backup/BackupExportScopeTest.kt b/app/src/test/java/com/qingji/app/data/backup/BackupExportScopeTest.kt
+index 091c7fe..e121d38 100644
+--- a/app/src/test/java/com/qingji/app/data/backup/BackupExportScopeTest.kt
++++ b/app/src/test/java/com/qingji/app/data/backup/BackupExportScopeTest.kt
+@@ -39,7 +39,8 @@ class BackupExportScopeTest {
+                 )
+             )
+         )
+-        assertEquals(7, root.getInt("version"))
++        // v8 = B1.1 训练段补入 cardioDetails 与类型/目标/元数据字段
++        assertEquals(8, root.getInt("version"))
+         // 多服务数组不含任何 Key 字段
+         val arr = root.getJSONArray("aiConfigs")
+         for (i in 0 until arr.length()) {
+diff --git a/app/src/test/java/com/qingji/app/training/TrainingB11IntegrationTest.kt b/app/src/test/java/com/qingji/app/training/TrainingB11IntegrationTest.kt
+new file mode 100644
+index 0000000..642f04f
+--- /dev/null
++++ b/app/src/test/java/com/qingji/app/training/TrainingB11IntegrationTest.kt
+@@ -0,0 +1,280 @@
++package com.qingji.app.training
++
++import androidx.room.Room
++import androidx.room.withTransaction
++import androidx.test.core.app.ApplicationProvider
++import com.qingji.app.data.backup.BackupManager
++import com.qingji.app.data.backup.TrainingBackup
++import com.qingji.app.data.backup.parseTraining
++import com.qingji.app.data.local.AppDatabase
++import com.qingji.app.data.local.entity.ExerciseEntity
++import com.qingji.app.data.local.entity.WorkoutSession
++import com.qingji.app.data.prefs.DraftExercise
++import com.qingji.app.data.repository.TrainingRepository
++import com.qingji.app.domain.ExerciseRecordType
++import com.qingji.app.domain.TargetConfig
++import com.qingji.app.domain.TargetConfigJson
++import com.qingji.app.domain.TrainingItemMapper
++import com.qingji.app.domain.WorkoutItem
++import com.qingji.app.domain.WorkoutCalorieCalculator
++import com.qingji.app.domain.WorkoutSet
++import kotlinx.coroutines.runBlocking
++import org.junit.After
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertNotNull
++import org.junit.Assert.assertTrue
++import org.junit.Before
++import org.junit.Test
++import org.junit.runner.RunWith
++import org.robolectric.RobolectricTestRunner
++import java.time.LocalDate
++
++/**
++ * B1.1 集成测试：使用真实 Room（内存库）+ Repository，验证数据真正写入/读回，
++ * 而不是只测 enum / mapper / JSON codec。
++ */
++@RunWith(RobolectricTestRunner::class)
++class TrainingB11IntegrationTest {
++
++    private lateinit var db: AppDatabase
++    private lateinit var repo: TrainingRepository
++
++    @Before
++    fun setUp() {
++        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
++        db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
++            .allowMainThreadQueries().build()
++        repo = TrainingRepository(context, refreshHook = { _, _ -> }, dbOverride = db)
++    }
++
++    @After
++    fun tearDown() { db.close() }
++
++    private fun session(uuid: String) = WorkoutSession(
++        uuid = uuid, date = LocalDate.of(2026, 11, 22), durationMinutes = 30,
++        note = "", source = "manual", createdAt = 1L
++    )
++
++    private fun strength(id: String, name: String, reps: Int = 10) = WorkoutItem.Strength(
++        itemId = id, exerciseUuid = "ex-$id", name = name, order = 0,
++        sets = listOf(WorkoutSet(weightKg = 40.0, reps = reps, targetReps = 12, targetWeightKg = 45.0))
++    )
++
++    private fun cardio(id: String, durationSec: Long = 600, kcal: Double = 0.0) = WorkoutItem.Cardio(
++        itemId = id, exerciseUuid = "wg:$id", name = id, order = 1,
++        durationSec = durationSec, distanceMeters = 2000.0,
++        calculatedKcal = kcal,
++        calculationMethod = if (kcal > 0) WorkoutCalorieCalculator.METHOD_MET_TYPE_DEFAULT else "",
++        calculationVersion = if (kcal > 0) WorkoutCalorieCalculator.VERSION else "",
++        weightSnapshot = if (kcal > 0) 70.0 else null
++    )
++
++    // T01：力量计划动作不会被分流到有氧表
++    @Test
++    fun `T01 力量项目写入workout_exercise且不进有氧表`() = runBlocking {
++        repo.saveUnifiedSession(session("s1"), listOf(strength("p1", "杠铃卧推")), emptyList(), 70.0)
++        assertEquals(1, db.workoutExerciseDao().findBySession("s1").size)
++        assertTrue(db.workoutCardioDetailDao().findBySession("s1").isEmpty())
++        val sets = com.qingji.app.domain.TrainingMath.decodeSets(
++            db.workoutExerciseDao().findBySession("s1").first().setsJson
++        )
++        assertEquals(40.0, sets.first().weightKg, 0.001)
++        assertEquals(10, sets.first().reps)
++        assertEquals(12, sets.first().targetReps)
++    }
++
++    // T02：目标不会伪装成实际；只有用户录入的时长/距离落库
++    @Test
++    fun `T02 目标时长不等于实际时长且不会生成假成绩`() = runBlocking {
++        val draft = DraftExercise(
++            key = "d1", exerciseUuid = "wg:running", name = "跑步",
++            recordType = ExerciseRecordType.CARDIO.key,
++            targetConfigJson = TargetConfigJson.encode(
++                TargetConfig(type = ExerciseRecordType.CARDIO, durationSec = 3600L, distanceMeters = 10000.0)
++            ),
++            actualJson = WorkoutItem.toJson(WorkoutItem.Cardio(
++                itemId = "d1", exerciseUuid = "wg:running", name = "跑步", order = 0,
++                durationSec = 600L, distanceMeters = 2000.0
++            ))
++        )
++        val item = TrainingItemMapper.draftToItem(
++            draft, ExerciseRecordType.CARDIO, "s2", 0
++        ) as WorkoutItem.Cardio
++        assertEquals(600L, item.durationSec)
++        assertEquals(2000.0, item.distanceMeters!!, 0.001)
++        repo.saveUnifiedSession(session("s2"), emptyList(), listOf(item), 70.0)
++        val row = db.workoutCardioDetailDao().findBySession("s2").single()
++        assertEquals(600L, row.durationSeconds)
++        assertEquals(2000.0, row.distanceMeters!!, 0.001)
++        assertEquals(0.0, row.calculatedKcal, 0.001) // 无可靠 MET 时不造热量
++        val persistedItem = WorkoutItem.fromJson(row.rawInputJson) as WorkoutItem.Cardio
++        assertEquals(3600L, TargetConfigJson.decode(persistedItem.targetConfigJson)?.durationSec)
++        assertEquals(10000.0, TargetConfigJson.decode(persistedItem.targetConfigJson)?.distanceMeters!!, 0.001)
++    }
++
++    // T03：混合训练两类明细均完整保存
++    @Test
++    fun `T03 混合训练力量与有氧同时落库`() = runBlocking {
++        repo.saveUnifiedSession(
++            session("s3"), listOf(strength("p1", "深蹲")), listOf(cardio("running", 1200)), 70.0
++        )
++        assertEquals(1, db.workoutExerciseDao().findBySession("s3").size)
++        assertEquals(1, db.workoutCardioDetailDao().findBySession("s3").size)
++        val detail = repo.sessionDetail("s3")
++        assertEquals(2, detail.items.size)
++        assertTrue(detail.items.any { it is WorkoutItem.Strength })
++        assertTrue(detail.items.any { it is WorkoutItem.Cardio })
++    }
++
++    // T04/T05：类型强解析，空串按动作库语义解析，未知 key 不降级为有氧
++    @Test
++    fun `T04 空recordType按动作映射解析有氧未知key降级OTHER`() {
++        val cardioEntity = ExerciseEntity(
++            uuid = "wg:running", name = "跑步", exerciseType = "distance_duration"
++        )
++        assertEquals(ExerciseRecordType.CARDIO, TrainingItemMapper.resolveType("", cardioEntity))
++        assertEquals(ExerciseRecordType.STRENGTH, TrainingItemMapper.resolveType("", null))
++        assertEquals(ExerciseRecordType.STRENGTH, TrainingItemMapper.resolveType("STRENGTH"))
++        assertEquals(ExerciseRecordType.OTHER, TrainingItemMapper.resolveType("NOT_A_TYPE"))
++        assertEquals(ExerciseRecordType.HIIT, TrainingItemMapper.resolveType("HIIT"))
++    }
++
++    // T06：HIIT 的 work/rest/rounds 不丢失，且不被当作有氧
++    @Test
++    fun `T06 HIIT字段完整保留在itemMetaJson并能读回`() = runBlocking {
++        val hiit = WorkoutItem.Hiit(
++            itemId = "h1", exerciseUuid = "seed-hiit", name = "间歇跑", order = 0,
++            durationSec = 1200, workSec = 30, restSec = 30, rounds = 8
++        )
++        repo.saveUnifiedSession(session("s6"), listOf(hiit), emptyList(), 70.0)
++        assertTrue(db.workoutCardioDetailDao().findBySession("s6").isEmpty())
++        val row = db.workoutExerciseDao().findBySession("s6").single()
++        assertTrue(row.setsJson.isEmpty())
++        val back = TrainingItemMapper.workoutExerciseToItem(row) as WorkoutItem.Hiit
++        assertEquals(30, back.workSec)
++        assertEquals(30, back.restSec)
++        assertEquals(8, back.rounds)
++        assertEquals(ExerciseRecordType.HIIT, back.recordType)
++    }
++
++    // T08：编辑混合训练，只改力量，有氧明细不被清空
++    @Test
++    fun `T08 编辑混合训练保留未修改的有氧明细`() = runBlocking {
++        repo.saveUnifiedSession(
++            session("s8"), listOf(strength("p1", "卧推")), listOf(cardio("running", 900)), 70.0
++        )
++        val before = repo.sessionDetail("s8")
++        val rebuilt = before.items.map { item ->
++            when (item) {
++                is WorkoutItem.Strength -> item.copy(sets = listOf(WorkoutSet(50.0, 8)))
++                else -> item
++            }
++        }
++        repo.saveUnifiedSession(
++            session("s8"),
++            rebuilt.filter { it !is WorkoutItem.Cardio },
++            rebuilt.filterIsInstance<WorkoutItem.Cardio>(),
++            70.0
++        )
++        val after = repo.sessionDetail("s8")
++        assertEquals(2, after.items.size)
++        assertEquals(900L, (after.items.first { it is WorkoutItem.Cardio } as WorkoutItem.Cardio).durationSec)
++        assertEquals(8, (after.items.first { it is WorkoutItem.Strength } as WorkoutItem.Strength).sets.first().reps)
++    }
++
++    // T11：日记类型按会话构成计算
++    @Test
++    fun `T11 纯力量纯有氧混合训练分类正确`() {
++        assertEquals("力量", TrainingItemMapper.diaryType(listOf(strength("a", "卧推"))))
++        assertEquals("有氧", TrainingItemMapper.diaryType(listOf(cardio("running"))))
++        assertEquals("混合", TrainingItemMapper.diaryType(listOf(strength("a", "卧推"), cardio("running"))))
++        assertEquals("其他", TrainingItemMapper.diaryType(listOf(
++            WorkoutItem.Other("o", "custom", "自定义", 0, durationSec = 60)
++        )))
++    }
++
++    // T12：历史混合训练复制为计划，类型与目标配置完整保留
++    @Test
++    fun `T12 混合训练复制为计划保留类型与顺序`() = runBlocking {
++        db.exerciseDao().insertAll(listOf(
++            ExerciseEntity(uuid = "ex-p1", name = "卧推"),
++            ExerciseEntity(uuid = "wg:running", name = "跑步")
++        ))
++        repo.saveUnifiedSession(
++            session("s12"), listOf(strength("p1", "卧推")), listOf(cardio("running", 900)), 70.0
++        )
++        val (planUuid, missing) = repo.saveSessionAsTemplate("s12", "复制计划")
++        assertTrue(missing.isEmpty())
++        val plans = db.planExerciseDao().findAll().filter { planUuid.isNotBlank() }
++        assertEquals(2, plans.size)
++        assertTrue(plans.any { it.recordType == ExerciseRecordType.CARDIO.key })
++        assertTrue(plans.any { it.targetConfigJson.contains("CARDIO") })
++        assertEquals(listOf(0, 1), plans.sortedBy { it.orderInDay }.map { it.orderInDay })
++    }
++
++    // T13：备份往返包含有氧明细与新增字段
++    @Test
++    fun `T13 备份导出解析包含有氧明细与新字段`() = runBlocking {
++        repo.saveUnifiedSession(
++            session("s13"), listOf(strength("p1", "卧推")), listOf(cardio("running", 900)), 70.0
++        )
++        val backup = TrainingBackup(
++            exercises = db.exerciseDao().findAll(),
++            plans = db.trainingPlanDao().findAll(),
++            planDays = db.trainingPlanDayDao().findAll(),
++            planExercises = db.planExerciseDao().findAll(),
++            sessions = db.workoutSessionDao().findAll(),
++            workoutExercises = db.workoutExerciseDao().findAll(),
++            cardioDetails = db.workoutCardioDetailDao().findAll()
++        )
++        val parsed = parseTraining(backup.toJson())!!
++        assertEquals(1, parsed.cardioDetails.size)
++        assertEquals(900L, parsed.cardioDetails.first().durationSeconds)
++        assertTrue(parsed.workoutExercises.first().itemMetaJson.contains("STRENGTH"))
++
++        // 恢复：清空后灌回，事务由调用方负责（与 BackupManager 生产路径一致）
++        db.withTransaction {
++            db.workoutSessionDao().clearAll()
++            db.workoutExerciseDao().clearAll()
++            db.workoutCardioDetailDao().clearAll()
++            parsed.sessions.forEach { db.workoutSessionDao().insert(it) }
++            db.workoutExerciseDao().insertAll(parsed.workoutExercises)
++            db.workoutCardioDetailDao().insertAll(parsed.cardioDetails)
++        }
++        assertEquals(1, db.workoutExerciseDao().findAll().size)
++        assertEquals(1, db.workoutCardioDetailDao().findAll().size)
++    }
++
++    // T15：旧备份缺少新字段时安全恢复
++    @Test
++    fun `T15 旧备份缺少新字段时用安全默认值`() {
++        val old = """{"exercises":[],"plans":[],"planDays":[],"planExercises":[],
++            "sessions":[{"uuid":"old","date":"2026-11-01"}],
++            "workoutExercises":[{"sessionUuid":"old","exerciseNameSnapshot":"卧推","setsJson":"[]"}]}"""
++        val parsed = parseTraining(org.json.JSONObject(old))!!
++        assertEquals("", parsed.workoutExercises.first().itemMetaJson)
++        assertTrue(parsed.cardioDetails.isEmpty())
++        assertNotNull(parsed.sessions.first())
++        assertFalse(parsed.isEmpty())
++    }
++
++    // T16：有可靠类型 MET 时算热量；无 MET 时保留原始数据但不造数
++    @Test
++    fun `T16 可靠MET才计算热量且重新读回一致`() = runBlocking {
++        val entity = ExerciseEntity(uuid = "wg:running", name = "跑步", slug = "running")
++        val mets = mapOf("running" to Triple(7.0, 8.3, 9.5))
++        val computable = TrainingItemMapper.withCardioKcal(cardio("running", 3600), entity, mets, 70.0)
++        assertEquals(581.0, computable.calculatedKcal, 1.0)
++        assertEquals(WorkoutCalorieCalculator.METHOD_MET_TYPE_DEFAULT, computable.calculationMethod)
++        assertEquals(WorkoutCalorieCalculator.VERSION, computable.calculationVersion)
++
++        val unknown = TrainingItemMapper.withCardioKcal(cardio("unknown", 3600), null, mets, 70.0)
++        assertEquals(0.0, unknown.calculatedKcal, 0.001)
++        assertEquals("", unknown.calculationVersion)
++
++        repo.saveUnifiedSession(session("s16"), emptyList(), listOf(computable), 70.0)
++        val row = db.workoutCardioDetailDao().findBySession("s16").single()
++        assertEquals(581.0, row.calculatedKcal, 1.0)
++    }
++}
+diff --git a/app/src/test/java/com/qingji/app/training/TrainingViewModelB11Test.kt b/app/src/test/java/com/qingji/app/training/TrainingViewModelB11Test.kt
+new file mode 100644
+index 0000000..440cc26
+--- /dev/null
++++ b/app/src/test/java/com/qingji/app/training/TrainingViewModelB11Test.kt
+@@ -0,0 +1,111 @@
++package com.qingji.app.training
++
++import androidx.room.Room
++import androidx.test.core.app.ApplicationProvider
++import com.qingji.app.data.local.AppDatabase
++import com.qingji.app.data.local.entity.ExerciseEntity
++import com.qingji.app.data.prefs.DraftExercise
++import com.qingji.app.data.prefs.WorkoutDraft
++import com.qingji.app.data.repository.TrainingRepository
++import com.qingji.app.domain.ExerciseRecordType
++import com.qingji.app.domain.TargetConfig
++import com.qingji.app.domain.TargetConfigJson
++import com.qingji.app.domain.WorkoutItem
++import com.qingji.app.ui.viewmodel.TrainingViewModel
++import kotlinx.coroutines.CompletableDeferred
++import kotlinx.coroutines.Dispatchers
++import kotlinx.coroutines.ExperimentalCoroutinesApi
++import kotlinx.coroutines.flow.first
++import kotlinx.coroutines.runBlocking
++import kotlinx.coroutines.withTimeout
++import kotlinx.coroutines.test.UnconfinedTestDispatcher
++import kotlinx.coroutines.test.resetMain
++import kotlinx.coroutines.test.setMain
++import org.junit.After
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertTrue
++import org.junit.Before
++import org.junit.Test
++import org.junit.runner.RunWith
++import org.robolectric.RobolectricTestRunner
++
++/** B1.1 ViewModel 层集成测试：草稿 → save() → 真实 Room。 */
++@OptIn(ExperimentalCoroutinesApi::class)
++@RunWith(RobolectricTestRunner::class)
++class TrainingViewModelB11Test {
++
++    private lateinit var db: AppDatabase
++    private lateinit var repo: TrainingRepository
++
++    @Before
++    fun setUp() {
++        Dispatchers.setMain(UnconfinedTestDispatcher())
++        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
++        db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
++            .allowMainThreadQueries().build()
++        repo = TrainingRepository(context, refreshHook = { _, _ -> }, dbOverride = db)
++    }
++
++    @After
++    fun tearDown() {
++        Dispatchers.resetMain()
++        db.close()
++    }
++
++    private fun vm() = TrainingViewModel(
++        ApplicationProvider.getApplicationContext<android.app.Application>(), repo
++    )
++
++    // T07：只有计划目标、没有用户实际录入时，不得生成虚假实际成绩
++    @Test
++    fun `T07 仅有目标无实际录入不会写入假成绩`() = runBlocking {
++        val target = TargetConfigJson.encode(
++            TargetConfig(type = ExerciseRecordType.CARDIO, durationSec = 3600L, distanceMeters = 10000.0)
++        )
++        repo.draftStore.save(WorkoutDraft(
++            sessionUuid = "vm-t07", startedAt = 1L,
++            exercises = listOf(DraftExercise(
++                key = "d1", exerciseUuid = "wg:running", name = "跑步",
++                recordType = ExerciseRecordType.CARDIO.key, targetConfigJson = target
++                // 故意不写 actualJson：用户一个实际字段都没填
++            ))
++        ))
++        val vm = vm()
++        assertTrue("草稿应已恢复", vm.draft.value != null)
++        val saveDone = CompletableDeferred<Boolean>()
++        vm.save { saveDone.complete(it) }
++        assertTrue(withTimeout(5_000) { saveDone.await() })
++        val row = db.workoutCardioDetailDao().findBySession("vm-t07").single()
++        assertEquals(0L, row.durationSeconds)
++        assertEquals(null, row.distanceMeters)
++        assertEquals(0.0, row.calculatedKcal, 0.001)
++        assertEquals("", row.calculationVersion)
++        val saved = WorkoutItem.fromJson(row.rawInputJson) as WorkoutItem.Cardio
++        assertEquals(3600L, TargetConfigJson.decode(saved.targetConfigJson)?.durationSec)
++    }
++
++    // T04/T05：手动添加有氧动作按动作自身类型识别，不走力量组表单
++    @Test
++    fun `T04 手动添加有氧动作草稿类型正确且无力量组`() = runBlocking {
++        db.exerciseDao().insertAll(listOf(
++            ExerciseEntity(uuid = "wg:running", name = "跑步", exerciseType = "distance_duration")
++        ))
++        repo.draftStore.save(WorkoutDraft(sessionUuid = "vm-t04", startedAt = 1L))
++        val vm = vm()
++        assertTrue("草稿应已恢复", vm.draft.value != null)
++        val entity = db.exerciseDao().findByUuid("wg:running")!!
++        vm.addExercise(entity)
++        val draft = withTimeout(5_000) {
++            vm.draft.first { it != null && it.exercises.isNotEmpty() }
++        }!!
++        val added = draft.exercises.single()
++        assertEquals(ExerciseRecordType.CARDIO.key, added.recordType)
++        assertTrue(added.sets.isEmpty())
++
++        val saveDone = CompletableDeferred<Boolean>()
++        vm.save { saveDone.complete(it) }
++        assertTrue(withTimeout(5_000) { saveDone.await() })
++        assertTrue(db.workoutExerciseDao().findBySession("vm-t04").isEmpty())
++        assertEquals(1, db.workoutCardioDetailDao().findBySession("vm-t04").size)
++    }
++}
+diff --git "a/docs/audit/\350\275\273\350\256\260\347\273\237\344\270\200\350\256\255\347\273\203\344\275\223\347\263\273B1.1\345\256\236\346\226\275\345\211\215\345\244\215\345\256\241\346\212\245\345\221\212.md" "b/docs/audit/\350\275\273\350\256\260\347\273\237\344\270\200\350\256\255\347\273\203\344\275\223\347\263\273B1.1\345\256\236\346\226\275\345\211\215\345\244\215\345\256\241\346\212\245\345\221\212.md"
+new file mode 100644
+index 0000000..308de81
+--- /dev/null
++++ "b/docs/audit/\350\275\273\350\256\260\347\273\237\344\270\200\350\256\255\347\273\203\344\275\223\347\263\273B1.1\345\256\236\346\226\275\345\211\215\345\244\215\345\256\241\346\212\245\345\221\212.md"
+@@ -0,0 +1,111 @@
++# 轻记统一训练体系 B1.1 · 实施前复审报告
++
++> 工单：QJ-TRAINING-B1.1-FIX-20261122  
++> 复审时间：2026-11-22 22:00 GMT+8  
++> 复审方式：只读审计（先审计、后修改）  
++> 结论：工单列出的核心问题在最新工作分支上**绝大多数仍存在**；按“最小必要改动”修复，不推翻现有体系、不新增 Room 表、不新增 migration。
++
++---
++
++## 1. 仓库与基线状态
++
++| 项 | 实际值 |
++|---|---|
++| 仓库 URL | `https://github.com/yueyinmin/QingJi-Android.git` (origin) |
++| 本地路径 | `C:\Users\22109\.gradle\qingji-build\QingJi-Android` |
++| 默认分支（远端引用） | `main` → `30b478e2d195d3bc2d7beecac1a5d7b433abc0e2`（2026-11-19 Update README.md） |
++| 当前工作分支 | `feature/unified-training` |
++| 当前 HEAD | `20258ab5eaf6170e248617022309f047ea6cdcb9`（fix(diary-privacy): 修复覆盖安装后启动闪退-AndroidViewModel构造签名） |
++| 本地 `origin/feature/unified-training` | `bacd2d04064865da5927956aa51519125cd4d0e0`，本地 HEAD 领先其大量提交（工作分支尚未推送） |
++| 工作区 | 不干净：3 个未提交文件（见下），审计与实施均未触碰 |
++| Room 版本 / 迁移链 | `version = 22`，`MIGRATION_1_2 … MIGRATION_21_22` 完整；无 destructive migration |
++| 训练实体 | `exercise` / `training_plan` / `training_plan_day` / `plan_exercise` / `workout_session` / `workout_exercise` / `workout_cardio_detail`（Room 20 引入有氧表，Room 22 引入 recordType/targetConfigJson/itemMetaJson） |
++
++**用户未提交改动（原样保留，不在本次修改范围）：**
++
++- `app/src/main/java/com/qingji/app/ui/screen/settings/SettingsDetailPages.kt`
++- `app/src/main/java/com/qingji/app/ui/screen/settings/SettingsDialogs.kt`
++- `app/src/main/java/com/qingji/app/ui/theme/Motion.kt`（新增 `clickableNoRipple`）
++
++改动内容为设置页点击波纹/高亮调整，与训练域无关。
++
++**同步受限与替代核验：** `git fetch` 在本机失败（`schannel ... CRYPT_E_NO_REVOCATION_CHECK`；切 OpenSSL 后端报本地证书链缺失）。未覆盖/重置任何本地分支。改用已缓存远端引用 + GitHub API 只读核验：
++
++- 基线 `450df9f02e55aa69acab4e359a39c615c3f11c40` 是合并提交，parents = `fb384437…` 与 **`20258ab5…`（即本工作 HEAD）**；即本次工作分支正是基线合并进的训练侧父提交。
++- 基线到默认分支 `main`：`status=behind, ahead_by=0, behind_by=76`；默认分支比基线旧 76 个提交，未包含统一训练体系相关代码。
++- 结论：训练链路以当前工作分支 HEAD `20258ab` 为最新代码基准；基线 merge 的另一父分支属于日记隐私锁改动，不改变本报告训练链路结论。
++
++---
++
++## 2. 调用链与数据流（实际代码）
++
++```
++训练计划 activatePlan / TrainingPlanViewModel
++  → PlanExercise(recordType, targetConfigJson)            [TrainingRepository.activatePlan:373-394]
++  → TrainingViewModel.startNew()                          [TrainingViewModel:166-225]
++  → PlanToDraftMapper.map()                               [PlanToDraftMapper:39-80]
++  → DraftExercise(recordType=类型 key, targetConfigJson)   [TrainingViewModel:209-220]
++  → TrainingActiveScreen 全量 SetEditorCard                [TrainingActiveScreen:232-255]
++  → TrainingViewModel.save()                              [TrainingViewModel:439-545]
++      ├─ cardioExercises = recordType.isNotBlank()         ← P0 错误分流（:443-444）
++      ├─ cardioDetails.durationSeconds = cfg.durationSec   ← P0 目标伪装实际（:512-524）
++      └─ repo.saveUnifiedSession()                         [TrainingRepository:183-244]
++           ├─ workout_session insert
++           ├─ workout_exercise delete + insert
++           ├─ workout_cardio_detail delete + insert
++           ├─ WorkoutCalorieCalculator.combine()           [WorkoutCalorieCalculator:70-100]
++           ├─ 账本 upsert（sourceType=STRENGTH_TRAINING, sourceId=uuid）
++           └─ upsertTrainingDiaryLog(type 固定"力量")       [TrainingRepository:266-278]
++
++编辑：vm.editSession() → repo.sessionDetail()（只返回力量）[TrainingRepository:305-306]
++历史：TrainingDiaryContent → vm.allWorkoutExercises（只含 workout_exercise）
++复制计划：repo.saveSessionAsTemplate() → 只读 workoutExerciseDao.findBySession() [TrainingRepository:414-455]
++备份：TrainingBackup（6 表，无 workout_cardio_detail、无新字段）[TrainingBackup:27-89]
++```
++
++数据流关键断点：**类型信息只存在于草稿字段，保存时被“空串/non-empty”二分；非力量明细没有统一领域模型回读；有氧/计划目标被直接写入实际字段。**
++
++---
++
++## 3. 逐项问题状态表（基于最新 HEAD）
++
++| # | 工单问题 | 当前状态 | 代码证据 |
++|---|---|---|---|
++| 1 | 力量动作被当有氧保存 | **仍存在（P0）** | `startNew()` 对力量也写入 `recordType = m.recordType.key`（"STRENGTH"）[TrainingViewModel:216]；`save()` 用 `recordType.isNotBlank()` 分流 [443-444]，力量计划动作进入 `cardioDetails`，力量 sets 为空导致被过滤掉。 |
++| 2 | 目标值被写成实际完成值 | **仍存在（P0）** | `durationSeconds = cfg?.durationSec ?: 0L`、`distanceMeters = cfg?.distanceMeters` [TrainingViewModel:518-519]；注释自称“预填”，但落库即实际字段。 |
++| 3 | 训练执行页按类型录入 | **仍存在（P0）** | `d.exercises.forEach` 无条件渲染 `SetEditorCard` [TrainingActiveScreen:232-253]；非力量动作显示空白力量组卡。 |
++| 4 | 手动添加动作类型识别 | **仍存在（P1）** | `addExercise()` 构造 `DraftExercise` 未传 recordType/targetConfigJson [TrainingViewModel:318-324]；草稿默认空串 [WorkoutDraftStore:19]，力量兜底虽可工作，但有氧动作会被默认成力量。 |
++| 5 | HIIT/FLEX/OTHER 专属字段 | **仍存在（P1）** | 所有非力量统一进 `WorkoutCardioDetail`，只留下 duration/distance/intensity，`TargetConfig.workSec/restSec/rounds` 无处落地；`WorkoutItem.Hiit` 已定义但无调用点（仅 ExerciseViewModel 使用 Strength 序列化）。 |
++| 6 | 编辑混合训练丢有氧 | **仍存在（P1）** | `editSession()` 调 `repo.sessionDetail(uuid)` [TrainingViewModel:269]，后者只查力量表 [TrainingRepository:305-306]；保存时 `deleteBySession` 两张表都删 [202/292]，未加载的有氧不再写回。 |
++| 7 | 有氧热量无法计入 | **仍存在（P1）** | 构造 `WorkoutCardioDetail` 未填 `calculatedKcal/method/version/weightSnapshot` [TrainingViewModel:514-524]；`WorkoutCalorieCalculator.isComputable()` 只认 `calculatedKcal > 0` [WorkoutCalorieCalculator:106-107] → 有氧项必然跳过。 |
++| 8 | 历史/日记只展示力量 | **仍存在（P1）** | `TrainingDiaryContent` 仅 `allWorkoutExercises` [123]；无 cardio StateFlow；会话详情只 `decodeSets` [371-395]。 |
++| 9 | 训练日记类型固定力量 | **仍存在（P1）** | `upsertTrainingDiaryLog()` 固定 `DIARY_TYPE_STRENGTH` [TrainingRepository:271,282]。 |
++| 10 | 历史复制为计划丢有氧 | **仍存在（P1）** | `saveSessionAsTemplate()` 只读 `workoutExerciseDao.findBySession()` [417]，且新建 `PlanExercise` 未写 recordType/targetConfigJson [441-451]。 |
++| 11 | 备份缺有氧与新字段 | **仍存在（P1）** | `TrainingBackup` 只有 6 表 [27-33]；`toJson/parse` 未写 ExerciseEntity.recordType、PlanExercise.recordType/targetConfigJson、WorkoutExercise.itemMetaJson、WorkoutCardioDetail [38-89,96-159]；`BackupManager.restoreInto` 只清 5 类训练表 [656-666]。 |
++| 12 | 数据库迁移 | **已不适用（本次）** | 现有 v22 已含全部所需列 [AppDatabase:949-954]；本次通过已有列 + 版本化 JSON 承载类型/目标/实际，无需升版本。 |
++| 13 | TrainingPlanBlock 新表 | **不适用** | `TrainingPlanDay → PlanExercise(orderInDay, recordType, targetConfigJson)` 已满足混排，工单明确不新增。 |
++| 14 | 已修复项 | **未发现** | 上述风险点在 HEAD 均可直接定位到代码；未发现“已修复/部分修复”的证据。`sessionDetailWithCardio()` 与 `WorkoutCalorieCalculator` 基础设施已存在，但未接入主链路，属“基础设施已备、链路未通”。 |
++
++---
++
++## 4. 最小修复方案（实施文件清单）
++
++| 文件 | 修改目的 |
++|---|---|
++| `domain/WorkoutItem.kt` | 增加版本化 `targetConfigJson` 字段，作为非力量项目“类型+目标+实际”的统一 JSON 载荷（复用现有 codec）。 |
++| `domain/TrainingItemMapper.kt`（新增） | 草稿 ↔ WorkoutItem ↔ Room 行映射；强类型解析（空串回退 STRENGTH、未知值 OTHER）；有氧 MET 计算；会话分类。 |
++| `data/prefs/WorkoutDraftStore.kt` / `DraftExercise` | 草稿保存实际录入 JSON（`actualJson`），不新增 Room 列。 |
++| `ui/viewmodel/TrainingViewModel.kt` | 强类型分流、目标/实际分离、手动添加类型识别、编辑加载完整会话、有氧热量计算入口。 |
++| `data/repository/TrainingRepository.kt` | `saveUnifiedSession` 完整会话读写、日记类型按构成计算、复制计划含全类型、详情入口统一；增加测试用 db 注入。 |
++| `ui/screen/training/TrainingActiveScreen.kt` | 按 recordType 渲染力量/有氧/HIIT/柔韧/其他录入卡；预填目标但保存为实际需用户输入。 |
++| `ui/screen/training/TrainingDiaryContent.kt` | 历史列表与详情展示有氧和非力量项目。 |
++| `data/backup/TrainingBackup.kt` / `BackupManager.kt` | 备份恢复补齐 `workout_cardio_detail` 与所有新增字段；旧备份兼容。 |
++| 测试 | 类型分流、目标实际分离、编辑、日记、复制、备份往返、热量、迁移回归（真实 DB / Robolectric）。 |
++
++暂缓边界：HIIT/FLEXIBILITY/OTHER 的完整多阶段编排引擎不在本次范围；本次保证类型、目标配置、原始输入字段被明确保存与展示，不降级为普通有氧，不生成虚假热量。
++
++---
++
++## 5. 复审结论
++
++工单描述的 P0/P1 问题在最新 HEAD 上仍成立。实施将以“复用现有表/字段 + 版本化 JSON + 强类型分流”为原则，避免新增表、避免迁移、避免触碰用户历史数据。

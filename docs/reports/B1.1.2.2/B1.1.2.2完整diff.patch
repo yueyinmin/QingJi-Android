@@ -1,0 +1,353 @@
+commit f369cf1945efb6d475c665b74d6415b7c390b516
+Author:     yueyinmin <69025039+yueyinmin@users.noreply.github.com>
+AuthorDate: Mon Nov 23 00:02:33 2026 +0800
+Commit:     yueyinmin <69025039+yueyinmin@users.noreply.github.com>
+CommitDate: Mon Nov 23 00:02:33 2026 +0800
+
+    fix(training): B1.1.2.2副作用失败日志与草稿保留提示收口
+
+diff --git a/app/src/main/java/com/qingji/app/data/backup/BackupManager.kt b/app/src/main/java/com/qingji/app/data/backup/BackupManager.kt
+index a78c682..57f35cf 100644
+--- a/app/src/main/java/com/qingji/app/data/backup/BackupManager.kt
++++ b/app/src/main/java/com/qingji/app/data/backup/BackupManager.kt
+@@ -2,6 +2,7 @@ package com.qingji.app.data.backup
+ 
+ import android.content.Context
+ import android.net.Uri
++import android.util.Log
+ import androidx.room.withTransaction
+ import com.qingji.app.data.local.AppDatabase
+ import com.qingji.app.data.local.entity.ExerciseEntity
+@@ -40,9 +41,23 @@ internal data class RestoreSideEffects(
+     val aiActiveProviderId: Int? = null
+ )
+ 
+-class BackupManager(private val context: Context) {
++private const val TAG = "BackupManager"
+ 
+-    private val db = AppDatabase.get(context)
++class BackupManager(
++    private val context: Context,
++    /** B1.1.2.2：生产不传；测试注入独立 Room 实例，验证 importJson() 真实入口。 */
++    dbOverride: AppDatabase? = null,
++    /** B1.1.2.2：生产写真实 DataStore；测试可注入失败，验证副作用失败不误报恢复失败。 */
++    private val aiSettingWriter: suspend (Int) -> Unit = { id ->
++        com.qingji.app.data.prefs.SettingsStore.set(
++            context, com.qingji.app.data.prefs.SettingsKeys.AI_ACTIVE_PROVIDER_ID, id
++        )
++    },
++    /** B1.1.2.2：生产刷新真实桌面组件；测试可注入失败，验证两类日志可区分。 */
++    private val widgetRefresher: () -> Unit = { com.qingji.app.widget.WidgetRefresher.refresh(context) }
++) {
++
++    private val db = dbOverride ?: AppDatabase.get(context)
+ 
+     /**
+      * B1.1.2：恢复事务中途钩子，生产为空操作。
+@@ -538,15 +553,18 @@ class BackupManager(private val context: Context) {
+                 restoreInto(db, parsed)
+             }
+             // 阶段B：仅在整份恢复事务成功提交后才应用外部存储副作用/刷新。
+-            // 这两步失败都不能把已经提交的数据库恢复误报成整体失败（B1.1.2.1 P1）。
++            // 外部存储（DataStore / 桌面组件）不属于 Room 事务，无法被它回滚；
++            // 这两步失败只分别记日志，绝不把已经提交的数据库恢复误报成整体失败（B1.1.2.2）。
+             runCatching {
+-                sideEffects.aiActiveProviderId?.let { id ->
+-                    com.qingji.app.data.prefs.SettingsStore.set(
+-                        context, com.qingji.app.data.prefs.SettingsKeys.AI_ACTIVE_PROVIDER_ID, id
+-                    )
+-                }
++                sideEffects.aiActiveProviderId?.let { id -> aiSettingWriter(id) }
++            }.onFailure { e ->
++                val reason = e.message ?: "未知原因"
++                Log.w(TAG, "备份恢复已提交：AI 激活服务设置写入失败（$reason），请手动检查 AI 设置", e)
++            }
++            runCatching { widgetRefresher() }.onFailure { e ->
++                val reason = e.message ?: "未知原因"
++                Log.w(TAG, "备份恢复已提交：桌面组件刷新失败（$reason），下次进入首页会自动刷新", e)
+             }
+-            runCatching { com.qingji.app.widget.WidgetRefresher.refresh(context) }
+ 
+             Result.success(summaryText(parsed))
+         } catch (e: Exception) {
+diff --git a/app/src/main/java/com/qingji/app/data/prefs/WorkoutDraftStore.kt b/app/src/main/java/com/qingji/app/data/prefs/WorkoutDraftStore.kt
+index 27bfd82..5f25eab 100644
+--- a/app/src/main/java/com/qingji/app/data/prefs/WorkoutDraftStore.kt
++++ b/app/src/main/java/com/qingji/app/data/prefs/WorkoutDraftStore.kt
+@@ -66,6 +66,17 @@ data class WorkoutDraft(
+     }
+ }
+ 
++/**
++ * B1.1.2.2：条件清理的结果。
++ * [cleared] 表示本次保存的草稿是否真的被删除；
++ * [draftRemains] 表示操作结束后磁盘上是否仍有草稿（身份/版本不匹配，或清理本身失败）。
++ * 调用方据此在「草稿仍在」的所有分支给出提示，磁盘本来就空时不会误报「草稿已保留」。
++ */
++internal data class DraftClearOutcome(
++    val cleared: Boolean,
++    val draftRemains: Boolean
++)
++
+ /**
+  * ============================================================
+  * 进行中训练草稿 + 重量单位偏好
+@@ -198,18 +209,27 @@ class WorkoutDraftStore(context: Context) {
+      * 返回是否真的删除；调用方据此决定内存 _draft 是否置空。
+      */
+     internal fun clearIfMatches(expectedSessionUuid: String, expectedRevision: Long): Boolean =
+-        synchronized(DRAFT_LOCK) {
+-            val current = load()
+-            if (current != null &&
+-                current.sessionUuid == expectedSessionUuid &&
+-                current.revision == expectedRevision
+-            ) {
++        clearIfMatchesDetailed(expectedSessionUuid, expectedRevision).cleared
++
++    /**
++     * B1.1.2.2：与 [clearIfMatches] 同一把锁，但额外返回「磁盘上是否仍有草稿」。
++     * 供保存后处理区分三种情况：清掉了本次草稿 / 磁盘本来就是空的 / 有别的草稿被保留。
++     * 只读 SP 与删除仍在同一临界区内完成，不会出现检查完又被别的实例写入的窗口。
++     */
++    internal fun clearIfMatchesDetailed(
++        expectedSessionUuid: String,
++        expectedRevision: Long
++    ): DraftClearOutcome = synchronized(DRAFT_LOCK) {
++        val current = load()
++        when {
++            current == null -> DraftClearOutcome(cleared = false, draftRemains = false)
++            current.sessionUuid == expectedSessionUuid && current.revision == expectedRevision -> {
+                 sp.edit().remove(KEY_DRAFT).apply()
+-                true
+-            } else {
+-                false
++                DraftClearOutcome(cleared = true, draftRemains = false)
+             }
++            else -> DraftClearOutcome(cleared = false, draftRemains = true)
+         }
++    }
+ 
+     /** kg/lb 只在显示层换算，库里永远存 kg。 */
+     fun unit(): String = sp.getString(KEY_UNIT, UNIT_KG) ?: UNIT_KG
+diff --git a/app/src/main/java/com/qingji/app/ui/viewmodel/TrainingViewModel.kt b/app/src/main/java/com/qingji/app/ui/viewmodel/TrainingViewModel.kt
+index b0838f8..f5d0550 100644
+--- a/app/src/main/java/com/qingji/app/ui/viewmodel/TrainingViewModel.kt
++++ b/app/src/main/java/com/qingji/app/ui/viewmodel/TrainingViewModel.kt
+@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
+ import com.qingji.app.data.local.entity.ExerciseEntity
+ import com.qingji.app.data.local.entity.WorkoutExercise
+ import com.qingji.app.data.local.entity.WorkoutSession
++import com.qingji.app.data.prefs.DraftClearOutcome
+ import com.qingji.app.data.prefs.DraftExercise
+ import com.qingji.app.data.prefs.WorkoutDraft
+ import com.qingji.app.data.repository.TrainingRepository
+@@ -602,40 +603,39 @@ class TrainingViewModel(app: Application, repoOverride: TrainingRepository? = nu
+ 
+                 // ---------- 第二段：数据库已成功提交，以下任何异常都不改变「已保存」事实 ----------
+                 try {
+-                    // B1.1.2.1：清理只看「磁盘上的草稿是否仍是本次保存的那一份」。
++                    // B1.1.2.2：清理只看「磁盘上的草稿是否仍是本次保存的那一份」。
+                     // 身份（sessionUuid）与版本（revision）必须同时匹配，且校验+删除在
+                     // WorkoutDraftStore 的进程级共享锁内完成；current==null 也不再无条件 clear。
++                    // 清理抛异常时保守认为磁盘草稿仍在，保证用户一定能收到提示（T25）。
++                    val outcome = runCatching {
++                        draftStore.clearIfMatchesDetailed(snapshot.sessionUuid, snapshotRevision)
++                    }.getOrDefault(DraftClearOutcome(cleared = false, draftRemains = true))
+                     val current = _draft.value
+-                    val cleared = runCatching {
+-                        draftStore.clearIfMatches(snapshot.sessionUuid, snapshotRevision)
+-                    }.getOrDefault(false)
+-                    when {
+-                        cleared -> _draft.value = null
+-                        current == null -> {
+-                            // 内存已空但磁盘里是另一份草稿：原样保留，绝不能误删新训练（T22）
+-                        }
+-                        current.revision != snapshotRevision -> {
+-                            // 保存期间又有新修改：新草稿（含同一 sessionUuid）留给下一次保存（T15/T16）
+-                            runCatching { say("这次训练已保存；你在保存期间的新修改仍保留在草稿里，可再次保存") }
+-                        }
+-                        else -> {
+-                            // 版本没变但身份变了（例如另一场训练），保留草稿并如实提示
+-                            runCatching { say("这次训练已保存，但草稿身份或版本已变化，草稿已保留以便检查") }
++                    // B1.1.2.2：草稿保留提示必须并入最终成功消息。原先先 say 保留提示、
++                    // 紧接着再 say 保存成功，StateFlow 会把第一条合并掉，用户实际看不到，
++                    // 等于「磁盘还有草稿却没有任何提示」。
++                    val draftNotice = when {
++                        outcome.cleared -> {
++                            _draft.value = null
++                            null
+                         }
++                        !outcome.draftRemains -> null  // 磁盘本来就是空的
++                        current != null && current.revision != snapshotRevision ->
++                            "保存期间的新修改仍保留在草稿里，可再次保存"   // T15/T16
++                        else -> "草稿区仍有未清理的草稿，已为你保留"        // T22/T25
+                     }
+                     val hasActual = snapshot.exercises.any { e ->
+                         e.sets.any { s -> s.reps > 0 || s.weightKg > 0.0 } ||
+                             WorkoutItem.fromJson(e.actualJson)?.hasActualData() == true
+                     }
+                     val kcalText = ExerciseCalorieHint.message(hasActual, weight > 0.0, result)
++                    val baseMessage = when {
++                        result.hasSkipped -> "训练已保存${kcalText}；${result.notComputableItems} 项缺少可靠时长/参数未计入消耗"
++                        !editing -> "训练已保存${kcalText}"
++                        else -> "已更新这次训练，消耗已重新结算${kcalText}"
++                    }
+                     runCatching {
+-                        say(
+-                            when {
+-                                result.hasSkipped -> "训练已保存${kcalText}；${result.notComputableItems} 项缺少可靠时长/参数未计入消耗"
+-                                !editing -> "训练已保存${kcalText}"
+-                                else -> "已更新这次训练，消耗已重新结算${kcalText}"
+-                            }
+-                        )
++                        say(if (draftNotice == null) baseMessage else "$baseMessage；$draftNotice")
+                     }
+                 } catch (c: kotlinx.coroutines.CancellationException) {
+                     throw c
+diff --git a/app/src/test/java/com/qingji/app/training/BackupRollbackB112Test.kt b/app/src/test/java/com/qingji/app/training/BackupRollbackB112Test.kt
+index 1e2cf47..bef3c8e 100644
+--- a/app/src/test/java/com/qingji/app/training/BackupRollbackB112Test.kt
++++ b/app/src/test/java/com/qingji/app/training/BackupRollbackB112Test.kt
+@@ -1,5 +1,6 @@
+ package com.qingji.app.training
+ 
++import android.net.Uri
+ import androidx.room.Room
+ import androidx.room.withTransaction
+ import androidx.test.core.app.ApplicationProvider
+@@ -29,6 +30,8 @@ import org.junit.Before
+ import org.junit.Test
+ import org.junit.runner.RunWith
+ import org.robolectric.RobolectricTestRunner
++import org.robolectric.Shadows
++import org.robolectric.shadows.ShadowLog
+ import java.time.LocalDate
+ 
+ /**
+@@ -151,4 +154,83 @@ class BackupRollbackB112Test {
+         SettingsStore.set(ctx, SettingsKeys.AI_ACTIVE_PROVIDER_ID, effects.aiActiveProviderId!!)
+         assertEquals(newId, SettingsStore.observe(ctx).first().aiActiveProviderId)
+     }
++
++    // ==================== B1.1.2.2：importJson() 真实入口 ====================
++
++    /** 构造一份最小合法 v8 备份；withTraining=true 时带上训练段，供事务中途注入异常。 */
++    private fun entryBackup(aiId: Int, withTraining: Boolean): String = JSONObject().apply {
++        put("app", "qingji")
++        put("version", BackupFormat.VERSION)
++        put("aiConfigs", JSONArray().put(JSONObject().apply {
++            put("id", aiId)
++            put("displayName", "导入的服务")
++            put("provider", "custom")
++            put("baseUrl", "https://example.com/v1")
++            put("textModel", "text-model")
++            put("visionModel", "vision-model")
++            put("temperature", 0.2)
++            put("timeoutSec", 30)
++            put("dailyLimit", 100)
++            put("enabled", true)
++        }))
++        if (withTraining) {
++            put("training", TrainingBackup(
++                sessions = listOf(WorkoutSession(
++                    "restore-entry", LocalDate.of(2026, 11, 22), 30,
++                    note = "恢复进来的训练", source = "manual", createdAt = 1L
++                ))
++            ).toJson())
++        }
++    }.toString()
++
++    /** Robolectric 下用 content:// Uri 注册输入流，走 ContentResolver 的真实读取分支。 */
++    private fun registerBackup(text: String): Uri {
++        val uri = Uri.parse("content://test.backup/restore.json")
++        Shadows.shadowOf(ctx.contentResolver).registerInputStream(uri, text.byteInputStream())
++        return uri
++    }
++
++    @Test
++    fun `importJson事务提交成功后才应用AI设置副作用`() = runBlocking {
++        SettingsStore.set(ctx, SettingsKeys.AI_ACTIVE_PROVIDER_ID, 11)
++        val manager = BackupManager(ctx, dbOverride = db)
++        val result = manager.importJson(registerBackup(entryBackup(77, withTraining = false)))
++
++        assertTrue("入口应返回成功", result.isSuccess)
++        assertEquals("事务提交后 AI 激活设置必须更新", 77,
++            SettingsStore.observe(ctx).first().aiActiveProviderId)
++        assertEquals("备份中的 AI 配置必须落库", 1, db.aiConfigDao().getAll().size)
++    }
++
++    @Test
++    fun `importJson事务中途失败时完全不应用AI设置副作用`() = runBlocking {
++        SettingsStore.set(ctx, SettingsKeys.AI_ACTIVE_PROVIDER_ID, 11)
++        val manager = BackupManager(ctx, dbOverride = db)
++        manager.restoreHook = { throw IllegalStateException("模拟入口事务中途失败") }
++        val result = manager.importJson(registerBackup(entryBackup(77, withTraining = true)))
++
++        assertTrue("入口应返回失败", result.isFailure)
++        assertEquals("事务回滚后设置不得被改动", 11,
++            SettingsStore.observe(ctx).first().aiActiveProviderId)
++        assertEquals("事务回滚后 AI 配置不得部分写入", 0, db.aiConfigDao().getAll().size)
++        assertEquals("事务回滚后训练段不得部分写入", 0, db.workoutSessionDao().findAll().size)
++    }
++
++    @Test
++    fun `importJson外部副作用失败分别记录日志且数据库恢复仍成功`() = runBlocking {
++        val manager = BackupManager(
++            ctx,
++            dbOverride = db,
++            aiSettingWriter = { throw IllegalStateException("模拟AI设置写入失败") },
++            widgetRefresher = { throw IllegalStateException("模拟桌面组件刷新失败") }
++        )
++        val result = manager.importJson(registerBackup(entryBackup(88, withTraining = false)))
++
++        assertTrue("外部副作用失败不得改写数据库恢复成功", result.isSuccess)
++        assertEquals("数据库恢复必须已完成", 1, db.aiConfigDao().getAll().size)
++
++        val messages = ShadowLog.getLogs().map { it.msg }
++        assertTrue("AI 设置失败应有独立日志", messages.any { it.contains("模拟AI设置写入失败") })
++        assertTrue("Widget 刷新失败应有独立日志", messages.any { it.contains("模拟桌面组件刷新失败") })
++    }
+ }
+diff --git a/app/src/test/java/com/qingji/app/training/TrainingViewModelB112Test.kt b/app/src/test/java/com/qingji/app/training/TrainingViewModelB112Test.kt
+index b7584fa..38476b7 100644
+--- a/app/src/test/java/com/qingji/app/training/TrainingViewModelB112Test.kt
++++ b/app/src/test/java/com/qingji/app/training/TrainingViewModelB112Test.kt
+@@ -110,6 +110,8 @@ class TrainingViewModelB112Test {
+ 
+         // 第一次保存后：草稿应仍在（新 revision），旧快照 40kg 已落库
+         assertNotNull("保存期间的新草稿必须保留", repo.draftStore.load())
++        assertTrue("新草稿保留提示必须出现在最终成功消息里",
++            vm.message.value.orEmpty().contains("保存期间的新修改仍保留在草稿里"))
+         assertEquals(1, sessionCount("vm112-t15"))
+ 
+         // 第二次保存：用新草稿覆盖同一场
+@@ -420,6 +422,29 @@ class TrainingViewModelB112Test {
+         assertNull("条件清理成功后草稿应清空", store.load())
+     }
+ 
++    // ==================== T25：磁盘仍有草稿时必须给出提示（B1.1.2.2）====================
++    @Test
++    fun `T25 内存草稿为空但磁盘仍有草稿时保存成功必须提示草稿已保留`() = runBlocking {
++        val gate = CompletableDeferred<Unit>()
++        val call = AtomicInteger(0)
++        val repo = repoWith(saveHook = { if (call.incrementAndGet() == 1) gate.await() })
++        repo.draftStore.save(strengthDraft("vm112-t25-a", revision = 1L))
++        val vm = vm(repo)
++
++        val first = CompletableDeferred<Boolean>()
++        vm.save { first.complete(it) }   // A 保存卡在事务内
++        vm.discard()                     // 内存清空
++        repo.draftStore.save(strengthDraft("vm112-t25-b", revision = 3L)) // 磁盘换成 B
++        gate.complete(Unit)
++        assertTrue(withTimeout(5_000) { first.await() })
++
++        val finalMessage = vm.message.value.orEmpty()
++        assertTrue("草稿保留提示必须并入最终成功消息，不能静默留草稿：$finalMessage",
++            finalMessage.contains("草稿区仍有未清理的草稿"))
++        assertEquals("B 的草稿必须保留", "vm112-t25-b", repo.draftStore.load()!!.sessionUuid)
++        assertEquals("A 的数据库保存结果必须正确", 1, sessionCount("vm112-t25-a"))
++    }
++
+     // ==================== P0-1：数据库成功但 UI 回调异常不得误判为保存失败 ====================
+     @Test
+     fun `回调异常不得把已成功的数据库保存改成失败`() = runBlocking {

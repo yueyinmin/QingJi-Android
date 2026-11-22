@@ -1,0 +1,421 @@
+commit cc60ee4c8dab5f4583347961c4676f04225d0a65
+Author:     yueyinmin <69025039+yueyinmin@users.noreply.github.com>
+AuthorDate: Sun Nov 22 23:40:23 2026 +0800
+Commit:     yueyinmin <69025039+yueyinmin@users.noreply.github.com>
+CommitDate: Sun Nov 22 23:40:23 2026 +0800
+
+    fix(training): B1.1.2.1草稿身份竞态与备份恢复副作用收口
+
+diff --git a/app/src/main/java/com/qingji/app/data/backup/BackupManager.kt b/app/src/main/java/com/qingji/app/data/backup/BackupManager.kt
+index 1f485f8..a78c682 100644
+--- a/app/src/main/java/com/qingji/app/data/backup/BackupManager.kt
++++ b/app/src/main/java/com/qingji/app/data/backup/BackupManager.kt
+@@ -32,6 +32,14 @@ import java.io.File
+  * 用系统分享面板发到微信 / 网盘 / 电脑，不需要存储权限。
+  * ============================================================
+  */
++/**
++ * B1.1.2.1：恢复落库阶段产生的、必须等 Room 事务提交后才能应用的外部存储副作用。
++ * 不放进 ParsedBackup，也不写新表——只是一次性把待写值带回调用方。
++ */
++internal data class RestoreSideEffects(
++    val aiActiveProviderId: Int? = null
++)
++
+ class BackupManager(private val context: Context) {
+ 
+     private val db = AppDatabase.get(context)
+@@ -525,11 +533,20 @@ class BackupManager(private val context: Context) {
+ 
+             // ---------- 第二步：解析全部成功，才开事务落库 ----------
+             // 清「记录类」+ 灌入新数据都在 restoreInto 里，任何一步失败整事务回滚。
+-            db.withTransaction {
++            // restoreInto 只返回「待应用的外部存储副作用」，不在事务内写 SettingsStore(DataStore)。
++            val sideEffects = db.withTransaction {
+                 restoreInto(db, parsed)
+             }
+-            // 阶段B：仅在整份恢复事务成功提交后统一刷新一次（不在事务内、不逐条刷）。
+-            com.qingji.app.widget.WidgetRefresher.refresh(context)
++            // 阶段B：仅在整份恢复事务成功提交后才应用外部存储副作用/刷新。
++            // 这两步失败都不能把已经提交的数据库恢复误报成整体失败（B1.1.2.1 P1）。
++            runCatching {
++                sideEffects.aiActiveProviderId?.let { id ->
++                    com.qingji.app.data.prefs.SettingsStore.set(
++                        context, com.qingji.app.data.prefs.SettingsKeys.AI_ACTIVE_PROVIDER_ID, id
++                    )
++                }
++            }
++            runCatching { com.qingji.app.widget.WidgetRefresher.refresh(context) }
+ 
+             Result.success(summaryText(parsed))
+         } catch (e: Exception) {
+@@ -548,7 +565,10 @@ class BackupManager(private val context: Context) {
+      * - API Key 依然不进备份、不恢复，保留本机安全边界。
+      * 抽成 internal 并显式传库：单测可以直接灌内存 Room 验证这套语义。
+      */
+-    internal suspend fun restoreInto(target: AppDatabase, p: ParsedBackup) {
++    internal suspend fun restoreInto(target: AppDatabase, p: ParsedBackup): RestoreSideEffects {
++        // B1.1.2.1：Room 事务内只改数据库；外部存储写入攒到副作用里，事务提交后再应用。
++        var pendingAiActiveProviderId: Int? = null
++
+         // 清「记录类」+ 用户自建食物/收藏。
+         // 预置运动库不动 —— 它是 App 自带的，不是用户数据。
+         target.foodLogDao().clearAll()
+@@ -598,9 +618,9 @@ class BackupManager(private val context: Context) {
+             val restoredIds = p.aiConfigs.map { it.id }
+             val active = com.qingji.app.data.prefs.SettingsStore.observe(context).first().aiActiveProviderId
+             val valid = if (active in restoredIds) active else (restoredIds.firstOrNull() ?: 0)
+-            com.qingji.app.data.prefs.SettingsStore.set(
+-                context, com.qingji.app.data.prefs.SettingsKeys.AI_ACTIVE_PROVIDER_ID, valid
+-            )
++            // 只记录待写值：SettingsStore 是 DataStore，属于 Room 事务之外的存储系统，
++            // 在事务内 set 会导致「DB 回滚了但设置已改」的不一致（B1.1.2.1 P1）。
++            pendingAiActiveProviderId = valid
+         } else if (p.hasAiConfig) {
+             val dao = target.aiConfigDao()
+             if (p.aiConfig != null) dao.save(p.aiConfig!!) else dao.clearAll()
+@@ -705,6 +725,8 @@ class BackupManager(private val context: Context) {
+         // P1-01：备份恢复后清掉每日健康汇总缓存，否则下次查询仍读到恢复前的旧汇总。
+         // 仍在调用方的 db.withTransaction 内，整份恢复失败时连带回滚。
+         target.dailyHealthSummaryDao().clearAll()
++
++        return RestoreSideEffects(pendingAiActiveProviderId)
+     }
+ 
+     /**
+diff --git a/app/src/main/java/com/qingji/app/data/prefs/WorkoutDraftStore.kt b/app/src/main/java/com/qingji/app/data/prefs/WorkoutDraftStore.kt
+index 352e692..27bfd82 100644
+--- a/app/src/main/java/com/qingji/app/data/prefs/WorkoutDraftStore.kt
++++ b/app/src/main/java/com/qingji/app/data/prefs/WorkoutDraftStore.kt
+@@ -86,20 +86,22 @@ class WorkoutDraftStore(context: Context) {
+         .getSharedPreferences("workout_draft", Context.MODE_PRIVATE)
+ 
+     /**
+-     * B1.1.2 复审收口：草稿写入与「按 revision 条件清理」共用一把锁。
+-     * SharedPreferences.apply() 本身线程安全，但「读当前 revision + 删除」必须是
+-     * 一个不可分割的动作，否则保存完成时的清理可能误删保存期间刚写入的新草稿。
+-     */
+-    private val draftLock = Any()
+-
+-    /**
+-     * B1.1.2：草稿写入前钩子，生产为空操作。internal + 默认空操作，仅测试注入异常以验证
++     * B1.1.2.1：草稿写入前钩子，生产为空操作。internal + 默认空操作，仅测试注入异常以验证
+      * 「写入失败时内存 revision 与 SP 中 revision 保持一致」（T20）。
+      * SharedPreferences.apply() 只保证内存立即可见，物理磁盘写入由系统异步完成。
+      */
+     internal var saveHook: () -> Unit = {}
+ 
+     companion object {
++        /**
++         * B1.1.2.1：进程级共享锁。
++         * 生产架构里确实存在多个 WorkoutDraftStore 实例写同一个 workout_draft 文件
++         * （TrainingRepository 持有一个；QingJiRepository 在清草稿/恢复出厂时又 new 出实例），
++         * 实例级锁无法跨实例互斥，因此锁必须放在 companion 里。
++         * SharedPreferences 这里是 MODE_PRIVATE，不跨进程；多进程场景不在本类保证范围。
++         */
++        private val DRAFT_LOCK = Any()
++
+         private const val KEY_DRAFT = "draft_json"
+         private const val KEY_UNIT = "weight_unit"   // kg / lb，纯显示层，不进备份
+         private const val KEY_REST_DEFAULT = "rest_default_sec"  // 组间休息默认时长（秒）
+@@ -149,7 +151,7 @@ class WorkoutDraftStore(context: Context) {
+         }.getOrNull()?.takeIf { it.sessionUuid.isNotBlank() && it.startedAt > 0L }
+     }
+ 
+-    fun save(draft: WorkoutDraft) = synchronized(draftLock) {
++    fun save(draft: WorkoutDraft) = synchronized(DRAFT_LOCK) {
+         saveHook()   // B1.1.2：测试注入落盘失败（生产为空）
+         val o = JSONObject().apply {
+             put("sessionUuid", draft.sessionUuid)
+@@ -186,21 +188,28 @@ class WorkoutDraftStore(context: Context) {
+         sp.edit().putString(KEY_DRAFT, o.toString()).apply()
+     }
+ 
+-    fun clear() = synchronized(draftLock) { sp.edit().remove(KEY_DRAFT).apply() }
++    fun clear() = synchronized(DRAFT_LOCK) { sp.edit().remove(KEY_DRAFT).apply() }
+ 
+     /**
+-     * B1.1.2 复审收口：只在磁盘上的草稿仍是 expected 版本时才删除。
+-     * 读 revision 与删除在同一把 draftLock 内完成，保存期间的新写入不会被旧保存任务清掉。
++     * B1.1.2.1：同时校验草稿身份与版本，两者都匹配才删除。
++     * B1.1.2 只比较 revision 是不充分的：不同训练会话都可能 revision=1，
++     * 旧保存完成后会误删另一份新训练的草稿。
++     * 读取、身份校验、版本校验、删除全部在 DRAFT_LOCK 内完成；任一条件不满足都保留草稿。
+      * 返回是否真的删除；调用方据此决定内存 _draft 是否置空。
+      */
+-    internal fun clearIfRevision(expected: Long): Boolean = synchronized(draftLock) {
+-        if (load()?.revision == expected) {
+-            sp.edit().remove(KEY_DRAFT).apply()
+-            true
+-        } else {
+-            false
++    internal fun clearIfMatches(expectedSessionUuid: String, expectedRevision: Long): Boolean =
++        synchronized(DRAFT_LOCK) {
++            val current = load()
++            if (current != null &&
++                current.sessionUuid == expectedSessionUuid &&
++                current.revision == expectedRevision
++            ) {
++                sp.edit().remove(KEY_DRAFT).apply()
++                true
++            } else {
++                false
++            }
+         }
+-    }
+ 
+     /** kg/lb 只在显示层换算，库里永远存 kg。 */
+     fun unit(): String = sp.getString(KEY_UNIT, UNIT_KG) ?: UNIT_KG
+diff --git a/app/src/main/java/com/qingji/app/ui/viewmodel/TrainingViewModel.kt b/app/src/main/java/com/qingji/app/ui/viewmodel/TrainingViewModel.kt
+index 7d7fa83..b0838f8 100644
+--- a/app/src/main/java/com/qingji/app/ui/viewmodel/TrainingViewModel.kt
++++ b/app/src/main/java/com/qingji/app/ui/viewmodel/TrainingViewModel.kt
+@@ -602,28 +602,26 @@ class TrainingViewModel(app: Application, repoOverride: TrainingRepository? = nu
+ 
+                 // ---------- 第二段：数据库已成功提交，以下任何异常都不改变「已保存」事实 ----------
+                 try {
+-                    // B1.1.2 复审收口：版本比对和清理在 WorkoutDraftStore 的同一把锁内完成，
+-                    // 且只删「本次保存的那一个 revision」，旧保存任务不可能清掉期间写入的新草稿。
++                    // B1.1.2.1：清理只看「磁盘上的草稿是否仍是本次保存的那一份」。
++                    // 身份（sessionUuid）与版本（revision）必须同时匹配，且校验+删除在
++                    // WorkoutDraftStore 的进程级共享锁内完成；current==null 也不再无条件 clear。
+                     val current = _draft.value
++                    val cleared = runCatching {
++                        draftStore.clearIfMatches(snapshot.sessionUuid, snapshotRevision)
++                    }.getOrDefault(false)
+                     when {
++                        cleared -> _draft.value = null
+                         current == null -> {
+-                            runCatching { draftStore.clear() }
+-                            _draft.value = null
++                            // 内存已空但磁盘里是另一份草稿：原样保留，绝不能误删新训练（T22）
+                         }
+-                        current.revision == snapshotRevision -> {
+-                            val cleared = runCatching {
+-                                draftStore.clearIfRevision(snapshotRevision)
+-                            }.getOrDefault(false)
+-                            if (cleared) {
+-                                _draft.value = null
+-                            } else {
+-                                runCatching { say("这次训练已保存，但草稿版本已变化，草稿已保留以便检查") }
+-                            }
+-                        }
+-                        else -> {
++                        current.revision != snapshotRevision -> {
+                             // 保存期间又有新修改：新草稿（含同一 sessionUuid）留给下一次保存（T15/T16）
+                             runCatching { say("这次训练已保存；你在保存期间的新修改仍保留在草稿里，可再次保存") }
+                         }
++                        else -> {
++                            // 版本没变但身份变了（例如另一场训练），保留草稿并如实提示
++                            runCatching { say("这次训练已保存，但草稿身份或版本已变化，草稿已保留以便检查") }
++                        }
+                     }
+                     val hasActual = snapshot.exercises.any { e ->
+                         e.sets.any { s -> s.reps > 0 || s.weightKg > 0.0 } ||
+diff --git a/app/src/test/java/com/qingji/app/training/BackupRollbackB112Test.kt b/app/src/test/java/com/qingji/app/training/BackupRollbackB112Test.kt
+index 42068b0..1e2cf47 100644
+--- a/app/src/test/java/com/qingji/app/training/BackupRollbackB112Test.kt
++++ b/app/src/test/java/com/qingji/app/training/BackupRollbackB112Test.kt
+@@ -8,13 +8,18 @@ import com.qingji.app.data.backup.TrainingBackup
+ import com.qingji.app.data.backup.parseBackup
+ import com.qingji.app.data.local.AppDatabase
+ import com.qingji.app.data.local.entity.WorkoutSession
++import com.qingji.app.data.prefs.SettingsKeys
++import com.qingji.app.data.prefs.SettingsStore
+ import com.qingji.app.data.repository.HealthRepository
+ import com.qingji.app.data.repository.TrainingRepository
+ import com.qingji.app.domain.BackupFormat
+ import com.qingji.app.domain.WorkoutCalorieCalculator
+ import com.qingji.app.domain.WorkoutItem
+ import com.qingji.app.domain.WorkoutSet
++import kotlinx.coroutines.flow.first
+ import kotlinx.coroutines.runBlocking
++import org.json.JSONArray
++import org.json.JSONObject
+ import org.junit.After
+ import org.junit.Assert.assertEquals
+ import org.junit.Assert.assertNotNull
+@@ -111,4 +116,39 @@ class BackupRollbackB112Test {
+         assertEquals("训练备注不得被覆盖", "要保住的训练",
+             db.workoutSessionDao().findByUuid(uuid)!!.note)
+     }
++
++    @Test
++    fun `恢复落库只返回AI激活设置副作用不在Room事务内写DataStore`() = runBlocking {
++        val newId = 42
++        val aiConfig = JSONObject().apply {
++            put("id", newId)
++            put("displayName", "测试服务")
++            put("provider", "custom")
++            put("baseUrl", "https://example.com/v1")
++            put("textModel", "text-model")
++            put("visionModel", "vision-model")
++            put("temperature", 0.2)
++            put("timeoutSec", 30)
++            put("dailyLimit", 100)
++            put("enabled", true)
++        }
++        val root = JSONObject().apply {
++            put("app", "qingji")
++            put("version", BackupFormat.VERSION)
++            put("aiConfigs", JSONArray().put(aiConfig))
++        }
++        val parsed = parseBackup(root.toString()).getOrThrow()
++        val before = SettingsStore.observe(ctx).first().aiActiveProviderId
++
++        val manager = BackupManager(ctx)
++        val effects = db.withTransaction { manager.restoreInto(db, parsed) }
++
++        assertEquals("应返回待提交后应用的 AI 激活 ID", newId, effects.aiActiveProviderId)
++        assertEquals("Room 事务内不得写 DataStore 设置", before,
++            SettingsStore.observe(ctx).first().aiActiveProviderId)
++
++        // 显式应用副作用后，设置才更新（模拟 importJson 事务提交后的行为）
++        SettingsStore.set(ctx, SettingsKeys.AI_ACTIVE_PROVIDER_ID, effects.aiActiveProviderId!!)
++        assertEquals(newId, SettingsStore.observe(ctx).first().aiActiveProviderId)
++    }
+ }
+diff --git a/app/src/test/java/com/qingji/app/training/TrainingViewModelB112Test.kt b/app/src/test/java/com/qingji/app/training/TrainingViewModelB112Test.kt
+index b54d3ba..b7584fa 100644
+--- a/app/src/test/java/com/qingji/app/training/TrainingViewModelB112Test.kt
++++ b/app/src/test/java/com/qingji/app/training/TrainingViewModelB112Test.kt
+@@ -6,6 +6,7 @@ import com.qingji.app.data.local.AppDatabase
+ import com.qingji.app.data.local.entity.ExerciseEntity
+ import com.qingji.app.data.prefs.DraftExercise
+ import com.qingji.app.data.prefs.WorkoutDraft
++import com.qingji.app.data.prefs.WorkoutDraftStore
+ import com.qingji.app.data.repository.HealthRepository
+ import com.qingji.app.data.repository.TrainingRepository
+ import com.qingji.app.domain.ExerciseRecordType
+@@ -33,6 +34,8 @@ import org.junit.Before
+ import org.junit.Test
+ import org.junit.runner.RunWith
+ import org.robolectric.RobolectricTestRunner
++import java.util.concurrent.CountDownLatch
++import java.util.concurrent.TimeUnit
+ import java.util.concurrent.atomic.AtomicInteger
+ 
+ /**
+@@ -305,17 +308,115 @@ class TrainingViewModelB112Test {
+         assertTrue(withTimeout(5_000) { ok.await() })
+     }
+ 
+-    // ==================== 复审收口：按 revision 条件清理，不与保存期间的新写入互相覆盖 ====================
++    // ==================== T21：不同训练相同 revision 不得互相清理 ====================
+     @Test
+-    fun `条件清理只删除指定revision的草稿`() = runBlocking {
++    fun `T21 不同训练相同revision不得互相清理草稿`() = runBlocking {
++        val gate = CompletableDeferred<Unit>()
++        val call = AtomicInteger(0)
++        val repo = repoWith(saveHook = { if (call.incrementAndGet() == 1) gate.await() })
++        repo.draftStore.save(strengthDraft("vm112-t21-a", revision = 1L))
++        val vm = vm(repo)
++
++        val first = CompletableDeferred<Boolean>()
++        vm.save { first.complete(it) }   // A 保存卡在事务内
++
++        // 保存期间创建训练 B：同为 revision=1，但 sessionUuid 不同
++        repo.draftStore.save(strengthDraft("vm112-t21-b", revision = 1L))
++        gate.complete(Unit)
++        assertTrue(withTimeout(5_000) { first.await() })
++
++        val stored = repo.draftStore.load()
++        assertNotNull("A 的保存不得清理掉 B 的草稿", stored)
++        assertEquals("B 的 sessionUuid 必须保持", "vm112-t21-b", stored!!.sessionUuid)
++        assertEquals("B 的 revision 必须保持", 1L, stored.revision)
++        assertEquals("A 的数据库保存结果必须正确", 1, sessionCount("vm112-t21-a"))
++        assertNotNull("A 的日记投影必须存在", diaryOf("vm112-t21-a"))
++    }
++
++    // ==================== T22：内存草稿为空时不得无条件清理新草稿 ====================
++    @Test
++    fun `T22 内存草稿为空时不得无条件清理新草稿`() = runBlocking {
++        val gate = CompletableDeferred<Unit>()
++        val call = AtomicInteger(0)
++        val repo = repoWith(saveHook = { if (call.incrementAndGet() == 1) gate.await() })
++        repo.draftStore.save(strengthDraft("vm112-t22-a", revision = 1L))
++        val vm = vm(repo)
++
++        val first = CompletableDeferred<Boolean>()
++        vm.save { first.complete(it) }   // A 保存卡在事务内
++
++        // 保存期间：内存清空，并在 SharedPreferences 写入训练 B 的新草稿
++        vm.discard()
++        repo.draftStore.save(strengthDraft("vm112-t22-b", revision = 3L))
++        assertNull("前置条件：内存草稿已空", vm.draft.value)
++
++        gate.complete(Unit)
++        assertTrue(withTimeout(5_000) { first.await() })
++
++        val stored = repo.draftStore.load()
++        assertNotNull("current==null 不得无条件 clear，B 的草稿必须保留", stored)
++        assertEquals("B 的 sessionUuid 必须保持", "vm112-t22-b", stored!!.sessionUuid)
++        assertEquals("B 的 revision 必须保持", 3L, stored.revision)
++        assertEquals("A 的数据库保存结果必须正确", 1, sessionCount("vm112-t22-a"))
++    }
++
++    // ==================== T24：多 Store 实例共享锁 ====================
++    @Test
++    fun `T24 不同Store实例共享同一把草稿锁`() = runBlocking {
++        val store1 = WorkoutDraftStore(ctx)
++        val store2 = WorkoutDraftStore(ctx)
++        val entered = CountDownLatch(1)
++        val release = CountDownLatch(1)
++        store1.saveHook = {
++            entered.countDown()
++            release.await()   // 持有锁时阻塞，验证另一实例能否穿越
++        }
++
++        val t1 = Thread { store1.save(strengthDraft("vm112-t24-a", revision = 1L)) }
++        t1.start()
++        assertTrue("store1 应进入写入钩子", entered.await(5, TimeUnit.SECONDS))
++
++        val t2Done = CompletableDeferred<Unit>()
++        val t2 = Thread {
++            store2.save(strengthDraft("vm112-t24-b", revision = 2L))
++            t2Done.complete(Unit)
++        }
++        t2.start()
++        val finishedEarly = runCatching {
++            withTimeout(300) { t2Done.await() }
++            true
++        }.getOrDefault(false)
++        assertFalse("共享锁应阻塞另一实例的写入", finishedEarly)
++
++        release.countDown()
++        withTimeout(5_000) { t2Done.await() }
++        t1.join(5_000)
++        t2.join(5_000)
++        assertFalse("两个写入线程都应结束", t1.isAlive || t2.isAlive)
++
++        val finalDraft = store2.load()
++        assertNotNull(finalDraft)
++        assertEquals("后完成的写入应最终生效", "vm112-t24-b", finalDraft!!.sessionUuid)
++        assertEquals(2L, finalDraft.revision)
++    }
++
++    // ==================== T23：相同 sessionUuid 不同 revision 的条件清理 ====================
++    @Test
++    fun `T23 相同sessionUuid不同revision的条件清理`() = runBlocking {
+         val store = repoWith().draftStore
+-        store.save(strengthDraft("vm112-cond", revision = 7L))
++        store.save(strengthDraft("vm112-t23", revision = 2L))
++
++        assertFalse("按 revision=1 清理必须失败",
++            store.clearIfMatches("vm112-t23", 1L))
++        assertNotNull("清理失败时草稿必须还在", store.load())
++        assertEquals(2L, store.load()!!.revision)
+ 
+-        assertFalse("旧 revision 不得删掉新草稿", store.clearIfRevision(6L))
+-        assertNotNull("条件清理失败时草稿必须还在", store.load())
+-        assertEquals(7L, store.load()!!.revision)
++        assertFalse("不同 sessionUuid 同 revision 也必须失败",
++            store.clearIfMatches("vm112-t23-other", 2L))
++        assertNotNull("身份不匹配时草稿必须还在", store.load())
+ 
+-        assertTrue("同 revision 才允许清理", store.clearIfRevision(7L))
++        assertTrue("同身份同 revision 才允许清理",
++            store.clearIfMatches("vm112-t23", 2L))
+         assertNull("条件清理成功后草稿应清空", store.load())
+     }
+ 

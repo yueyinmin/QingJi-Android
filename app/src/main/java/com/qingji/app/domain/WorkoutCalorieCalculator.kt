@@ -32,6 +32,8 @@ object WorkoutCalorieCalculator {
     const val METHOD_STRENGTH_ONLY = "met_segmented"      // 与力量既有口径一致，纯力量场次可直接复用
     const val METHOD_MIXED = "workout_mixed"              // 力量+有氧混合
     const val METHOD_CARDIO_ONLY = "workout_cardio"       // 纯有氧场次
+    /** 有氧项目级：使用参数库真实存在的类型 MET + 体重 + 实际时长；无 MET 时留空不计算。 */
+    const val METHOD_MET_TYPE_DEFAULT = "met_type_default"
 
     /**
      * 整场热量汇总结果。

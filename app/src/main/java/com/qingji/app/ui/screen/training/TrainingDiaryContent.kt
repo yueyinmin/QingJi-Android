@@ -121,6 +121,8 @@ fun TrainingDiaryContent(
 ) {
     val sessions by vm.sessions.collectAsState()
     val allExercises by vm.allWorkoutExercises.collectAsState()
+    // B1.1：历史展示的统一数据源（力量 + 有氧 + HIIT/柔韧/其他）
+    val allItems by vm.allSessionItems.collectAsState()
     val unit by vm.unit.collectAsState()
     val message by vm.message.collectAsState()
 
@@ -166,6 +168,7 @@ fun TrainingDiaryContent(
     }
 
     val bySession = remember(allExercises) { allExercises.groupBy { it.sessionUuid } }
+    val byItemSession = remember(allItems) { allItems.groupBy { it.sessionUuid } }
     val trainingDates = remember(sessions) { sessions.map { it.date }.toSet() }
     val monthSessions = sessions.filter { YearMonth.from(it.date) == month }
     val monthMinutes = monthSessions.sumOf { it.durationMinutes }
@@ -308,6 +311,8 @@ fun TrainingDiaryContent(
                             SessionRow(
                                 session = s,
                                 exercises = bySession[s.uuid].orEmpty(),
+                                extraItems = byItemSession[s.uuid].orEmpty()
+                                    .filter { it !is com.qingji.app.domain.WorkoutItem.Strength },
                                 unit = unit,
                                 onDetail = { detailUuid = s.uuid },
                                 onEdit = { vm.editSession(s.uuid) { onEditSession() } },
@@ -335,8 +340,16 @@ fun TrainingDiaryContent(
     detailUuid?.let { uuid ->
         val session = sessions.firstOrNull { it.uuid == uuid }
         val items = bySession[uuid].orEmpty()
+        val sessionItems = byItemSession[uuid].orEmpty()
+        val nonStrengthItems = sessionItems.filter { it !is com.qingji.app.domain.WorkoutItem.Strength }
+        val sheetTitle = session?.note?.takeIf { it.isNotBlank() }
+            ?: when {
+                items.isEmpty() -> "训练记录"
+                nonStrengthItems.isEmpty() -> "力量训练"
+                else -> "混合训练"
+            }
         AppBottomSheet(
-            title = session?.note?.takeIf { it.isNotBlank() } ?: "力量训练",
+            title = sheetTitle,
             subtitle = session?.date?.toString().orEmpty(),
             skipPartiallyExpanded = true,
             onDismiss = { detailUuid = null }
@@ -394,6 +407,28 @@ fun TrainingDiaryContent(
                     }
                     Spacer(Modifier.height(10.dp))
                 }
+                // B1.1：有氧 / HIIT / 柔韧 / 其他按各自字段展示，不再空白组或混入力量。
+                nonStrengthItems.sortedBy { it.order }.forEach { item ->
+                    val (label, detail) = when (item) {
+                        is com.qingji.app.domain.WorkoutItem.Cardio -> "有氧" to buildString {
+                            if (item.durationSec > 0) append("${item.durationSec / 60} 分钟")
+                            item.distanceMeters?.let { append(" · ${"%.2f".format(it / 1000.0)} 公里") }
+                            item.intensity?.let { append(" · 强度 $it") }
+                            if (item.calculatedKcal > 0) append(" · 约 ${item.calculatedKcal.toInt()} 千卡")
+                        }
+                        is com.qingji.app.domain.WorkoutItem.Hiit -> "HIIT" to
+                            "${item.workSec}s 工作 / ${item.restSec}s 休息 × ${item.rounds} 轮"
+                        is com.qingji.app.domain.WorkoutItem.Flexibility -> "柔韧" to
+                            "${item.durationSec / 60} 分钟${item.content.takeIf { it.isNotBlank() }?.let { " · $it" }.orEmpty()}"
+                        is com.qingji.app.domain.WorkoutItem.Other -> "其他" to
+                            "${item.durationSec / 60} 分钟${item.reps?.let { " · $it 次" }.orEmpty()}"
+                        else -> "未知" to "保留原始数据"
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text("$label · ${item.name}", fontSize = TextSizes.CardTitle,
+                        fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                    Text("  $detail", fontSize = TextSizes.Body, color = TextPrimary)
+                }
                 val allSets = items.flatMap { TrainingMath.decodeSets(it.setsJson) }
                 val volume = TrainingMath.sessionVolume(allSets)
                 Text(
@@ -442,6 +477,7 @@ fun TrainingDiaryContent(
 private fun SessionRow(
     session: WorkoutSession,
     exercises: List<WorkoutExercise>,
+    extraItems: List<com.qingji.app.domain.WorkoutItem> = emptyList(),
     unit: String,
     onDetail: () -> Unit,
     onEdit: () -> Unit,
@@ -455,12 +491,13 @@ private fun SessionRow(
         Column {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(session.note.takeIf { it.isNotBlank() } ?: "力量训练",
+                Text(session.note.takeIf { it.isNotBlank() }
+                    ?: if (extraItems.isEmpty()) "力量训练" else "混合训练",
                     fontSize = TextSizes.CardTitle,
                     fontWeight = FontWeight.SemiBold, color = TextPrimary)
                 Spacer(Modifier.height(3.dp))
                 Text(
-                    "${session.date} · ${session.durationMinutes} 分钟 · ${exercises.size} 个动作 · ${allSets.size} 组 · 训练量 ${TrainingMath.formatVolume(volume)}",
+                    "${session.date} · ${session.durationMinutes} 分钟 · ${exercises.size + extraItems.size} 个动作 · ${allSets.size} 组 · 训练量 ${TrainingMath.formatVolume(volume)}",
                     fontSize = TextSizes.Tiny, color = TextSecondary
                 )
             }
@@ -497,6 +534,24 @@ private fun SessionRow(
                     }
                 }
             }
+        }
+        extraItems.sortedBy { it.order }.forEach { item ->
+            Spacer(Modifier.height(6.dp))
+            val label = when (item) {
+                is com.qingji.app.domain.WorkoutItem.Cardio -> "有氧"
+                is com.qingji.app.domain.WorkoutItem.Hiit -> "HIIT"
+                is com.qingji.app.domain.WorkoutItem.Flexibility -> "柔韧"
+                else -> "其他"
+            }
+            val sub = when (item) {
+                is com.qingji.app.domain.WorkoutItem.Cardio ->
+                    "${item.durationSec / 60} 分钟" + (item.distanceMeters?.let { " · ${"%.2f".format(it / 1000.0)} 公里" }.orEmpty())
+                is com.qingji.app.domain.WorkoutItem.Hiit -> "${item.workSec}s/${item.restSec}s × ${item.rounds} 轮"
+                is com.qingji.app.domain.WorkoutItem.Flexibility -> "${item.durationSec / 60} 分钟"
+                is com.qingji.app.domain.WorkoutItem.Other -> "${item.durationSec / 60} 分钟"
+                else -> "已保留"
+            }
+            Text("$label · ${item.name} · $sub", fontSize = TextSizes.Tiny, color = TextPrimary)
         }
         Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
             if (session.date == AppClock.today()) {

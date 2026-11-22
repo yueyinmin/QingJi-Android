@@ -6,14 +6,19 @@ import androidx.lifecycle.viewModelScope
 import com.qingji.app.data.local.entity.ExerciseEntity
 import com.qingji.app.data.local.entity.WorkoutExercise
 import com.qingji.app.data.local.entity.WorkoutSession
+import com.qingji.app.data.prefs.DraftClearOutcome
 import com.qingji.app.data.prefs.DraftExercise
 import com.qingji.app.data.prefs.WorkoutDraft
 import com.qingji.app.data.repository.TrainingRepository
 import com.qingji.app.domain.AppClock
+import com.qingji.app.domain.ExerciseCalorieHint
 import com.qingji.app.domain.PlanToDraftMapper
 import com.qingji.app.domain.RestTimerState
 import com.qingji.app.domain.SessionCalorieCalculator
+import com.qingji.app.domain.TrainingItemMapper
 import com.qingji.app.domain.TrainingMath
+import com.qingji.app.domain.WorkoutItem
+import com.qingji.app.domain.hasActualData
 import com.qingji.app.domain.WorkoutSet
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,6 +29,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * ============================================================
@@ -44,10 +50,26 @@ enum class TrainingInitState {
     Failed          // 计划读取失败（已按空白继续，界面给重试提示）
 }
 
-class TrainingViewModel(app: Application) : AndroidViewModel(app) {
+/**
+ * 用 @JvmOverloads 生成 <init>(Application) 与 <init>(Application, TrainingRepository) 两个 Java 构造。
+ * Compose 的 viewModel() 走 AndroidViewModel 默认工厂，按 <init>(Application) 精确反射；
+ * 若省略 @JvmOverloads，带默认值的第二参数会让 Kotlin 只生成两参合成构造，
+ * 反射抛 NoSuchMethodException → 启动闪退（DiaryPrivacyViewModel 同款坑）。
+ * 第二个构造保留供测试注入仓库替身。
+ */
+class TrainingViewModel @JvmOverloads constructor(
+    app: Application,
+    repoOverride: TrainingRepository? = null
+) : AndroidViewModel(app) {
 
-    private val repo = TrainingRepository(app)
+    private val repo = repoOverride ?: TrainingRepository(app)
     val draftStore = repo.draftStore
+
+    // B1.1.1 P0：保存互斥。CAS 在调用线程立即上锁，协程调度前第二次点击就会被拒；
+    // 不依赖 UI 禁用按钮——ViewModel 层本身就是最后一道闸。
+    private val savingGuard = AtomicBoolean(false)
+    private val _isSaving = MutableStateFlow(false)
+    val isSaving: StateFlow<Boolean> = _isSaving.asStateFlow()
 
     // ---------- v1.4 健康体系：组间休息计时 ----------
     // 时间戳驱动（和整场训练计时同一个思路）：只存「倒计时到哪一刻结束」，
@@ -94,6 +116,10 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
 
     /** 所有训练明细，按 sessionUuid 分组后给历史列表算组数 / 训练量。 */
     val allWorkoutExercises: StateFlow<List<WorkoutExercise>> = repo.observeAllWorkoutExercises()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** B1.1：历史/日记统一数据源——所有训练类型都从这里读，不再只读力量表。 */
+    val allSessionItems: StateFlow<List<WorkoutItem>> = repo.observeAllSessionItems()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     // ---------- v1.4 健康体系：热量估算支持 ----------
@@ -266,19 +292,24 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
     /** 当天已保存的会话可以继续改明细；时间与时长保留原值。 */
     fun editSession(uuid: String, onLoaded: () -> Unit = {}) {
         viewModelScope.launch {
-            val (session, items) = repo.sessionDetail(uuid)
+            val detail = repo.sessionDetail(uuid)
+            val session = detail.session
             if (session == null) {
                 say("这次训练已经不在了")
                 return@launch
             }
             val t = System.currentTimeMillis()
-            val draftExercises = items.map { item ->
+            // B1.1：完整会话回草稿——力量、有氧和 HIIT/柔韧/其他都带类型、目标与原始输入回来。
+            val draftExercises = detail.items.map { item ->
                 DraftExercise(
                     key = UUID.randomUUID().toString(),
                     exerciseUuid = item.exerciseUuid,
-                    name = item.exerciseNameSnapshot,
-                    sets = TrainingMath.decodeSets(item.setsJson),
-                    note = item.note
+                    name = item.name,
+                    sets = (item as? WorkoutItem.Strength)?.sets.orEmpty(),
+                    note = item.note,
+                    recordType = item.recordType.key,
+                    targetConfigJson = item.targetConfigJson,
+                    actualJson = WorkoutItem.toJson(item)
                 )
             }
             persist(
@@ -313,14 +344,17 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val last = repo.lastSets(item.uuid, item.name)
             val sets = if (last.isNotEmpty()) last else listOf(WorkoutSet())
+            // B1.1：手动添加统一走 TrainingTypeResolver，有氧动作不再被默认成力量。
+            val type = TrainingItemMapper.resolveType(item.recordType, item)
             persist(
                 d.copy(
                     exercises = d.exercises + DraftExercise(
                         key = UUID.randomUUID().toString(),
                         exerciseUuid = item.uuid,
                         name = item.name,
-                        sets = sets,
-                        fromLast = last.isNotEmpty()
+                        sets = if (type == com.qingji.app.domain.ExerciseRecordType.STRENGTH) sets else emptyList(),
+                        fromLast = last.isNotEmpty() && type == com.qingji.app.domain.ExerciseRecordType.STRENGTH,
+                        recordType = type.key
                     )
                 )
             )
@@ -340,6 +374,14 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
         persist(d.copy(exercises = d.exercises.map { e ->
             if (e.key != key) e
             else e.copy(sets = e.sets.mapIndexed { i, s -> if (i == index) set else s })
+        }))
+    }
+
+    /** B1.1：非力量项目的实际录入（时长/距离/间歇字段），按动作 key 稳定绑定。 */
+    fun updateActual(key: String, actual: WorkoutItem) {
+        val d = _draft.value ?: return
+        persist(d.copy(exercises = d.exercises.map { e ->
+            if (e.key != key) e else e.copy(actualJson = WorkoutItem.toJson(actual))
         }))
     }
 
@@ -435,17 +477,47 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
         return item
     }
 
-    /** 保存：整包写库，成功后草稿作废。返回 false 表示没达到「至少 1 组」的门槛。 */
+    /**
+     * 保存：整包写库，成功后草稿作废。
+     * B1.1.1 P0：入口 CAS 互斥 + 快照 revision + 失败保留草稿。
+     * 返回 false 表示没达到门槛、正在保存中或保存失败。
+     */
     fun save(onDone: (Boolean) -> Unit) {
-        val d = _draft.value ?: run { onDone(false); return }
-        // 统一体系 V2.1：力量项按"至少一组有效"；有氧/HIIT 项按 recordType 分流，
-        // 它们没有 sets，不能沿用力量门槛（这是之前有氧计划保存不进去的根因之一）。
-        val cardioExercises = d.exercises.filter { it.recordType.isNotBlank() }
-        val cleaned = d.exercises.filter { it.recordType.isBlank() }.map { e ->
-            e.copy(sets = e.sets.filter { it.reps > 0 || it.weightKg > 0.0 })
-        }.filter { it.sets.isNotEmpty() }
-        if (cleaned.isEmpty() && cardioExercises.isEmpty()) {
-            say("至少要记一组或一个有氧项目才能保存")
+        // 1) 抢锁：任何时刻只有一个 save 能往前走。 superstition: 不用 UI disable 当唯一保护。
+        if (!savingGuard.compareAndSet(false, true)) {
+            say("正在保存，请稍候")
+            onDone(false)
+            return
+        }
+        _isSaving.value = true
+
+        val d = _draft.value
+        if (d == null) {
+            savingGuard.set(false)
+            _isSaving.value = false
+            onDone(false)
+            return
+        }
+        // 2) 不可变快照：本次所有 DB 操作只读这个 d，不受后续编辑影响。
+        val snapshot = d
+        val snapshotRevision = snapshot.revision
+        // B1.1 P0：强类型分流。空串按历史语义回退 STRENGTH；未知 key 降级 OTHER，绝不默认 CARDIO。
+        val typed = d.exercises.map { e ->
+            val entity = exercises.value.firstOrNull { it.uuid == e.exerciseUuid }
+            val type = TrainingItemMapper.resolveType(e.recordType, entity)
+            e to type
+        }
+        val strengthDrafts = typed.filter { (e, type) ->
+            type == com.qingji.app.domain.ExerciseRecordType.STRENGTH &&
+                e.sets.any { s -> s.reps > 0 || s.weightKg > 0.0 || (s.durationSec ?: 0) > 0 }
+        }.map { (e, _) ->
+            e.copy(sets = e.sets.filter { s -> s.reps > 0 || s.weightKg > 0.0 || (s.durationSec ?: 0) > 0 })
+        }
+        val nonStrength = typed.filter { (_, type) -> type != com.qingji.app.domain.ExerciseRecordType.STRENGTH }
+        if (strengthDrafts.isEmpty() && nonStrength.isEmpty()) {
+            say("至少要记一组有效力量或一个非力量项目才能保存")
+            savingGuard.set(false)
+            _isSaving.value = false
             onDone(false)
             return
         }
@@ -498,49 +570,96 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
             )
         }
 
-        val items = cleaned.mapIndexed { i, e ->
-            WorkoutExercise(
-                sessionUuid = d.sessionUuid,
-                exerciseUuid = e.exerciseUuid,
-                exerciseNameSnapshot = e.name,
-                orderInSession = i,
-                setsJson = TrainingMath.encodeSets(e.sets),
-                note = e.note
-            )
-        }
-        // 有氧/HIIT 项目：目标时长/距离作为实际值预填（无目标时留 0，由结算判不可算）。
-        val cardioDetails = cardioExercises.mapIndexed { i, e ->
-            val cfg = com.qingji.app.domain.TargetConfigJson.decode(e.targetConfigJson)
-            com.qingji.app.data.local.entity.WorkoutCardioDetail(
-                exerciseUuid = e.exerciseUuid,
-                exerciseNameSnapshot = e.name,
-                orderInSession = cleaned.size + i,
-                durationSeconds = cfg?.durationSec ?: 0L,
-                distanceMeters = cfg?.distanceMeters,
-                rawInputJson = cfg?.intensity?.let { intensity ->
-                    org.json.JSONObject().put("intensity", intensity).toString()
-                }.orEmpty(),
-                createdAt = System.currentTimeMillis()
-            )
-        }
-
         viewModelScope.launch {
+            // B1.1.2 P0：weight 提到最外层作用域，供「数据库段」与「提示段」共用。
             val weight = settleWeight.value
-            // 统一入口：有氧明细与力量明细同场落库，整场只写一条账本，不双结算。
-            val result = repo.saveUnifiedSession(session, items, cardioDetails, weight)
-            draftStore.clear()
-            _draft.value = null
-            val kcalText = if (result.totalKcal > 0.0)
-                "，预计消耗约 ${com.qingji.app.domain.SessionCalorieCalculator.displayKcal(result.totalKcal)} 千卡（估算）"
-            else ""
-            say(
-                when {
-                    result.hasSkipped -> "训练已保存${kcalText}；${result.notComputableItems} 项有氧缺少时长/距离未计入消耗"
-                    !editing -> "训练已保存${kcalText}"
-                    else -> "已更新这次训练，消耗已重新结算${kcalText}"
+            try {
+                // ---------- 第一段：数据库保存。只有这里的异常才算「保存失败」 ----------
+                val result = try {
+                    val mets = metDefaults.value
+                    // 按快照构建统一项目；目标只在 targetConfigJson，实际值只来自用户录入。
+                    val allItems = snapshot.exercises.mapIndexed { i, e ->
+                        val entity = exercises.value.firstOrNull { it.uuid == e.exerciseUuid }
+                        val type = TrainingItemMapper.resolveType(e.recordType, entity)
+                        if (type == com.qingji.app.domain.ExerciseRecordType.STRENGTH) {
+                            val cleaned = if (strengthDrafts.any { it.key == e.key }) {
+                                e.copy(sets = e.sets.filter { s -> s.reps > 0 || s.weightKg > 0.0 || (s.durationSec ?: 0) > 0 })
+                            } else e
+                            TrainingItemMapper.draftToItem(cleaned, type, snapshot.sessionUuid, i)
+                        } else {
+                            var item = TrainingItemMapper.draftToItem(e, type, snapshot.sessionUuid, i)
+                            if (item is WorkoutItem.Cardio) {
+                                item = TrainingItemMapper.withCardioKcal(item, entity, mets, weight)
+                            }
+                            item
+                        }
+                    }
+                    val strengthItems = allItems.filterIsInstance<WorkoutItem.Strength>()
+                    val cardioItems = allItems.filterIsInstance<WorkoutItem.Cardio>()
+                    val otherItems = allItems.filter {
+                        it !is WorkoutItem.Strength && it !is WorkoutItem.Cardio
+                    }
+                    // 统一入口：力量 + HIIT/柔韧/其他写 workout_exercise，只有 CARDIO 写有氧明细。
+                    repo.saveUnifiedSession(session, strengthItems + otherItems, cardioItems, weight)
+                } catch (c: kotlinx.coroutines.CancellationException) {
+                    // B1.1.2 P0：协程取消不是保存失败，交给结构化并发正确处理（不吞）。
+                    throw c
+                } catch (e: Exception) {
+                    // 数据库/事务失败：草稿一个字节都不动，回调 false 让用户重试。
+                    runCatching { say("保存失败，草稿已保留，请重试：${e.message ?: "未知错误"}") }
+                    runCatching { onDone(false) }
+                    return@launch
                 }
-            )
-            onDone(true)
+
+                // ---------- 第二段：数据库已成功提交，以下任何异常都不改变「已保存」事实 ----------
+                try {
+                    // B1.1.2.2：清理只看「磁盘上的草稿是否仍是本次保存的那一份」。
+                    // 身份（sessionUuid）与版本（revision）必须同时匹配，且校验+删除在
+                    // WorkoutDraftStore 的进程级共享锁内完成；current==null 也不再无条件 clear。
+                    // 清理抛异常时保守认为磁盘草稿仍在，保证用户一定能收到提示（T25）。
+                    val outcome = runCatching {
+                        draftStore.clearIfMatchesDetailed(snapshot.sessionUuid, snapshotRevision)
+                    }.getOrDefault(DraftClearOutcome(cleared = false, draftRemains = true))
+                    val current = _draft.value
+                    // B1.1.2.2：草稿保留提示必须并入最终成功消息。原先先 say 保留提示、
+                    // 紧接着再 say 保存成功，StateFlow 会把第一条合并掉，用户实际看不到，
+                    // 等于「磁盘还有草稿却没有任何提示」。
+                    val draftNotice = when {
+                        outcome.cleared -> {
+                            _draft.value = null
+                            null
+                        }
+                        !outcome.draftRemains -> null  // 磁盘本来就是空的
+                        current != null && current.revision != snapshotRevision ->
+                            "保存期间的新修改仍保留在草稿里，可再次保存"   // T15/T16
+                        else -> "草稿区仍有未清理的草稿，已为你保留"        // T22/T25
+                    }
+                    val hasActual = snapshot.exercises.any { e ->
+                        e.sets.any { s -> s.reps > 0 || s.weightKg > 0.0 } ||
+                            WorkoutItem.fromJson(e.actualJson)?.hasActualData() == true
+                    }
+                    val kcalText = ExerciseCalorieHint.message(hasActual, weight > 0.0, result)
+                    val baseMessage = when {
+                        result.hasSkipped -> "训练已保存${kcalText}；${result.notComputableItems} 项缺少可靠时长/参数未计入消耗"
+                        !editing -> "训练已保存${kcalText}"
+                        else -> "已更新这次训练，消耗已重新结算${kcalText}"
+                    }
+                    runCatching {
+                        say(if (draftNotice == null) baseMessage else "$baseMessage；$draftNotice")
+                    }
+                } catch (c: kotlinx.coroutines.CancellationException) {
+                    throw c
+                } catch (e: Exception) {
+                    // 草稿清理/提示异常：数据已落库，绝不误报保存失败，也不回滚数据库。
+                    runCatching { say("训练已保存，但界面刷新遇到问题") }
+                }
+                // 回调只执行一次；其异常属于调用方 UI，不影响已经完成的数据库保存。
+                runCatching { onDone(true) }
+            } finally {
+                // 所有正常 / 异常 / 取消路径都释放锁。
+                savingGuard.set(false)
+                _isSaving.value = false
+            }
         }
     }
 
@@ -552,9 +671,21 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** 每次改动都同步落盘，进程被杀也能恢复。 */
+    /**
+     * 每次改动都写 SharedPreferences，进程被杀也能恢复；revision 单调递增供保存版本比对。
+     * B1.1.2：先调用 draftStore.save() 成功、再更新内存，保证内存 revision 与
+     * SharedPreferences 中的 revision 一致；写入调用失败则内存保持旧值并明确提示，
+     * 绝不出现「内存已改、SP 未改」的版本错位（T20）。
+     * 注意：SharedPreferences.apply() 只保证内存立即可见，物理磁盘写入由系统异步完成，
+     * 这里不宣称已同步刷盘。
+     */
     private fun persist(d: WorkoutDraft) {
-        _draft.value = d
-        draftStore.save(d)
+        val versioned = d.copy(revision = d.revision + 1L)
+        val ok = runCatching { draftStore.save(versioned) }
+        if (ok.isSuccess) {
+            _draft.value = versioned
+        } else {
+            say("草稿保存失败（存储空间可能不足），这次修改没有保留，请重试")
+        }
     }
 }

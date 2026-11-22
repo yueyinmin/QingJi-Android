@@ -2,6 +2,7 @@ package com.qingji.app.data.backup
 
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import androidx.room.withTransaction
 import com.qingji.app.data.local.AppDatabase
 import com.qingji.app.data.local.entity.ExerciseEntity
@@ -32,9 +33,38 @@ import java.io.File
  * 用系统分享面板发到微信 / 网盘 / 电脑，不需要存储权限。
  * ============================================================
  */
-class BackupManager(private val context: Context) {
+/**
+ * B1.1.2.1：恢复落库阶段产生的、必须等 Room 事务提交后才能应用的外部存储副作用。
+ * 不放进 ParsedBackup，也不写新表——只是一次性把待写值带回调用方。
+ */
+internal data class RestoreSideEffects(
+    val aiActiveProviderId: Int? = null
+)
 
-    private val db = AppDatabase.get(context)
+private const val TAG = "BackupManager"
+
+class BackupManager(
+    private val context: Context,
+    /** B1.1.2.2：生产不传；测试注入独立 Room 实例，验证 importJson() 真实入口。 */
+    dbOverride: AppDatabase? = null,
+    /** B1.1.2.2：生产写真实 DataStore；测试可注入失败，验证副作用失败不误报恢复失败。 */
+    private val aiSettingWriter: suspend (Int) -> Unit = { id ->
+        com.qingji.app.data.prefs.SettingsStore.set(
+            context, com.qingji.app.data.prefs.SettingsKeys.AI_ACTIVE_PROVIDER_ID, id
+        )
+    },
+    /** B1.1.2.2：生产刷新真实桌面组件；测试可注入失败，验证两类日志可区分。 */
+    private val widgetRefresher: () -> Unit = { com.qingji.app.widget.WidgetRefresher.refresh(context) }
+) {
+
+    private val db = dbOverride ?: AppDatabase.get(context)
+
+    /**
+     * B1.1.2：恢复事务中途钩子，生产为空操作。
+     * internal + 默认空操作，仅测试可注入异常；测试在训练段清表之后、灌入之前注入异常，
+     * 真实验证 db.withTransaction 的整事务回滚，不暴露给业务 UI。
+     */
+    internal var restoreHook: suspend () -> Unit = {}
 
     /** 备份目录：App 私有外部目录，卸载 App 会被清掉，所以务必先分享出去。 */
     private fun backupDir(): File {
@@ -151,7 +181,8 @@ class BackupManager(private val context: Context) {
             planDays = db.trainingPlanDayDao().findAll(),
             planExercises = db.planExerciseDao().findAll(),
             sessions = db.workoutSessionDao().findAll(),
-            workoutExercises = db.workoutExerciseDao().findAll()
+            workoutExercises = db.workoutExerciseDao().findAll(),
+            cardioDetails = db.workoutCardioDetailDao().findAll()
         )
         // v4：自律模块 7 张表整包带走，换手机不丢自律记录（settings 用已有的 getAll()）
         val selfDiscipline = SelfDisciplineBackup(
@@ -517,11 +548,23 @@ class BackupManager(private val context: Context) {
 
             // ---------- 第二步：解析全部成功，才开事务落库 ----------
             // 清「记录类」+ 灌入新数据都在 restoreInto 里，任何一步失败整事务回滚。
-            db.withTransaction {
+            // restoreInto 只返回「待应用的外部存储副作用」，不在事务内写 SettingsStore(DataStore)。
+            val sideEffects = db.withTransaction {
                 restoreInto(db, parsed)
             }
-            // 阶段B：仅在整份恢复事务成功提交后统一刷新一次（不在事务内、不逐条刷）。
-            com.qingji.app.widget.WidgetRefresher.refresh(context)
+            // 阶段B：仅在整份恢复事务成功提交后才应用外部存储副作用/刷新。
+            // 外部存储（DataStore / 桌面组件）不属于 Room 事务，无法被它回滚；
+            // 这两步失败只分别记日志，绝不把已经提交的数据库恢复误报成整体失败（B1.1.2.2）。
+            runCatching {
+                sideEffects.aiActiveProviderId?.let { id -> aiSettingWriter(id) }
+            }.onFailure { e ->
+                val reason = e.message ?: "未知原因"
+                Log.w(TAG, "备份恢复已提交：AI 激活服务设置写入失败（$reason），请手动检查 AI 设置", e)
+            }
+            runCatching { widgetRefresher() }.onFailure { e ->
+                val reason = e.message ?: "未知原因"
+                Log.w(TAG, "备份恢复已提交：桌面组件刷新失败（$reason），下次进入首页会自动刷新", e)
+            }
 
             Result.success(summaryText(parsed))
         } catch (e: Exception) {
@@ -540,7 +583,10 @@ class BackupManager(private val context: Context) {
      * - API Key 依然不进备份、不恢复，保留本机安全边界。
      * 抽成 internal 并显式传库：单测可以直接灌内存 Room 验证这套语义。
      */
-    internal suspend fun restoreInto(target: AppDatabase, p: ParsedBackup) {
+    internal suspend fun restoreInto(target: AppDatabase, p: ParsedBackup): RestoreSideEffects {
+        // B1.1.2.1：Room 事务内只改数据库；外部存储写入攒到副作用里，事务提交后再应用。
+        var pendingAiActiveProviderId: Int? = null
+
         // 清「记录类」+ 用户自建食物/收藏。
         // 预置运动库不动 —— 它是 App 自带的，不是用户数据。
         target.foodLogDao().clearAll()
@@ -590,9 +636,9 @@ class BackupManager(private val context: Context) {
             val restoredIds = p.aiConfigs.map { it.id }
             val active = com.qingji.app.data.prefs.SettingsStore.observe(context).first().aiActiveProviderId
             val valid = if (active in restoredIds) active else (restoredIds.firstOrNull() ?: 0)
-            com.qingji.app.data.prefs.SettingsStore.set(
-                context, com.qingji.app.data.prefs.SettingsKeys.AI_ACTIVE_PROVIDER_ID, valid
-            )
+            // 只记录待写值：SettingsStore 是 DataStore，属于 Room 事务之外的存储系统，
+            // 在事务内 set 会导致「DB 回滚了但设置已改」的不一致（B1.1.2.1 P1）。
+            pendingAiActiveProviderId = valid
         } else if (p.hasAiConfig) {
             val dao = target.aiConfigDao()
             if (p.aiConfig != null) dao.save(p.aiConfig!!) else dao.clearAll()
@@ -658,11 +704,15 @@ class BackupManager(private val context: Context) {
             target.planExerciseDao().clearAll()
             target.workoutSessionDao().clearAll()
             target.workoutExerciseDao().clearAll()
+            target.workoutCardioDetailDao().clearAll()
+            // B1.1.2：训练段「已清表、未灌入」的中途点注入异常，验证整事务回滚。
+            restoreHook()
             if (t.plans.isNotEmpty()) target.trainingPlanDao().insertAll(t.plans)
             if (t.planDays.isNotEmpty()) target.trainingPlanDayDao().insertAll(t.planDays)
             if (t.planExercises.isNotEmpty()) target.planExerciseDao().insertAll(t.planExercises)
             if (t.sessions.isNotEmpty()) target.workoutSessionDao().insertAll(t.sessions)
             if (t.workoutExercises.isNotEmpty()) target.workoutExerciseDao().insertAll(t.workoutExercises)
+            if (t.cardioDetails.isNotEmpty()) target.workoutCardioDetailDao().insertAll(t.cardioDetails)
         }
 
         // ---------- v4 自律段 ----------
@@ -693,6 +743,8 @@ class BackupManager(private val context: Context) {
         // P1-01：备份恢复后清掉每日健康汇总缓存，否则下次查询仍读到恢复前的旧汇总。
         // 仍在调用方的 db.withTransaction 内，整份恢复失败时连带回滚。
         target.dailyHealthSummaryDao().clearAll()
+
+        return RestoreSideEffects(pendingAiActiveProviderId)
     }
 
     /**

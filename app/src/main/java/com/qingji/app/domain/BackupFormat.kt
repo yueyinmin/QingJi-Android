@@ -35,7 +35,12 @@ object BackupFormat {
      * version < 3 / < 4 / < 5 / < 6 / < 7 的老备份**不清本机对应表**（那时还没有这个模块），
      * 免得导旧备份把新记的数据弄丢；version >= 对应版本才整包覆盖。
      */
-    const val VERSION = 7
+    /**
+     * 8 = B1.1 训练段补入 workout_cardio_detail 与 recordType/targetConfigJson/itemMetaJson。
+     *     老备份缺这些字段时按安全默认值读取；version < 8 的训练段仍按 v3 规则整包覆盖，
+     *     有氧明细缺省为空，不会把老备份误判成“没有训练模块”。
+     */
+    const val VERSION = 8
 
     /** CSV 表头，顺序不能乱，Excel 里看到的列顺序就是它。 */
     val CSV_HEADER = listOf(

@@ -122,17 +122,10 @@ class ExerciseViewModel(app: Application) : AndroidViewModel(app) {
                     uuid = uuid, date = today, startedAt = 0L, endedAt = 0L,
                     durationMinutes = 0, note = "快速补记", source = "quick_log"
                 )
-                val item = com.qingji.app.data.local.entity.WorkoutExercise(
-                    sessionUuid = uuid, exerciseUuid = exerciseUuid,
-                    exerciseNameSnapshot = exerciseName, orderInSession = 0,
-                    setsJson = com.qingji.app.domain.TrainingMath.encodeSets(sets),
-                    itemMetaJson = com.qingji.app.domain.WorkoutItem.toJson(
-                        com.qingji.app.domain.WorkoutItem.Strength(
-                            itemId = java.util.UUID.randomUUID().toString(),
-                            exerciseUuid = exerciseUuid, name = exerciseName, order = 0,
-                            sessionUuid = uuid, sets = sets
-                        )
-                    )
+                val item = com.qingji.app.domain.WorkoutItem.Strength(
+                    itemId = java.util.UUID.randomUUID().toString(),
+                    exerciseUuid = exerciseUuid, name = exerciseName, order = 0,
+                    sessionUuid = uuid, sets = sets
                 )
                 // saveUnifiedSession：力量+有氧整场一条账本（有氧列表为空）
                 trainingRepo.saveUnifiedSession(session, listOf(item), emptyList(), weightKg)

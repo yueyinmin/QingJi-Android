@@ -39,7 +39,8 @@ class BackupExportScopeTest {
                 )
             )
         )
-        assertEquals(7, root.getInt("version"))
+        // v8 = B1.1 训练段补入 cardioDetails 与类型/目标/元数据字段
+        assertEquals(8, root.getInt("version"))
         // 多服务数组不含任何 Key 字段
         val arr = root.getJSONArray("aiConfigs")
         for (i in 0 until arr.length()) {

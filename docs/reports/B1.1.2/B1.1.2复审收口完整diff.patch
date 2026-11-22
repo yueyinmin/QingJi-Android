@@ -1,0 +1,252 @@
+diff --git a/app/src/main/java/com/qingji/app/data/backup/BackupManager.kt b/app/src/main/java/com/qingji/app/data/backup/BackupManager.kt
+index 7caba81..1f485f8 100644
+--- a/app/src/main/java/com/qingji/app/data/backup/BackupManager.kt
++++ b/app/src/main/java/com/qingji/app/data/backup/BackupManager.kt
+@@ -38,9 +38,10 @@ class BackupManager(private val context: Context) {
+ 
+     /**
+      * B1.1.2：恢复事务中途钩子，生产为空操作。
+-     * 测试在训练段清表之后、灌入之前注入异常，真实验证 db.withTransaction 的整事务回滚。
++     * internal + 默认空操作，仅测试可注入异常；测试在训练段清表之后、灌入之前注入异常，
++     * 真实验证 db.withTransaction 的整事务回滚，不暴露给业务 UI。
+      */
+-    var restoreHook: suspend () -> Unit = {}
++    internal var restoreHook: suspend () -> Unit = {}
+ 
+     /** 备份目录：App 私有外部目录，卸载 App 会被清掉，所以务必先分享出去。 */
+     private fun backupDir(): File {
+diff --git a/app/src/main/java/com/qingji/app/data/prefs/WorkoutDraftStore.kt b/app/src/main/java/com/qingji/app/data/prefs/WorkoutDraftStore.kt
+index 9ecad50..352e692 100644
+--- a/app/src/main/java/com/qingji/app/data/prefs/WorkoutDraftStore.kt
++++ b/app/src/main/java/com/qingji/app/data/prefs/WorkoutDraftStore.kt
+@@ -86,10 +86,18 @@ class WorkoutDraftStore(context: Context) {
+         .getSharedPreferences("workout_draft", Context.MODE_PRIVATE)
+ 
+     /**
+-     * B1.1.2：落盘前钩子，生产为空操作。测试可注入异常以验证
+-     * 「落盘失败时内存 revision 与磁盘 revision 保持一致」（T20）。
++     * B1.1.2 复审收口：草稿写入与「按 revision 条件清理」共用一把锁。
++     * SharedPreferences.apply() 本身线程安全，但「读当前 revision + 删除」必须是
++     * 一个不可分割的动作，否则保存完成时的清理可能误删保存期间刚写入的新草稿。
+      */
+-    var saveHook: () -> Unit = {}
++    private val draftLock = Any()
++
++    /**
++     * B1.1.2：草稿写入前钩子，生产为空操作。internal + 默认空操作，仅测试注入异常以验证
++     * 「写入失败时内存 revision 与 SP 中 revision 保持一致」（T20）。
++     * SharedPreferences.apply() 只保证内存立即可见，物理磁盘写入由系统异步完成。
++     */
++    internal var saveHook: () -> Unit = {}
+ 
+     companion object {
+         private const val KEY_DRAFT = "draft_json"
+@@ -141,7 +149,7 @@ class WorkoutDraftStore(context: Context) {
+         }.getOrNull()?.takeIf { it.sessionUuid.isNotBlank() && it.startedAt > 0L }
+     }
+ 
+-    fun save(draft: WorkoutDraft) {
++    fun save(draft: WorkoutDraft) = synchronized(draftLock) {
+         saveHook()   // B1.1.2：测试注入落盘失败（生产为空）
+         val o = JSONObject().apply {
+             put("sessionUuid", draft.sessionUuid)
+@@ -178,7 +186,21 @@ class WorkoutDraftStore(context: Context) {
+         sp.edit().putString(KEY_DRAFT, o.toString()).apply()
+     }
+ 
+-    fun clear() = sp.edit().remove(KEY_DRAFT).apply()
++    fun clear() = synchronized(draftLock) { sp.edit().remove(KEY_DRAFT).apply() }
++
++    /**
++     * B1.1.2 复审收口：只在磁盘上的草稿仍是 expected 版本时才删除。
++     * 读 revision 与删除在同一把 draftLock 内完成，保存期间的新写入不会被旧保存任务清掉。
++     * 返回是否真的删除；调用方据此决定内存 _draft 是否置空。
++     */
++    internal fun clearIfRevision(expected: Long): Boolean = synchronized(draftLock) {
++        if (load()?.revision == expected) {
++            sp.edit().remove(KEY_DRAFT).apply()
++            true
++        } else {
++            false
++        }
++    }
+ 
+     /** kg/lb 只在显示层换算，库里永远存 kg。 */
+     fun unit(): String = sp.getString(KEY_UNIT, UNIT_KG) ?: UNIT_KG
+diff --git a/app/src/main/java/com/qingji/app/ui/screen/settings/SettingsDetailPages.kt b/app/src/main/java/com/qingji/app/ui/screen/settings/SettingsDetailPages.kt
+index 7c25e97..a69695d 100644
+--- a/app/src/main/java/com/qingji/app/ui/screen/settings/SettingsDetailPages.kt
++++ b/app/src/main/java/com/qingji/app/ui/screen/settings/SettingsDetailPages.kt
+@@ -1,7 +1,6 @@
+ package com.qingji.app.ui.screen.settings
+ 
+ import androidx.compose.foundation.background
+-import androidx.compose.foundation.clickable
+ import androidx.compose.foundation.layout.Box
+ import androidx.compose.foundation.layout.Column
+ import androidx.compose.foundation.layout.ColumnScope
+@@ -39,6 +38,7 @@ import com.qingji.app.ui.components.SectionCard
+ import com.qingji.app.ui.theme.Dimens
+ import com.qingji.app.ui.theme.PageBackground
+ import com.qingji.app.ui.theme.pressable
++import com.qingji.app.ui.theme.clickableNoRipple
+ import com.qingji.app.ui.theme.QingJiGreen
+ import com.qingji.app.ui.theme.QingJiGreenDark
+ import com.qingji.app.ui.theme.QingJiGreenLight
+@@ -183,7 +183,7 @@ fun OptionDetailPage(
+                 Row(
+                     modifier = Modifier
+                         .fillMaxWidth()
+-                        .clickable { onPick(option.key) }
++                        .clickableNoRipple { onPick(option.key) }
+                         .padding(horizontal = 16.dp, vertical = 14.dp),
+                     verticalAlignment = Alignment.CenterVertically
+                 ) {
+diff --git a/app/src/main/java/com/qingji/app/ui/screen/settings/SettingsDialogs.kt b/app/src/main/java/com/qingji/app/ui/screen/settings/SettingsDialogs.kt
+index 6c7d334..775cb4b 100644
+--- a/app/src/main/java/com/qingji/app/ui/screen/settings/SettingsDialogs.kt
++++ b/app/src/main/java/com/qingji/app/ui/screen/settings/SettingsDialogs.kt
+@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.sp
+ import com.qingji.app.ui.theme.CardWhite
+ import com.qingji.app.ui.theme.DividerColor
++import com.qingji.app.ui.theme.clickableNoRipple
+ import com.qingji.app.ui.theme.QingJiThemeState
+ import com.qingji.app.ui.theme.TextPrimary
+ import com.qingji.app.ui.theme.TextSecondary
+@@ -113,7 +114,7 @@ fun SettingIconRow(
+         modifier = Modifier
+             .fillMaxWidth()
+             .heightIn(min = 60.dp)
+-            .clickable { onClick() }
++            .clickableNoRipple { onClick() }
+             .padding(horizontal = 14.dp, vertical = 8.dp),
+         verticalAlignment = Alignment.CenterVertically
+     ) {
+diff --git a/app/src/main/java/com/qingji/app/ui/theme/Motion.kt b/app/src/main/java/com/qingji/app/ui/theme/Motion.kt
+index c63f223..b57fdde 100644
+--- a/app/src/main/java/com/qingji/app/ui/theme/Motion.kt
++++ b/app/src/main/java/com/qingji/app/ui/theme/Motion.kt
+@@ -156,3 +156,19 @@ fun Modifier.pressable(enabled: Boolean = true, onClick: () -> Unit): Modifier =
+         onClick = onClick
+     )
+ }
++
++/**
++ * 无涟漪点击：保留点击行为，但去掉 Material 默认的灰色块状高亮。
++ *
++ * 用于设置项这类「点了要么进页面、要么只是选中」的行——用户反馈点击时
++ * 灰块一闪很突兀；选中态本身由文字颜色 / 勾选图标 / 展开子项表达，不需要
++ * 额外的矩形高亮。与 pressable 的区别：这里不缩放，纯去反馈。
++ */
++fun Modifier.clickableNoRipple(enabled: Boolean = true, onClick: () -> Unit): Modifier = composed {
++    this.clickable(
++        interactionSource = remember { MutableInteractionSource() },
++        indication = null,
++        enabled = enabled,
++        onClick = onClick
++    )
++}
+diff --git a/app/src/main/java/com/qingji/app/ui/viewmodel/TrainingViewModel.kt b/app/src/main/java/com/qingji/app/ui/viewmodel/TrainingViewModel.kt
+index 36bf649..7d7fa83 100644
+--- a/app/src/main/java/com/qingji/app/ui/viewmodel/TrainingViewModel.kt
++++ b/app/src/main/java/com/qingji/app/ui/viewmodel/TrainingViewModel.kt
+@@ -602,27 +602,43 @@ class TrainingViewModel(app: Application, repoOverride: TrainingRepository? = nu
+ 
+                 // ---------- 第二段：数据库已成功提交，以下任何异常都不改变「已保存」事实 ----------
+                 try {
+-                    // 版本化清理：仅当当前草稿仍是本次保存的那一份（revision 未变）才清空。
+-                    // 若保存期间用户又改了草稿，保留新草稿（T14），其 sessionUuid 留给下一次保存（T15/T16）。
++                    // B1.1.2 复审收口：版本比对和清理在 WorkoutDraftStore 的同一把锁内完成，
++                    // 且只删「本次保存的那一个 revision」，旧保存任务不可能清掉期间写入的新草稿。
+                     val current = _draft.value
+-                    if (current == null || current.revision == snapshotRevision) {
+-                        draftStore.clear()
+-                        _draft.value = null
+-                    } else {
+-                        say("这次训练已保存；你在保存期间的新修改仍保留在草稿里，可再次保存")
++                    when {
++                        current == null -> {
++                            runCatching { draftStore.clear() }
++                            _draft.value = null
++                        }
++                        current.revision == snapshotRevision -> {
++                            val cleared = runCatching {
++                                draftStore.clearIfRevision(snapshotRevision)
++                            }.getOrDefault(false)
++                            if (cleared) {
++                                _draft.value = null
++                            } else {
++                                runCatching { say("这次训练已保存，但草稿版本已变化，草稿已保留以便检查") }
++                            }
++                        }
++                        else -> {
++                            // 保存期间又有新修改：新草稿（含同一 sessionUuid）留给下一次保存（T15/T16）
++                            runCatching { say("这次训练已保存；你在保存期间的新修改仍保留在草稿里，可再次保存") }
++                        }
+                     }
+                     val hasActual = snapshot.exercises.any { e ->
+                         e.sets.any { s -> s.reps > 0 || s.weightKg > 0.0 } ||
+                             WorkoutItem.fromJson(e.actualJson)?.hasActualData() == true
+                     }
+                     val kcalText = ExerciseCalorieHint.message(hasActual, weight > 0.0, result)
+-                    say(
+-                        when {
+-                            result.hasSkipped -> "训练已保存${kcalText}；${result.notComputableItems} 项缺少可靠时长/参数未计入消耗"
+-                            !editing -> "训练已保存${kcalText}"
+-                            else -> "已更新这次训练，消耗已重新结算${kcalText}"
+-                        }
+-                    )
++                    runCatching {
++                        say(
++                            when {
++                                result.hasSkipped -> "训练已保存${kcalText}；${result.notComputableItems} 项缺少可靠时长/参数未计入消耗"
++                                !editing -> "训练已保存${kcalText}"
++                                else -> "已更新这次训练，消耗已重新结算${kcalText}"
++                            }
++                        )
++                    }
+                 } catch (c: kotlinx.coroutines.CancellationException) {
+                     throw c
+                 } catch (e: Exception) {
+@@ -648,9 +664,12 @@ class TrainingViewModel(app: Application, repoOverride: TrainingRepository? = nu
+     }
+ 
+     /**
+-     * 每次改动都同步落盘，进程被杀也能恢复；revision 单调递增供保存版本比对。
+-     * B1.1.2：先落盘成功、再更新内存，保证内存 revision 与磁盘 revision 一致；
+-     * 落盘失败则内存保持旧值并明确提示，绝不出现「内存已改、磁盘没改」的版本错位（T20）。
++     * 每次改动都写 SharedPreferences，进程被杀也能恢复；revision 单调递增供保存版本比对。
++     * B1.1.2：先调用 draftStore.save() 成功、再更新内存，保证内存 revision 与
++     * SharedPreferences 中的 revision 一致；写入调用失败则内存保持旧值并明确提示，
++     * 绝不出现「内存已改、SP 未改」的版本错位（T20）。
++     * 注意：SharedPreferences.apply() 只保证内存立即可见，物理磁盘写入由系统异步完成，
++     * 这里不宣称已同步刷盘。
+      */
+     private fun persist(d: WorkoutDraft) {
+         val versioned = d.copy(revision = d.revision + 1L)
+diff --git a/app/src/test/java/com/qingji/app/training/TrainingViewModelB112Test.kt b/app/src/test/java/com/qingji/app/training/TrainingViewModelB112Test.kt
+index e564cae..b54d3ba 100644
+--- a/app/src/test/java/com/qingji/app/training/TrainingViewModelB112Test.kt
++++ b/app/src/test/java/com/qingji/app/training/TrainingViewModelB112Test.kt
+@@ -305,6 +305,20 @@ class TrainingViewModelB112Test {
+         assertTrue(withTimeout(5_000) { ok.await() })
+     }
+ 
++    // ==================== 复审收口：按 revision 条件清理，不与保存期间的新写入互相覆盖 ====================
++    @Test
++    fun `条件清理只删除指定revision的草稿`() = runBlocking {
++        val store = repoWith().draftStore
++        store.save(strengthDraft("vm112-cond", revision = 7L))
++
++        assertFalse("旧 revision 不得删掉新草稿", store.clearIfRevision(6L))
++        assertNotNull("条件清理失败时草稿必须还在", store.load())
++        assertEquals(7L, store.load()!!.revision)
++
++        assertTrue("同 revision 才允许清理", store.clearIfRevision(7L))
++        assertNull("条件清理成功后草稿应清空", store.load())
++    }
++
+     // ==================== P0-1：数据库成功但 UI 回调异常不得误判为保存失败 ====================
+     @Test
+     fun `回调异常不得把已成功的数据库保存改成失败`() = runBlocking {
