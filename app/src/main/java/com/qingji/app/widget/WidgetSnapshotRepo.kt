@@ -198,11 +198,16 @@ object WidgetSnapshotRepo {
         val bodyGoal = bm.goalProgress(currentW, startW, targetW)
         val lossProgress = if (bodyGoal.computable) bodyGoal.progress else 0f
 
-        // 只有三项输入都可用时才计算剩余；否则 remainingKcal 保持默认值但 UI 显示 --。
-        val canShowRemaining = profile.state != ItemState.FAILED &&
+        // 收尾 P0：dailyKcalGoal<=0 表示「还没算过」(见 UserProfile.dailyKcalGoal 字段注释)，
+        // 2000 仅是展示兜底，不是业务目标。profile EMPTY(无档案) 或 SUCCESS 但目标无效时
+        // goalConfigured=false → canShowRemaining=false → UI 一律 --，不展示伪造剩余热量。
+        val realGoal = profile.value?.dailyKcalGoal?.takeIf { it > 0 }
+        val goalConfigured = profile.state == ItemState.SUCCESS && realGoal != null
+        val canShowRemaining = goalConfigured &&
+            profile.state != ItemState.FAILED &&
             summary.state != ItemState.FAILED &&
             exercise.state != ItemState.FAILED
-        val goal = profile.value?.dailyKcalGoal?.takeIf { it > 0 } ?: 2000
+        val goal = realGoal ?: 2000 // 仅字段占位；goalConfigured=false 时永不参与展示
         val eaten = (summary.value?.totalKcal ?: 0.0).toInt()
         val exerciseKcal = exercise.value ?: 0.0
         val remaining = if (canShowRemaining) {
@@ -230,6 +235,7 @@ object WidgetSnapshotRepo {
             fatGoal = profile.value?.fatGoalG ?: 0,
             water = water.value ?: 0,
             waterGoal = settings.waterGoalMl,
+            goalConfigured = goalConfigured,
             profileState = profile.state,
             dietState = summary.state,
             waterState = water.state,
@@ -351,6 +357,8 @@ object WidgetSnapshotRepo {
         put("water", d.water); put("waterGoal", d.waterGoal)
         put("latestWeight", d.latestWeight ?: JSONObject.NULL)
         put("unit", d.unit)
+        // 收尾 P0：目标有效性落盘；旧 schema 无此字段 → 版本校验直接作废。
+        put("goalConfigured", d.goalConfigured)
         // P0：分项状态一并落盘，旧快照（schema 1）无这些字段 → fromJson 直接作废。
         put("profileState", d.profileState.name)
         put("dietState", d.dietState.name)
@@ -404,6 +412,8 @@ object WidgetSnapshotRepo {
             w
         }
 
+        // 收尾 P0：目标有效性严格解析；缺失即作废，不静默回落默认值。
+        val goalConfigured = o.getBoolean("goalConfigured")
         // P0：分项状态严格解析；缺失/非法值整份作废（不静默回落默认状态）。
         val profileState = strictState(o, "profileState")
         val dietState = strictState(o, "dietState")
@@ -432,6 +442,7 @@ object WidgetSnapshotRepo {
             carb = carb, carbGoal = strictInt(o, "carbGoal", 0, 100_000),
             fat = fat, fatGoal = strictInt(o, "fatGoal", 0, 100_000),
             water = water, waterGoal = waterGoal,
+            goalConfigured = goalConfigured,
             profileState = profileState, dietState = dietState, waterState = waterState,
             exerciseState = exerciseState, weightState = weightState,
             latestWeight = weight,
@@ -475,10 +486,13 @@ object WidgetSnapshotRepo {
     // ---------- 阶段 C：今日剩余独立投影 ----------
 
     /** 只查今日剩余所需数据：档案 / 当日饮食 / 当日运动消耗 / 设置。 */
-    suspend fun loadTodayRemaining(context: Context): TodayRemainingWidgetData {
+    suspend fun loadTodayRemaining(
+        context: Context,
+        dbOverride: com.qingji.app.data.local.AppDatabase? = null
+    ): TodayRemainingWidgetData {
         restoreZone(context)
         val today = com.qingji.app.domain.AppClock.today()
-        val repo = QingJiRepository(context)
+        val repo = QingJiRepository(context, dbOverride = dbOverride)
         val settings = WidgetSettingsCache.get(context)
         val profile = query("today.profile") { repo.observeProfile().first() }
         val summary = query("today.summary") { repo.observeDailySummary(today).first() }
@@ -520,14 +534,32 @@ object WidgetSnapshotRepo {
     suspend fun loadToday(context: Context): TodayRemainingWidgetData {
         restoreZone(context)
         val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_TODAY, null)
-            ?: return TodayRemainingWidgetData(stale = true, hasSnapshot = false)
+        // V2.2：无快照/快照失效时从真实数据源现查并写快照，避免投影成为永远为空的死投影。
+        // 现查失败时保留当天旧快照并标 stale，而不是抛异常或伪造 0。
+        if (raw == null) return try {
+            loadTodayRemaining(context)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            TodayRemainingWidgetData(stale = true, hasSnapshot = false)
+        }
         return try {
             val d = todayFromJson(org.json.JSONObject(raw))
             if (d.schemaVersion != TodayRemainingWidgetData.SCHEMA_VERSION ||
                 d.date != com.qingji.app.domain.AppClock.today() ||
                 d.zoneId != com.qingji.app.domain.AppClock.zone.id
-            ) TodayRemainingWidgetData(stale = true, hasSnapshot = false)
-            else d
+            ) {
+                // 旧日期/旧时区快照：先尝试现查；现查失败才降级为 stale 历史数据。
+                try {
+                    loadTodayRemaining(context)
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    d.copy(stale = true)
+                }
+            } else d
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             TodayRemainingWidgetData(stale = true, hasSnapshot = false)
         }
@@ -565,10 +597,13 @@ object WidgetSnapshotRepo {
     // ---------- 阶段 D：身体数据独立投影 ----------
 
     /** 只查身体数据所需：档案 + 完整体重记录。不查饮食/运动/睡眠/饮水。 */
-    suspend fun loadBodyData(context: Context): BodyDataWidgetData {
+    suspend fun loadBodyData(
+        context: Context,
+        dbOverride: com.qingji.app.data.local.AppDatabase? = null
+    ): BodyDataWidgetData {
         restoreZone(context)
         val today = com.qingji.app.domain.AppClock.today()
-        val repo = QingJiRepository(context)
+        val repo = QingJiRepository(context, dbOverride = dbOverride)
         val profile = query("body.profile") { repo.observeProfile().first() }
         val logs = query("body.logs") { repo.observeWeightLogs().first() }
         val bm = com.qingji.app.domain.BodyMetricsCalculator
@@ -606,16 +641,44 @@ object WidgetSnapshotRepo {
     suspend fun loadBody(context: Context): BodyDataWidgetData {
         restoreZone(context)
         val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_BODY, null)
-            ?: return BodyDataWidgetData(stale = true, hasSnapshot = false)
+        if (raw == null) return try {
+            loadBodyData(context)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            BodyDataWidgetData(stale = true, hasSnapshot = false)
+        }
         return try {
             val d = bodyFromJson(org.json.JSONObject(raw))
             if (d.schemaVersion != BodyDataWidgetData.SCHEMA_VERSION ||
                 d.date != com.qingji.app.domain.AppClock.today() ||
                 d.zoneId != com.qingji.app.domain.AppClock.zone.id
-            ) BodyDataWidgetData(stale = true, hasSnapshot = false) else d
+            ) {
+                try {
+                    loadBodyData(context)
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    d.copy(stale = true)
+                }
+            } else d
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             BodyDataWidgetData(stale = true, hasSnapshot = false)
         }
+    }
+
+    /**
+     * V2.2：刷新入队时按 Target 清除对应投影快照，使下次 provideGlance 走真实数据源现查。
+     * 不同 Target 只清自己的 Key，保证两投影失败隔离、互不污染。
+     */
+    fun invalidateProjections(context: Context, targets: Set<WidgetTarget>) {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val edit = prefs.edit()
+        if (targets.contains(WidgetTarget.OVERVIEW)) edit.remove(KEY_TODAY)
+        if (targets.contains(WidgetTarget.BODY_DATA)) edit.remove(KEY_BODY)
+        if (targets.contains(WidgetTarget.OVERVIEW) || targets.contains(WidgetTarget.BODY_DATA)) edit.apply()
     }
 
     private suspend fun saveBody(context: Context, d: BodyDataWidgetData) {

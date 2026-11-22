@@ -60,6 +60,9 @@ object WidgetRefresher {
         appContext = context.applicationContext
         // B2：设置/数据写入后主动使 Widget 设置快照失效，保证外观最终一致。
         WidgetSettingsCache.invalidate()
+        // V2.2：按 Target 清对应投影快照，保证下次 provideGlance 从真实数据源现查；
+        // 只清受影响 Key，两投影失败隔离、互不污染。
+        WidgetSnapshotRepo.invalidateProjections(context.applicationContext, targets)
         WidgetPerf.mark("refresh_enqueue", detail = targets.joinToString(",") { it.name })
         scope.launch {
             mutex.withLock { queued.update { it + targets } }

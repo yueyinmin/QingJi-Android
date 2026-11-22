@@ -61,3 +61,21 @@ class WidgetLayoutTest {
         assertEquals(0.dp, WidgetLayout.macroTrackWidth(20.dp, padding, gap))
     }
 }
+
+// V2.2：全宽进度条宽度（不能用单条营养轨道宽）
+class WidgetFullBarWidthTest {
+    @Test
+    fun `全宽轨道宽度等于内容宽而非单条营养宽`() {
+        val w = 250.dp
+        val full = WidgetLayout.fullBarWidth(w)
+        val track = WidgetLayout.macroTrackWidth(w)
+        assertEquals(w - WidgetSpec.CARD_PADDING_DP.dp * 2, full)
+        assertTrue("全宽轨道应显著大于单条营养轨道", full > track * 2)
+    }
+
+    @Test
+    fun `极小尺寸不为负`() {
+        assertEquals(0.dp, WidgetLayout.fullBarWidth(20.dp))
+        assertTrue(WidgetLayout.fullBarWidth(110.dp) > 0.dp)
+    }
+}

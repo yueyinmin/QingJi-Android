@@ -33,4 +33,14 @@ internal object WidgetLayout {
         val usable = widgetWidth - cardPadding * 2 - gap * (bars - 1)
         return (usable / bars).coerceAtLeast(0.dp)
     }
+
+    /**
+     * V2.2：全宽进度条（热量进度 / 减重进度）的填充宽度。
+     * 轨道是 fillMaxWidth()，内容宽 = W - 2×padding；不能用 macroTrackWidth（那是单条营养轨道宽 ≈W/3）。
+     * @return 全宽轨道可用宽度；尺寸异常时返回 0dp，UI 跳过绘制。
+     */
+    fun fullBarWidth(
+        widgetWidth: Dp,
+        cardPadding: Dp = WidgetSpec.CARD_PADDING_DP.dp
+    ): Dp = (widgetWidth - cardPadding * 2).coerceAtLeast(0.dp)
 }
