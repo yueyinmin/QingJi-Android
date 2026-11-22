@@ -162,8 +162,8 @@ internal fun remainingText(data: WidgetData): String =
 /**
  * P0：营养条进度。
  * - 饮食读取失败 → null（UI 显示 -- 而非空轨道伪进度）；
- * - 用户资料读取失败 → null：三营养素目标（proteinGoal/carbGoal/fatGoal）来自 profile，
- *   profile 失败时目标是伪装出来的 0，空轨道会被误读成「没吃」，必须一并显示 --。
+ * - 用户资料读取失败 → null：三营养素目标来自 profile，失败时目标是伪装出来的 0；
+ * - 收尾 P0：goal<=0（profile EMPTY / SUCCESS 但目标无效）→ null，营养摄入有值也不画空轨道。
  */
 internal fun macroProgress(
     dietState: ItemState,
@@ -171,7 +171,7 @@ internal fun macroProgress(
     current: Int,
     goal: Int
 ): Float? =
-    if (dietState == ItemState.FAILED || profileState == ItemState.FAILED) null
+    if (dietState == ItemState.FAILED || profileState == ItemState.FAILED || goal <= 0) null
     else WidgetProgress.fraction(current, goal)
 
 // ============================================================

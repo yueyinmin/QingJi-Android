@@ -77,6 +77,14 @@ object WidgetSpec {
     const val WEIGHT_BUTTON_H_DP = 40
     const val WEIGHT_BUTTON_GAP_DP = 8
 
+    // ---- V2.1阶段B：深浅色主题选择（Glance 与预览共用） ----
+    /** 浅色主题（保持 V2 配色，老用户视觉不突变）。 */
+    fun light() = WidgetTheme.LIGHT
+    /** 深色主题：深灰底 + 高对比浅字 + 提亮绿。 */
+    fun dark() = WidgetTheme.DARK
+    /** 根据系统 uiMode 选主题；不依赖 App Activity 状态。 */
+    fun theme(dark: Boolean) = if (dark) WidgetTheme.DARK else WidgetTheme.LIGHT
+
     // ---- V2 阶段5：预览与 Glance 共享的展示规则（避免两处硬编码漂移） ----
     /** 背景不透明度范围（SettingsStore/ViewModel/Glance/预览四处共用）。 */
     const val ALPHA_MIN = 82  // 视觉精修：下限抬高，半透明不再糊在壁纸上
