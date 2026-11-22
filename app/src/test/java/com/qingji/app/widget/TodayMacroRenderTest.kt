@@ -47,7 +47,9 @@ class TodayMacroRenderTest {
             src.contains("val progress = todayMacroProgress(state, goalConfigured, current, goal)")
         )
         val callCount = Regex("data\\.dietState, data\\.goalConfigured").findAll(src).count()
-        assertEquals("6 个 TodayMacro 调用点都必须传 goalConfigured", 6, callCount)
+        // V2.4 渐进布局把原来 4×2/4×4 两处重复分支合并为单一调用块：
+        // 蛋白/碳水/脂肪各 1 处，共 3 处，均传 goalConfigured（防漏传语义不变）。
+        assertEquals("3 个 TodayMacro 调用点都必须传 goalConfigured", 3, callCount)
     }
 
     // ---- 工单要求的 4 种 UI 最终状态矩阵 ----
