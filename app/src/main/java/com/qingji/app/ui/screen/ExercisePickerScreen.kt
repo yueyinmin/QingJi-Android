@@ -127,7 +127,8 @@ fun ExercisePickerScreen(
                 presets.filter { order.containsKey(it.name) }
                     .sortedBy { order[it.name] ?: Int.MAX_VALUE }
             }
-            TAB_FAVORITE -> presets.filter { it.favorite }
+            // 收藏：排除力量类 preset（力量动作统一从「开始训练」进，不在有氧记录页出现）
+            TAB_FAVORITE -> presets.filter { it.favorite && it.category != "力量" }
             TAB_CUSTOM -> presets.filter { it.category == ExerciseCalculator.CUSTOM_CATEGORY }
             TAB_ALL -> presets
             // 常用 = 预置运动（DAO 已经把收藏置顶、按名称排好）
@@ -303,7 +304,10 @@ fun ExercisePickerScreen(
                 it.isStrengthAction && it.recordType == com.qingji.app.domain.ExerciseRecordType.STRENGTH &&
                     (keyword.isBlank() || it.name.contains(keyword.trim(), ignoreCase = true))
             }
-            if (strengthItems.isNotEmpty() && tab != TAB_TRAINING) {
+            // 力量快捷区只在「最近/常用/全部」显示；收藏/自定义/训练记录不显示，
+            // 否则收藏 tab 会凭空多出一排力量动作（用户反馈）。
+            if (strengthItems.isNotEmpty() && tab != TAB_TRAINING &&
+                tab != TAB_FAVORITE && tab != TAB_CUSTOM) {
                 item {
                     SectionCard(contentPadding = 12.dp) {
                         strengthItems.take(8).forEach { a ->

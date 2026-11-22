@@ -211,7 +211,12 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
                         key = UUID.randomUUID().toString(),
                         exerciseUuid = m.exerciseUuid,
                         name = m.name,
-                        sets = m.sets
+                        sets = m.sets,
+                        // 统一体系：有氧/HIIT 动作带 recordType + 目标配置，保存时分流
+                        recordType = m.recordType.key,
+                        targetConfigJson = m.cardioConfig?.let {
+                            com.qingji.app.domain.TargetConfigJson.encode(it)
+                        }.orEmpty()
                     )
                 }
             )
@@ -433,12 +438,14 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
     /** 保存：整包写库，成功后草稿作废。返回 false 表示没达到「至少 1 组」的门槛。 */
     fun save(onDone: (Boolean) -> Unit) {
         val d = _draft.value ?: run { onDone(false); return }
-        // 每组至少要有次数或重量，才算一条有效记录
-        val cleaned = d.exercises.map { e ->
+        // 统一体系 V2.1：力量项按"至少一组有效"；有氧/HIIT 项按 recordType 分流，
+        // 它们没有 sets，不能沿用力量门槛（这是之前有氧计划保存不进去的根因之一）。
+        val cardioExercises = d.exercises.filter { it.recordType.isNotBlank() }
+        val cleaned = d.exercises.filter { it.recordType.isBlank() }.map { e ->
             e.copy(sets = e.sets.filter { it.reps > 0 || it.weightKg > 0.0 })
         }.filter { it.sets.isNotEmpty() }
-        if (cleaned.isEmpty()) {
-            say("至少要记一组才能保存")
+        if (cleaned.isEmpty() && cardioExercises.isEmpty()) {
+            say("至少要记一组或一个有氧项目才能保存")
             onDone(false)
             return
         }
@@ -501,19 +508,36 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
                 note = e.note
             )
         }
+        // 有氧/HIIT 项目：目标时长/距离作为实际值预填（无目标时留 0，由结算判不可算）。
+        val cardioDetails = cardioExercises.mapIndexed { i, e ->
+            val cfg = com.qingji.app.domain.TargetConfigJson.decode(e.targetConfigJson)
+            com.qingji.app.data.local.entity.WorkoutCardioDetail(
+                exerciseUuid = e.exerciseUuid,
+                exerciseNameSnapshot = e.name,
+                orderInSession = cleaned.size + i,
+                durationSeconds = cfg?.durationSec ?: 0L,
+                distanceMeters = cfg?.distanceMeters,
+                rawInputJson = cfg?.intensity?.let { intensity ->
+                    org.json.JSONObject().put("intensity", intensity).toString()
+                }.orEmpty(),
+                createdAt = System.currentTimeMillis()
+            )
+        }
 
         viewModelScope.launch {
             val weight = settleWeight.value
-            val settledKcal = repo.saveSession(session, items, weight)
+            // 统一入口：有氧明细与力量明细同场落库，整场只写一条账本，不双结算。
+            val result = repo.saveUnifiedSession(session, items, cardioDetails, weight)
             draftStore.clear()
             _draft.value = null
+            val kcalText = if (result.totalKcal > 0.0)
+                "，预计消耗约 ${com.qingji.app.domain.SessionCalorieCalculator.displayKcal(result.totalKcal)} 千卡（估算）"
+            else ""
             say(
-                if (!editing && settledKcal > 0.0) {
-                    "训练已保存，预计消耗约 ${SessionCalorieCalculator.displayKcal(settledKcal)} 千卡（估算）"
-                } else if (editing) {
-                    "已更新这次训练，消耗已重新结算"
-                } else {
-                    "训练已保存"
+                when {
+                    result.hasSkipped -> "训练已保存${kcalText}；${result.notComputableItems} 项有氧缺少时长/距离未计入消耗"
+                    !editing -> "训练已保存${kcalText}"
+                    else -> "已更新这次训练，消耗已重新结算${kcalText}"
                 }
             )
             onDone(true)

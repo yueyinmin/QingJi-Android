@@ -368,13 +368,28 @@ class TrainingRepository(
                         // QJ 训练联动：优先用编辑器里填的目标参数（组/次/重量），
                         // 预置模板没填 targets → 沿用原来的 3组×10次×0kg，行为不变。
                         val t = tplDay.targets?.get(exerciseName)
+                        val cardioCfg = tplDay.cardioTargets?.get(exerciseName)
+                        val libExercise = library.firstOrNull { it.name == exerciseName }
+                        val resolvedType = com.qingji.app.domain.TrainingTypeResolver.resolve(
+                            persistedRecordType = libExercise?.recordType, name = exerciseName,
+                            englishName = libExercise?.englishName, exerciseType = libExercise?.exerciseType,
+                            category = libExercise?.category, isStretch = libExercise?.isStretch ?: false,
+                            exerciseUuid = libExercise?.uuid
+                        ).type
                         PlanExercise(
                             dayId = dayId,
-                            exerciseUuid = library.firstOrNull { it.name == exerciseName }?.uuid.orEmpty(),
+                            exerciseUuid = libExercise?.uuid.orEmpty(),
                             exerciseNameSnapshot = exerciseName,
                             targetSets = t?.first ?: 3,
                             targetReps = t?.second ?: 10,
                             targetWeightKg = t?.third ?: 0.0,
+                            // 统一体系 V2.1：非力量动作写 recordType + 版本化目标 JSON
+                            recordType = if (resolvedType == com.qingji.app.domain.ExerciseRecordType.STRENGTH)
+                                "" else resolvedType.key,
+                            targetConfigJson = if (cardioCfg != null)
+                                com.qingji.app.domain.TargetConfigJson.encode(
+                                    cardioCfg.copy(type = resolvedType)
+                                ) else "",
                             orderInDay = i
                         )
                     }

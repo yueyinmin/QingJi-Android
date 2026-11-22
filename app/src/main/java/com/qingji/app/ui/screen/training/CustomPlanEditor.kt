@@ -52,7 +52,9 @@ data class PlanDayDraft(
     val weekday: Int,
     var title: String = "训练",
     var exerciseNames: List<String> = emptyList(),
-    var targets: Map<String, Triple<Int, Int, Double>> = emptyMap()
+    var targets: Map<String, Triple<Int, Int, Double>> = emptyMap(),
+    /** 统一体系 V2.1：非力量动作的计划目标（时长秒/距离米/强度），key=动作名。 */
+    var cardioTargets: Map<String, com.qingji.app.domain.TargetConfig> = emptyMap()
 )
 
 /**
@@ -119,7 +121,8 @@ fun CustomPlanEditor(
                     .map {
                         TrainingTemplateData.TemplateDay(
                             it.weekday, it.title, it.exerciseNames,
-                            targets = it.targets.ifEmpty { null }
+                            targets = it.targets.ifEmpty { null },
+                            cardioTargets = it.cardioTargets.ifEmpty { null }
                         )
                     }
             )
@@ -157,6 +160,14 @@ fun CustomPlanEditor(
             items(filtered, key = { it.uuid }) { e: ExerciseEntity ->
                 val checked = e.name in day.exerciseNames
                 val preset = day.targets[e.name] ?: Triple(3, 10, 0.0)
+                val resolvedType = com.qingji.app.domain.TrainingTypeResolver.resolve(
+                    persistedRecordType = e.recordType, name = e.name,
+                    englishName = e.englishName, exerciseType = e.exerciseType,
+                    category = e.category, isStretch = e.isStretch, exerciseUuid = e.uuid
+                ).type
+                val isStrengthTarget = resolvedType == com.qingji.app.domain.ExerciseRecordType.STRENGTH
+                val cardioTarget = day.cardioTargets[e.name]?.takeIf { !isStrengthTarget }
+                    ?: com.qingji.app.domain.TargetConfig(type = resolvedType)
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -183,20 +194,46 @@ fun CustomPlanEditor(
                     }
                     if (checked) {
                         Spacer(Modifier.height(6.dp))
-                        Row(modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            PlanTargetField("组", preset.first.toString(), Modifier.weight(1f)) { v ->
-                                val sets = v.toIntOrNull()?.coerceIn(1, 20) ?: return@PlanTargetField
-                                days = updatePlanTarget(weekday, e.name, days) { Triple(sets, it.second, it.third) }
+                        if (isStrengthTarget) {
+                            Row(modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                PlanTargetField("组", preset.first.toString(), Modifier.weight(1f)) { v ->
+                                    val sets = v.toIntOrNull()?.coerceIn(1, 20) ?: return@PlanTargetField
+                                    days = updatePlanTarget(weekday, e.name, days) { Triple(sets, it.second, it.third) }
+                                }
+                                PlanTargetField("次", preset.second.toString(), Modifier.weight(1f)) { v ->
+                                    val reps = v.toIntOrNull()?.coerceIn(1, 100) ?: return@PlanTargetField
+                                    days = updatePlanTarget(weekday, e.name, days) { Triple(it.first, reps, it.third) }
+                                }
+                                PlanTargetField("kg", if (preset.third == 0.0) "" else preset.third.toString(),
+                                    Modifier.weight(1f)) { v ->
+                                    val kg = v.toDoubleOrNull()?.coerceIn(0.0, 1000.0) ?: 0.0
+                                    days = updatePlanTarget(weekday, e.name, days) { Triple(it.first, it.second, kg) }
+                                }
                             }
-                            PlanTargetField("次", preset.second.toString(), Modifier.weight(1f)) { v ->
-                                val reps = v.toIntOrNull()?.coerceIn(1, 100) ?: return@PlanTargetField
-                                days = updatePlanTarget(weekday, e.name, days) { Triple(it.first, reps, it.third) }
-                            }
-                            PlanTargetField("kg", if (preset.third == 0.0) "" else preset.third.toString(),
-                                Modifier.weight(1f)) { v ->
-                                val kg = v.toDoubleOrNull()?.coerceIn(0.0, 1000.0) ?: 0.0
-                                days = updatePlanTarget(weekday, e.name, days) { Triple(it.first, it.second, kg) }
+                        } else {
+                            // 有氧/HIIT/柔韧：统一体系目标参数（时长/距离/强度），不再填组次kg
+                            Row(modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                PlanTargetField("分钟", (cardioTarget.durationSec?.div(60) ?: 0).toString(),
+                                    Modifier.weight(1f)) { v ->
+                                    val min = v.toLongOrNull()?.coerceIn(0, 600) ?: 0
+                                    days = updateCardioTarget(weekday, e.name, days) {
+                                        it.copy(durationSec = if (min > 0) min * 60 else null)
+                                    }
+                                }
+                                PlanTargetField("km", cardioTarget.distanceMeters?.let { "%.2f".format(it / 1000.0) }.orEmpty(),
+                                    Modifier.weight(1f)) { v ->
+                                    val km = v.toDoubleOrNull()?.coerceIn(0.0, 200.0) ?: 0.0
+                                    days = updateCardioTarget(weekday, e.name, days) {
+                                        it.copy(distanceMeters = if (km > 0) km * 1000 else null)
+                                    }
+                                }
+                                PlanTargetField("强度", cardioTarget.intensity.orEmpty(), Modifier.weight(1f)) { v ->
+                                    days = updateCardioTarget(weekday, e.name, days) {
+                                        it.copy(intensity = v.takeIf { s -> s.isNotBlank() })
+                                    }
+                                }
                             }
                         }
                     }
@@ -253,6 +290,19 @@ private fun PlanTargetField(label: String, initial: String, modifier: Modifier =
             singleLine = true, textStyle = TextStyle(fontSize = TextSizes.Caption, color = TextPrimary),
             modifier = Modifier.weight(1f))
     }
+}
+
+/** 更新某天某动作的有氧目标配置（统一体系 V2.1）。 */
+private fun updateCardioTarget(
+    weekday: Int,
+    name: String,
+    days: List<PlanDayDraft>,
+    transform: (com.qingji.app.domain.TargetConfig) -> com.qingji.app.domain.TargetConfig
+): List<PlanDayDraft> = days.map { d ->
+    if (d.weekday != weekday) d
+    else d.copy(cardioTargets = d.cardioTargets + (name to transform(
+        d.cardioTargets[name] ?: com.qingji.app.domain.TargetConfig()
+    )))
 }
 
 private fun updatePlanTarget(
