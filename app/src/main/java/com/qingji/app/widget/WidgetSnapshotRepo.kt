@@ -31,6 +31,9 @@ object WidgetSnapshotRepo {
     private const val PREFS = "qingji_widget_snapshot"
     private const val KEY_JSON = "last_good_json"
     private const val KEY_SCHEMA = "schemaVersion"
+    /** 阶段C/D：两个独立投影 Key（各自 schema/时间/stale，互不拖累）。 */
+    private const val KEY_TODAY = "today_remaining_v1"
+    private const val KEY_BODY = "body_data_v1"
 
     /** W-03：新鲜度阈值（30 分钟）。超过仍显示旧值，但必须标注更新时间。 */
     const val FRESH_THRESHOLD_MS = 30L * 60 * 1000
@@ -464,4 +467,113 @@ object WidgetSnapshotRepo {
     internal fun clear(context: Context) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(KEY_JSON).apply()
     }
+
+    // ---------- 阶段 C：今日剩余独立投影 ----------
+
+    /** 只查今日剩余所需数据：档案 / 当日饮食 / 当日运动消耗 / 设置。 */
+    suspend fun loadTodayRemaining(context: Context): TodayRemainingWidgetData {
+        restoreZone(context)
+        val today = com.qingji.app.domain.AppClock.today()
+        val repo = QingJiRepository(context)
+        val settings = WidgetSettingsCache.get(context)
+        val profile = query("today.profile") { repo.observeProfile().first() }
+        val summary = query("today.summary") { repo.observeDailySummary(today).first() }
+        val exercise = query("today.exercise") {
+            HealthRepository(context).observeDailyExerciseCalories(today).first()
+        }
+        val goalRaw = profile.value?.dailyKcalGoal ?: 0
+        val goalConfigured = goalRaw > 0
+        val goal = if (goalConfigured) goalRaw else 0
+        val eaten = (summary.value?.totalKcal ?: 0.0).toInt()
+        val kcal = exercise.value ?: 0.0
+        val canCalc = goalConfigured && profile.state != ItemState.FAILED &&
+            summary.state != ItemState.FAILED && exercise.state != ItemState.FAILED
+        val bonus = if (canCalc) com.qingji.app.domain.ExerciseCompensation.bonusKcal(
+            kcal, settings.exerciseCompensation, settings.exerciseCompensationPct
+        ) else 0
+        val data = TodayRemainingWidgetData(
+            date = today, zoneId = com.qingji.app.domain.AppClock.zone.id,
+            goalKcal = goal, eatenKcal = eaten, exerciseKcal = kcal.toInt(),
+            bonusKcal = bonus,
+            remainingKcal = if (canCalc) goal - eaten + bonus else 0,
+            remainingFoodOnly = if (canCalc) goal - eaten else 0,
+            goalMode = settings.goalMode,
+            proteinCurrent = (summary.value?.totalProtein ?: 0.0).toInt(),
+            proteinGoal = profile.value?.proteinGoalG ?: 0,
+            carbCurrent = (summary.value?.totalCarb ?: 0.0).toInt(),
+            carbGoal = profile.value?.carbGoalG ?: 0,
+            fatCurrent = (summary.value?.totalFat ?: 0.0).toInt(),
+            fatGoal = profile.value?.fatGoalG ?: 0,
+            profileState = profile.state, dietState = summary.state, exerciseState = exercise.state,
+            goalConfigured = goalConfigured,
+            snapshotAt = System.currentTimeMillis(), hasSnapshot = true
+        )
+        saveToday(context, data)
+        return data
+    }
+
+    /** 今日剩余投影读取：新 Key 不存在时安全降级为空态，不复用大快照的伪默认值。 */
+    suspend fun loadToday(context: Context): TodayRemainingWidgetData {
+        restoreZone(context)
+        val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_TODAY, null)
+            ?: return TodayRemainingWidgetData(stale = true, hasSnapshot = false)
+        return try {
+            val d = todayFromJson(org.json.JSONObject(raw))
+            if (d.schemaVersion != TodayRemainingWidgetData.SCHEMA_VERSION ||
+                d.date != com.qingji.app.domain.AppClock.today() ||
+                d.zoneId != com.qingji.app.domain.AppClock.zone.id
+            ) TodayRemainingWidgetData(stale = true, hasSnapshot = false)
+            else d
+        } catch (e: Exception) {
+            TodayRemainingWidgetData(stale = true, hasSnapshot = false)
+        }
+    }
+
+    private suspend fun saveToday(context: Context, d: TodayRemainingWidgetData) {
+        writeMutex.withLock {
+            try {
+                val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                val existing = prefs.getString(KEY_TODAY, null)
+                val at = if (existing != null) {
+                    try { todayFromJson(org.json.JSONObject(existing)).snapshotAt } catch (e: Exception) { Long.MIN_VALUE }
+                } else Long.MIN_VALUE
+                if (d.snapshotAt <= at) return@withLock
+                prefs.edit().putString(KEY_TODAY, todayToJson(d).toString()).apply()
+            } catch (e: Exception) { /* 快照写失败保留上一份 */ }
+        }
+    }
+
+    private fun todayToJson(d: TodayRemainingWidgetData) = org.json.JSONObject().apply {
+        put("schemaVersion", d.schemaVersion)
+        put("date", d.date?.toString().orEmpty()); put("zoneId", d.zoneId)
+        put("goalKcal", d.goalKcal); put("eatenKcal", d.eatenKcal)
+        put("exerciseKcal", d.exerciseKcal); put("bonusKcal", d.bonusKcal)
+        put("remainingKcal", d.remainingKcal); put("remainingFoodOnly", d.remainingFoodOnly)
+        put("goalMode", d.goalMode); put("goalConfigured", d.goalConfigured)
+        put("proteinCurrent", d.proteinCurrent); put("proteinGoal", d.proteinGoal)
+        put("carbCurrent", d.carbCurrent); put("carbGoal", d.carbGoal)
+        put("fatCurrent", d.fatCurrent); put("fatGoal", d.fatGoal)
+        put("profileState", d.profileState.name); put("dietState", d.dietState.name)
+        put("exerciseState", d.exerciseState.name)
+        put("snapshotAt", d.snapshotAt); put("stale", d.stale); put("hasSnapshot", d.hasSnapshot)
+    }
+
+    private fun todayFromJson(o: org.json.JSONObject) = TodayRemainingWidgetData(
+        schemaVersion = o.getInt("schemaVersion"),
+        date = o.optString("date").takeIf { it.isNotBlank() }?.let { java.time.LocalDate.parse(it) },
+        zoneId = o.optString("zoneId"),
+        goalKcal = o.getInt("goalKcal"), eatenKcal = o.getInt("eatenKcal"),
+        exerciseKcal = o.getInt("exerciseKcal"), bonusKcal = o.getInt("bonusKcal"),
+        remainingKcal = o.getInt("remainingKcal"), remainingFoodOnly = o.getInt("remainingFoodOnly"),
+        goalMode = o.optString("goalMode", "lose"),
+        goalConfigured = o.optBoolean("goalConfigured", true),
+        proteinCurrent = o.getInt("proteinCurrent"), proteinGoal = o.getInt("proteinGoal"),
+        carbCurrent = o.getInt("carbCurrent"), carbGoal = o.getInt("carbGoal"),
+        fatCurrent = o.getInt("fatCurrent"), fatGoal = o.getInt("fatGoal"),
+        profileState = ItemState.valueOf(o.getString("profileState")),
+        dietState = ItemState.valueOf(o.getString("dietState")),
+        exerciseState = ItemState.valueOf(o.getString("exerciseState")),
+        snapshotAt = o.getLong("snapshotAt"), stale = o.optBoolean("stale", false),
+        hasSnapshot = o.optBoolean("hasSnapshot", true)
+    )
 }
