@@ -606,42 +606,47 @@ class BodyWidget : GlanceAppWidget() {
                     .clickable(actionStartActivity(openApp(context, WidgetRefresher.TARGET_PROGRESS)))
             ) {
                 Column(modifier = GlanceModifier.fillMaxSize()) {
-                    Row(modifier = GlanceModifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.Vertical.CenterVertically) {
-                        Text("身体数据", style = TextStyle(color = textColor(palette.text),
-                            fontSize = 12.sp, fontWeight = FontWeight.Medium))
-                        Spacer(GlanceModifier.defaultWeight())
-                        // V2.7：缩小版 BMI 轮盘嵌在标题行右侧，下方体重/BMI/体脂布局不动。
-                        Image(
-                            provider = ImageProvider(bmiGaugeBitmap(
-                                if (data.canShowBody) data.bmi else 0.0, palette)),
-                            contentDescription = "BMI ${data.bmiCategory}",
-                            modifier = GlanceModifier.width(70.dp).height(36.dp)
-                        )
-                    }
+                    // 标题独占一行：轮盘不再放这里（原 V2.7 把标题行撑到 36dp，
+                    // 整块内容超高，底部 BMI/体脂的第三行小字被卡片裁切）。
+                    // 轮盘下移到体重行，与体重数字持平；体脂率仍在下方双栏右侧，正好落在轮盘下。
+                    Text("身体数据", style = TextStyle(color = textColor(palette.text),
+                        fontSize = 12.sp, fontWeight = FontWeight.Medium))
                     if (data.stale) {
                         Spacer(GlanceModifier.height(3.dp))
                         Text(bodyStaleLabel(data), style = TextStyle(color = textColor(palette.sub), fontSize = 8.sp))
                     }
-                    Spacer(GlanceModifier.height(6.dp))
+                    Spacer(GlanceModifier.height(if (compact) 3.dp else 6.dp))
 
                     if (!data.canShowBody) {
                         Text(if (data.stale && !data.hasSnapshot) WidgetSpec.LABEL_NO_DATA else WidgetSpec.LABEL_WEIGHT_EMPTY,
                             style = TextStyle(color = textColor(palette.sub), fontSize = 12.sp))
                     } else {
-                        // 主视觉：当前体重
-                        Row(verticalAlignment = Alignment.Vertical.Bottom) {
-                            Text(if (data.latestWeight > 0) WeightUnit.format(data.latestWeight, data.unit) else "--",
-                                style = TextStyle(color = textColor(palette.text), fontSize = if (full || wide) 32.sp else 24.sp,
-                                    fontWeight = FontWeight.Bold))
-                            Spacer(GlanceModifier.width(3.dp))
-                            Text(WeightUnit.symbol(data.unit),
-                                style = TextStyle(color = textColor(palette.sub), fontSize = 11.sp),
-                                modifier = GlanceModifier.padding(bottom = 4.dp))
+                        // 体重数字 + BMI 轮盘同一行：轮盘与体重数字垂直居中持平。
+                        Row(modifier = GlanceModifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.Vertical.CenterVertically) {
+                            // 左列：体重新数字 + 目标
+                            Column(modifier = GlanceModifier.defaultWeight()) {
+                                Row(verticalAlignment = Alignment.Vertical.Bottom) {
+                                    Text(if (data.latestWeight > 0) WeightUnit.format(data.latestWeight, data.unit) else "--",
+                                        style = TextStyle(color = textColor(palette.text), fontSize = if (full || wide) 32.sp else 24.sp,
+                                            fontWeight = FontWeight.Bold))
+                                    Spacer(GlanceModifier.width(3.dp))
+                                    Text(WeightUnit.symbol(data.unit),
+                                        style = TextStyle(color = textColor(palette.sub), fontSize = 11.sp),
+                                        modifier = GlanceModifier.padding(bottom = 4.dp))
+                                }
+                                Spacer(GlanceModifier.height(3.dp))
+                                Text("目标 " + if (data.targetWeight > 0) WeightUnit.format(data.targetWeight, data.unit) else "--",
+                                    style = TextStyle(color = textColor(palette.sub), fontSize = 10.sp))
+                            }
+                            Spacer(GlanceModifier.width(6.dp))
+                            // 右列：缩小版 BMI 轮盘，与体重数字持平；体脂率在下方双栏右侧，落在其正下方。
+                            Image(
+                                provider = ImageProvider(bmiGaugeBitmap(data.bmi, palette)),
+                                contentDescription = "BMI ${data.bmiCategory}",
+                                modifier = GlanceModifier.width(70.dp).height(36.dp)
+                            )
                         }
-                        Spacer(GlanceModifier.height(3.dp))
-                        Text("目标 " + if (data.targetWeight > 0) WeightUnit.format(data.targetWeight, data.unit) else "--",
-                            style = TextStyle(color = textColor(palette.sub), fontSize = 10.sp))
 
                         if (!compact && data.goalComputable && data.targetWeight > 0) {
                             Spacer(GlanceModifier.height(6.dp))
@@ -663,17 +668,19 @@ class BodyWidget : GlanceAppWidget() {
                                 style = TextStyle(color = textColor(palette.sub), fontSize = 9.sp))
                         }
 
-                        // BMI / 体脂双栏（4×3 也保留）
-                        Spacer(GlanceModifier.height(8.dp))
+                        // BMI / 体脂双栏（4×3 也保留）。compact 档压缩间距与字号，
+                        // 确保第三行分类/来源小字不被卡片底部裁切。
+                        Spacer(GlanceModifier.height(if (compact) 4.dp else 8.dp))
                         Box(modifier = GlanceModifier.fillMaxWidth().height(1.dp)
                             .background(ColorProvider(palette.divider))) {}
-                        Spacer(GlanceModifier.height(6.dp))
+                        Spacer(GlanceModifier.height(if (compact) 3.dp else 6.dp))
+                        val dualValueSp = if (compact) 16.sp else 20.sp
                         Row(modifier = GlanceModifier.fillMaxWidth()) {
                             Column(modifier = GlanceModifier.defaultWeight()) {
                                 Text("BMI", style = TextStyle(color = textColor(palette.sub), fontSize = 9.sp))
                                 Text(if (data.bmi > 0) String.format("%.1f", data.bmi) else "--",
                                     style = TextStyle(color = textColor(bmiColor(data.bmiCategory, palette)),
-                                        fontSize = 20.sp, fontWeight = FontWeight.Bold))
+                                        fontSize = dualValueSp, fontWeight = FontWeight.Bold))
                                 Text(data.bmiCategory.ifBlank { "--" },
                                     style = TextStyle(color = textColor(bmiColor(data.bmiCategory, palette)), fontSize = 9.sp))
                             }
@@ -682,7 +689,7 @@ class BodyWidget : GlanceAppWidget() {
                                 Text("体脂率", style = TextStyle(color = textColor(palette.sub), fontSize = 9.sp))
                                 Text(if (data.bodyFat != null) "${String.format("%.1f", data.bodyFat)}%" else "--",
                                     style = TextStyle(color = textColor(palette.text),
-                                        fontSize = 20.sp, fontWeight = FontWeight.Bold))
+                                        fontSize = dualValueSp, fontWeight = FontWeight.Bold))
                                 Text(bodyFatSourceLabel(data.bodyFatSource),
                                     style = TextStyle(color = textColor(if (data.bodyFatSource == "estimated") palette.warnOrange else palette.sub),
                                         fontSize = 9.sp))
