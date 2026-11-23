@@ -46,6 +46,8 @@ import com.qingji.app.ui.screen.settings.SwitchRow
 import com.qingji.app.ui.viewmodel.SettingsViewModel
 import com.qingji.app.ui.theme.CardWhite
 import com.qingji.app.ui.theme.Dimens
+import com.qingji.app.ui.theme.MacroFat
+import com.qingji.app.ui.theme.MacroProtein
 import com.qingji.app.ui.theme.PageBackground
 import com.qingji.app.ui.theme.QingJiGreen
 import com.qingji.app.ui.theme.QingJiGreenDark
@@ -53,6 +55,7 @@ import com.qingji.app.ui.theme.QingJiGreenLight
 import com.qingji.app.ui.theme.TextPrimary
 import com.qingji.app.ui.theme.TextSecondary
 import com.qingji.app.ui.theme.TextSizes
+import com.qingji.app.ui.theme.WarnOrange
 import com.qingji.app.widget.BodyWidgetReceiver
 import com.qingji.app.widget.OverviewWidgetReceiver
 import com.qingji.app.widget.QuickRecordWidgetReceiver
@@ -164,13 +167,13 @@ fun WidgetSettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = viewModel()
             ) {
                 // V2 阶段5：预览与真实 Glance 同款「图标+短标签」轻量入口
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    QuickCell(WidgetSpec.LABEL_BREAKFAST, R.drawable.ic_widget_breakfast)
-                    QuickCell(WidgetSpec.LABEL_WEIGHT, R.drawable.ic_widget_weight)
+                    QuickCell(WidgetSpec.LABEL_DIET, R.drawable.ic_widget_diet, QingJiGreen)
+                    QuickCell(WidgetSpec.LABEL_WEIGHT, R.drawable.ic_widget_weight, WarnOrange)
                 }
                 Spacer(Modifier.height(6.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    QuickCell(WidgetSpec.LABEL_WATER, R.drawable.ic_widget_water)
-                    QuickCell(WidgetSpec.LABEL_PHOTO, R.drawable.ic_widget_camera)
+                    QuickCell(WidgetSpec.LABEL_WATER, R.drawable.ic_widget_water, MacroProtein)
+                    QuickCell(WidgetSpec.LABEL_PHOTO, R.drawable.ic_widget_camera, MacroFat)
                 }
             }
 
@@ -380,7 +383,7 @@ private fun WidgetCard(
 
 /** V2 阶段5：预览入口与真实 Glance 同款「图标+短标签」，图标资源也共用。 */
 @Composable
-private fun QuickCell(label: String, iconRes: Int) {
+private fun QuickCell(label: String, iconRes: Int, tint: androidx.compose.ui.graphics.Color = QingJiGreen) {
     Column(
         modifier = Modifier
             .size(width = 74.dp, height = 52.dp)
@@ -389,11 +392,20 @@ private fun QuickCell(label: String, iconRes: Int) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        androidx.compose.foundation.Image(
-            painter = androidx.compose.ui.res.painterResource(iconRes),
-            contentDescription = label,
-            modifier = Modifier.size(WidgetSpec.QUICK_ICON_DP.dp)
-        )
+        // 与真实 Glance QuickTile 一致：圆角方形彩底（10dp），对齐悬浮按钮/今日记录图标观感。
+        Box(
+            modifier = Modifier
+                .size(30.dp)
+                .clip(RoundedCornerShape(WidgetSpec.TILE_ICON_CORNER_DP.dp))
+                .background(tint.copy(alpha = 0.20f)),
+            contentAlignment = Alignment.Center
+        ) {
+            androidx.compose.foundation.Image(
+                painter = androidx.compose.ui.res.painterResource(iconRes),
+                contentDescription = label,
+                modifier = Modifier.size(WidgetSpec.QUICK_ICON_DP.dp)
+            )
+        }
         Spacer(Modifier.height(WidgetSpec.QUICK_ICON_LABEL_GAP_DP.dp))
         Text(text = label, fontSize = WidgetSpec.QUICK_LABEL_SP.sp, color = TextPrimary)
     }

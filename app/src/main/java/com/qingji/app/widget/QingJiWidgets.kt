@@ -200,7 +200,7 @@ class QuickRecordWidget : GlanceAppWidget() {
                         // 只注入不同的 Action —— 跳转入口与喝水直写入口不再各写一套布局。
                         if (wide) {
                             Row(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
-                                QuickTile(R.drawable.ic_widget_breakfast, WidgetSpec.LABEL_BREAKFAST,
+                                QuickTile(R.drawable.ic_widget_diet, WidgetSpec.LABEL_DIET,
                                     jumpAction(context, WidgetRefresher.TARGET_TEXT_AI), GlanceModifier.defaultWeight(), palette, palette.green)
                                 Spacer(GlanceModifier.width(WidgetSpec.QUICK_TILE_GAP_DP.dp))
                                 QuickTile(R.drawable.ic_widget_weight, WidgetSpec.LABEL_WEIGHT,
@@ -214,7 +214,7 @@ class QuickRecordWidget : GlanceAppWidget() {
                             }
                         } else {
                             Row(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
-                                QuickTile(R.drawable.ic_widget_breakfast, WidgetSpec.LABEL_BREAKFAST,
+                                QuickTile(R.drawable.ic_widget_diet, WidgetSpec.LABEL_DIET,
                                     jumpAction(context, WidgetRefresher.TARGET_TEXT_AI), GlanceModifier.defaultWeight(), palette, palette.green)
                                 Spacer(GlanceModifier.width(WidgetSpec.QUICK_TILE_GAP_DP.dp))
                                 QuickTile(R.drawable.ic_widget_weight, WidgetSpec.LABEL_WEIGHT,
@@ -263,11 +263,11 @@ private fun QuickTile(
         verticalAlignment = Alignment.Vertical.CenterVertically,
         horizontalAlignment = Alignment.Horizontal.CenterHorizontally
     ) {
-        // V3.0：图标外加圆形彩底（与记一笔面板 SheetIconCard 的彩色圆形图标一致）
+        // 图标外加圆角方形彩底（对齐悬浮按钮 / 今日记录的圆角方形图标；原 V3.0 为圆形 999dp）
         Box(
             modifier = GlanceModifier.size(30.dp)
                 .background(ColorProvider(if (tint != Color.Unspecified) tint.copy(alpha = 0.20f) else palette.greenLight))
-                .cornerRadius(999.dp),
+                .cornerRadius(WidgetSpec.TILE_ICON_CORNER_DP.dp),
             contentAlignment = Alignment.Center
         ) {
             Image(

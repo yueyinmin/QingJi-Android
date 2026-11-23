@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 小组件快捷入口：饮食（Material Restaurant 刀叉，与今日记录「午餐」图标同款），统一主题绿描边风格 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#1F8A70">
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M11,9H9.5V2H7v7H5.5V2H4v7c0,2.12 1.66,3.84 3.75,3.96V22h1.5v-9.04C11.34,12.84 13,11.12 13,9V2h-2v7zM16.5,2v7h-3v2h3v11h2V2h-2z" />
+</vector>

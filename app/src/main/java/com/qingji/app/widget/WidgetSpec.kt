@@ -11,7 +11,8 @@ import androidx.compose.ui.graphics.Color
 object WidgetSpec {
     // ---- 文案（预览与 Glance 共用，改一处两处同步） ----
     const val LABEL_QUICK_TITLE = "记一笔"
-    const val LABEL_BREAKFAST = "早餐"
+    // 2×2 快捷入口：原「早餐」改为「饮食」（入口指向记饮食，不再限定早餐）；图标用与今日记录午餐同款的 Restaurant 刀叉。
+    const val LABEL_DIET = "饮食"
     const val LABEL_WEIGHT = "体重"
     const val LABEL_WATER = "喝水"
     const val LABEL_PHOTO = "拍照"
@@ -65,6 +66,8 @@ object WidgetSpec {
     /** 快捷入口格子底色透明度与圆角。 */
     const val TILE_BG_ALPHA = 1.0f  // 视觉精修：实心浅绿格，不再半透糊
     const val TILE_CORNER_DP = 10
+    /** 快捷入口图标的彩色底板圆角：由原来的圆形(999)改为圆角方形(10dp)，对齐悬浮按钮/今日记录的图标观感。 */
+    const val TILE_ICON_CORNER_DP = 10
     const val QUICK_ICON_DP = 18
     const val QUICK_LABEL_SP = 10
     const val QUICK_ICON_LABEL_GAP_DP = 2
