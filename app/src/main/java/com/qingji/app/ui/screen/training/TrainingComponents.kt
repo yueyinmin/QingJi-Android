@@ -369,9 +369,11 @@ private fun CalendarDayCell(
     val isSelected = isTrainingMode && selectedDate != null && date == selectedDate
     val moodColor = if (dateColors != null && date != null) dateColors[date] else null
 
+    // 训练日记选中日期不再铺背景色块：用户反馈浅灰/浅蓝方块像「灰色选中特效」。
+    // 选中态只靠日期数字变主题深绿 + 训练绿点表达；心情日记的月份色块语义保留不变。
     val bgColor by animateColorAsState(
         targetValue = when {
-            isSelected -> QingJiGreenLight
+            isSelected -> Color.Transparent
             moodColor != null -> moodColor
             else -> Color.Transparent
         },

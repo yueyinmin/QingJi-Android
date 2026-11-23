@@ -127,4 +127,17 @@ object QingJiRoutes {
         SelfDiscipline, SelfDisciplineGoals, SelfDisciplineGoalEdit, SelfDisciplineCheckin,
         SelfDisciplineUrge, SelfDisciplineDeviation, SelfDisciplineHistory, SelfDisciplineSettings
     )
+
+    /**
+     * 日记隐私锁覆盖的「日记区域」路由（导航层与单测共用）。
+     * 必须与所有挂 DiaryPrivacyGate 的页面一致，否则会出现「页面显示 Gate，
+     * 但 _inDiaryArea=false → 认证成功仍被 onAuthenticated 拒绝 → 一直锁着」。
+     * 覆盖：日记 Tab、进展 Tab（三张日记卡）、日记编辑页、睡眠独立页。
+     */
+    val privacyAreaRoutes: Set<String> = setOf(
+        QingJiTab.Diary.route,
+        QingJiTab.Progress.route,
+        DiaryEdit,
+        Sleep
+    )
 }

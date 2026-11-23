@@ -29,7 +29,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -142,29 +144,33 @@ fun TrainingDiaryContent(
     fun pickDate(date: java.time.LocalDate) {
         if (selectedDate != null) onSelectedDateChange(date) else internalSelectedDate = date
     }
-    var daySummary by remember { mutableStateOf<com.qingji.app.data.local.entity.DailyHealthSummaryEntity?>(null) }
+    // 闪烁修复（2026-11-23）：按日期缓存查询结果。切到已看过的日期立刻有数据、
+    // 不发空态；切到新日期虽要查一次，但 Room 本地查询通常一帧内完成。
+    // 缓存键就是日期，天然不会把旧日期数据误显示到新日期。
+    val summaryCache = remember { mutableStateMapOf<java.time.LocalDate, com.qingji.app.data.local.entity.DailyHealthSummaryEntity?>() }
     val latestActiveDate = rememberUpdatedState(activeDate)
     LaunchedEffect(activeDate) {
         val target = activeDate
-        // 不再先 daySummary=null：渲染端有 takeIf{ it.date == activeDate } 校验，
-        // 旧日期数据不会被误显示；主动清空反而让汇总从 4 行塌成 1 行空态再填回，
-        // 真机上就是"下方闪一下"。查询期间保留上一份数据，等新结果到达即替换。
+        if (target in summaryCache) return@LaunchedEffect  // 已缓存，直接渲染，零空态
         val result = healthRepo.summaryFor(target)
-        // 竞态防护：查询期间用户又切了日期，丢弃这次结果，绝不让旧查询覆盖新日期。
-        // 用 rememberUpdatedState 读「当前」日期，而不是闭包里被 key 固定的旧值。
-        if (target == latestActiveDate.value) daySummary = result
+        // 竞态防护：查询期间用户又切了日期，丢弃这次结果。
+        if (target == latestActiveDate.value) summaryCache[target] = result
     }
+    val daySummary = summaryCache[activeDate]
 
-    // 当天饮食明细：按「训练日记自己的选中日期」真实查询，不取进展页的 foodMonth（近 30 天）。
-    // produceState 会在 selectedDate 变化时取消上一次收集并重新订阅，不会串日期、不重复建监听。
+    // 当天饮食明细：同样按日期缓存，切回看过的日期不再清空闪空态。
     val foodRepo = remember(context) { com.qingji.app.data.repository.QingJiRepository(context) }
-    val dayFoods by produceState(initialValue = emptyList<FoodLog>(), activeDate, foodRepo) {
-        // 切换日期时旧列表会残留到新 Flow 发出第一条，导致"当天饮食"短暂显示前一天内容。
-        // 先清空再订阅；饮食明细行数少，短暂空态比显示错误日期的数据安全。
-        value = emptyList()
-        foodRepo.observeFoodLogs(activeDate).collect { logs ->
-            value = logs.filter { it.date == activeDate }
+    val foodCache = remember { mutableStateMapOf<java.time.LocalDate, List<FoodLog>>() }
+    LaunchedEffect(activeDate, foodRepo) {
+        val target = activeDate
+        foodRepo.observeFoodLogs(target).collect { logs ->
+            if (target == latestActiveDate.value) {
+                foodCache[target] = logs.filter { it.date == target }
+            }
         }
+    }
+    val dayFoods by remember(activeDate, foodCache) {
+        derivedStateOf { foodCache[activeDate].orEmpty() }
     }
 
     val bySession = remember(allExercises) { allExercises.groupBy { it.sessionUuid } }

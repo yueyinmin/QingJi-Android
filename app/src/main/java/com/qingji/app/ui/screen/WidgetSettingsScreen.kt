@@ -46,6 +46,8 @@ import com.qingji.app.ui.screen.settings.SwitchRow
 import com.qingji.app.ui.viewmodel.SettingsViewModel
 import com.qingji.app.ui.theme.CardWhite
 import com.qingji.app.ui.theme.Dimens
+import com.qingji.app.ui.theme.MacroFat
+import com.qingji.app.ui.theme.MacroProtein
 import com.qingji.app.ui.theme.PageBackground
 import com.qingji.app.ui.theme.QingJiGreen
 import com.qingji.app.ui.theme.QingJiGreenDark
@@ -53,6 +55,7 @@ import com.qingji.app.ui.theme.QingJiGreenLight
 import com.qingji.app.ui.theme.TextPrimary
 import com.qingji.app.ui.theme.TextSecondary
 import com.qingji.app.ui.theme.TextSizes
+import com.qingji.app.ui.theme.WarnOrange
 import com.qingji.app.widget.BodyWidgetReceiver
 import com.qingji.app.widget.OverviewWidgetReceiver
 import com.qingji.app.widget.QuickRecordWidgetReceiver
@@ -126,12 +129,12 @@ fun WidgetSettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = viewModel()
                     value = alphaDraft,
                     onValueChange = { alphaDraft = it },
                     onValueChangeFinished = { vm.setWidgetAlpha(alphaDraft.toInt()) },
-                    valueRange = 30f..100f,
-                    steps = 6,
+                    valueRange = WidgetSpec.ALPHA_MIN.toFloat()..WidgetSpec.ALPHA_MAX.toFloat(),
+                    steps = WidgetSpec.ALPHA_MAX - WidgetSpec.ALPHA_MIN - 1,  // 每 1% 一格，自由调节
                     modifier = Modifier.fillMaxWidth()
                 )
                 Text(
-                    text = "数值越小越透，30% 时能看到桌面壁纸。",
+                    text = "数值越小越透，0% 时卡片背景完全透明（文字仍在，浅色壁纸下可能看不清）。",
                     fontSize = 10.sp,
                     color = TextSecondary
                 )
@@ -164,13 +167,13 @@ fun WidgetSettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = viewModel()
             ) {
                 // V2 阶段5：预览与真实 Glance 同款「图标+短标签」轻量入口
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    QuickCell(WidgetSpec.LABEL_BREAKFAST, R.drawable.ic_widget_breakfast)
-                    QuickCell(WidgetSpec.LABEL_WEIGHT, R.drawable.ic_widget_weight)
+                    QuickCell(WidgetSpec.LABEL_DIET, R.drawable.ic_widget_diet, QingJiGreen)
+                    QuickCell(WidgetSpec.LABEL_WEIGHT, R.drawable.ic_widget_weight, WarnOrange)
                 }
                 Spacer(Modifier.height(6.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    QuickCell(WidgetSpec.LABEL_WATER, R.drawable.ic_widget_water)
-                    QuickCell(WidgetSpec.LABEL_PHOTO, R.drawable.ic_widget_camera)
+                    QuickCell(WidgetSpec.LABEL_WATER, R.drawable.ic_widget_water, MacroProtein)
+                    QuickCell(WidgetSpec.LABEL_PHOTO, R.drawable.ic_widget_camera, MacroFat)
                 }
             }
 
@@ -380,15 +383,14 @@ private fun WidgetCard(
 
 /** V2 阶段5：预览入口与真实 Glance 同款「图标+短标签」，图标资源也共用。 */
 @Composable
-private fun QuickCell(label: String, iconRes: Int) {
+private fun QuickCell(label: String, iconRes: Int, tint: androidx.compose.ui.graphics.Color = QingJiGreen) {
     Column(
         modifier = Modifier
-            .size(width = 74.dp, height = 52.dp)
-            .clip(RoundedCornerShape(WidgetSpec.TILE_CORNER_DP.dp))
-            .background(CardWhite.copy(alpha = WidgetSpec.TILE_BG_ALPHA)),
+            .size(width = 74.dp, height = 52.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
+        // 与真实 Glance QuickTile 一致：去白底/彩底，图标放大（tint 参数保留兼容调用点）。
         androidx.compose.foundation.Image(
             painter = androidx.compose.ui.res.painterResource(iconRes),
             contentDescription = label,
