@@ -772,6 +772,9 @@ private fun SleepFormSheet(
     var feeling by remember(editing?.id) { mutableStateOf(editing?.morningFeeling ?: 3) }
     var wakeCount by remember(editing?.id) { mutableStateOf(editing?.wakeCount ?: 0) }
     var napMinutes by remember(editing?.id) { mutableStateOf(editing?.napMinutes ?: 0) }
+    // 午睡自定义：预设只留 0/20/30，其余走「自定义」胶囊输入分钟数。
+    var showNapCustom by remember { mutableStateOf(false) }
+    var napInput by remember { mutableStateOf("") }
     var note by remember(editing?.id) { mutableStateOf(editing?.note.orEmpty()) }
     // 防重复提交：一次点击置 true，保存触发即关闭弹层，杜绝连点多次入库
     var saving by remember { mutableStateOf(false) }
@@ -835,10 +838,18 @@ private fun SleepFormSheet(
                     listOf(s("没醒") to 0, "${1}${s("次")}" to 1,
                         "${2}${s("次")}" to 2, "${3}${s("次")}" to 3),
                     wakeCount) { wakeCount = it }
-                ChoiceGroup(s("午睡"),
-                    listOf(s("没午睡") to 0, "20${s("分钟")}" to 20, "30${s("分钟")}" to 30,
-                        "60${s("分钟")}" to 60, "90${s("分钟")}" to 90),
-                    napMinutes) { napMinutes = it }
+                // 午睡：去掉 60/90 分钟固定档，改「自定义」胶囊输入任意分钟数。
+                val napPresets = listOf(s("没午睡") to 0, "20${s("分钟")}" to 20, "30${s("分钟")}" to 30)
+                ChoiceGroup(s("午睡"), napPresets, napMinutes) { napMinutes = it }
+                // 自定义值（不在预设里）单独一枚胶囊显示，点它或「自定义」都能改。
+                Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
+                    val isCustom = napMinutes !in napPresets.map { it.second }
+                    ChoicePill(if (isCustom) "${napMinutes}${s("分钟")}" else s("自定义"), isCustom) {
+                        napInput = if (isCustom) napMinutes.toString() else ""
+                        showNapCustom = true
+                    }
+                }
+                Spacer(Modifier.height(14.dp))
 
                 // 备注：小型辅助说明 + 简洁输入框
                 Text(s("备注（选填）"), fontSize = TextSizes.Caption, color = TextSecondary)
@@ -895,6 +906,35 @@ private fun SleepFormSheet(
                     }
                 }
             }
+        }
+    }
+
+    // 午睡自定义分钟数：仅数字，0~300 分钟校验，非法值确定置灰。
+    if (showNapCustom) {
+        val parsed = napInput.toIntOrNull()
+        val validNap = parsed != null && parsed in 1..300
+        AppDialog(
+            title = s("自定义午睡时间"),
+            confirmText = s("确定"),
+            confirmEnabled = validNap,
+            onConfirm = {
+                if (validNap) napMinutes = parsed
+                showNapCustom = false
+            },
+            onDismiss = { showNapCustom = false }
+        ) {
+            Text("输入午睡分钟数（1~300）", fontSize = TextSizes.Caption, color = TextSecondary)
+            Spacer(Modifier.height(8.dp))
+            BasicTextField(
+                value = napInput,
+                onValueChange = { v -> napInput = v.filter { it.isDigit() }.take(3) },
+                singleLine = true,
+                textStyle = TextStyle(fontSize = TextSizes.Body, color = TextPrimary),
+                modifier = Modifier.fillMaxWidth()
+                    .clip(RoundedCornerShape(Dimens.TinyCorner))
+                    .background(DividerColor.copy(alpha = 0.45f))
+                    .padding(12.dp)
+            )
         }
     }
 
