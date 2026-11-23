@@ -17,10 +17,10 @@ class WidgetQuickTileStyleTest {
     }
 
     @Test
-    fun `图标彩底为圆角方形十dp 不是圆形`() {
-        assertEquals(10, WidgetSpec.TILE_ICON_CORNER_DP)
-        // 圆形是 999dp；这里必须远小于它，确保是圆角方形
-        assert(WidgetSpec.TILE_ICON_CORNER_DP < 100)
+    fun `图标放大到30dp 白底与彩底已去`() {
+        // 用户要求去白色格子底 + 淡绿彩底，图标放大成为主视觉（原 18dp）
+        assertEquals(30, WidgetSpec.QUICK_ICON_DP)
+        assert(WidgetSpec.QUICK_ICON_DP > 18)
     }
 
     @Test

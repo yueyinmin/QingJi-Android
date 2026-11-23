@@ -386,26 +386,16 @@ private fun WidgetCard(
 private fun QuickCell(label: String, iconRes: Int, tint: androidx.compose.ui.graphics.Color = QingJiGreen) {
     Column(
         modifier = Modifier
-            .size(width = 74.dp, height = 52.dp)
-            .clip(RoundedCornerShape(WidgetSpec.TILE_CORNER_DP.dp))
-            .background(CardWhite.copy(alpha = WidgetSpec.TILE_BG_ALPHA)),
+            .size(width = 74.dp, height = 52.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // 与真实 Glance QuickTile 一致：圆角方形彩底（10dp），对齐悬浮按钮/今日记录图标观感。
-        Box(
-            modifier = Modifier
-                .size(30.dp)
-                .clip(RoundedCornerShape(WidgetSpec.TILE_ICON_CORNER_DP.dp))
-                .background(tint.copy(alpha = 0.20f)),
-            contentAlignment = Alignment.Center
-        ) {
-            androidx.compose.foundation.Image(
-                painter = androidx.compose.ui.res.painterResource(iconRes),
-                contentDescription = label,
-                modifier = Modifier.size(WidgetSpec.QUICK_ICON_DP.dp)
-            )
-        }
+        // 与真实 Glance QuickTile 一致：去白底/彩底，图标放大（tint 参数保留兼容调用点）。
+        androidx.compose.foundation.Image(
+            painter = androidx.compose.ui.res.painterResource(iconRes),
+            contentDescription = label,
+            modifier = Modifier.size(WidgetSpec.QUICK_ICON_DP.dp)
+        )
         Spacer(Modifier.height(WidgetSpec.QUICK_ICON_LABEL_GAP_DP.dp))
         Text(text = label, fontSize = WidgetSpec.QUICK_LABEL_SP.sp, color = TextPrimary)
     }

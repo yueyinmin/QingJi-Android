@@ -68,7 +68,8 @@ object WidgetSpec {
     const val TILE_CORNER_DP = 10
     /** 快捷入口图标的彩色底板圆角：由原来的圆形(999)改为圆角方形(10dp)，对齐悬浮按钮/今日记录的图标观感。 */
     const val TILE_ICON_CORNER_DP = 10
-    const val QUICK_ICON_DP = 18
+    /** 2×2 快捷入口图标尺寸：去底后放大，图标本身成为主视觉。 */
+    const val QUICK_ICON_DP = 30
     const val QUICK_LABEL_SP = 10
     const val QUICK_ICON_LABEL_GAP_DP = 2
     const val QUICK_TILE_GAP_DP = 2
