@@ -87,7 +87,9 @@ object WidgetSpec {
 
     // ---- V2 阶段5：预览与 Glance 共享的展示规则（避免两处硬编码漂移） ----
     /** 背景不透明度范围（SettingsStore/ViewModel/Glance/预览四处共用）。 */
-    const val ALPHA_MIN = 82  // 视觉精修：下限抬高，半透明不再糊在壁纸上
+    // 0~100 自由可调：滑杆拖到 0 时卡片背景完全透明（文字仍在，浅色壁纸下可能看不清，由用户自行取舍）。
+    // 老用户已存值原样读取；DataStore 非 Room，无需数据库迁移。
+    const val ALPHA_MIN = 0
     const val ALPHA_MAX = 100
     /** 营养条轨道色透明度。 */
     const val MACRO_TRACK_ALPHA = 0.42f  // 视觉精修：轨道加深，进度可辨

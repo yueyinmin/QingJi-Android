@@ -126,12 +126,12 @@ fun WidgetSettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = viewModel()
                     value = alphaDraft,
                     onValueChange = { alphaDraft = it },
                     onValueChangeFinished = { vm.setWidgetAlpha(alphaDraft.toInt()) },
-                    valueRange = 30f..100f,
-                    steps = 6,
+                    valueRange = WidgetSpec.ALPHA_MIN.toFloat()..WidgetSpec.ALPHA_MAX.toFloat(),
+                    steps = WidgetSpec.ALPHA_MAX - WidgetSpec.ALPHA_MIN - 1,  // 每 1% 一格，自由调节
                     modifier = Modifier.fillMaxWidth()
                 )
                 Text(
-                    text = "数值越小越透，30% 时能看到桌面壁纸。",
+                    text = "数值越小越透，0% 时卡片背景完全透明（文字仍在，浅色壁纸下可能看不清）。",
                     fontSize = 10.sp,
                     color = TextSecondary
                 )
