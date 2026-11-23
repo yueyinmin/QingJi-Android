@@ -668,31 +668,32 @@ class BodyWidget : GlanceAppWidget() {
                                 style = TextStyle(color = textColor(palette.sub), fontSize = 9.sp))
                         }
 
-                        // BMI / 体脂双栏（4×3 也保留）。compact 档压缩间距与字号，
-                        // 确保第三行分类/来源小字不被卡片底部裁切。
+                        // 体脂率 / BMI 双栏（位置互换：体脂率在左、BMI 在右）。
+                        // 用户反馈下方还有空间，字号放大：数值统一 22sp，标签/来源小字 10sp。
                         Spacer(GlanceModifier.height(if (compact) 4.dp else 8.dp))
                         Box(modifier = GlanceModifier.fillMaxWidth().height(1.dp)
                             .background(ColorProvider(palette.divider))) {}
                         Spacer(GlanceModifier.height(if (compact) 3.dp else 6.dp))
-                        val dualValueSp = if (compact) 16.sp else 20.sp
+                        val dualValueSp = 22.sp
+                        val dualLabelSp = 10.sp
                         Row(modifier = GlanceModifier.fillMaxWidth()) {
                             Column(modifier = GlanceModifier.defaultWeight()) {
-                                Text("BMI", style = TextStyle(color = textColor(palette.sub), fontSize = 9.sp))
-                                Text(if (data.bmi > 0) String.format("%.1f", data.bmi) else "--",
-                                    style = TextStyle(color = textColor(bmiColor(data.bmiCategory, palette)),
-                                        fontSize = dualValueSp, fontWeight = FontWeight.Bold))
-                                Text(data.bmiCategory.ifBlank { "--" },
-                                    style = TextStyle(color = textColor(bmiColor(data.bmiCategory, palette)), fontSize = 9.sp))
-                            }
-                            Spacer(GlanceModifier.width(8.dp))
-                            Column(modifier = GlanceModifier.defaultWeight()) {
-                                Text("体脂率", style = TextStyle(color = textColor(palette.sub), fontSize = 9.sp))
+                                Text("体脂率", style = TextStyle(color = textColor(palette.sub), fontSize = dualLabelSp))
                                 Text(if (data.bodyFat != null) "${String.format("%.1f", data.bodyFat)}%" else "--",
                                     style = TextStyle(color = textColor(palette.text),
                                         fontSize = dualValueSp, fontWeight = FontWeight.Bold))
                                 Text(bodyFatSourceLabel(data.bodyFatSource),
                                     style = TextStyle(color = textColor(if (data.bodyFatSource == "estimated") palette.warnOrange else palette.sub),
-                                        fontSize = 9.sp))
+                                        fontSize = dualLabelSp))
+                            }
+                            Spacer(GlanceModifier.width(8.dp))
+                            Column(modifier = GlanceModifier.defaultWeight()) {
+                                Text("BMI", style = TextStyle(color = textColor(palette.sub), fontSize = dualLabelSp))
+                                Text(if (data.bmi > 0) String.format("%.1f", data.bmi) else "--",
+                                    style = TextStyle(color = textColor(bmiColor(data.bmiCategory, palette)),
+                                        fontSize = dualValueSp, fontWeight = FontWeight.Bold))
+                                Text(data.bmiCategory.ifBlank { "--" },
+                                    style = TextStyle(color = textColor(bmiColor(data.bmiCategory, palette)), fontSize = dualLabelSp))
                             }
                         }
                         if (full || wide) {
