@@ -253,6 +253,9 @@ fun ProgressCardManagerSheet(
                 .nestedScroll(blockSheetScroll)
                 .padding(horizontal = 18.dp)
         ) {
+            // dragHandle=null 时弹层顶部没有默认拖拽柄留白，标题/重置会贴着顶边很别扭。
+            // 这里补一段顶部间距，让它们和弹层上沿有呼吸感（不影响拖拽位置换算）。
+            Spacer(Modifier.height(18.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = s("管理卡片"),
