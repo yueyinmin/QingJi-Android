@@ -193,10 +193,15 @@ fun QingJiAppRoot(
     val showBottomBar = currentRoute !in QingJiRoutes.fullScreenRoutes
 
     // 日记隐私锁 V1：基于真实导航 route 的「进入/离开日记区域」跃迁判断。
-    // 日记区域 = 日记 Tab + 日记编辑页（编辑同份私密内容，属内部操作，不重锁）。
+    // 日记区域 = 所有会挂 DiaryPrivacyGate 的页面：
+    //   · 日记 Tab + 日记编辑页（编辑同份私密内容，属内部操作，不重锁）
+    //   · 进展 Tab（三张日记卡：睡眠/运动/饮食各自带 Gate）
+    //   · 睡眠独立页（SleepScreen 带 Gate）
+    // 漏掉 Progress/Sleep 会导致：页面显示 Gate，但 _inDiaryArea=false，
+    // 用户认证成功后 onAuthenticated 因「不在日记区」拒绝解锁 → 一直锁着。
     // 绝不用 onDispose / 底栏点击判断（会漏系统返回、滑动、通知跳转）。
     if (diaryPrivacyVm != null) {
-        val diaryArea = setOf(QingJiTab.Diary.route, QingJiRoutes.DiaryEdit)
+        val diaryArea = QingJiRoutes.privacyAreaRoutes
         var wasInDiary by remember { mutableStateOf(false) }
         LaunchedEffect(currentRoute) {
             val inside = currentRoute in diaryArea
