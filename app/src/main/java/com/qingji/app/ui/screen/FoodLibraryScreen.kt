@@ -663,8 +663,10 @@ private fun AddToMealDialog(
         title = s("加到哪一餐"),
         subtitle = foodName,
         confirmText = s("加入"),
+        // QJ-FOOD-NUMERIC-PAD-V1：非法数量不得提交；不再用 defaultGrams 兜底错误输入
+        confirmEnabled = com.qingji.app.domain.NumericKeypadLogic.isValid(grams, 1.0, 3000.0),
         onConfirm = {
-            val g = grams.toDoubleOrNull()?.coerceIn(1.0, 3000.0) ?: defaultGrams
+            val g = grams.toDoubleOrNull()?.coerceIn(1.0, 3000.0) ?: return@AppBottomSheet
             onConfirm(meal, g, dayOffset.toInt())
         },
         onDismiss = onDismiss
@@ -704,12 +706,15 @@ private fun AddToMealDialog(
             }
         }
         Spacer(Modifier.height(12.dp))
-        com.qingji.app.ui.components.LabeledTextField(
-            label = s("份量（克）"),
+        // QJ-FOOD-NUMERIC-PAD-V1：自定义数字键盘替换系统输入框，不唤起软键盘；
+        // 默认份量仍来自 food.defaultGrams，步长 10g、范围 1..3000g
+        com.qingji.app.ui.components.NumericKeypadInput(
             value = grams,
             onValueChange = { grams = it },
-            hint = "100",
-            numberOnly = true
+            unit = "克",
+            min = 1.0,
+            max = 3000.0,
+            step = 10.0
         )
     }
 }

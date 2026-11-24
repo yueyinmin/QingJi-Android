@@ -337,19 +337,30 @@ private fun SearchAddToMealSheet(
     var meal by remember { mutableStateOf("lunch") }
     var offset by remember { mutableStateOf(0) }
     val meals = listOf("breakfast" to "早餐", "lunch" to "午餐", "dinner" to "晚餐", "snack" to "加餐")
-    val g = grams.toDoubleOrNull() ?: 0.0
+    // QJ-FOOD-NUMERIC-PAD-V1：合法数量才允许提交，不再用 0 兜底
+    val valid = com.qingji.app.domain.NumericKeypadLogic.isValid(grams, 1.0, 3000.0)
+    val amount = com.qingji.app.domain.NumericKeypadLogic.asDouble(grams) ?: 0.0
+    // 单位按营养基准显示：
+    // 每份基准下 grams 仍是「实际克数」（ratio 用 servingGrams 做分母），不能显示成「份」，
+    // 否则用户填 2「份」会被当成 2g 计算；只有每100毫升基准的单位才是毫升。
+    val unitLabel = if (FoodNutritionCalculator.normalizeBasis(basis) == FoodNutritionCalculator.PER_100ML)
+        "毫升" else "克"
     AppBottomSheet(
         title = "加入饮食记录", subtitle = title,
-        confirmText = "加入", onConfirm = { if (g > 0) onAdd(g, meal, offset) },
-        confirmEnabled = g > 0, skipPartiallyExpanded = true, onDismiss = onDismiss
+        confirmText = "加入", onConfirm = { if (valid) onAdd(amount, meal, offset) },
+        confirmEnabled = valid, skipPartiallyExpanded = true, onDismiss = onDismiss
     ) {
         Column {
             Text("吃了多少（${FoodNutritionCalculator.basisLabel(basis)}）", fontSize = 13.sp, color = TextSecondary)
             Spacer(Modifier.height(6.dp))
-            androidx.compose.material3.OutlinedTextField(
-                value = grams, onValueChange = { grams = it }, singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal),
-                modifier = Modifier.fillMaxWidth()
+            // QJ-FOOD-NUMERIC-PAD-V1：与主食物库统一组件；默认份量、餐次、日期规则不变
+            com.qingji.app.ui.components.NumericKeypadInput(
+                value = grams,
+                onValueChange = { grams = it },
+                unit = unitLabel,
+                min = 1.0,
+                max = 3000.0,
+                step = 10.0
             )
             Spacer(Modifier.height(14.dp))
             Text("哪一餐", fontSize = 13.sp, color = TextSecondary)
