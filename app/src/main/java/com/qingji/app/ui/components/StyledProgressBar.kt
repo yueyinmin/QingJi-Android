@@ -7,6 +7,8 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -90,7 +92,12 @@ fun StyledProgressBar(
     val stripePath = remember { Path() }
     val wavePath = remember { Path() }
 
-    Canvas(modifier) {
+    // barHeight 必须落到 Canvas 自身尺寸：Compose 的 Canvas 无显式尺寸时会测成 0×0，
+    // 触发 h<=0 的 return，进度条整条消失（1.4.5 首页/营养素/减重条全没的根因）。
+    // 默认 fillMaxWidth+barHeight 兜底「调用方未指定尺寸」；调用方 modifier 放链尾
+    // （Compose 链尾=外层，约束优先），设置页预览传 height(10.dp).fillMaxWidth(0.42f)，
+    // 会盖掉默认值，保持 0.42 宽 / 10dp 高不变。
+    Canvas(Modifier.fillMaxWidth().height(barHeight).then(modifier)) {
         val w = size.width
         val h = size.height
         if (w <= 0f || h <= 0f) return@Canvas
