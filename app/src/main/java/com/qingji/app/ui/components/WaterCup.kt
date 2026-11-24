@@ -25,7 +25,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
@@ -214,19 +213,9 @@ fun WaterCup(
             cupGeometry(size.width, size.height, density)
         }
 
-        // 玻璃质感：锥壁 + 厚底，保留原杯形尺寸与 clip 范围
         val cupPath = Path().apply {
             moveTo(g.centerX - g.topHalf, g.top)
             lineTo(g.centerX + g.topHalf, g.top)
-            lineTo(g.centerX + g.bottomHalf, g.bottom)
-            lineTo(g.centerX - g.bottomHalf, g.bottom)
-            close()
-        }
-        // 厚玻璃底：杯底内侧一条椭圆带，水在上面、玻璃在下面
-        val footBandH = (g.height * 0.085f).coerceIn(4.dp.toPx(), 16.dp.toPx())
-        val footPath = Path().apply {
-            moveTo(g.centerX - g.bottomHalf, g.bottom - footBandH)
-            lineTo(g.centerX + g.bottomHalf, g.bottom - footBandH)
             lineTo(g.centerX + g.bottomHalf, g.bottom)
             lineTo(g.centerX - g.bottomHalf, g.bottom)
             close()
@@ -255,46 +244,15 @@ fun WaterCup(
 
         // ---- 杯内：全部裁进锥形杯里 ----
         clipPath(cupPath) {
-            // 玻璃杯身的底色（空杯也有淡淡的玻璃感，不再是纯背景）
-            drawPath(cupPath, Color.White.copy(alpha = 0.10f))
-            // 左右杯壁竖向反光：渐变条，不是白色粗线；主题深色浅色都自适应
-            val wallW = (g.width * 0.09f).coerceAtMost(10.dp.toPx())
-            drawRect(
-                brush = Brush.verticalGradient(
-                    listOf(Color.White.copy(alpha = 0.34f), Color.White.copy(alpha = 0.02f))
-                ),
-                topLeft = Offset(g.centerX - g.topHalf + g.stroke, g.top + g.stroke),
-                size = Size(wallW, g.height - g.stroke * 2)
-            )
-            drawRect(
-                brush = Brush.verticalGradient(
-                    listOf(Color.White.copy(alpha = 0.18f), Color.Transparent)
-                ),
-                topLeft = Offset(g.centerX + g.topHalf - g.stroke - wallW, g.top + g.stroke),
-                size = Size(wallW, g.height - g.stroke * 2)
-            )
-
             if (levelSafe > 0.02f) {
-                // 背景波：更淡，制造水体厚度
                 drawPath(
                     wavePath(waterTop - 2.5.dp.toPx(), amp * 1.15f, backShift, g.waveLen * 0.85f, true),
                     waterFill.copy(alpha = 0.5f)
                 )
-                // 主水体：上浅下深，玻璃里的液体有体积感
                 drawPath(
                     wavePath(waterTop, amp, shift, g.waveLen, true),
-                    Brush.verticalGradient(
-                        colors = listOf(waterFill.copy(alpha = 0.82f), waterFill),
-                        startY = waterTop, endY = g.bottom
-                    )
+                    waterFill
                 )
-                // 水面折射亮带：紧贴水面下方的一条高光
-                drawPath(
-                    wavePath(waterTop + 2.dp.toPx(), amp, shift, g.waveLen, false),
-                    Color.White.copy(alpha = 0.38f),
-                    style = Stroke(width = (g.stroke * 1.6f).coerceAtMost(3.dp.toPx()))
-                )
-                // 水面描线
                 drawPath(
                     wavePath(waterTop, amp, shift, g.waveLen, false),
                     surface,
@@ -302,7 +260,7 @@ fun WaterCup(
                 )
             }
 
-            // 气泡：完整底→面生命周期，接近水面淡出
+            // 气泡：完整底→面生命周期，接近水面淡出；level=0 时 count=0 直接不进循环。
             if (bubbleSpecs.isNotEmpty() && levelSafe > 0f) {
                 val count = (bubbleSpecs.size * levelSafe).toInt()
                 repeat(count) { index ->
@@ -315,16 +273,10 @@ fun WaterCup(
                 }
             }
 
-            // 厚玻璃底：渐变亮带 + 椭圆弧高光，保留圆角约束
-            drawPath(
-                footPath,
-                Brush.verticalGradient(
-                    listOf(Color.White.copy(alpha = 0.05f), Color.White.copy(alpha = 0.42f))
-                )
-            )
+            // 杯底玻璃高光（P2）：用轮廓色半透明，不是白色粗线；小尺寸自动收窄。
             val foot = footHighlight(g, tintAlpha = 0.5f)
             drawLine(
-                color = Color.White.copy(alpha = foot.alpha),
+                color = outline.copy(alpha = foot.alpha),
                 start = Offset(foot.startX, foot.startY),
                 end = Offset(foot.endX, foot.endY),
                 strokeWidth = foot.width,
@@ -332,25 +284,16 @@ fun WaterCup(
             )
         }
 
-        // ---- 杯口：双层椭圆（外描边 + 内反光）+ 渐变杯壁描边 ----
+        // ---- 杯口椭圆 + 锥形杯壁描边（原样保留） ----
         drawOval(
             color = outline,
             topLeft = Offset(g.centerX - g.topHalf, g.top - g.mouth / 2),
             size = Size(g.topHalf * 2, g.mouth),
             style = Stroke(width = g.stroke)
         )
-        drawOval(
-            color = Color.White.copy(alpha = 0.55f),
-            topLeft = Offset(g.centerX - g.topHalf + g.stroke, g.top - g.mouth / 2 + g.stroke),
-            size = Size(g.topHalf * 2 - g.stroke * 2, g.mouth - g.stroke * 2),
-            style = Stroke(width = (g.stroke * 0.8f).coerceAtLeast(0.5f))
-        )
-        val wallBrush = Brush.verticalGradient(
-            colors = listOf(outline.copy(alpha = 0.75f), outline.copy(alpha = 0.35f), outline.copy(alpha = 0.8f))
-        )
-        drawLine(brush = wallBrush, start = Offset(g.centerX - g.topHalf, g.top), end = Offset(g.centerX - g.bottomHalf, g.bottom), strokeWidth = g.stroke)
-        drawLine(brush = wallBrush, start = Offset(g.centerX + g.topHalf, g.top), end = Offset(g.centerX + g.bottomHalf, g.bottom), strokeWidth = g.stroke)
-        drawLine(color = outline.copy(alpha = 0.9f), start = Offset(g.centerX - g.bottomHalf, g.bottom), end = Offset(g.centerX + g.bottomHalf, g.bottom), strokeWidth = g.stroke)
+        drawLine(color = outline, start = Offset(g.centerX - g.topHalf, g.top), end = Offset(g.centerX - g.bottomHalf, g.bottom), strokeWidth = g.stroke)
+        drawLine(color = outline, start = Offset(g.centerX + g.topHalf, g.top), end = Offset(g.centerX + g.bottomHalf, g.bottom), strokeWidth = g.stroke)
+        drawLine(color = outline, start = Offset(g.centerX - g.bottomHalf, g.bottom), end = Offset(g.centerX + g.bottomHalf, g.bottom), strokeWidth = g.stroke)
 
         // ---- 容量文字：用缓存好的布局，绘制帧不做任何 measure ----
         val cached = textLayout

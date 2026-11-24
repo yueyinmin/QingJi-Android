@@ -2,8 +2,6 @@ package com.qingji.app.widget
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.LinearGradient
-import android.graphics.Shader
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
@@ -109,24 +107,6 @@ internal object WidgetArtwork {
         canvas.save()
         canvas.clipPath(cup)
 
-        // QJ-WIDGET-GLASS：杯内淡玻璃底色 + 左右竖向反光（与首页 WaterCup 玻璃质感一致）
-        val glassPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.FILL
-            color = Color.argb(26, 255, 255, 255) // 白色 10%
-        }
-        canvas.drawPath(cup, glassPaint)
-        val wallW = (widthPx * 0.09f).coerceAtMost(widthPx * 0.13f)
-        val leftGloss = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            shader = LinearGradient(cx - topHalf, 0f, cx - topHalf + wallW, 0f,
-                Color.argb(86, 255, 255, 255), Color.argb(5, 255, 255, 255), Shader.TileMode.CLAMP)
-        }
-        val rightGloss = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            shader = LinearGradient(cx + topHalf - wallW, 0f, cx + topHalf, 0f,
-                Color.argb(5, 255, 255, 255), Color.argb(46, 255, 255, 255), Shader.TileMode.CLAMP)
-        }
-        canvas.drawRect(cx - topHalf, top, cx - topHalf + wallW, bottom, leftGloss)
-        canvas.drawRect(cx + topHalf - wallW, top, cx + topHalf, bottom, rightGloss)
-
         if (safe > 0.02f) {
             val waterTop = bottom - (bottom - top) * safe
             val amp = heightPx * 0.016f
@@ -149,21 +129,8 @@ internal object WidgetArtwork {
             val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
             fillPaint.color = Color.argb((Color.alpha(fill) * 0.45f).toInt(), Color.red(fill), Color.green(fill), Color.blue(fill))
             canvas.drawPath(wave(waterTop - heightPx * 0.013f, amp * 1.15f, waveLen * 0.35f, true), fillPaint)
-            val bodyGrad = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                style = Paint.Style.FILL
-                shader = LinearGradient(0f, waterTop, 0f, bottom,
-                    Color.argb((Color.alpha(fill) * 0.82f).toInt(), Color.red(fill), Color.green(fill), Color.blue(fill)),
-                    fill, Shader.TileMode.CLAMP)
-            }
-            canvas.drawPath(wave(waterTop, amp, 0f, true), bodyGrad)
-            // 水面折射亮带：紧贴水面下方
-            val refract = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                style = Paint.Style.STROKE
-                color = Color.argb(96, 255, 255, 255)
-                strokeWidth = (stroke * 1.6f).coerceAtMost(heightPx * 0.008f)
-                strokeCap = Paint.Cap.ROUND
-            }
-            canvas.drawPath(wave(waterTop + heightPx * 0.01f, amp, 0f, false), refract)
+            fillPaint.color = fill
+            canvas.drawPath(wave(waterTop, amp, 0f, true), fillPaint)
             val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 style = Paint.Style.STROKE; color = surface; strokeWidth = stroke; this.strokeCap = Paint.Cap.ROUND
             }
@@ -179,36 +146,12 @@ internal object WidgetArtwork {
                 canvas.drawCircle(bx, by, r, bubblePaint)
             }
         }
-        // 厚玻璃底：底部渐变亮带 + 高光线
-        val footH = (heightPx * 0.085f).coerceAtLeast(widthPx * 0.05f)
-        val footGrad = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.FILL
-            shader = LinearGradient(0f, bottom - footH, 0f, bottom,
-                Color.argb(12, 255, 255, 255), Color.argb(107, 255, 255, 255), Shader.TileMode.CLAMP)
-        }
-        canvas.drawRect(cx - bottomHalf, bottom - footH, cx + bottomHalf, bottom, footGrad)
-        val footLine = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.STROKE
-            color = Color.argb(128, 255, 255, 255)
-            strokeWidth = (stroke * 1.4f).coerceAtMost(widthPx * 0.03f)
-            strokeCap = Paint.Cap.ROUND
-        }
-        val footY = bottom - stroke * 3f
-        val halfFoot = bottomHalf * 0.62f
-        canvas.drawLine(cx - halfFoot, footY, cx + halfFoot, footY, footLine)
         canvas.restore()
 
         val outlinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE; color = outline; strokeWidth = stroke
         }
         canvas.drawOval(RectF(cx - topHalf, top - mouth / 2, cx + topHalf, top + mouth / 2), outlinePaint)
-        val innerRim = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.STROKE
-            color = Color.argb(140, 255, 255, 255)
-            strokeWidth = (stroke * 0.8f).coerceAtLeast(1f)
-        }
-        canvas.drawOval(RectF(cx - topHalf + stroke, top - mouth / 2 + stroke,
-            cx + topHalf - stroke, top + mouth / 2 - stroke), innerRim)
         canvas.drawLine(cx - topHalf, top, cx - bottomHalf, bottom, outlinePaint)
         canvas.drawLine(cx + topHalf, top, cx + bottomHalf, bottom, outlinePaint)
         canvas.drawLine(cx - bottomHalf, bottom, cx + bottomHalf, bottom, outlinePaint)
