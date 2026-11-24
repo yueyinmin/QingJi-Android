@@ -25,6 +25,8 @@ object WorkoutItemJson {
     const val K_SESSION = "s"
     const val K_DURATION = "d"
     const val K_DISTANCE = "di"
+    /** 2026-11-24：步行类有氧按「步数」录入时的原始步数（旧 JSON 无此键，读为 0）。 */
+    const val K_STEPS = "st"
     const val K_INTENSITY = "in"
     const val K_KCAL = "k"
     const val K_METHOD = "km"
@@ -76,6 +78,8 @@ sealed class WorkoutItem {
         override val sessionUuid: String = "",
         val durationSec: Long = 0L,
         val distanceMeters: Double? = null,
+        /** 按步数模式录入时的原始步数；0 = 非步数模式录入。 */
+        val steps: Int = 0,
         val intensity: String? = null,
         val calculatedKcal: Double = 0.0,
         val calculationMethod: String = "",
@@ -171,6 +175,7 @@ sealed class WorkoutItem {
                         common.note, common.sessionUuid,
                         durationSec = o.optLong(WorkoutItemJson.K_DURATION, 0L),
                         distanceMeters = o.optDouble(WorkoutItemJson.K_DISTANCE, Double.NaN).takeIf { it.isFinite() },
+                        steps = o.optInt(WorkoutItemJson.K_STEPS, 0).coerceAtLeast(0),
                         intensity = o.optString(WorkoutItemJson.K_INTENSITY, "").ifBlank { null },
                         calculatedKcal = o.optDouble(WorkoutItemJson.K_KCAL, 0.0).takeIf { it.isFinite() } ?: 0.0,
                         calculationMethod = o.optString(WorkoutItemJson.K_METHOD, ""),
@@ -227,6 +232,7 @@ sealed class WorkoutItem {
                 is Cardio -> {
                     put(WorkoutItemJson.K_DURATION, item.durationSec)
                     item.distanceMeters?.let { put(WorkoutItemJson.K_DISTANCE, it) }
+                    if (item.steps > 0) put(WorkoutItemJson.K_STEPS, item.steps)
                     item.intensity?.let { put(WorkoutItemJson.K_INTENSITY, it) }
                     put(WorkoutItemJson.K_KCAL, item.calculatedKcal)
                     put(WorkoutItemJson.K_METHOD, item.calculationMethod)
@@ -266,7 +272,7 @@ sealed class WorkoutItem {
 /** B1.1.1：是否录入了可用于热量计算的实际数据（与「只有计划目标」严格区分）。 */
 fun WorkoutItem.hasActualData(): Boolean = when (this) {
     is WorkoutItem.Strength -> sets.any { it.reps > 0 || it.weightKg > 0.0 || (it.durationSec ?: 0) > 0 }
-    is WorkoutItem.Cardio -> durationSec > 0L || (distanceMeters ?: 0.0) > 0.0
+    is WorkoutItem.Cardio -> durationSec > 0L || (distanceMeters ?: 0.0) > 0.0 || steps > 0
     is WorkoutItem.Hiit -> durationSec > 0L || rounds > 0
     is WorkoutItem.Flexibility -> durationSec > 0L || content.isNotBlank()
     is WorkoutItem.Other -> durationSec > 0L || (reps ?: 0) > 0
