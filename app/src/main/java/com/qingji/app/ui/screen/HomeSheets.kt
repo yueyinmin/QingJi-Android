@@ -40,7 +40,6 @@ import com.qingji.app.ui.components.WheelDatePicker
 import com.qingji.app.ui.components.WheelTimePicker
 import com.qingji.app.ui.i18n.s
 import com.qingji.app.ui.theme.CardWhite
-import com.qingji.app.ui.theme.DangerRed
 import com.qingji.app.ui.theme.DividerColor
 import com.qingji.app.ui.theme.MultiColor
 import com.qingji.app.ui.theme.PageBackground
@@ -60,7 +59,7 @@ import java.time.LocalDate
  *
  * 关键行为（工单第六部分）：
  * - 打开弹层**不写库**，只是把默认 200ml 摆出来；
- * - 档位 / [-][+] / 自定义输入都只改「待记录」的数值，不落库；
+ * - 快捷档位（100/200/300 累加）、[-][+]（±50）、数字键盘都只改「待记录」的数值，不落库；
  * - 只有点「确认记录」才回调 onAdd（一次），随后关闭；
  * - 点「取消」、下拉关闭、点遮罩都不写任何数据；
  * - submitted 标志防止极快的连续点击产生两条记录。
@@ -78,10 +77,11 @@ fun QuickWaterSheet(
     onDismiss: () -> Unit,
     onOpenDetail: (() -> Unit)? = null
 ) {
-    // 默认 200ml；只在确认时把这个值交给业务层
-    var pendingMl by remember { mutableStateOf(200) }
-    var customMl by remember { mutableStateOf("") }
-    var error by remember { mutableStateOf("") }
+    // QJ-WATER-SHEET-V2.1：待记录水量用 String 受控，允许编辑中出现空值/中间态；
+    // 默认 200ml 不变，只在确认时转成 Int 交给业务层。
+    var pendingMl by remember { mutableStateOf("200") }
+    // 是否处于数字编辑状态（点击中间数字进入，点完成/快捷/加减退出）
+    var editing by remember { mutableStateOf(false) }
     var submitted by remember { mutableStateOf(false) }
     // QJ-HEALTH-DATE-WATER-004：日期默认今天、时间默认当前（走 AppClock 时区）；
     // 用户可用滚轮改历史日期与具体时间，取消不写库。
@@ -157,17 +157,26 @@ fun QuickWaterSheet(
                         .clip(RoundedCornerShape(12.dp))
                         .background(QingJiGreenLight)
                         .pressable {
-                            pendingMl = (pendingMl - 50).coerceAtLeast(50)
-                            customMl = ""
-                            error = ""
+                            pendingMl = com.qingji.app.domain.WaterQuickAdd
+                                .step(pendingMl.toIntOrNull() ?: com.qingji.app.domain.WaterQuickAdd.MIN_ML, -50)
+                                .toString()
+                            editing = false
                         },
                     contentAlignment = Alignment.Center
                 ) {
                     Text("−", fontSize = 20.sp, color = QingJiGreenDark)
                 }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                // QJ-WATER-SHEET-V2.1：中间数字整体可点，进入数字编辑状态（整数键盘，不弹系统输入法）
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if (editing) QingJiGreenLight else Color.Transparent)
+                        .pressable { editing = true }
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                ) {
                     Text(
-                        text = "$pendingMl",
+                        text = pendingMl.ifEmpty { "0" },
                         fontSize = 32.sp,
                         fontWeight = FontWeight.Bold,
                         color = MultiColor.WaterText
@@ -180,9 +189,10 @@ fun QuickWaterSheet(
                         .clip(RoundedCornerShape(12.dp))
                         .background(QingJiGreenLight)
                         .pressable {
-                            pendingMl = (pendingMl + 50).coerceAtMost(3000)
-                            customMl = ""
-                            error = ""
+                            pendingMl = com.qingji.app.domain.WaterQuickAdd
+                                .step(pendingMl.toIntOrNull() ?: com.qingji.app.domain.WaterQuickAdd.MIN_ML, 50)
+                                .toString()
+                            editing = false
                         },
                     contentAlignment = Alignment.Center
                 ) {
@@ -192,87 +202,50 @@ fun QuickWaterSheet(
 
             Spacer(Modifier.height(14.dp))
 
-            // ---------- 常用档位：只选中，不写库 ----------
+            // ---------- 常用档位：QJ-WATER-SHEET-V2.1 改为累加，不写库、不显示选中态 ----------
             Text(text = s("常用饮水量"), fontSize = 12.sp, color = TextSecondary)
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(150, 200, 300).forEach { ml ->
-                    val selected = pendingMl == ml
+                listOf(100, 200, 300).forEach { ml ->
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(10.dp))
-                            .background(if (selected) QingJiGreen else QingJiGreenLight)
-                            .pressable { pendingMl = ml; customMl = ""; error = "" }
+                            .background(QingJiGreenLight)
+                            .pressable {
+                                // 累加到待记录值，夹紧 3000；连续点击连续累加
+                                pendingMl = com.qingji.app.domain.WaterQuickAdd.add(pendingMl, ml).toString()
+                                editing = false
+                            }
                             .padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "${ml}ml",
+                            text = "+$ml ml",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Medium,
-                            color = if (selected) CardWhite else QingJiGreenDark,
+                            color = QingJiGreenDark,
                             maxLines = 1
                         )
                     }
                 }
             }
 
-            Spacer(Modifier.height(12.dp))
-
-            // ---------- 自定义：输入后按「用这个数」替换待记录值，仍不写库 ----------
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                androidx.compose.material3.OutlinedTextField(
-                    value = customMl,
-                    onValueChange = { customMl = it; error = "" },
-                    singleLine = true,
-                    placeholder = {
-                        Text(text = s("自定义水量"), fontSize = 12.sp, color = TextSecondary)
-                    },
-                    trailingIcon = {
-                        Text(
-                            text = "ml",
-                            fontSize = 12.sp,
-                            color = TextSecondary,
-                            modifier = Modifier.padding(end = 10.dp)
-                        )
-                    },
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
-                    ),
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier
-                        .weight(1f)
-                        .heightIn(min = 52.dp)
-                )
-                Spacer(Modifier.width(8.dp))
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(QingJiGreenLight)
-                        .pressable {
-                            val ml = customMl.toIntOrNull()
-                            if (ml != null && ml in 1..3000) {
-                                pendingMl = ml
-                                error = ""
-                            } else {
-                                error = "1 到 3000 之间都行"
-                            }
+            // ---------- QJ-WATER-SHEET-V2.1：整数数字键盘，仅编辑态显示；完成即校验退出 ----------
+            if (editing) {
+                Spacer(Modifier.height(10.dp))
+                WaterNumberKeypad(
+                    value = pendingMl,
+                    onValueChange = { pendingMl = it },
+                    onDone = {
+                        // 完成时校验：非法则回退到当前合法值（默认 200），不关闭弹层
+                        if (!com.qingji.app.domain.WaterQuickAdd.isValid(pendingMl)) {
+                            pendingMl = com.qingji.app.domain.WaterQuickAdd
+                                .add("", com.qingji.app.domain.WaterQuickAdd.MIN_ML).toString()
                         }
-                        .padding(horizontal = 14.dp, vertical = 16.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = s("用这个数"),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = QingJiGreenDark
-                    )
-                }
-            }
-            if (error.isNotBlank()) {
-                Spacer(Modifier.height(6.dp))
-                Text(text = error, fontSize = 11.sp, color = DangerRed)
+                        editing = false
+                    }
+                )
             }
 
             Spacer(Modifier.height(12.dp))
@@ -343,8 +316,11 @@ fun QuickWaterSheet(
                         .background(QingJiGreen)
                         .pressable {
                             if (submitted) return@pressable
+                            // QJ-WATER-SHEET-V2.1：空值/非法值不提交
+                            val ml = pendingMl.toIntOrNull() ?: return@pressable
+                            if (!com.qingji.app.domain.WaterQuickAdd.isValid(pendingMl)) return@pressable
                             submitted = true
-                            onAdd(pendingMl, pendingDate, pendingTime)
+                            onAdd(ml, pendingDate, pendingTime)
                             onDismiss()
                         }
                         .padding(vertical = 14.dp),
