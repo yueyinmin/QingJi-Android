@@ -59,7 +59,12 @@ class QingJiRepository(
     private val refreshHook: (Context, Set<com.qingji.app.widget.WidgetTarget>) -> Unit =
         { c, targets -> com.qingji.app.widget.WidgetRefresher.refresh(c, targets) },
     /** V2.1阶段A4：独立数据库注入（仅测试用；生产 null 走进程单例）。 */
-    private val dbOverride: com.qingji.app.data.local.AppDatabase? = null
+    private val dbOverride: com.qingji.app.data.local.AppDatabase? = null,
+    /**
+     * QJ-AI-HISTORY-DATE-V1：仅测试注入的文本分析执行器（生产 null 走 AiClient）。
+     * 用于在单测里捕获真正发给模型的 facts，验证历史日期数据未串到今天。
+     */
+    private val analyzeExecutor: (suspend (AiConfig, String, String) -> Result<String>)? = null
 ) {
 
     /** 用户自己的数据（可写） */
@@ -1243,17 +1248,30 @@ class QingJiRepository(
         }.trim()
     }
 
-    /** AI 分析（M3.8）：facts 是仓库层聚合好的数字，prompt 里不许模型编数据。 */
-    suspend fun analyze(facts: String, date: LocalDate): Result<String> = try {
-        val config = requireAi(date)
-        val result = aiClient.analyze(config, getApiKeyFor(config.id), facts)
-        if (result.isSuccess) db.usageStatDao().increment(date, "ai")
+    /**
+     * AI 分析（M3.8）：facts 是仓库层聚合好的数字，prompt 里不许模型编数据。
+     * QJ-AI-HISTORY-DATE-V1：第二参 usageDate = 实际调用当天，仅用于每日额度查询与调用统计写入；
+     * 分析对象日期（dataDate）已经体现在 facts 里，不得用 usageDate 反推或替换。
+     */
+    suspend fun analyze(facts: String, usageDate: LocalDate): Result<String> = try {
+        val config = requireAi(usageDate)
+        val result = if (analyzeExecutor != null) {
+            analyzeExecutor(config, getApiKeyFor(config.id), facts)
+        } else {
+            aiClient.analyze(config, getApiKeyFor(config.id), facts)
+        }
+        if (result.isSuccess) db.usageStatDao().increment(usageDate, "ai")
         result
     } catch (e: AiException) {
         Result.failure(e)
     }
 
-    /** 今日复盘的事实材料：预算、已摄入、三大营养素、吃了几餐、饮水。 */
+    /**
+     * 指定日期复盘的事实材料：当天饮食、餐次、营养素、饮水；目标值为用户当前配置。
+     * QJ-AI-HISTORY-DATE-V1：date = dataDate（分析哪天），所有记录查询都锚定它；
+     * 热量预算/三大营养素目标是当前档案配置，不是历史快照，必须如实告诉模型，
+     * 不能说成「那天定的目标」，更不能拿今天的数据补空缺。
+     */
     suspend fun buildDailyFacts(date: LocalDate): String {
         val profile = db.userProfileDao().get()
         val summary = db.foodLogDao().observeDailySummary(date).first()
@@ -1261,17 +1279,20 @@ class QingJiRepository(
         val water = db.waterLogDao().observeTodayMl(date).first() ?: 0
         val kcal = summary?.totalKcal?.toInt() ?: 0
         val goal = profile?.dailyKcalGoal ?: 0
-        val mealText = if (meals.isEmpty()) "今天还没有饮食记录" else meals.joinToString("、") {
+        val isToday = date == AppClock.today()
+        val dayLabel = if (isToday) "今天" else "$date"
+        val mealText = if (meals.isEmpty()) "${dayLabel}没有饮食记录" else meals.joinToString("、") {
             "${it.mealType}:${it.kcal?.toInt() ?: 0}千卡/${it.itemCount}项"
         }
         return buildString {
-            append("【今日复盘】日期 $date。")
-            append("热量预算 ${goal}千卡，已摄入 ${kcal}千卡，差额 ${goal - kcal}千卡。")
+            append("【${if (isToday) "今日复盘" else "历史复盘"}】分析日期：$date（$dayLabel）。")
+            append("热量预算 ${goal}千卡（用户当前配置的目标，非该日历史目标），${dayLabel}摄入 ${kcal}千卡，按当前预算差额 ${goal - kcal}千卡。")
             append("蛋白 ${summary?.totalProtein?.toInt() ?: 0}/${profile?.proteinGoalG ?: 0}g，")
             append("碳水 ${summary?.totalCarb?.toInt() ?: 0}/${profile?.carbGoalG ?: 0}g，")
-            append("脂肪 ${summary?.totalFat?.toInt() ?: 0}/${profile?.fatGoalG ?: 0}g。")
-            append("饮水 ${water}ml。各餐：$mealText。")
-            append("请给出 1-2 条具体、可执行、不带医疗表述的建议。")
+            append("脂肪 ${summary?.totalFat?.toInt() ?: 0}/${profile?.fatGoalG ?: 0}g（目标均为当前配置）。")
+            append("${dayLabel}饮水 ${water}ml。${dayLabel}各餐：$mealText。")
+            append("只针对 $date 的上述记录给 1-2 条具体、可执行、不带医疗表述的建议；")
+            append("没有记录的项明确说明该日无数据，不要编造，也不要混入其他日期的数据。")
         }
     }
 

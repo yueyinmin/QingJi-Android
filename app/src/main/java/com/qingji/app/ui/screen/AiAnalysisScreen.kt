@@ -40,7 +40,21 @@ import com.qingji.app.ui.theme.QingJiGreenLight
 import com.qingji.app.ui.theme.TextPrimary
 import com.qingji.app.ui.theme.TextSecondary
 import com.qingji.app.ui.viewmodel.AiAnalysisViewModel
+import com.qingji.app.domain.AppClock
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
+
+/**
+ * QJ-AI-HISTORY-DATE-V1：目标日期的展示文案（与生成时用的日期是同一个值）。
+ * 今天=今日复盘，昨天=昨日复盘，更早=2026年11月20日复盘。
+ */
+internal fun aiAnalysisDateLabel(target: LocalDate, today: LocalDate = AppClock.today()): String =
+    when (target) {
+        today -> "今日复盘"
+        today.minusDays(1) -> "昨日复盘"
+        else -> "${target.format(DateTimeFormatter.ofPattern("yyyy年M月d日"))}复盘"
+    }
 
 /**
  * ============================================================
@@ -53,6 +67,8 @@ import kotlinx.coroutines.launch
  */
 @Composable
 fun AiAnalysisScreen(
+    /** QJ-AI-HISTORY-DATE-V1：目标分析日期；默认今天（直达入口兼容）。 */
+    targetDate: LocalDate = AppClock.today(),
     onBack: () -> Unit,
     onOpenAiConfig: () -> Unit,
     vm: AiAnalysisViewModel = viewModel()
@@ -62,13 +78,16 @@ fun AiAnalysisScreen(
     var isLoading by remember { mutableStateOf(false) }
     var resultText by remember { mutableStateOf("") }
     var errorText by remember { mutableStateOf("") }
+    val dayLabel = aiAnalysisDateLabel(targetDate)
+    val isToday = targetDate == AppClock.today()
 
     fun generate() {
         scope.launch {
             isLoading = true
             errorText = ""
             resultText = ""
-            val outcome = if (isWeekly) vm.weekly() else vm.daily()
+            // QJ-AI-HISTORY-DATE-V1：每日复盘用首页传入的目标日期；周报不受影响
+            val outcome = if (isWeekly) vm.weekly() else vm.daily(targetDate)
             outcome.fold(
                 onSuccess = { resultText = it },
                 onFailure = { errorText = it.message ?: "分析失败" }
@@ -100,7 +119,7 @@ fun AiAnalysisScreen(
                     .padding(4.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                listOf("今日复盘" to false, "本周周报" to true).forEach { (label, weekly) ->
+                listOf(dayLabel to false, "本周周报" to true).forEach { (label, weekly) ->
                     val selected = isWeekly == weekly
                     Text(
                         text = label,
@@ -116,12 +135,22 @@ fun AiAnalysisScreen(
                 }
             }
 
+            // QJ-AI-HISTORY-DATE-V1：明确显示本次分析的目标日期（周报仍按本周口径）
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = if (isWeekly) "统计范围：最近 7 天" else "分析日期：${targetDate.format(DateTimeFormatter.ISO_LOCAL_DATE)}",
+                fontSize = 12.sp,
+                color = QingJiGreenDark
+            )
+
             Spacer(Modifier.height(12.dp))
             HintBox(
                 text = if (isWeekly) {
                     "周报会统计近 7 天的平均摄入、体重变化和最常吃的食物，给下周一条建议。"
-                } else {
+                } else if (isToday) {
                     "复盘会对照今天的热量预算和三大营养素目标，给 1-2 条具体建议。"
+                } else {
+                    "复盘会对照 $dayLabel 的历史饮食、营养素与饮水记录，给 1-2 条具体建议。"
                 }
             )
 
@@ -148,7 +177,7 @@ fun AiAnalysisScreen(
                 Spacer(Modifier.height(14.dp))
                 SectionCard {
                     Text(
-                        text = if (isWeekly) "本周周报" else "今日复盘",
+                        text = if (isWeekly) "本周周报" else dayLabel,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = TextPrimary

@@ -491,7 +491,8 @@ fun QingJiAppRoot(
                         val recentSleepNights by sleepVm.recent30.collectAsState()
                         HomeScreen(
                             onAddRecord = { showAddSheet = true },
-                            onOpenAnalysis = { navController.navigate(QingJiRoutes.AiAnalysis) },
+                            // QJ-AI-HISTORY-DATE-V1：带首页选中日期进入 AI 分析（直达入口仍走无参路由=今天）
+                            onOpenAnalysis = { date -> navController.navigate(QingJiRoutes.aiAnalysis(date)) },
                             onOpenWeight = { navController.navigate(QingJiRoutes.Weight) },
                             onOpenImage = { navController.navigate(QingJiRoutes.ImageRecord) },
                             onOpenMealDetail = { date, meal ->
@@ -654,8 +655,21 @@ fun QingJiAppRoot(
                     composable(QingJiRoutes.Barcode) {
                         BarcodeScreen(onBack = { navController.popBackStack() })
                     }
+                    // QJ-AI-HISTORY-DATE-V1：无参入口（直达/小组件）默认今天，保持原行为
                     composable(QingJiRoutes.AiAnalysis) {
                         AiAnalysisScreen(
+                            targetDate = com.qingji.app.domain.AppClock.today(),
+                            onBack = { navController.popBackStack() },
+                            onOpenAiConfig = { navController.navigate(QingJiRoutes.AiConfig) }
+                        )
+                    }
+                    // 带日期入口：从首页选中日期进入，参数非法时 QingJiRoutes.aiAnalysisDate 回退今天
+                    composable(
+                        route = QingJiRoutes.AiAnalysisWithDate,
+                        arguments = listOf(navArgument("date") { type = NavType.StringType })
+                    ) { entry ->
+                        AiAnalysisScreen(
+                            targetDate = QingJiRoutes.aiAnalysisDate(entry.arguments?.getString("date")),
                             onBack = { navController.popBackStack() },
                             onOpenAiConfig = { navController.navigate(QingJiRoutes.AiConfig) }
                         )
