@@ -39,6 +39,7 @@ import androidx.compose.material.icons.outlined.WorkspacePremium
 import androidx.compose.material.icons.outlined.AccessibilityNew
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.DirectionsRun
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.MonitorWeight
 import androidx.compose.material.icons.outlined.Payments
@@ -116,9 +117,11 @@ fun MineScreen(
     onOpenTrainingHistory: () -> Unit = {},
     /** 训练中心 P0：直接开一次训练 */
     onStartTraining: () -> Unit = {},
-    /** 训练中心 P1：计划 / 动作库 / 收藏 / 个人最佳 */
+    /** 训练中心 P1：计划 / 力训动作库 / 有氧动作库 / 收藏 / 个人最佳 */
     onOpenTrainingPlan: () -> Unit = {},
     onOpenExerciseLibrary: () -> Unit = {},
+    /** 2026-11-24：有氧动作库（302 CARDIO + 记录有氧预设） */
+    onOpenAerobicLibrary: () -> Unit = {},
     onOpenFavorites: () -> Unit = {},
     onOpenPersonalBest: () -> Unit = {},
     /** 自律管理（SD-001）：模块首页 */
@@ -224,6 +227,7 @@ fun MineScreen(
             onStartTraining = onStartTraining,
             onOpenTrainingPlan = onOpenTrainingPlan,
             onOpenExerciseLibrary = onOpenExerciseLibrary,
+            onOpenAerobicLibrary = onOpenAerobicLibrary,
             onOpenFavorites = onOpenFavorites,
             onOpenPersonalBest = onOpenPersonalBest
         )
@@ -502,6 +506,7 @@ private fun TrainingGroup(
     onStartTraining: () -> Unit,
     onOpenTrainingPlan: () -> Unit,
     onOpenExerciseLibrary: () -> Unit,
+    onOpenAerobicLibrary: () -> Unit,
     onOpenFavorites: () -> Unit,
     onOpenPersonalBest: () -> Unit
 ) {
@@ -512,7 +517,9 @@ private fun TrainingGroup(
         GroupDivider()
         SettingsRow("我的训练计划", Icons.Outlined.EventNote, IconTones.Purple, onClick = onOpenTrainingPlan)
         GroupDivider()
-        SettingsRow("动作库", Icons.Outlined.LibraryBooks, IconTones.Teal, onClick = onOpenExerciseLibrary)
+        SettingsRow("力训动作库", Icons.Outlined.LibraryBooks, IconTones.Teal, onClick = onOpenExerciseLibrary)
+        GroupDivider()
+        SettingsRow("有氧动作库", Icons.Outlined.DirectionsRun, IconTones.Blue, onClick = onOpenAerobicLibrary)
         GroupDivider()
         SettingsRow("我的动作收藏", Icons.Filled.Favorite, IconTones.Pink, onClick = onOpenFavorites)
         GroupDivider()

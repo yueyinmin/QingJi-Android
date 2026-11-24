@@ -95,6 +95,8 @@ object QingJiRoutes {
 
     /** 训练中心 P1：动作库 / 收藏 / 动作详情 / 我的计划 / 个人最佳。 */
     const val ExerciseLibrary = "exercise_library"
+    /** 2026-11-24：有氧动作库（302 条 CARDIO + 记录有氧预设） */
+    const val AerobicLibrary = "aerobic_library"
     const val ExerciseFavorites = "exercise_favorites"
     const val ExerciseDetail = "exercise_detail/{uuid}"
     fun exerciseDetail(uuid: String) = "exercise_detail/$uuid"

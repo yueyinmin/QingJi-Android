@@ -598,6 +598,7 @@ fun QingJiAppRoot(
                             onStartTraining = { navController.navigate(QingJiRoutes.TrainingActive) },
                             onOpenTrainingPlan = { navController.navigate(QingJiRoutes.TrainingPlan) },
                             onOpenExerciseLibrary = { navController.navigate(QingJiRoutes.ExerciseLibrary) },
+                            onOpenAerobicLibrary = { navController.navigate(QingJiRoutes.AerobicLibrary) },
                             onOpenFavorites = { navController.navigate(QingJiRoutes.ExerciseFavorites) },
                             onOpenPersonalBest = { navController.navigate(QingJiRoutes.PersonalBest) },
                             onOpenSelfDiscipline = { navController.navigate(QingJiRoutes.SelfDiscipline) },
@@ -809,6 +810,13 @@ fun QingJiAppRoot(
                             onOpenDetail = { uuid -> navController.navigate(QingJiRoutes.exerciseDetail(uuid)) }
                         )
                     }
+                    composable(QingJiRoutes.AerobicLibrary) {
+                        com.qingji.app.ui.screen.training.AerobicLibraryScreen(
+                            planVm = planVm,
+                            onBack = { navController.popBackStack() },
+                            onOpenDetail = { uuid -> navController.navigate(QingJiRoutes.exerciseDetail(uuid)) }
+                        )
+                    }
                     composable(QingJiRoutes.ExerciseFavorites) {
                         ExerciseLibraryScreen(
                             vm = planVm,
@@ -997,7 +1005,8 @@ fun QingJiAppRoot(
             // v1.4（工单 2.2 D）：删除重复「记录运动」入口，力量训练走开始训练，
             // 其他运动统一从「记录有氧」进运动选择页。
             onStartTraining = { navController.navigate(QingJiRoutes.TrainingActive) },
-            onAerobic = { navController.navigate(QingJiRoutes.ExercisePicker) },
+            // 2026-11-24：记录有氧入口改跳有氧动作库（302 CARDIO + 有氧预设合并）
+            onAerobic = { navController.navigate(QingJiRoutes.AerobicLibrary) },
             onBodyPhoto = { navController.navigate(QingJiTab.Progress.route) },
             // v1.4（工单 9）：睡眠从记一笔直达记录页
             onSleep = { navController.navigate(QingJiRoutes.Sleep) },
