@@ -517,7 +517,8 @@ fun SettingsScreen(
                 subtitle = "页面切换与进度条动效分开控制；刷新率为调试辅助",
                 items = listOf(
                     ToggleItem(s("页面切换动画"), "关掉只留淡入淡出，老机器更稳", settings.pageTransition) { vm.setPageTransition(it) },
-                    ToggleItem(s("进度条动效"), "关掉可以省一点点电", settings.progressAnimation) { vm.setProgressAnimation(it) }
+                    ToggleItem(s("进度条动效"), "关掉可以省一点点电", settings.progressAnimation) { vm.setProgressAnimation(it) },
+                    ToggleItem(s("水杯动效"), "关掉水杯波浪/气泡/按压动画", settings.waterCupAnimation) { vm.setWaterCupAnimation(it) }
                 ),
                 extra = {
                     // QJ-PROGRESS-V2：七种特效预览与选择（复用 StyledProgressBar）

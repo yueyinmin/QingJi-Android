@@ -222,7 +222,7 @@ fun WaterCup(
         }
 
         val waterTop = waterTopY(g, levelSafe)
-        val amp = safeAmplitude(3.0.dp.toPx() * (1f + 3.2f * pulse.value), g)
+        val amp = safeAmplitude(5.0.dp.toPx() * (1f + 3.2f * pulse.value), g)
         val shift = phase * g.waveLen
         val backShift = phase * g.waveLen * 1.18f + g.waveLen * 0.35f
 
@@ -247,7 +247,7 @@ fun WaterCup(
             if (levelSafe > 0.02f) {
                 drawPath(
                     wavePath(waterTop - 2.5.dp.toPx(), amp * 1.15f, backShift, g.waveLen * 0.85f, true),
-                    waterFill.copy(alpha = 0.45f)
+                    waterFill.copy(alpha = 0.5f)
                 )
                 drawPath(
                     wavePath(waterTop, amp, shift, g.waveLen, true),
@@ -274,7 +274,7 @@ fun WaterCup(
             }
 
             // 杯底玻璃高光（P2）：用轮廓色半透明，不是白色粗线；小尺寸自动收窄。
-            val foot = footHighlight(g, tintAlpha = 0.32f)
+            val foot = footHighlight(g, tintAlpha = 0.5f)
             drawLine(
                 color = outline.copy(alpha = foot.alpha),
                 start = Offset(foot.startX, foot.startY),

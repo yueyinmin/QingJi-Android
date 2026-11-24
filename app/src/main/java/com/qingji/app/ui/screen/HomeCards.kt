@@ -87,6 +87,8 @@ internal fun TodaySummaryCard(
     /** QJ-PROGRESS-V2：进度条特效样式，默认 simple 保持旧版静态视觉 */
     progressBarStyle: com.qingji.app.ui.components.ProgressBarStyle =
         com.qingji.app.ui.components.ProgressBarStyle.SIMPLE,
+    /** QJ-WATERCUP-V2：水杯动效开关（独立于进度条动效） */
+    waterCupAnimation: Boolean = true,
     /** 水杯气泡量（设置里可调）：0 关 / 1 少 / 2 标准 / 3 多 */
     waterBubbles: Int = 2,
     /** v3.4.0 R5：关掉后运动消耗不计入预计热量缺口 */
@@ -328,6 +330,8 @@ internal fun TodaySummaryCard(
                             outlineColor = MultiColor.WaterOutline,
                             // 气泡用浅水蓝，不要纯白 —— 白色小圆点看着像杯身上的脏点
                             bubbleTint = MultiColor.WaterSurface.copy(alpha = 0.9f),
+                            // QJ-WATERCUP-V2：独立开关控制水杯动效
+                            animationEnabled = waterCupAnimation,
                             // v1.5：杯内容量数字整个去掉（主人不要杯内计量数字）
                         )
                     }

@@ -136,7 +136,7 @@ internal fun buildBubbleSpecs(level: Int, seed: Long = 20261108L): List<BubbleSp
     return List(count) {
         BubbleSpec(
             xRatio = 0.32f + 0.4f * random.nextFloat(),
-            radiusDp = 1.4f + random.nextFloat() * 1.6f,
+            radiusDp = 2.0f + random.nextFloat() * 2.5f,
             // 整数倍率：phase 从 0 推进到 1 时 cycle 恰好走完整数个周期，无接缝跳变。
             speed = 1 + random.nextInt(3),
             swayPhase = random.nextFloat(),
