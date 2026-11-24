@@ -156,33 +156,29 @@ private fun BodyWeightSummary(currentWeight: Double, targetWeight: Double, unit:
     )
 }
 
-/** 左栏：体脂率（实测优先，无实测则显示 Deurenberg 估算并明确标注来源） */
+/** 左栏：体脂率（实测优先；无实测时按资料推算，但不标注估算/参考字样） */
 @Composable
 private fun BodyFatSummary(display: com.qingji.app.domain.BodyMetricsCalculator.BodyFatDisplay) {
-    val label = when (display.source) {
-        BodyFatSource.MEASURED -> s("体脂率 · 实测")
-        BodyFatSource.ESTIMATED -> s("体脂率 · 估算")
-        else -> s("体脂率")
-    }
-    Text(text = label, fontSize = 11.sp, color = TextSecondary)
+    Text(text = s("体脂率"), fontSize = 11.sp, color = TextSecondary)
     when {
         display.source == BodyFatSource.UNSUPPORTED -> {
-            Text(text = s("暂不支持估算"), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextSecondary)
-            Text(text = s("成年后可按资料估算"), fontSize = 10.sp, color = TextSecondary)
+            Text(text = s("暂不支持"), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextSecondary)
         }
         display.value == null -> {
-            Text(text = s("完善资料后估算"), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextSecondary)
+            Text(text = s("完善资料后显示"), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextSecondary)
         }
         else -> {
             Text(
                 text = "${String.format("%.1f", display.value!!)}%",
                 fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary
             )
-            Text(
-                text = if (display.source == BodyFatSource.MEASURED) "${display.measuredDate} 记录"
-                       else s("根据 BMI、年龄和性别估算，仅供趋势参考"),
-                fontSize = 10.sp, color = TextSecondary
-            )
+            // 实测显示记录日期；推算值不再附加「估算/仅供趋势参考」说明
+            if (display.source == BodyFatSource.MEASURED) {
+                Text(
+                    text = "${display.measuredDate} 记录",
+                    fontSize = 10.sp, color = TextSecondary
+                )
+            }
         }
     }
 }

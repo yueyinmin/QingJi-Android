@@ -20,9 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.Icon
@@ -68,7 +66,7 @@ import com.qingji.app.ui.viewmodel.ExerciseViewModel
  * ============================================================
  * 记录运动（v3.3.0 二级菜单）
  * ------------------------------------------------------------
- * 参考图要求：运动类目之上的东西（顶栏 / 拍照识别 / 搜索 / 分类标签）
+ * 参考图要求：运动类目之上的东西（顶栏 / 搜索 / 分类标签）
  * **全部固定**，下滑只滚动下面的运动列表，所以这里是
  * Column（固定头） + LazyColumn(weight(1f))（唯一滚动区），不是整页 verticalScroll。
  *
@@ -108,7 +106,6 @@ fun ExercisePickerScreen(
     var keyword by remember { mutableStateOf("") }
     var tab by remember { mutableStateOf(TAB_COMMON) }
     var showNewDialog by remember { mutableStateOf(false) }
-    var showPhotoHint by remember { mutableStateOf(false) }
     var newName by remember { mutableStateOf("") }
     var newMet by remember { mutableStateOf("5.0") }
     var error by remember { mutableStateOf("") }
@@ -153,53 +150,13 @@ fun ExercisePickerScreen(
             }
         )
 
-        // ---------- 固定区 2：拍照识别 / 搜索 / 分类 ----------
+        // ---------- 固定区 2：搜索 / 分类（拍照识别已不做，入口移除）----------
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp)
         ) {
             Spacer(Modifier.height(8.dp))
-            SectionCard(contentPadding = 14.dp) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .pressable { showPhotoHint = true },
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(QingJiGreenLight),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.PhotoCamera,
-                            contentDescription = null,
-                            tint = QingJiGreenDark,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                    Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
-                        Text(
-                            text = "拍照识别",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = TextPrimary
-                        )
-                        Text(text = "拍一张，估算运动消耗", fontSize = 12.sp, color = TextSecondary)
-                    }
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                        contentDescription = null,
-                        tint = DividerColor,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(12.dp))
             OutlinedTextField(
                 value = keyword,
                 onValueChange = { keyword = it },
@@ -463,28 +420,6 @@ fun ExercisePickerScreen(
                 Spacer(Modifier.height(6.dp))
                 Text(text = sessionAdjustError, fontSize = 12.sp, color = DangerRed)
             }
-        }
-    }
-    // ---------- 拍照识别：诚实说明还没做，不摆一个点了没反应的假入口 ----------
-    if (showPhotoHint) {
-        AppBottomSheet(
-            title = "拍照识别运动",
-            confirmText = "知道了",
-            onConfirm = {},
-            onDismiss = { showPhotoHint = false }
-        ) {
-            Text(
-                text = "拍一张运动截图或器材照片来估算消耗，这个功能还没做。" +
-                    "现在先用下面的运动库选一项、填时长，消耗会自动按 MET × 体重 × 时长 算好。",
-                fontSize = 14.sp,
-                color = TextPrimary
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = "想加运动库里没有的项目，点右上角「新建」。",
-                fontSize = 12.sp,
-                color = TextSecondary
-            )
         }
     }
 }
