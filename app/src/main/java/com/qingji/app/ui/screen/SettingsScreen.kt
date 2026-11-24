@@ -520,6 +520,12 @@ fun SettingsScreen(
                     ToggleItem(s("进度条动效"), "关掉可以省一点点电", settings.progressAnimation) { vm.setProgressAnimation(it) }
                 ),
                 extra = {
+                    // QJ-PROGRESS-V2：七种特效预览与选择（复用 StyledProgressBar）
+                    com.qingji.app.ui.components.ProgressBarStylePicker(
+                        current = com.qingji.app.ui.components.ProgressBarStyle.fromKey(settings.progressBarStyle),
+                        onSelect = { style -> vm.setProgressBarStyle(style) }
+                    )
+                    Spacer(Modifier.height(16.dp))
                     DetailGroupTitle("开发调试")
                     com.qingji.app.ui.components.SectionCard(contentPadding = 0.dp) {
                         com.qingji.app.ui.screen.settings.SwitchRow(

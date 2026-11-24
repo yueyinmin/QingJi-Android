@@ -293,6 +293,7 @@ fun HomeScreen(
             waterGoal = settings.waterGoalMl,
             showWater = settings.showWaterCard,
             animateProgress = settings.progressAnimation,
+            progressBarStyle = com.qingji.app.ui.components.ProgressBarStyle.fromKey(settings.progressBarStyle),
             waterBubbles = settings.waterBubbles,
             exerciseCompensation = settings.exerciseCompensation,
             exerciseCompensationPct = settings.exerciseCompensationPct,

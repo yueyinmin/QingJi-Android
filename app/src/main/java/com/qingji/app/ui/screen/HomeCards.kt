@@ -84,6 +84,9 @@ internal fun TodaySummaryCard(
     waterGoal: Int = 3200,
     showWater: Boolean = true,
     animateProgress: Boolean = true,
+    /** QJ-PROGRESS-V2：进度条特效样式，默认 simple 保持旧版静态视觉 */
+    progressBarStyle: com.qingji.app.ui.components.ProgressBarStyle =
+        com.qingji.app.ui.components.ProgressBarStyle.SIMPLE,
     /** 水杯气泡量（设置里可调）：0 关 / 1 少 / 2 标准 / 3 多 */
     waterBubbles: Int = 2,
     /** v3.4.0 R5：关掉后运动消耗不计入预计热量缺口 */
@@ -231,7 +234,13 @@ internal fun TodaySummaryCard(
             modifier = Modifier.fillMaxWidth(),
             contentAlignment = Alignment.CenterStart
         ) {
-            ThinProgressBar(progress = animatedProgress)
+            // QJ-PROGRESS-V2：主 kcal 进度条使用七种特效；animateProgress 语义不变（首帧 snap 由外层保证）
+            com.qingji.app.ui.components.StyledProgressBar(
+                progress = animatedProgress,
+                style = progressBarStyle,
+                // 特效循环由自身 animationEnabled 控制；progressAnimation 仍只管补间，语义不扩大
+                animationEnabled = true
+            )
             androidx.compose.foundation.layout.BoxWithConstraints(
                 modifier = Modifier.fillMaxWidth()
             ) {
