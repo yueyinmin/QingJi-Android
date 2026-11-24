@@ -88,7 +88,7 @@ internal fun buildProgressBubbles(count: Int, seed: Long = 20261124L): List<Prog
     return List(count) {
         ProgressBubble(
             xRatio = 0.15f + random.nextFloat() * 0.7f,
-            radiusRatio = 0.12f + random.nextFloat() * 0.16f,
+            radiusRatio = 0.20f + random.nextFloat() * 0.20f,
             speed = 1 + random.nextInt(3), // 整数倍率保证 phase 0→1 接缝连续
             birth = random.nextFloat(),
             sway = 0.06f + random.nextFloat() * 0.10f

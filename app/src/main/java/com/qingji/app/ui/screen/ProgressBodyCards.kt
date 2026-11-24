@@ -78,6 +78,9 @@ internal fun BodyDataCard(
         ),
     /** 目标是否已达成 */
     goalReached: Boolean = false,
+    /** QJ-PROGRESS-V2：减重进度条特效样式 */
+    progressBarStyle: com.qingji.app.ui.components.ProgressBarStyle =
+        com.qingji.app.ui.components.ProgressBarStyle.SIMPLE,
     /** 点卡片进记体重页 */
     onClick: () -> Unit = {}
 ) {
@@ -122,7 +125,7 @@ internal fun BodyDataCard(
         Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(DividerColor))
         Spacer(Modifier.height(12.dp))
 
-        WeightLossProgressSection(animProgress, remain, unit, recordCount, goalReached)
+        WeightLossProgressSection(animProgress, remain, unit, recordCount, goalReached, progressBarStyle)
         if (profile == null) {
             Spacer(Modifier.height(6.dp))
             Text(text = s("个人资料还没填完整，进度可能显示为 0"), fontSize = 11.sp, color = WarnOrange)
@@ -229,7 +232,9 @@ private fun BodyBmiSummary(bmi: Double, category: String, categoryColor: Color, 
 /** 底部：减重进度（百分比 / 进度条 / 还差多少） */
 @Composable
 private fun WeightLossProgressSection(
-    progress: Float, remain: Double, unit: String, recordCount: Int, goalReached: Boolean
+    progress: Float, remain: Double, unit: String, recordCount: Int, goalReached: Boolean,
+    progressBarStyle: com.qingji.app.ui.components.ProgressBarStyle =
+        com.qingji.app.ui.components.ProgressBarStyle.SIMPLE
 ) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(text = s("减重进度"), fontSize = 14.sp, color = TextPrimary)
@@ -239,7 +244,13 @@ private fun WeightLossProgressSection(
         )
     }
     Spacer(Modifier.height(8.dp))
-    ThinProgressBar(progress = progress.coerceIn(0f, 1f), barHeight = 8.dp)
+    // QJ-PROGRESS-V2：减重进度接入同一套七种特效（barHeight 保持 8dp 原尺寸）
+    com.qingji.app.ui.components.StyledProgressBar(
+        progress = progress.coerceIn(0f, 1f),
+        barHeight = 8.dp,
+        style = progressBarStyle,
+        animationEnabled = true
+    )
     Spacer(Modifier.height(8.dp))
     Text(
         text = when {

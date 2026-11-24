@@ -164,7 +164,7 @@ private fun DrawScope.drawShimmer(path: Path, w: Float, h: Float, phase: Float, 
         // 高光只覆盖 1/3 宽度，透明度压低，避免刺眼
         drawRect(
             brush = Brush.linearGradient(
-                colors = listOf(Color.Transparent, Color.White.copy(alpha = 0.35f), Color.Transparent),
+                colors = listOf(Color.Transparent, Color.White.copy(alpha = 0.55f), Color.Transparent),
                 start = Offset(x, 0f), end = Offset(x + w / 3f, 0f)
             ),
             topLeft = Offset(x, 0f), size = Size(w / 3f, h)
@@ -179,7 +179,7 @@ private fun DrawScope.drawLiquid(
     clipPath(path) {
         drawRect(color.copy(alpha = 0.85f))
         // 双层波浪：错相位、波长不同，接缝连续
-        val amplitude = h * 0.18f
+        val amplitude = h * 0.30f
         for (layer in 0..1) {
             val wavePath = Path().apply {
                 val shift = loopPhase(phase + layer * 0.37f) * w
