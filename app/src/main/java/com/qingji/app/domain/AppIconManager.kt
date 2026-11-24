@@ -15,12 +15,21 @@ import android.content.pm.PackageManager
 object AppIconManager {
 
     /** 可选图标 key，顺序即设置页展示顺序。default = 现有薄荷绿。 */
-    val VARIANTS = listOf("default", "forest", "cream")
+    val VARIANTS = listOf(
+        "default", "forest", "cream",
+        "drop", "bolt", "moon", "heart", "star", "flame"
+    )
 
     /** 每套图标对应的 activity-alias 类名（必须与 AndroidManifest 完全一致）。 */
     fun aliasClass(variant: String): String = when (variant) {
         "forest" -> "com.qingji.app.LauncherAliasForest"
         "cream" -> "com.qingji.app.LauncherAliasCream"
+        "drop" -> "com.qingji.app.LauncherAliasDrop"
+        "bolt" -> "com.qingji.app.LauncherAliasBolt"
+        "moon" -> "com.qingji.app.LauncherAliasMoon"
+        "heart" -> "com.qingji.app.LauncherAliasHeart"
+        "star" -> "com.qingji.app.LauncherAliasStar"
+        "flame" -> "com.qingji.app.LauncherAliasFlame"
         else -> "com.qingji.app.LauncherAliasDefault"
     }
 
@@ -28,11 +37,17 @@ object AppIconManager {
     fun label(variant: String): String = when (variant) {
         "forest" -> "森林绿"
         "cream" -> "暖阳奶油"
+        "drop" -> "水滴蓝"
+        "bolt" -> "闪电紫"
+        "moon" -> "弯月墨"
+        "heart" -> "爱心粉"
+        "star" -> "星辰橙"
+        "flame" -> "火焰红"
         else -> "薄荷绿"
     }
 
     /**
-     * 启用选中的别名、禁用其余两个。
+     * 启用选中的别名、禁用其余八个。
      * DONT_KILL_APP 只是「尽量别杀进程」，个别 ROM 仍可能重启 App；
      * 数据都在 DataStore / Room，不会丢。桌面图标刷新由系统负责，
      * 通常立即生效，个别桌面（第三方 launcher）可能延迟几秒。

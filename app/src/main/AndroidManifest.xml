@@ -77,6 +77,84 @@
             </intent-filter>
         </activity-alias>
 
+        <activity-alias
+            android:name=".LauncherAliasDrop"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_drop"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherAliasBolt"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_bolt"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherAliasMoon"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_moon"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherAliasHeart"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_heart"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherAliasStar"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_star"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherAliasFlame"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_flame"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
         <!-- 拍照时把临时图片交给系统相机，只授权这一个文件，不给整个目录 -->
         <provider
             android:name="androidx.core.content.FileProvider"

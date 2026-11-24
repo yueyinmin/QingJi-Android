@@ -46,8 +46,8 @@ import kotlin.math.sin
 fun StyledProgressBar(
     progress: Float,
     modifier: Modifier = Modifier,
-    color: Color = androidx.compose.ui.graphics.Color(0xFF4CAF50),
-    trackColor: Color = androidx.compose.ui.graphics.Color(0xFFE8ECF0),
+    color: Color = com.qingji.app.ui.theme.QingJiGreen,
+    trackColor: Color = com.qingji.app.ui.theme.DividerColor,
     barHeight: Dp = 6.dp,
     style: ProgressBarStyle = ProgressBarStyle.SIMPLE,
     animationEnabled: Boolean = true,
@@ -87,6 +87,8 @@ fun StyledProgressBar(
         if (style == ProgressBarStyle.LIQUID) buildProgressBubbles(12) else emptyList()
     }
     val reusablePath = remember { Path() }
+    val stripePath = remember { Path() }
+    val wavePath = remember { Path() }
 
     Canvas(modifier) {
         val w = size.width
@@ -125,9 +127,9 @@ fun StyledProgressBar(
             ProgressBarStyle.COMET -> drawComet(fw, h, phase, reusablePath, color)
             ProgressBarStyle.SHIMMER -> drawShimmer(fillPath, fw, h, phase, color)
             ProgressBarStyle.LIQUID -> drawLiquid(fw, h, phase, bubbles, color, reusablePath)
-            ProgressBarStyle.STRIPE -> drawStripe(fillPath, fw, h, phase, color, reusablePath)
+            ProgressBarStyle.STRIPE -> drawStripe(fillPath, fw, h, phase, color, stripePath)
             ProgressBarStyle.AURORA -> drawAurora(fillPath, fw, h, phase, color)
-            ProgressBarStyle.PULSE -> drawPulse(fw, h, phase, color)
+            ProgressBarStyle.PULSE -> drawPulse(fw, h, phase, color, wavePath)
         }
     }
 }
@@ -151,7 +153,7 @@ private fun DrawScope.drawComet(w: Float, h: Float, phase: Float, path: Path, co
     )
     drawPath(path, brush)
     // 光核：始终在末端，短进度下也只有一个，不重复绘制
-    drawCircle(color = Color.White.copy(alpha = 0.9f), radius = h * 0.28f, center = Offset(headX, h / 2f))
+    drawCircle(color = brighten(color), radius = h * 0.28f, center = Offset(headX, h / 2f))
     // 相位只做极轻微呼吸，避免高频位移
     val pulse = 0.85f + 0.15f * sin(phase * 2.0 * PI).toFloat()
     drawCircle(color = color.copy(alpha = 0.35f * pulse), radius = h * 0.42f, center = Offset(headX, h / 2f))
@@ -164,7 +166,7 @@ private fun DrawScope.drawShimmer(path: Path, w: Float, h: Float, phase: Float, 
         // 高光只覆盖 1/3 宽度，透明度压低，避免刺眼
         drawRect(
             brush = Brush.linearGradient(
-                colors = listOf(Color.Transparent, Color.White.copy(alpha = 0.55f), Color.Transparent),
+                colors = listOf(Color.Transparent, brighten(color).copy(alpha = 0.4f), Color.Transparent),
                 start = Offset(x, 0f), end = Offset(x + w / 3f, 0f)
             ),
             topLeft = Offset(x, 0f), size = Size(w / 3f, h)
@@ -198,7 +200,7 @@ private fun DrawScope.drawLiquid(
         bubbles.take((bubbles.size * (w / size.width).coerceIn(0f, 1f)).toInt()).forEach { spec ->
             val frame = progressBubbleFrame(spec, phase, w, h, 0f) ?: return@forEach
             drawCircle(
-                color = Color.White.copy(alpha = 0.55f * frame.alpha),
+                color = brighten(color).copy(alpha = 0.5f * frame.alpha),
                 radius = frame.radius, center = Offset(frame.x, frame.y)
             )
         }
@@ -219,7 +221,7 @@ private fun DrawScope.drawStripe(path: Path, w: Float, h: Float, phase: Float, c
             reusable.lineTo(x + h, 0f)
             x += spacing
         }
-        drawPath(reusable, Color.White.copy(alpha = 0.28f), style = Stroke(width = strokeW, cap = StrokeCap.Round))
+        drawPath(reusable, brighten(color).copy(alpha = 0.35f), style = Stroke(width = strokeW, cap = StrokeCap.Round))
     }
 }
 
@@ -233,18 +235,18 @@ private fun DrawScope.drawAurora(path: Path, w: Float, h: Float, phase: Float, c
     }
 }
 
-private fun DrawScope.drawPulse(w: Float, h: Float, phase: Float, color: Color) {
+private fun DrawScope.drawPulse(w: Float, h: Float, phase: Float, color: Color, ringPath: Path) {
     drawRoundRect(
         color = color,
         topLeft = Offset.Zero, size = Size(w, h),
         cornerRadius = androidx.compose.ui.geometry.CornerRadius(h / 2f, h / 2f)
     )
-    clipPath(Path().apply {
-        addRoundRect(androidx.compose.ui.geometry.RoundRect(0f, 0f, w, h, androidx.compose.ui.geometry.CornerRadius(h / 2f, h / 2f)))
-    }) {
+    ringPath.rewind()
+    ringPath.addRoundRect(androidx.compose.ui.geometry.RoundRect(0f, 0f, w, h, androidx.compose.ui.geometry.CornerRadius(h / 2f, h / 2f)))
+    clipPath(ringPath) {
         pulseRings(phase, h * 2f).forEach { ring ->
             drawCircle(
-                color = Color.White.copy(alpha = ring.alpha),
+                color = brighten(color).copy(alpha = ring.alpha),
                 radius = ring.radius,
                 center = Offset(w / 2f, h / 2f),
                 style = Stroke(width = h * 0.16f)
@@ -252,3 +254,11 @@ private fun DrawScope.drawPulse(w: Float, h: Float, phase: Float, color: Color) 
         }
     }
 }
+
+/** 由主题色派生高光色：提亮 + 去饱和一点，避免纯白刺眼、深浅主题都协调。 */
+private fun brighten(color: Color): Color = Color(
+    alpha = 1f,
+    red = (color.red + (1f - color.red) * 0.55f),
+    green = (color.green + (1f - color.green) * 0.55f),
+    blue = (color.blue + (1f - color.blue) * 0.55f)
+)

@@ -78,7 +78,97 @@ object AccentThemes {
             lightMain = 0xFFD9548A, lightDark = 0xFFB33F70, lightSoft = 0xFFFCEAF1,
             darkMain = 0xFFEC7FA6, darkDark = 0xFFF5B3C9, darkSoft = 0xFF3A1F29,
             macroProtein = 0xFF6C8AE4, macroCarb = 0xFFD9548A, macroFat = 0xFFE0A03A
-        )
+        ),
+        Spec(
+            key = "coral", label = "珊瑚红",
+            lightMain = 0xffe8665b, lightDark = 0xffc44a40, lightSoft = 0xfffdecea,
+            darkMain = 0xffff8f82, darkDark = 0xffffb6ad, darkSoft = 0xff3a211e,
+            macroProtein = 0xff5b8def, macroCarb = 0xffe8665b, macroFat = 0xffe0a03a
+        ),
+        Spec(
+            key = "indigo", label = "靛蓝",
+            lightMain = 0xff4a5bd6, lightDark = 0xff3746b0, lightSoft = 0xffeaecfd,
+            darkMain = 0xff8a97ff, darkDark = 0xffb6beff, darkSoft = 0xff1e2440,
+            macroProtein = 0xff38a0c4, macroCarb = 0xff4a5bd6, macroFat = 0xffe0935b
+        ),
+        Spec(
+            key = "teal", label = "青碧",
+            lightMain = 0xff1b9aa8, lightDark = 0xff137783, lightSoft = 0xffe6f7f8,
+            darkMain = 0xff5fd2de, darkDark = 0xff9ae8ef, darkSoft = 0xff173439,
+            macroProtein = 0xff5b8def, macroCarb = 0xff1b9aa8, macroFat = 0xffe0a03a
+        ),
+        Spec(
+            key = "amber", label = "琥珀",
+            lightMain = 0xffd99a20, lightDark = 0xffb47a14, lightSoft = 0xfffdf4e0,
+            darkMain = 0xfff5c25c, darkDark = 0xffffde9a, darkSoft = 0xff3a2e15,
+            macroProtein = 0xff5b8def, macroCarb = 0xffd99a20, macroFat = 0xffb56b2a
+        ),
+        Spec(
+            key = "rose", label = "玫红",
+            lightMain = 0xffd4559e, lightDark = 0xffae3d7d, lightSoft = 0xfffceaf4,
+            darkMain = 0xfff398cc, darkDark = 0xffffc2e2, darkSoft = 0xff3a1f2f,
+            macroProtein = 0xff6c8ae4, macroCarb = 0xffd4559e, macroFat = 0xffe0a03a
+        ),
+        Spec(
+            key = "charcoal", label = "墨黑",
+            lightMain = 0xff3e4a52, lightDark = 0xff2a343b, lightSoft = 0xffeceff1,
+            darkMain = 0xffaab7c0, darkDark = 0xffd2dbe1, darkSoft = 0xff232a2f,
+            macroProtein = 0xff5b8def, macroCarb = 0xff3e4a52, macroFat = 0xffe0803a
+        ),
+        Spec(
+            key = "sky", label = "天青",
+            lightMain = 0xff2b96d6, lightDark = 0xff1f74aa, lightSoft = 0xffe8f5fc,
+            darkMain = 0xff6fc4ef, darkDark = 0xffa8ddf7, darkSoft = 0xff17333f,
+            macroProtein = 0xff7b61ff, macroCarb = 0xff2b96d6, macroFat = 0xffe0a03a
+        ),
+        Spec(
+            key = "grass", label = "草绿",
+            lightMain = 0xff5aa832, lightDark = 0xff438321, lightSoft = 0xffedf7e7,
+            darkMain = 0xff94d36f, darkDark = 0xffc3eba9, darkSoft = 0xff26361c,
+            macroProtein = 0xff4fa3d1, macroCarb = 0xff5aa832, macroFat = 0xffe08a3a
+        ),
+        Spec(
+            key = "lilac", label = "丁香",
+            lightMain = 0xff9a72c9, lightDark = 0xff7c55ad, lightSoft = 0xfff3edfa,
+            darkMain = 0xffc4a6ea, darkDark = 0xffdcc9f4, darkSoft = 0xff2e2440,
+            macroProtein = 0xff4fa3d1, macroCarb = 0xff9a72c9, macroFat = 0xffe0935b
+        ),
+        Spec(
+            key = "bronze", label = "青铜",
+            lightMain = 0xffa9762e, lightDark = 0xff875b20, lightSoft = 0xfff8f0e3,
+            darkMain = 0xffd9a862, darkDark = 0xffefcca0, darkSoft = 0xff35291a,
+            macroProtein = 0xff5b8def, macroCarb = 0xffa9762e, macroFat = 0xffc95a3c
+        ),
+        Spec(
+            key = "peach", label = "蜜桃",
+            lightMain = 0xffe88468, lightDark = 0xffc2634a, lightSoft = 0xfffdf0ea,
+            darkMain = 0xffffaf96, darkDark = 0xffffcfbc, darkSoft = 0xff3a231c,
+            macroProtein = 0xff6c8ae4, macroCarb = 0xffe88468, macroFat = 0xffd9a020
+        ),
+        Spec(
+            key = "steel", label = "钢蓝",
+            lightMain = 0xff4e6b8a, lightDark = 0xff3a5270, lightSoft = 0xffeaf0f5,
+            darkMain = 0xff9ab6d0, darkDark = 0xffc4d7e8, darkSoft = 0xff1f2b37,
+            macroProtein = 0xff7b61ff, macroCarb = 0xff4e6b8a, macroFat = 0xffe0803a
+        ),
+        Spec(
+            key = "olive", label = "橄榄",
+            lightMain = 0xff7c8f3a, lightDark = 0xff5e7028, lightSoft = 0xfff2f5e5,
+            darkMain = 0xffb2c46e, darkDark = 0xffd6e3a4, darkSoft = 0xff2a321a,
+            macroProtein = 0xff4fa3d1, macroCarb = 0xff7c8f3a, macroFat = 0xffe0803a
+        ),
+        Spec(
+            key = "rouge", label = "胭脂",
+            lightMain = 0xffc43b5a, lightDark = 0xff9e2943, lightSoft = 0xfffceaee,
+            darkMain = 0xfff07c96, darkDark = 0xffffb2c3, darkSoft = 0xff3a1c24,
+            macroProtein = 0xff5b8def, macroCarb = 0xffc43b5a, macroFat = 0xffe0a03a
+        ),
+        Spec(
+            key = "slate", label = "青灰",
+            lightMain = 0xff5c7a80, lightDark = 0xff425c61, lightSoft = 0xffedf2f3,
+            darkMain = 0xffa3c0c5, darkDark = 0xffccdde0, darkSoft = 0xff202e31,
+            macroProtein = 0xff7b61ff, macroCarb = 0xff5c7a80, macroFat = 0xffe0803a
+        ),
     )
 
     /** 按 key 找主题，找不到回落到第一套（松绿）。 */
