@@ -67,7 +67,7 @@ fun AppIconSettingsPage(
                         contentAlignment = Alignment.Center
                     ) {
                         Image(
-                            painter = painterResource(R.drawable.ic_launcher_foreground),
+                            painter = painterResource(iconFgRes(variant)),
                             contentDescription = AppIconManager.label(variant),
                             contentScale = ContentScale.Fit,
                             modifier = Modifier.size(36.dp)
@@ -111,5 +111,22 @@ fun AppIconSettingsPage(
 private fun iconBgRes(variant: String): Int = when (variant) {
     "forest" -> R.color.ic_launcher_background_forest
     "cream" -> R.color.ic_launcher_background_cream
+    "drop" -> R.color.ic_launcher_bg_drop
+    "bolt" -> R.color.ic_launcher_bg_bolt
+    "moon" -> R.color.ic_launcher_bg_moon
+    "heart" -> R.color.ic_launcher_bg_heart
+    "star" -> R.color.ic_launcher_bg_star
+    "flame" -> R.color.ic_launcher_bg_flame
     else -> R.color.ic_launcher_background
+}
+
+/** 9 种图标各有前景：前 3 套复用叶片，后 6 套用各自图形。 */
+private fun iconFgRes(variant: String): Int = when (variant) {
+    "drop" -> R.drawable.ic_launcher_fg_drop
+    "bolt" -> R.drawable.ic_launcher_fg_bolt
+    "moon" -> R.drawable.ic_launcher_fg_moon
+    "heart" -> R.drawable.ic_launcher_fg_heart
+    "star" -> R.drawable.ic_launcher_fg_star
+    "flame" -> R.drawable.ic_launcher_fg_flame
+    else -> R.drawable.ic_launcher_foreground
 }

@@ -156,3 +156,19 @@ fun Modifier.pressable(enabled: Boolean = true, onClick: () -> Unit): Modifier =
         onClick = onClick
     )
 }
+
+/**
+ * 无涟漪点击：保留点击行为，但去掉 Material 默认的灰色块状高亮。
+ *
+ * 用于设置项这类「点了要么进页面、要么只是选中」的行——用户反馈点击时
+ * 灰块一闪很突兀；选中态本身由文字颜色 / 勾选图标 / 展开子项表达，不需要
+ * 额外的矩形高亮。与 pressable 的区别：这里不缩放，纯去反馈。
+ */
+fun Modifier.clickableNoRipple(enabled: Boolean = true, onClick: () -> Unit): Modifier = composed {
+    this.clickable(
+        interactionSource = remember { MutableInteractionSource() },
+        indication = null,
+        enabled = enabled,
+        onClick = onClick
+    )
+}

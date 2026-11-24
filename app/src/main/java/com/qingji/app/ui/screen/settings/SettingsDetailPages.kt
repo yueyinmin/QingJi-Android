@@ -1,7 +1,6 @@
 package com.qingji.app.ui.screen.settings
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -39,6 +38,7 @@ import com.qingji.app.ui.components.SectionCard
 import com.qingji.app.ui.theme.Dimens
 import com.qingji.app.ui.theme.PageBackground
 import com.qingji.app.ui.theme.pressable
+import com.qingji.app.ui.theme.clickableNoRipple
 import com.qingji.app.ui.theme.QingJiGreen
 import com.qingji.app.ui.theme.QingJiGreenDark
 import com.qingji.app.ui.theme.QingJiGreenLight
@@ -183,7 +183,7 @@ fun OptionDetailPage(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onPick(option.key) }
+                        .clickableNoRipple { onPick(option.key) }
                         .padding(horizontal = 16.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {

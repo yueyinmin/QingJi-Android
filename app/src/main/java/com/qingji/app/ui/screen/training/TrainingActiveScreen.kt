@@ -441,17 +441,57 @@ private fun NonStrengthEditorCard(
         mutableStateOf(((parsed as? WorkoutItem.Other)?.reps ?: 0).toString())
     }
 
+    // 2026-11-24：步行类有氧可选时长/步数/公里；固定器械类只时长。
+    // 回填时按「当初真填的原始值」判断，绝不从时长反推一个假步数。
+    val cardio = parsed as? WorkoutItem.Cardio
+    val canChooseMode = type == ExerciseRecordType.CARDIO &&
+        com.qingji.app.domain.CardioInputMode.supportsDistanceModes(draft.exerciseUuid)
+    var cardioMode by remember(draft.key) {
+        mutableStateOf(
+            when {
+                (cardio?.steps ?: 0) > 0 -> com.qingji.app.domain.CardioInputMode.MODE_STEPS
+                (cardio?.distanceMeters ?: 0.0) > 0.0 -> com.qingji.app.domain.CardioInputMode.MODE_KM
+                else -> com.qingji.app.domain.CardioInputMode.MODE_MINUTES
+            }
+        )
+    }
+    // 当前模式下用户填的原始数字；切换模式时各自保留，不互相换算冒充原始值
+    var stepsInput by remember(draft.key) {
+        mutableStateOf((cardio?.steps ?: 0).takeIf { it > 0 }?.toString().orEmpty())
+    }
+
+    fun cardioAmount(): Double = when (cardioMode) {
+        com.qingji.app.domain.CardioInputMode.MODE_STEPS -> stepsInput.toDoubleOrNull() ?: 0.0
+        com.qingji.app.domain.CardioInputMode.MODE_KM -> distanceKm.toDoubleOrNull() ?: 0.0
+        else -> minutes.toDoubleOrNull() ?: 0.0
+    }
+
+    fun durationSec(mode: String, amount: Double): Long =
+        com.qingji.app.domain.CardioInputMode.toMinutes(mode, amount)
+            .let { it.coerceIn(0.0, 600.0) }.toLong() * 60L
+
+    /** HIIT / 柔韧 / 其他仍按原来的分钟输入。 */
     fun durationSec(): Long = (minutes.toIntOrNull() ?: 0).coerceIn(0, 600) * 60L
 
     fun emit() {
         val common = Triple(draft.key, draft.exerciseUuid, draft.name)
         val item = when (type) {
-            ExerciseRecordType.CARDIO -> WorkoutItem.Cardio(
-                itemId = common.first, exerciseUuid = common.second, name = common.third, order = 0,
-                durationSec = durationSec(),
-                distanceMeters = distanceKm.toDoubleOrNull()?.takeIf { it > 0.0 && it <= 500.0 }?.times(1000.0),
-                intensity = intensity
-            )
+            ExerciseRecordType.CARDIO -> {
+                val amount = cardioAmount()
+                val mode = if (canChooseMode) cardioMode else com.qingji.app.domain.CardioInputMode.MODE_MINUTES
+                WorkoutItem.Cardio(
+                    itemId = common.first, exerciseUuid = common.second, name = common.third, order = 0,
+                    // 消耗计算仍需分钟：步数/公里按既有口径折算；时长模式原样
+                    durationSec = durationSec(mode, amount),
+                    // 原始录入值各自保留；公里模式另存米数（上限 500 公里防误填）
+                    distanceMeters = if (mode == com.qingji.app.domain.CardioInputMode.MODE_KM)
+                        amount.takeIf { it > 0.0 && it <= 500.0 }?.times(1000.0)
+                    else null,
+                    steps = if (mode == com.qingji.app.domain.CardioInputMode.MODE_STEPS)
+                        amount.toInt().coerceAtLeast(0) else 0,
+                    intensity = intensity
+                )
+            }
             ExerciseRecordType.HIIT -> WorkoutItem.Hiit(
                 itemId = common.first, exerciseUuid = common.second, name = common.third, order = 0,
                 durationSec = durationSec(),
@@ -495,22 +535,73 @@ private fun NonStrengthEditorCard(
         }
         Text(hint, fontSize = TextSizes.Tiny, color = TextSecondary)
         Spacer(Modifier.height(8.dp))
-        OutlinedTextField(
-            value = minutes,
-            onValueChange = { minutes = it; emit() },
-            label = { Text("实际时长（分钟）") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth()
-        )
-        if (type == ExerciseRecordType.CARDIO) {
+
+        // 步行类有氧：模式切换（仿「记录运动」页的时长/步数/公里）；固定器械类只有时长
+        if (canChooseMode) {
+            Text("记录方式", fontSize = TextSizes.Caption, color = TextSecondary)
             Spacer(Modifier.height(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                com.qingji.app.domain.CardioInputMode.modes().forEach { (key, label) ->
+                    val active = cardioMode == key
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(Dimens.PillCorner))
+                            .background(if (active) QingJiGreen else QingJiGreenLight)
+                            .clickable { cardioMode = key; emit() }
+                            .padding(horizontal = 14.dp, vertical = 6.dp)
+                    ) {
+                        Text(label, fontSize = TextSizes.Caption,
+                            color = if (active) CardWhite else QingJiGreen)
+                    }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            val amountValue = when (cardioMode) {
+                com.qingji.app.domain.CardioInputMode.MODE_STEPS -> stepsInput
+                com.qingji.app.domain.CardioInputMode.MODE_KM -> distanceKm
+                else -> minutes
+            }
             OutlinedTextField(
-                value = distanceKm,
-                onValueChange = { distanceKm = it; emit() },
-                label = { Text("实际距离（公里，可不填）") },
+                value = amountValue,
+                onValueChange = { v ->
+                    when (cardioMode) {
+                        com.qingji.app.domain.CardioInputMode.MODE_STEPS -> stepsInput = v
+                        com.qingji.app.domain.CardioInputMode.MODE_KM -> distanceKm = v
+                        else -> minutes = v
+                    }
+                    emit()
+                },
+                label = { Text("实际${com.qingji.app.domain.CardioInputMode.unit(cardioMode)}（${
+                    when (cardioMode) {
+                        com.qingji.app.domain.CardioInputMode.MODE_STEPS -> "按 100 步/分钟折算消耗"
+                        com.qingji.app.domain.CardioInputMode.MODE_KM -> "按 10 分钟/公里折算消耗"
+                        else -> "分钟"
+                    }
+                }）") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
+            Spacer(Modifier.height(6.dp))
+        } else if (type == ExerciseRecordType.CARDIO) {
+            OutlinedTextField(
+                value = minutes,
+                onValueChange = { minutes = it; emit() },
+                label = { Text("实际时长（分钟）") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(6.dp))
+        } else {
+            OutlinedTextField(
+                value = minutes,
+                onValueChange = { minutes = it; emit() },
+                label = { Text("实际时长（分钟）") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        if (type == ExerciseRecordType.CARDIO) {
+            // 固定器械类（划船机/椭圆机/动感单车等）只能记时长；强度仍可选。
             Spacer(Modifier.height(6.dp))
             Text("强度", fontSize = TextSizes.Caption, color = TextSecondary)
             Row {

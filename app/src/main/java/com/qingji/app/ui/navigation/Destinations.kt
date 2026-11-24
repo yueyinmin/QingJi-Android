@@ -34,6 +34,19 @@ object QingJiRoutes {
     const val VoiceRecord = "voice_record"
     const val Barcode = "barcode"
     const val AiAnalysis = "ai_analysis"
+    /**
+     * QJ-AI-HISTORY-DATE-V1：带目标分析日期进入 AI 分析页。
+     * 无参的 AiAnalysis 保留，兼容直达入口（默认今天）。
+     * 日期用 ISO yyyy-MM-dd（LocalDate.toString()），只含数字与连字符，URL 安全。
+     */
+    const val AiAnalysisWithDate = "ai_analysis/{date}"
+    fun aiAnalysis(date: java.time.LocalDate) =
+        "ai_analysis/${java.net.URLEncoder.encode(date.toString(), "UTF-8")}"
+    /** 路由参数合法性校验：非法日期一律回退今天。 */
+    fun aiAnalysisDate(raw: String?): java.time.LocalDate =
+        if (raw.isNullOrBlank()) com.qingji.app.domain.AppClock.today()
+        else runCatching { java.time.LocalDate.parse(raw) }
+            .getOrDefault(com.qingji.app.domain.AppClock.today())
     /** M9 数据备份 / 导出 / 导入。 */
     const val Backup = "backup"
     /** 0 = 新写一篇；大于 0 = 编辑已有那篇的 id。 */
@@ -82,6 +95,8 @@ object QingJiRoutes {
 
     /** 训练中心 P1：动作库 / 收藏 / 动作详情 / 我的计划 / 个人最佳。 */
     const val ExerciseLibrary = "exercise_library"
+    /** 2026-11-24：有氧动作库（302 条 CARDIO + 记录有氧预设） */
+    const val AerobicLibrary = "aerobic_library"
     const val ExerciseFavorites = "exercise_favorites"
     const val ExerciseDetail = "exercise_detail/{uuid}"
     fun exerciseDetail(uuid: String) = "exercise_detail/$uuid"
@@ -118,7 +133,7 @@ object QingJiRoutes {
     /** 这些是全屏子页面：打开时不显示底部导航栏。 */
     val fullScreenRoutes = setOf(
         Settings, SearchFood, TextAi, Weight, AiConfig, Profile,
-        ImageRecord, VoiceRecord, Barcode, AiAnalysis, Backup, DiaryEdit, MealDetail,
+        ImageRecord, VoiceRecord, Barcode, AiAnalysis, AiAnalysisWithDate, Backup, DiaryEdit, MealDetail,
         Fasting, FoodPreference, FoodLibrary, CustomFoodEdit, UserBrandManage, FoodLibrarySearch,
         WidgetSettings, ExercisePicker, ExerciseConfirm, StrengthQuickRecord, // 补记页也是全屏页：隐藏底栏避免遮挡保存按钮
         TrainingActive, TrainingHistory,

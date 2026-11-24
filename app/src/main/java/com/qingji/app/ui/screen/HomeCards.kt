@@ -84,6 +84,11 @@ internal fun TodaySummaryCard(
     waterGoal: Int = 3200,
     showWater: Boolean = true,
     animateProgress: Boolean = true,
+    /** QJ-PROGRESS-V2：进度条特效样式，默认 simple 保持旧版静态视觉 */
+    progressBarStyle: com.qingji.app.ui.components.ProgressBarStyle =
+        com.qingji.app.ui.components.ProgressBarStyle.SIMPLE,
+    /** QJ-WATERCUP-V2：水杯动效开关（独立于进度条动效） */
+    waterCupAnimation: Boolean = true,
     /** 水杯气泡量（设置里可调）：0 关 / 1 少 / 2 标准 / 3 多 */
     waterBubbles: Int = 2,
     /** v3.4.0 R5：关掉后运动消耗不计入预计热量缺口 */
@@ -226,25 +231,16 @@ internal fun TodaySummaryCard(
 
         Spacer(Modifier.height(10.dp))
 
-        // 进度条上叠一颗主题色小圆点，标出「吃到哪儿了」
-        Box(
-            modifier = Modifier.fillMaxWidth(),
-            contentAlignment = Alignment.CenterStart
-        ) {
-            ThinProgressBar(progress = animatedProgress)
-            androidx.compose.foundation.layout.BoxWithConstraints(
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                val dotX = (maxWidth - 8.dp) * animatedProgress.coerceIn(0f, 1f)
-                Box(
-                    modifier = Modifier
-                        .padding(start = dotX)
-                        .size(8.dp)
-                        .clip(CircleShape)
-                        .background(QingJiGreen)
-                )
-            }
-        }
+        // QJ-PROGRESS-V2：主 kcal 进度条使用七种特效。
+        // 原先叠在条上的小圆点已移除：它会盖住彗星光核/流光高光，让特效看起来「开了跟没开一样」；
+        // 进度位置现在由特效自身的末端光核表达，barHeight 加大到 10dp 让差异真正可见。
+        com.qingji.app.ui.components.StyledProgressBar(
+            progress = animatedProgress,
+            style = progressBarStyle,
+            barHeight = 10.dp,
+            // progressAnimation 仍只管补间（外层 animatedProgress），语义不扩大
+            animationEnabled = true
+        )
         Spacer(Modifier.height(8.dp))
         // 左边「已吃/预算」；右边「预期缺口」= 纯饮食剩余（不含运动补偿），
         // 吃超了变红字「反超 N 千卡」。主数字含补偿、缺口不含，两处对照着看。
@@ -289,6 +285,7 @@ internal fun TodaySummaryCard(
                 current = state.totalProtein.toInt(),
                 goal = profile?.proteinGoalG ?: 0,
                 dotColor = MacroProtein,
+                progressBarStyle = progressBarStyle,
                 modifier = Modifier.weight(1f)
             )
             NutrientColumn(
@@ -296,6 +293,7 @@ internal fun TodaySummaryCard(
                 current = state.totalCarb.toInt(),
                 goal = profile?.carbGoalG ?: 0,
                 dotColor = MacroCarb,
+                progressBarStyle = progressBarStyle,
                 modifier = Modifier.weight(1f)
             )
             NutrientColumn(
@@ -303,6 +301,7 @@ internal fun TodaySummaryCard(
                 current = state.totalFat.toInt(),
                 goal = profile?.fatGoalG ?: 0,
                 dotColor = MacroFat,
+                progressBarStyle = progressBarStyle,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -331,6 +330,8 @@ internal fun TodaySummaryCard(
                             outlineColor = MultiColor.WaterOutline,
                             // 气泡用浅水蓝，不要纯白 —— 白色小圆点看着像杯身上的脏点
                             bubbleTint = MultiColor.WaterSurface.copy(alpha = 0.9f),
+                            // QJ-WATERCUP-V2：独立开关控制水杯动效
+                            animationEnabled = waterCupAnimation,
                             // v1.5：杯内容量数字整个去掉（主人不要杯内计量数字）
                         )
                     }
@@ -448,6 +449,9 @@ internal fun NutrientColumn(
     goal: Int,
     /** 进度条用跟主题走的三大营养素色 */
     dotColor: Color,
+    /** QJ-PROGRESS-V2：与首页其它进度条共用特效样式 */
+    progressBarStyle: com.qingji.app.ui.components.ProgressBarStyle =
+        com.qingji.app.ui.components.ProgressBarStyle.SIMPLE,
     modifier: Modifier = Modifier
 ) {
     val fraction = if (goal == 0) 0f else (current.toFloat() / goal).coerceIn(0f, 1f)
@@ -462,26 +466,14 @@ internal fun NutrientColumn(
             color = if (overGoal) DangerRed else TextPrimary
         )
         Spacer(Modifier.height(6.dp))
-        // 进度条按本列标注色做「浅 → 深」横向渐变；轨道照旧 DividerColor，超 100% 夹紧到满条
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(4.dp)
-                .clip(RoundedCornerShape(999.dp))
-                .background(DividerColor)
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(fraction)
-                    .height(4.dp)
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(
-                        Brush.horizontalGradient(
-                            listOf(dotColor.copy(alpha = 0.45f), dotColor)
-                        )
-                    )
-            )
-        }
+        // QJ-PROGRESS-V2：营养素条接入同一套七种特效，颜色仍用本列标注色（浅→深渐变由特效色派生）
+        com.qingji.app.ui.components.StyledProgressBar(
+            progress = fraction,
+            color = dotColor,
+            barHeight = 6.dp,
+            style = progressBarStyle,
+            animationEnabled = true
+        )
         // 小字是真正在动的数：已吃/目标
         Spacer(Modifier.height(5.dp))
         Text(

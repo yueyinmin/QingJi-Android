@@ -8,15 +8,16 @@ import org.junit.Test
  * v1.1.0：图标切换的纯逻辑测试。
  * 别名类名是切换功能的根基 —— 类名一旦和 Manifest 不一致，
  * setComponentEnabledSetting 会抛 IllegalArgumentException，
- * 所以这里把「三套类名互不相同、与包名前缀一致」锁死。
+ * 所以这里把「九套类名互不相同、与包名前缀一致」锁死。
+ * v1.4.5：图标从 3 套扩到 9 套。
  */
 class AppIconManagerTest {
 
     @Test
-    fun `三套图标各对应不同的别名类`() {
+    fun `九套图标各对应不同的别名类`() {
         val classes = AppIconManager.VARIANTS.map { AppIconManager.aliasClass(it) }
-        assertEquals(3, classes.size)
-        assertEquals(3, classes.toSet().size)
+        assertEquals(9, classes.size)
+        assertEquals(9, classes.toSet().size)
     }
 
     @Test

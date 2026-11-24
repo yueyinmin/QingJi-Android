@@ -172,6 +172,13 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         put(SettingsKeys.CONSERVATIVE_ESTIMATE, enabled)
 
     fun setProgressAnimation(enabled: Boolean) = put(SettingsKeys.PROGRESS_ANIMATION, enabled)
+
+    /** QJ-PROGRESS-V2：进度条特效样式（与 progressAnimation 补间开关互不覆盖）。 */
+    fun setProgressBarStyle(style: com.qingji.app.ui.components.ProgressBarStyle) =
+        put(SettingsKeys.PROGRESS_BAR_STYLE, style.key)
+
+    /** QJ-WATERCUP-V2：水杯动效开关，独立于进度条动效。 */
+    fun setWaterCupAnimation(enabled: Boolean) = put(SettingsKeys.WATER_CUP_ANIMATION, enabled)
     fun setSwipeNavigate(enabled: Boolean) = put(SettingsKeys.SWIPE_NAVIGATE, enabled)
     fun setPageTransition(enabled: Boolean) = put(SettingsKeys.PAGE_TRANSITION, enabled)
     fun setFloatingBottomBar(enabled: Boolean) = put(SettingsKeys.FLOATING_BOTTOM_BAR, enabled)

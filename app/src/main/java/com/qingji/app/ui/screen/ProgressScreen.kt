@@ -241,6 +241,7 @@ fun ProgressScreen(
             unit = unit,
             bodyFatDisplay = bodyFatDisplay,
             goalReached = goalReached,
+            progressBarStyle = com.qingji.app.ui.components.ProgressBarStyle.fromKey(settings.progressBarStyle),
             onClick = onOpenWeight
         )
 

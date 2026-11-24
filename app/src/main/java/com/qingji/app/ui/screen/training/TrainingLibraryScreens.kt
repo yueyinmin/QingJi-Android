@@ -39,6 +39,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import coil.decode.SvgDecoder
 import coil.request.ImageRequest
@@ -59,8 +60,10 @@ import com.qingji.app.ui.theme.TextSizes
 import com.qingji.app.ui.viewmodel.TrainingPlanViewModel
 
 /**
- * P1 动作库 / 我的收藏。同一个页面，favoritesOnly=true 时只列收藏。
+ * 力训动作库 / 我的收藏（2026-11-24：原「动作库」改名）。
+ * 同一个页面，favoritesOnly=true 时只列收藏。
  * 搜索支持中文名、英文名、slug、肌群、器械；分类胶囊复用 7 类。
+ * 有氧动作（CARDIO）已移到「有氧动作库」，这里只列非有氧动作。
  */
 @Composable
 fun ExerciseLibraryScreen(
@@ -76,7 +79,9 @@ fun ExerciseLibraryScreen(
     var query by remember { mutableStateOf("") }
     var category by remember { mutableStateOf<String?>(null) }
 
-    val source = if (favoritesOnly) favorites else all
+    // 力训库只显示非 CARDIO；有氧项统一从「有氧动作库」进
+    val source = (if (favoritesOnly) favorites else all)
+        .filterNot { com.qingji.app.domain.AerobicLibrary.isAerobic(it) }
     val q = query.trim()
     val shown = source.filter { e ->
         (category == null || e.category == category) &&
@@ -90,7 +95,7 @@ fun ExerciseLibraryScreen(
 
     Column(modifier = modifier.fillMaxSize().background(PageBackground)) {
         PageTopBar(
-            title = if (favoritesOnly) "我的动作收藏" else "动作库",
+            title = if (favoritesOnly) "我的动作收藏" else "力训动作库",
             onBack = onBack
         )
         // v1.4 性能专项（工单 11）：旧写法 Column+verticalScroll 会把 302 张动作卡
@@ -217,7 +222,14 @@ fun ExerciseDetailScreen(
     modifier: Modifier = Modifier
 ) {
     val all by vm.exercises.collectAsState()
-    val e = all.firstOrNull { it.uuid == uuid }
+    // 有氧库里的「记录有氧」预设项是内存实体（uuid 带 preset: 前缀），不在动作库表里；
+    // 详情页按需读预设并转换，让两套数据源统一走同一详情流程。
+    val exerciseVm: com.qingji.app.ui.viewmodel.ExerciseViewModel = viewModel()
+    val presets by exerciseVm.presets.collectAsState()
+    val extra = remember(presets) {
+        presets.map(com.qingji.app.domain.AerobicLibrary::fromPreset)
+    }
+    val e = (all + extra).firstOrNull { it.uuid == uuid }
 
     Column(modifier = modifier.fillMaxSize().background(PageBackground)) {
         PageTopBar(title = e?.name ?: "动作详情", onBack = onBack)
@@ -273,6 +285,15 @@ fun ExerciseDetailScreen(
                 )
             }
             Spacer(Modifier.height(12.dp))
+
+            // 记录有氧预设项：没有图示/步骤，也不写动作库，给一句来源说明占位
+            val presetHint = aerobicPresetHint(e)
+            if (presetHint.isNotBlank()) {
+                SectionCard {
+                    Text(presetHint, fontSize = TextSizes.Body, color = TextSecondary)
+                }
+                Spacer(Modifier.height(10.dp))
+            }
 
             SectionCard {
                 InfoLine("英文名", e.englishName.ifBlank { "—" })
@@ -331,11 +352,17 @@ fun ExerciseDetailScreen(
                 .padding(horizontal = Dimens.ScreenPadding, vertical = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            // 预设项只在内存里，收藏不能写动作库，按钮禁用并说明
             OutlinedButton(
                 onClick = { vm.toggleFavorite(e.uuid, !e.isFavorite) },
+                enabled = com.qingji.app.domain.AerobicLibrary.presetIdOf(e.uuid) == null,
                 modifier = Modifier.weight(1f)
             ) {
-                Text(if (e.isFavorite) "取消收藏" else "收藏", fontSize = TextSizes.Body)
+                Text(
+                    if (com.qingji.app.domain.AerobicLibrary.presetIdOf(e.uuid) != null) "预设项不可收藏"
+                    else if (e.isFavorite) "取消收藏" else "收藏",
+                    fontSize = TextSizes.Body
+                )
             }
             Button(
                 onClick = { onStartRecord(e) },

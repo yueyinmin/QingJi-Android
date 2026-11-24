@@ -491,7 +491,8 @@ fun QingJiAppRoot(
                         val recentSleepNights by sleepVm.recent30.collectAsState()
                         HomeScreen(
                             onAddRecord = { showAddSheet = true },
-                            onOpenAnalysis = { navController.navigate(QingJiRoutes.AiAnalysis) },
+                            // QJ-AI-HISTORY-DATE-V1：带首页选中日期进入 AI 分析（直达入口仍走无参路由=今天）
+                            onOpenAnalysis = { date -> navController.navigate(QingJiRoutes.aiAnalysis(date)) },
                             onOpenWeight = { navController.navigate(QingJiRoutes.Weight) },
                             onOpenImage = { navController.navigate(QingJiRoutes.ImageRecord) },
                             onOpenMealDetail = { date, meal ->
@@ -597,6 +598,7 @@ fun QingJiAppRoot(
                             onStartTraining = { navController.navigate(QingJiRoutes.TrainingActive) },
                             onOpenTrainingPlan = { navController.navigate(QingJiRoutes.TrainingPlan) },
                             onOpenExerciseLibrary = { navController.navigate(QingJiRoutes.ExerciseLibrary) },
+                            onOpenAerobicLibrary = { navController.navigate(QingJiRoutes.AerobicLibrary) },
                             onOpenFavorites = { navController.navigate(QingJiRoutes.ExerciseFavorites) },
                             onOpenPersonalBest = { navController.navigate(QingJiRoutes.PersonalBest) },
                             onOpenSelfDiscipline = { navController.navigate(QingJiRoutes.SelfDiscipline) },
@@ -654,8 +656,21 @@ fun QingJiAppRoot(
                     composable(QingJiRoutes.Barcode) {
                         BarcodeScreen(onBack = { navController.popBackStack() })
                     }
+                    // QJ-AI-HISTORY-DATE-V1：无参入口（直达/小组件）默认今天，保持原行为
                     composable(QingJiRoutes.AiAnalysis) {
                         AiAnalysisScreen(
+                            targetDate = com.qingji.app.domain.AppClock.today(),
+                            onBack = { navController.popBackStack() },
+                            onOpenAiConfig = { navController.navigate(QingJiRoutes.AiConfig) }
+                        )
+                    }
+                    // 带日期入口：从首页选中日期进入，参数非法时 QingJiRoutes.aiAnalysisDate 回退今天
+                    composable(
+                        route = QingJiRoutes.AiAnalysisWithDate,
+                        arguments = listOf(navArgument("date") { type = NavType.StringType })
+                    ) { entry ->
+                        AiAnalysisScreen(
+                            targetDate = QingJiRoutes.aiAnalysisDate(entry.arguments?.getString("date")),
                             onBack = { navController.popBackStack() },
                             onOpenAiConfig = { navController.navigate(QingJiRoutes.AiConfig) }
                         )
@@ -791,6 +806,13 @@ fun QingJiAppRoot(
                     composable(QingJiRoutes.ExerciseLibrary) {
                         ExerciseLibraryScreen(
                             vm = planVm,
+                            onBack = { navController.popBackStack() },
+                            onOpenDetail = { uuid -> navController.navigate(QingJiRoutes.exerciseDetail(uuid)) }
+                        )
+                    }
+                    composable(QingJiRoutes.AerobicLibrary) {
+                        com.qingji.app.ui.screen.training.AerobicLibraryScreen(
+                            planVm = planVm,
                             onBack = { navController.popBackStack() },
                             onOpenDetail = { uuid -> navController.navigate(QingJiRoutes.exerciseDetail(uuid)) }
                         )
@@ -983,7 +1005,8 @@ fun QingJiAppRoot(
             // v1.4（工单 2.2 D）：删除重复「记录运动」入口，力量训练走开始训练，
             // 其他运动统一从「记录有氧」进运动选择页。
             onStartTraining = { navController.navigate(QingJiRoutes.TrainingActive) },
-            onAerobic = { navController.navigate(QingJiRoutes.ExercisePicker) },
+            // 2026-11-24：记录有氧入口改跳有氧动作库（302 CARDIO + 有氧预设合并）
+            onAerobic = { navController.navigate(QingJiRoutes.AerobicLibrary) },
             onBodyPhoto = { navController.navigate(QingJiTab.Progress.route) },
             // v1.4（工单 9）：睡眠从记一笔直达记录页
             onSleep = { navController.navigate(QingJiRoutes.Sleep) },

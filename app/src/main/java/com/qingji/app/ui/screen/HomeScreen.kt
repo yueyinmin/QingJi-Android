@@ -81,7 +81,8 @@ import java.time.LocalDate
 @Composable
 fun HomeScreen(
     onAddRecord: () -> Unit = {},
-    onOpenAnalysis: () -> Unit = {},
+    /** QJ-AI-HISTORY-DATE-V1：带首页当前选中日期进入 AI 分析（历史日期分析用）。 */
+    onOpenAnalysis: (LocalDate) -> Unit = {},
     onOpenWeight: () -> Unit = {},
     onOpenImage: () -> Unit = {},
     /** 点某一餐卡片 → 进用餐详情（带那一天 + 餐次）。 */
@@ -292,6 +293,8 @@ fun HomeScreen(
             waterGoal = settings.waterGoalMl,
             showWater = settings.showWaterCard,
             animateProgress = settings.progressAnimation,
+            progressBarStyle = com.qingji.app.ui.components.ProgressBarStyle.fromKey(settings.progressBarStyle),
+            waterCupAnimation = settings.waterCupAnimation,
             waterBubbles = settings.waterBubbles,
             exerciseCompensation = settings.exerciseCompensation,
             exerciseCompensationPct = settings.exerciseCompensationPct,
@@ -333,7 +336,7 @@ fun HomeScreen(
                         modifier = Modifier
                             .clip(RoundedCornerShape(999.dp))
                             .background(QingJiGreenLight)
-                            .pressable { onOpenAnalysis() }
+                            .pressable { onOpenAnalysis(state.date) }
                             .padding(horizontal = 9.dp, vertical = 5.dp)
                     )
                 }

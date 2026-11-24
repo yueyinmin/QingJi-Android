@@ -101,6 +101,10 @@ object SettingsKeys {
     val SHOW_DIARY_TAB = booleanPreferencesKey("show_diary_tab")
     val SHOW_MINE_TAB = booleanPreferencesKey("show_mine_tab")
     val PROGRESS_ANIMATION = booleanPreferencesKey("progress_animation")
+    /** QJ-PROGRESS-V2：进度条特效样式 key（simple/comet/...）；未知值回落 simple。 */
+    val PROGRESS_BAR_STYLE = stringPreferencesKey("progress_bar_style")
+    /** QJ-WATERCUP-V2：水杯动效开关（波浪/气泡/按压/水位补间），独立于进度条动效。 */
+    val WATER_CUP_ANIMATION = booleanPreferencesKey("water_cup_animation")
     val SWIPE_NAVIGATE = booleanPreferencesKey("swipe_navigate")
     val PAGE_TRANSITION = booleanPreferencesKey("page_transition")
     /** 底栏悬浮 Dock 皮肤（设置 → 显示与外观）：关 = 经典通栏，开 = 悬浮圆角栏 */
@@ -195,6 +199,10 @@ data class QingJiSettings(
     val showDiaryTab: Boolean = true,
     val showMineTab: Boolean = true,
     val progressAnimation: Boolean = true,
+    /** QJ-PROGRESS-V2：进度条特效样式 key，默认 simple（与旧版静态细条一致）。 */
+    val progressBarStyle: String = com.qingji.app.ui.components.ProgressBarStyle.DEFAULT_KEY,
+    /** QJ-WATERCUP-V2：水杯动效开关，默认开（老用户行为不变）。 */
+    val waterCupAnimation: Boolean = true,
     // 一级页面左右滑动切换（默认开）
     val swipeNavigate: Boolean = true,
     // 页面切换动画（关掉只留淡入淡出，老机器更稳）
@@ -289,6 +297,10 @@ object SettingsStore {
                     showDiaryTab = p[SettingsKeys.SHOW_DIARY_TAB] ?: true,
                     showMineTab = p[SettingsKeys.SHOW_MINE_TAB] ?: true,
                     progressAnimation = p[SettingsKeys.PROGRESS_ANIMATION] ?: true,
+                    progressBarStyle = com.qingji.app.ui.components.ProgressBarStyle.fromKey(
+                        p[SettingsKeys.PROGRESS_BAR_STYLE]
+                    ).key,
+                    waterCupAnimation = p[SettingsKeys.WATER_CUP_ANIMATION] ?: true,
                     swipeNavigate = p[SettingsKeys.SWIPE_NAVIGATE] ?: true,
                     pageTransition = p[SettingsKeys.PAGE_TRANSITION] ?: true,
                     floatingBottomBar = p[SettingsKeys.FLOATING_BOTTOM_BAR] ?: true,

@@ -78,6 +78,9 @@ internal fun BodyDataCard(
         ),
     /** 目标是否已达成 */
     goalReached: Boolean = false,
+    /** QJ-PROGRESS-V2：减重进度条特效样式 */
+    progressBarStyle: com.qingji.app.ui.components.ProgressBarStyle =
+        com.qingji.app.ui.components.ProgressBarStyle.SIMPLE,
     /** 点卡片进记体重页 */
     onClick: () -> Unit = {}
 ) {
@@ -122,7 +125,7 @@ internal fun BodyDataCard(
         Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(DividerColor))
         Spacer(Modifier.height(12.dp))
 
-        WeightLossProgressSection(animProgress, remain, unit, recordCount, goalReached)
+        WeightLossProgressSection(animProgress, remain, unit, recordCount, goalReached, progressBarStyle)
         if (profile == null) {
             Spacer(Modifier.height(6.dp))
             Text(text = s("个人资料还没填完整，进度可能显示为 0"), fontSize = 11.sp, color = WarnOrange)
@@ -153,33 +156,29 @@ private fun BodyWeightSummary(currentWeight: Double, targetWeight: Double, unit:
     )
 }
 
-/** 左栏：体脂率（实测优先，无实测则显示 Deurenberg 估算并明确标注来源） */
+/** 左栏：体脂率（实测优先；无实测时按资料推算，但不标注估算/参考字样） */
 @Composable
 private fun BodyFatSummary(display: com.qingji.app.domain.BodyMetricsCalculator.BodyFatDisplay) {
-    val label = when (display.source) {
-        BodyFatSource.MEASURED -> s("体脂率 · 实测")
-        BodyFatSource.ESTIMATED -> s("体脂率 · 估算")
-        else -> s("体脂率")
-    }
-    Text(text = label, fontSize = 11.sp, color = TextSecondary)
+    Text(text = s("体脂率"), fontSize = 11.sp, color = TextSecondary)
     when {
         display.source == BodyFatSource.UNSUPPORTED -> {
-            Text(text = s("暂不支持估算"), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextSecondary)
-            Text(text = s("成年后可按资料估算"), fontSize = 10.sp, color = TextSecondary)
+            Text(text = s("暂不支持"), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextSecondary)
         }
         display.value == null -> {
-            Text(text = s("完善资料后估算"), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextSecondary)
+            Text(text = s("完善资料后显示"), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextSecondary)
         }
         else -> {
             Text(
                 text = "${String.format("%.1f", display.value!!)}%",
                 fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary
             )
-            Text(
-                text = if (display.source == BodyFatSource.MEASURED) "${display.measuredDate} 记录"
-                       else s("根据 BMI、年龄和性别估算，仅供趋势参考"),
-                fontSize = 10.sp, color = TextSecondary
-            )
+            // 实测显示记录日期；推算值不再附加「估算/仅供趋势参考」说明
+            if (display.source == BodyFatSource.MEASURED) {
+                Text(
+                    text = "${display.measuredDate} 记录",
+                    fontSize = 10.sp, color = TextSecondary
+                )
+            }
         }
     }
 }
@@ -229,7 +228,9 @@ private fun BodyBmiSummary(bmi: Double, category: String, categoryColor: Color, 
 /** 底部：减重进度（百分比 / 进度条 / 还差多少） */
 @Composable
 private fun WeightLossProgressSection(
-    progress: Float, remain: Double, unit: String, recordCount: Int, goalReached: Boolean
+    progress: Float, remain: Double, unit: String, recordCount: Int, goalReached: Boolean,
+    progressBarStyle: com.qingji.app.ui.components.ProgressBarStyle =
+        com.qingji.app.ui.components.ProgressBarStyle.SIMPLE
 ) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(text = s("减重进度"), fontSize = 14.sp, color = TextPrimary)
@@ -239,7 +240,13 @@ private fun WeightLossProgressSection(
         )
     }
     Spacer(Modifier.height(8.dp))
-    ThinProgressBar(progress = progress.coerceIn(0f, 1f), barHeight = 8.dp)
+    // QJ-PROGRESS-V2：减重进度接入同一套七种特效（barHeight 保持 8dp 原尺寸）
+    com.qingji.app.ui.components.StyledProgressBar(
+        progress = progress.coerceIn(0f, 1f),
+        barHeight = 8.dp,
+        style = progressBarStyle,
+        animationEnabled = true
+    )
     Spacer(Modifier.height(8.dp))
     Text(
         text = when {
