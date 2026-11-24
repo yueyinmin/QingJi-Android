@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -91,6 +92,8 @@ fun HomeScreen(
     onOpenFasting: () -> Unit = {},
     /** 点「食物库」→ 进食物库页 */
     onOpenFoodLibrary: () -> Unit = {},
+    /** 2026-11-24：今日记录右侧工具图标 → 进工具页 */
+    onOpenTools: () -> Unit = {},
     /** 点「今日训练」卡 → 进训练日记 */
     onOpenTraining: () -> Unit = {},
     /** 点「自律管理」卡 → 进自律管理首页 */
@@ -341,7 +344,15 @@ fun HomeScreen(
                     )
                 }
             }
-            // v1.0.2：「记体重」挪进右下悬浮栏，这里右侧不再放按钮
+            // 2026-11-24：右侧工具图标 → 工具页（卡路里换算等）
+            androidx.compose.material3.IconButton(onClick = onOpenTools) {
+                androidx.compose.material3.Icon(
+                    imageVector = Icons.Outlined.Build,
+                    contentDescription = "工具",
+                    tint = QingJiGreenDark,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
         }
 
         Spacer(Modifier.height(10.dp))

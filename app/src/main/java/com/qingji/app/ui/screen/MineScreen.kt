@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.outlined.Calculate
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.EmojiEvents
 import androidx.compose.material.icons.outlined.EventNote
@@ -122,6 +123,8 @@ fun MineScreen(
     onOpenExerciseLibrary: () -> Unit = {},
     /** 2026-11-24：有氧动作库（302 CARDIO + 记录有氧预设） */
     onOpenAerobicLibrary: () -> Unit = {},
+    /** 2026-11-24：工具页（卡路里换算等） */
+    onOpenTools: () -> Unit = {},
     onOpenFavorites: () -> Unit = {},
     onOpenPersonalBest: () -> Unit = {},
     /** 自律管理（SD-001）：模块首页 */
@@ -231,6 +234,17 @@ fun MineScreen(
             onOpenFavorites = onOpenFavorites,
             onOpenPersonalBest = onOpenPersonalBest
         )
+
+        GroupHeader(s("工具"))
+        GroupCard {
+            SettingsRow(
+                title = "工具",
+                icon = Icons.Outlined.Calculate,
+                tone = IconTones.Gray,
+                trailing = "卡路里换算",
+                onClick = onOpenTools
+            )
+        }
 
         // 使用情况已并入顶部资料卡（v6）；调用统计卡仍放整页最下方：
         // 平时不挡视线，想看 AI 调用次数往下滑到底即可。

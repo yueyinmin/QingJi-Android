@@ -500,6 +500,7 @@ fun QingJiAppRoot(
                             },
                             onOpenFasting = { navController.navigate(QingJiRoutes.Fasting) },
                             onOpenFoodLibrary = { navController.navigate(QingJiRoutes.FoodLibrary) },
+                            onOpenTools = { navController.navigate(QingJiRoutes.Tools) },
                             onOpenTraining = { navController.navigate(QingJiRoutes.TrainingHistory) },
                             onOpenSleep = { navController.navigate(QingJiRoutes.Sleep) },
                             lastNightSleep = lastNightSleep,
@@ -599,6 +600,7 @@ fun QingJiAppRoot(
                             onOpenTrainingPlan = { navController.navigate(QingJiRoutes.TrainingPlan) },
                             onOpenExerciseLibrary = { navController.navigate(QingJiRoutes.ExerciseLibrary) },
                             onOpenAerobicLibrary = { navController.navigate(QingJiRoutes.AerobicLibrary) },
+                            onOpenTools = { navController.navigate(QingJiRoutes.Tools) },
                             onOpenFavorites = { navController.navigate(QingJiRoutes.ExerciseFavorites) },
                             onOpenPersonalBest = { navController.navigate(QingJiRoutes.PersonalBest) },
                             onOpenSelfDiscipline = { navController.navigate(QingJiRoutes.SelfDiscipline) },
@@ -726,6 +728,18 @@ fun QingJiAppRoot(
                     }
                     composable(QingJiRoutes.Fasting) {
                         FastingScreen(onBack = { navController.popBackStack() })
+                    }
+                    // 2026-11-24：工具页 / 卡路里换算
+                    composable(QingJiRoutes.Tools) {
+                        com.qingji.app.ui.screen.ToolsScreen(
+                            onBack = { navController.popBackStack() },
+                            onOpenCalorieConverter = { navController.navigate(QingJiRoutes.CalorieConverter) }
+                        )
+                    }
+                    composable(QingJiRoutes.CalorieConverter) {
+                        com.qingji.app.ui.screen.CalorieConverterScreen(
+                            onBack = { navController.popBackStack() }
+                        )
                     }
                     composable(
                         route = QingJiRoutes.MealDetail,

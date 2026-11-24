@@ -75,6 +75,10 @@ object QingJiRoutes {
     /** 轻断食页 */
     const val Fasting = "fasting"
 
+    /** 2026-11-24：工具页 / 卡路里换算二级页 */
+    const val Tools = "tools"
+    const val CalorieConverter = "calorie_converter"
+
     /** 用餐详情：某一天某一餐。日期用 2026-11-08 这种格式传。 */
     const val MealDetail = "meal_detail/{date}/{mealType}"
     fun mealDetail(date: java.time.LocalDate, mealType: String) = "meal_detail/$date/$mealType"
@@ -135,6 +139,7 @@ object QingJiRoutes {
         Settings, SearchFood, TextAi, Weight, AiConfig, Profile,
         ImageRecord, VoiceRecord, Barcode, AiAnalysis, AiAnalysisWithDate, Backup, DiaryEdit, MealDetail,
         Fasting, FoodPreference, FoodLibrary, CustomFoodEdit, UserBrandManage, FoodLibrarySearch,
+        Tools, CalorieConverter,
         WidgetSettings, ExercisePicker, ExerciseConfirm, StrengthQuickRecord, // 补记页也是全屏页：隐藏底栏避免遮挡保存按钮
         TrainingActive, TrainingHistory,
         ExerciseLibrary, ExerciseFavorites, ExerciseDetail, TrainingPlan, CustomPlanEdit, PersonalBest,
