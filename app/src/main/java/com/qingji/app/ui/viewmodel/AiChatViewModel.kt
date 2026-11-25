@@ -216,6 +216,11 @@ class AiChatViewModel private constructor(
         _uiState.update { it.copy(input = listOf(it.input, text).filter { v -> v.isNotBlank() }.joinToString(" ")) }
     }
 
+    /** 输入容器里的「移除」：只清掉待发送的图片，不动已发出的消息。 */
+    fun clearAttachment() {
+        _uiState.update { it.copy(attachedImageBase64 = null, attachedImageMime = "image/jpeg") }
+    }
+
     /**
      * 阶段 J：进页面时算一次主动提醒。
      *
@@ -398,6 +403,30 @@ class AiChatViewModel private constructor(
             viewModelScope.launch { store.deleteMessage(errorMessage.id) }
         }
         send(lastUser.text)
+    }
+
+    /**
+     * 工单 QJ-AI-CHAT-UI-V2：失败消息气泡里的「重试」。
+     *
+     * 和 [retry] 的区别只在于定位方式：这里按被点的那条失败消息，
+     * 找它前面最近的一条用户消息重发；找不到（比如历史被清过）再退回 [retry]。
+     * 业务行为不变——仍然是删掉那条错误消息后重发同一个问题。
+     */
+    fun retryFrom(errorMessageId: String) {
+        if (_uiState.value.isRunning) return
+        val messages = _uiState.value.persistedMessages
+        val index = messages.indexOfFirst { it.id == errorMessageId }
+        val question = if (index > 0) {
+            messages.subList(0, index).lastOrNull { it.role == ChatRole.USER }?.text
+        } else {
+            null
+        }
+        if (question.isNullOrBlank()) {
+            retry()
+            return
+        }
+        viewModelScope.launch { runCatching { store.deleteMessage(errorMessageId) } }
+        send(question)
     }
 
     fun clear() {

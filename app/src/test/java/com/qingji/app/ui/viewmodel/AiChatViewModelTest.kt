@@ -304,4 +304,52 @@ class AiChatViewModelTest {
         assertEquals("YWJj", vm.uiState.value.attachedImageBase64)
         assertEquals("看看这张图", vm.uiState.value.input)
     }
+
+    /** 工单 QJ-AI-CHAT-UI-V2：输入区的「移除」只清待发送图片，不影响其它状态。 */
+    @Test
+    fun clearAttachment_removesPendingImageOnly() = runTest {
+        val vm = AiChatViewModel(
+            app,
+            testStore = FakeAiChatStore(),
+            testRunner = { q, _ -> AgentResult(q, emptyList(), 1, emptyList()) },
+            testClock = { date }
+        )
+
+        vm.attachImage("YWJj", "image/png")
+        vm.onInputChange("这张图吃了多少")
+        vm.clearAttachment()
+
+        assertEquals(null, vm.uiState.value.attachedImageBase64)
+        assertEquals("image/jpeg", vm.uiState.value.attachedImageMime)
+        assertEquals("这张图吃了多少", vm.uiState.value.input)
+    }
+
+    /**
+     * 工单 QJ-AI-CHAT-UI-V2：失败气泡里的重试要按「那条失败消息」定位问题，
+     * 不能简单重发最后一条用户消息。
+     */
+    @Test
+    fun retryFrom_resendsQuestionBeforeThatErrorMessage() = runTest {
+        var attempts = 0
+        val vm = AiChatViewModel(
+            app,
+            testStore = FakeAiChatStore(),
+            testRunner = { question, _ ->
+                attempts++
+                if (attempts <= 2) throw IllegalStateException("network down")
+                AgentResult("答：$question", emptyList(), 1, emptyList())
+            },
+            testClock = { date }
+        )
+
+        vm.send("问题A")
+        vm.send("问题B")
+        assertEquals(4, vm.uiState.value.messages.size)
+
+        val firstErrorId = vm.uiState.value.messages.first { it.isError }.id
+        vm.retryFrom(firstErrorId)
+
+        assertEquals("答：问题A", vm.uiState.value.messages.last().text)
+        assertFalse(vm.uiState.value.messages.last().isError)
+    }
 }
