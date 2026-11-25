@@ -604,6 +604,20 @@ class TrainingRepository(
     /** 阶段 E：提案执行器/对账用——读当前版本。 */
     suspend fun planVersion(uuid: String): Long? = planDao.versionOf(uuid)
 
+    /** 阶段 G：只读快照，供训练分析规则层使用；不改统一运动体系。 */
+    suspend fun recentTrainingSnapshots(days: Int = 28): List<com.qingji.app.domain.TrainingSessionSnapshot> {
+        val from = com.qingji.app.domain.AppClock.today().minusDays(days - 1L)
+        return sessionDao.findAll()
+            .filter { it.date >= from }
+            .map { session ->
+                com.qingji.app.domain.TrainingSessionSnapshot(
+                    date = session.date,
+                    durationMinutes = session.durationMinutes,
+                    items = sessionDetail(session.uuid).items
+                )
+            }
+    }
+
     // 备份的整表导出/覆盖恢复统一放在 data/backup/TrainingBackup.kt + BackupManager，
     // 这里不再做第二套，免得以后两边字段不一致。
 }

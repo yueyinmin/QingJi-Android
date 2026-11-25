@@ -305,6 +305,78 @@ class GetTrainingPlanTool(
     }
 }
 
+/** 阶段 G：三类运动分开统计的只读分析工具。只算已有记录，不输出训练处方。 */
+private class AnalyzeTrainingTool(
+    private val snapshots: suspend (Int) -> List<com.qingji.app.domain.TrainingSessionSnapshot>,
+    private val today: () -> java.time.LocalDate
+) : AiTool {
+    override val name = "analyze_training"
+    override val description = "按力量/有氧/HIIT分开统计近N天训练量、频率、强度与数据完整度；数据不足标UNKNOWN"
+    override val parametersJson = """
+        {"type":"object","properties":{"days":{"type":"integer","minimum":7,"maximum":90}},"required":[]}
+    """.trimIndent()
+    override val readOnly = true
+
+    override suspend fun execute(argumentsJson: String): String {
+        val args = ToolArgs.parse(argumentsJson, name)
+        val days = args.optInt("days", 28).coerceIn(7, 90)
+        val analysis = com.qingji.app.domain.TrainingAnalysisEngine.analyze(
+            snapshots(days), today(), days
+        )
+        return JSONObject().apply {
+            put("days", analysis.windowDays)
+            put("insufficientData", analysis.insufficientData)
+            put("warnings", org.json.JSONArray(analysis.warnings))
+            put("types", JSONObject().apply {
+                analysis.totals.forEach { (type, summary) ->
+                    put(type.key, JSONObject().apply {
+                        put("sessions", summary.sessions)
+                        put("totalSets", summary.totalSets)
+                        put("volumeKg", summary.volumeKg)
+                        put("durationSec", summary.durationSec)
+                        put("averageRpe", ToolArgs.number(summary.averageRpe))
+                        put("sessionsPerWeek", summary.sessionsPerWeek)
+                        put("minGapDays", ToolArgs.integer(summary.minGapDays))
+                        put("trust", summary.trust.name)
+                    })
+                }
+            })
+        }.toString()
+    }
+}
+
+/** 阶段 G：只输出提案内容，不执行；确认走 ProposalManager。 */
+private class SuggestPlanChangeTool(
+    private val snapshots: suspend (Int) -> List<com.qingji.app.domain.TrainingSessionSnapshot>,
+    private val plans: suspend () -> List<com.qingji.app.data.local.entity.TrainingPlan>,
+    private val today: () -> java.time.LocalDate
+) : AiTool {
+    override val name = "suggest_plan_change"
+    override val description = "根据训练分析生成计划启用/停用提案草稿；只返回差异，不修改计划"
+    override val parametersJson = """{"type":"object","properties":{"days":{"type":"integer","minimum":7,"maximum":90}},"required":[]}""".trimIndent()
+    override val readOnly = true
+
+    override suspend fun execute(argumentsJson: String): String {
+        val args = ToolArgs.parse(argumentsJson, name)
+        val days = args.optInt("days", 28).coerceIn(7, 90)
+        val analysis = com.qingji.app.domain.TrainingAnalysisEngine.analyze(
+            snapshots(days), today(), days
+        )
+        val suggestion = com.qingji.app.ai.training.PlanChangeSuggester.suggest(analysis, plans())
+        return suggestion?.let {
+            JSONObject().apply {
+                put("proposalType", it.proposalType)
+                put("targetRecordId", it.targetRecordId)
+                put("baseVersion", it.baseVersion)
+                put("title", it.title)
+                put("reason", it.reason)
+                put("beforeJson", it.beforeJson)
+                put("afterJson", it.afterJson)
+            }.toString()
+        } ?: JSONObject().apply { put("suggestion", JSONObject.NULL) }.toString()
+    }
+}
+
 /** 把现有 Repository 装配成只读工具注册表。 */
 class ReadonlyToolFactory(
     private val qingJiRepository: QingJiRepository,
@@ -329,6 +401,19 @@ class ReadonlyToolFactory(
             GetTrainingHistoryTool(
                 sessions = { trainingRepository.observeSessions().first() },
                 exercises = { trainingRepository.observeAllWorkoutExercises().first() }
+            )
+        )
+        register(
+            AnalyzeTrainingTool(
+                snapshots = { trainingRepository.recentTrainingSnapshots(it) },
+                today = { com.qingji.app.domain.AppClock.today() }
+            )
+        )
+        register(
+            SuggestPlanChangeTool(
+                snapshots = { trainingRepository.recentTrainingSnapshots(it) },
+                plans = { trainingRepository.observePlans().first() },
+                today = { com.qingji.app.domain.AppClock.today() }
             )
         )
         register(
