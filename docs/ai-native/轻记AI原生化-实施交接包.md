@@ -716,3 +716,82 @@ app/src/main/java/com/qingji/app/ui/screen/AiChatScreen.kt
 - 系统备份排除 AI 库是「保守选择」，不是 L 阶段的最终形态：L 做 AI 库备份段时，用户主动导出的那份仍然可以包含 AI 数据。
 - 日志只去掉 `v/d/i`，保留 `w/e`：线上排障需要；已复核不含敏感串。
 - 写工具继续保持禁用；本轮仍未新增任何写工具（8 个工具全部只读）。
+
+## 20. L 阶段实施（2026-11-25）
+
+> 提交：`feat(ai): implement L stage backup and resilience`（见 `git log`）
+
+### 20.1 落地内容
+
+**一、AI 库备份段（备份格式 v8 → v9）**
+
+- 新增 `data/backup/AiBackup.kt`：`aiData` 段包含 `conversations` / `messages` / `memories` / `nudges` 四类。
+- **不带**：`ai_tool_call`、`ai_token_usage`（过程与用量数据，用起来会重新产生）、`ai_proposal`（待确认的展示镜像，跨设备无意义）、API Key（从来不在备份里）。
+- 解析容错：缺 `id` 的会话/消息、缺 `dedupeKey` 的记忆、缺 `kind`/`dateKey` 的提醒，单条跳过不牵连整段；`confidence` 是坏值时置空而不是落 NaN。
+- 兼容：`version < 9` 或文件没有 `aiData` 段 → **AI 库一行都不动**，导旧备份不会清掉现在的对话与记忆。
+- 导出端读 AI 库失败时只返回空段并记 warn：不能因为 AI 库坏了就让整份业务备份导不出来。
+
+**二、恢复顺序与失败隔离**
+
+```
+解析整份 JSON（不碰库）
+  → 主库事务（清 + 灌，失败整事务回滚）
+  → 事务外副作用（AI 激活服务设置、桌面组件）
+  → AI 库事务（清 + 灌）
+  → 收尾：执行台账 STALE、记忆来源自检
+```
+
+AI 库刻意放在最后：主库先提交成功才写 AI 库。反过来会出现「对话指向一套已经不存在的记录」。AI 库失败**不推翻**已提交的业务恢复，但摘要里会写明「AI 对话与记忆这次没能恢复，可以稍后重试」。
+
+**三、提案 STALE**
+
+- AI 库 `clearAll()` 会清掉 `ai_proposal`，待确认提案随之作废（等价于 STALE）；
+- 主库 `ai_proposal_execution` 里卡在 `EXECUTING` 的台账，恢复后用 `markExecutingStale()` 统一标 `STALE` + `errorCode=RESTORED`：语义是「作废」，不是「执行失败」。
+
+**四、Token 记录（不伪造）**
+
+- `AgentResult` 新增 `usage`；`QingJiAgent` 在每一轮响应后累加（多轮工具调用不会只算最后一轮）。
+- 累加规则：任一字段为 `null` 就保持 `null`——不把「上游没给」当 0 加，否则会得出「没数据却总量 0」的假数字。
+- `RoomAiChatStore.appendAssistantMessage` 只在 `usage != null` 时插 `ai_token_usage` 一行；`usage == null` 不写任何行，统计侧宁可显示「没有数据」。
+- 日调用熔断复用现有 `usage_stat`：聊天入口本来就走 `repo.ensureAiAvailable(date)` + `recordAiCall(date)`，本轮复核确认已生效，未新增第二套计数。
+
+**五、上下文预算**
+
+- `ContextBuilder` 新增单条问题上限 4000 字（粘贴长文时截断并标注「已截断」）；
+- 已有预算不变：摘要 1200 字、长期记忆 6 条 / 500 字、推断类最多 1 条。
+
+**六、启动异常恢复（补上 E 阶段的缺口）**
+
+- 发现：`ProposalManager.recoverExecuting()` 在 E 阶段写好了，但**从未被调用**——进程被杀留下的 `EXECUTING` 台账会永远停在「正在执行」。
+- 修复：`QingJiApp` 启动的 IO 协程里调用一次（注入 `PlanProposalExecutor`）；失败只记 warn，不拦启动，下次启动会再试。
+
+**七、测试隔离修复（J 阶段遗留）**
+
+- 根因：`BackupExportScopeTest` 用 `BackupManager(context)` 走 `AppDatabase.get()` 全局单例；Robolectric 下连接指针按线程登记，单例跨测试类复用时线程对不上，抛 `Illegal connection pointer`。
+- 修复：`BackupManager` 新增 `aiDbOverride`，测试改用内存主库 + 内存 AI 库，完全不碰单例。
+- 结果：**全量跑首次 0 失败**（173 suites / 1140 tests）。
+
+**八、文案同步**
+
+- 备份页「包含什么」补上 AI 对话与记忆；导出按钮下新增「文件里包含你的 AI 对话与长期记忆，分享出去前请确认接收方能看这些内容」；
+- 导入确认弹窗写明：v9 及以后会覆盖 AI 数据，更老的备份不动本机 AI 数据。
+
+### 20.2 验证
+
+| 项 | 结果 |
+|---|---|
+| 备份往返 | 6 例：新备份覆盖、老备份不动、台账 STALE、来源失效、坏条目跳过、空段判空 |
+| Token | 4 例：多轮累加、无 usage 不伪造、某轮缺字段保持空、无 usage 不插行 |
+| 上下文 | 1 例：5000 字问题被截断并标注 |
+| 版本护栏 | `TrainingB111IntegrationTest` 的 `BackupFormat.VERSION` 断言同步到 9 |
+| `testDebugUnitTest` | 173 suites / **1140 tests**（+11）/ **0 failures** / 0 errors / 3 skipped —— 三轮以来第一次全绿 |
+| `assembleDebug` / `assembleRelease` | BUILD SUCCESSFUL（lintVital 通过） |
+
+### 20.3 边界
+
+- 只备份「内容类」AI 数据，工具调用明细与 Token 用量不进备份（体积与价值不成比例）。
+- 备份文件现在含聊天原文，用户分享出去等于公开这些内容——已在导出入口明示，但不做二次密码保护（自用 App，加锁反而添堵）。
+- Token 只落库，暂不做展示页；统计口径与识别链路共用 `usage_stat` 的 `ai` 计数。
+- 长对话只有「最近 N 条 + 往前加载」，不做全文搜索与跨会话检索。
+- AI 库恢复失败只降级提示，不提供「只重试 AI 部分」的单独入口（下次整份重导即可，主库是幂等覆盖）。
+- 写工具继续保持禁用；本轮仍未新增任何写工具（8 个工具全部只读）。
