@@ -333,3 +333,40 @@ app/src/main/java/com/qingji/app/ui/screen/AiChatScreen.kt
 - [ ] 重启 App 后会话与消息仍存在
 - [ ] 失败回答可重试
 - [ ] 设置中关闭 AI 后，聊天入口请求被闸门拦截
+
+---
+
+## 11. D 阶段收口补记（2026-11-25）
+
+> 提交：`c695923 feat(ai): complete D stage AI chat handover items`
+> 版本不变；本轮只做 D 阶段剩余项，未进入 E（提案/写入）。未推送远端。
+
+### 11.1 已完成
+
+| 交接包原列项 | 本轮落地 |
+|---|---|
+| 流式文本渲染 | `QingJiAgent.runStreaming()` + `AnswerStreamFilter`（只吐 JSON 里的 answer，不漏 JSON 片段）；`AiChatViewModel` 三参 runner 接片段；`AiChatScreen` 随文本自动滚动 |
+| 会话重命名 UI | `AiChatStore.renameConversation()` + ViewModel + 会话条旁「改名」弹窗 |
+| 会话删除按钮 | ViewModel 原已支持；聊天页补「删除」按钮与确认弹窗，提示删除会话不等于删长期记忆 |
+| 更多业务页上下文入口 | 饮食详情、训练日记、训练计划、体重、进展 5 个页面接入「AI 管家」，分别带页面上下文 |
+| 图片 / 语音输入 | 聊天页加「图片」（系统相册 → base64 内存直传，2MB 上限，不入库不进日志）与「语音」（系统识别 → 填入输入框，可改再发） |
+| 长会话性能 | `AiChatDao.observeRecentMessages` + `countMessages`；默认只载最近 100 条，顶部「加载更早消息」每次 +100 |
+| AI 库备份 / 恢复 | **未做**：路线图归 L 阶段，备份格式升级需单独工单。本轮只做「恢复出厂」时清空 AI 库 5 张表 |
+
+### 11.2 验证
+
+| 项 | 结果 |
+|---|---|
+| `testDebugUnitTest` | 79 suites / 529 tests / 0 failures / 0 errors / 0 skipped |
+| `assembleDebug` | BUILD SUCCESSFUL |
+| `assembleRelease` | BUILD SUCCESSFUL |
+| 新增测试 | 流式 answer 过滤 4 例、Agent 流式 1 例、ViewModel 流式/改名/图片语音 3 例、Room 改名与清空 1 例 |
+
+### 11.3 风险与边界
+
+- 工具调用轮次仍按 generate 语义执行，流式只用于最终 answer；Agent 轮次/工具上限未变。
+- 供应商 SSE 差异仍只覆盖测试样本；流式渲染未做真机逐字视觉验收。
+- 图片只走多模态 provider 能力；模型不支持图片时会返回结构化错误，不会静默丢图。
+- 语音依赖设备系统识别能力，缺失时提示手动输入。
+- AI 库尚未进入备份导出/恢复；只保证恢复出厂会清干净。
+- 本提交仍在本地 `feature/health-system-v1.1`，未推送；远端 main 仍是 v1.4.5 生产线，合并前需先处理两线分叉。
