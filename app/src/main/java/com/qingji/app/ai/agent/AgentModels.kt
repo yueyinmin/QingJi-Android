@@ -1,6 +1,7 @@
 package com.qingji.app.ai.agent
 
 import com.qingji.app.data.local.entity.AiConfig
+import com.qingji.app.data.remote.ai.TokenUsage
 import java.time.LocalDate
 
 /** 结论可信度标识，禁止模型把推断包装成事实。 */
@@ -62,5 +63,10 @@ data class AgentResult(
     val conclusions: List<AgentConclusion>,
     val rounds: Int,
     val toolExecutions: List<AgentToolExecution>,
-    val warnings: List<String> = emptyList()
+    val warnings: List<String> = emptyList(),
+    /**
+     * 阶段 L：整轮对话（含多轮工具调用）累计的 Token 用量。
+     * 上游没返回 usage 时是 null——**绝不按字数估算**，宁可没有数据也不造假数。
+     */
+    val usage: TokenUsage? = null
 )

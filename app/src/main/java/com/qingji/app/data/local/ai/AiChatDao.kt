@@ -156,4 +156,10 @@ interface AiChatDao {
 
     @Query("SELECT COUNT(*) FROM ai_token_usage")
     suspend fun countAllTokenUsage(): Int
+
+    // ---------- 阶段 L：Token 用量落库 ----------
+
+    /** 上游没返回 usage 时调用方不应插入任何行（见 RoomAiChatStore），不写 0 假数据。 */
+    @Insert
+    suspend fun insertTokenUsage(usage: AiTokenUsageEntity)
 }

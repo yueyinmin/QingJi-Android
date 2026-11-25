@@ -12,7 +12,13 @@ import com.qingji.app.data.remote.ai.AiToolDefinition
  * 不把聊天全文、全部业务数据或推断塞进上下文。
  */
 class ContextBuilder(
-    private val maxSummaryChars: Int = 1200
+    private val maxSummaryChars: Int = 1200,
+    /**
+     * 阶段 L：单条用户问题的字数上限。
+     * 粘贴一篇长文进对话框时，不截断就会把整段塞进请求：既贵又容易超上下文。
+     * 截断会在文本末尾标注，用户能看出被截过。
+     */
+    private val maxQuestionChars: Int = 4000
 ) {
     fun build(request: AgentRequest, tools: List<AiToolDefinition>): AiRequest {
         val toolLines = if (tools.isEmpty()) {
@@ -26,6 +32,9 @@ class ContextBuilder(
             ?: "[UNKNOWN] 未提供额外上下文摘要；不得猜测缺失数据。"
 
         val pageLine = request.page?.takeIf { it.isNotBlank() }?.let { "页面入口：$it" } ?: "页面入口：未提供"
+
+        // 阶段 L：问题本身也要有上限（用户可能粘贴长文）
+        val question = truncate(request.question.trim(), maxQuestionChars)
 
         // 阶段 I：长期记忆只给少量、带可信度；没有就说没有，别让模型自己脑补偏好
         val memoryBlock = if (request.memories.isEmpty()) {
@@ -75,11 +84,11 @@ class ContextBuilder(
                 AiMessage.system(system),
                 request.imageBase64?.let { base64 ->
                     AiMessage.userImage(
-                        text = "用户问题（附一张图片）：${request.question.trim()}",
+                        text = "用户问题（附一张图片）：$question",
                         base64 = base64,
                         mime = request.imageMime
                     )
-                } ?: AiMessage.user("用户问题：${request.question.trim()}")
+                } ?: AiMessage.user("用户问题：$question")
             ),
             temperature = 0.2,
             forceJsonObject = true,

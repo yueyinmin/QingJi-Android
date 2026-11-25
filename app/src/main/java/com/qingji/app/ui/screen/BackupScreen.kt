@@ -143,7 +143,8 @@ fun BackupScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = "✅ 包含：个人档案、饮食记录、体重、饮水、日记、围度、运动、断食、训练、自律等记录类数据，以及照片条目。\n" +
+                    text = "✅ 包含：个人档案、饮食记录、体重、饮水、日记、围度、运动、断食、训练、自律等记录类数据，以及照片条目；"
+                        + "v9 起还包含 AI 管家的对话、长期记忆与提醒历史。\n" +
                         "❌ 不包含：68 个设置项、食物搜索历史、照片文件本身（只存路径）、AI Key（单独加密存在系统 Keystore）。\n\n" +
                         "所以备份不是「完整克隆设备」：换机后设置要重新调一遍，照片文件要单独拷贝 files/images 与 files/progress 目录，" +
                         "AI Key 要重新填一次。JSON 里没有的数据不会被恢复。",
@@ -168,6 +169,13 @@ fun BackupScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                     text = "导出的文件会放在 App 私有目录，然后用系统分享发到微信 / 网盘 / 邮箱。",
                     fontSize = 11.sp,
                     color = TextSecondary
+                )
+                Spacer(Modifier.height(4.dp))
+                // 阶段 L：v9 起文件里带 AI 对话，分享前得让人知道这一点
+                Text(
+                    text = "文件里包含你的 AI 对话与长期记忆，分享出去前请确认接收方能看这些内容。",
+                    fontSize = 11.sp,
+                    color = QingJiGreenDark
                 )
                 Spacer(Modifier.height(12.dp))
 
@@ -340,7 +348,8 @@ fun BackupScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 )
                 Spacer(Modifier.height(8.dp))
                 listOf(
-                    "JSON 只导记录类数据 —— 68 个设置项、食物搜索历史、照片文件本身、AI Key 都不包含，换机后需要重新设置 / 重新配置。",
+                    "JSON 只导记录类数据 —— 68 个设置项、食物搜索历史、照片文件本身、AI Key 都不包含，换机后需要重新设置 / 重新配置。"
+                        + "（v9 起 AI 管家的对话与长期记忆会一起备份，它们也是记录。）",
                     "API Key 不在备份里 —— Key 单独加密存在系统 Keystore，导出时根本读不到，所以新手机要重新填一次。",
                     "照片不跟着 JSON 走 —— 照片是文件路径，需要单独拷贝 files/images 和 files/progress 目录。",
                     "CSV 只导饮食记录 —— 可以按月份、按餐次筛选，方便在 Excel 里做分析，但它不是备份，不能用来恢复。",
@@ -443,6 +452,8 @@ fun BackupScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             // 别在文案里写 ** 这种 markdown 语法：Compose 的 Text 不认，会原样显示星号
             body = "导入会用备份里的记录类数据覆盖本机现有记录：饮食、体重、饮水、日记、围度、" +
                 "运动、断食、训练、自律、照片条目等；个人档案与 AI 服务配置也按备份覆盖。\n" +
+                "如果这份备份是 v9 及以后导出的，AI 管家的对话、长期记忆与提醒历史也会一起覆盖；" +
+                "更老的备份里没有 AI 数据段，本机的 AI 对话与记忆保持不动。\n" +
                 "68 个设置项、食物搜索历史、照片文件本身、AI Key 不在备份里，不会被改动。\n\n确定继续吗？",
             confirmText = "确认导入",
             onConfirm = {

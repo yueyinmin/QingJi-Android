@@ -8,6 +8,7 @@ import com.qingji.app.ai.agent.AgentResult
 import com.qingji.app.ai.agent.AgentToolExecution
 import com.qingji.app.ai.agent.TrustLabel
 import com.qingji.app.data.local.ai.AiDatabase
+import com.qingji.app.data.remote.ai.TokenUsage
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -80,6 +81,49 @@ class RoomAiChatStoreTest {
             db.aiChatDao().clearAll()
             assertTrue(store.conversationsOnce().isEmpty())
             assertEquals(0, store.countMessages(conversation.id))
+        } finally {
+            db.close()
+        }
+    }
+
+    // ---------- 阶段 L：Token 用量落库 ----------
+
+    @Test
+    fun `有用量时写一行 没用量时不写假数据`() = runBlocking {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val db = Room.inMemoryDatabaseBuilder(app, AiDatabase::class.java)
+            .allowMainThreadQueries()
+            .build()
+        try {
+            val store = RoomAiChatStore(db)
+            val conversation = store.createConversation("首页")
+
+            store.appendAssistantMessage(
+                id = "a1",
+                conversationId = conversation.id,
+                result = AgentResult(
+                    answer = "有用量",
+                    conclusions = emptyList(),
+                    rounds = 1,
+                    toolExecutions = emptyList(),
+                    usage = TokenUsage(promptTokens = 120, completionTokens = 40, totalTokens = 160)
+                )
+            )
+            assertEquals(1, db.aiChatDao().countAllTokenUsage())
+
+            store.appendAssistantMessage(
+                id = "a2",
+                conversationId = conversation.id,
+                result = AgentResult(
+                    answer = "没用量",
+                    conclusions = emptyList(),
+                    rounds = 1,
+                    toolExecutions = emptyList(),
+                    usage = null
+                )
+            )
+            // 上游没给 usage 就不插行，统计页宁可显示「没有数据」
+            assertEquals(1, db.aiChatDao().countAllTokenUsage())
         } finally {
             db.close()
         }

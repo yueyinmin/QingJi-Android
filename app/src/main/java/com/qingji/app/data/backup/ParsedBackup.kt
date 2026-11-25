@@ -86,7 +86,11 @@ data class ParsedBackup(
     /** 备份 JSON 里是否真的写了 userFoodGroups 段（v5 及更老的文件没有）。 */
     val hasUserFoodGroups: Boolean = false,
     val userFoodGroups: List<UserFoodGroup> = emptyList(),
-    val userFoodGroupItems: List<UserFoodGroupItem> = emptyList()
+    val userFoodGroupItems: List<UserFoodGroupItem> = emptyList(),
+    // ---------- v9 新增：AI 数据（会话 / 消息 / 记忆 / 提醒） ----------
+    /** 备份 JSON 里是否真的写了 aiData 段（v8 及更老的文件没有）。 */
+    val hasAiData: Boolean = false,
+    val aiData: AiBackup = AiBackup()
 ) {
     /** 有没有真的读到业务数据。全是空的时候导入没意义，界面上该给个提示。 */
     val isEmpty: Boolean
@@ -96,7 +100,8 @@ data class ParsedBackup(
             (training == null || training.isEmpty()) &&
             (selfDiscipline == null || selfDiscipline.isEmpty()) &&
             userBrands.isEmpty() && userBrandDishes.isEmpty() &&
-            userFoodGroups.isEmpty() && userFoodGroupItems.isEmpty()
+            userFoodGroups.isEmpty() && userFoodGroupItems.isEmpty() &&
+            aiData.isEmpty()
 }
 
 /**
@@ -154,7 +159,9 @@ fun parseBackup(text: String): Result<ParsedBackup> {
                 userBrandDishes = parseArray(root, "userBrandDishes") { o -> parseUserBrandDish(o) },
                 hasUserFoodGroups = root.has("userFoodGroups"),
                 userFoodGroups = parseArray(root, "userFoodGroups") { o -> parseUserFoodGroup(o) },
-                userFoodGroupItems = parseArray(root, "userFoodGroupItems") { o -> parseUserFoodGroupItem(o) }
+                userFoodGroupItems = parseArray(root, "userFoodGroupItems") { o -> parseUserFoodGroupItem(o) },
+                hasAiData = root.has("aiData"),
+                aiData = AiBackup.fromJson(root.optJSONObject("aiData"))
             )
         )
     } catch (e: Exception) {

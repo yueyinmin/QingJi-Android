@@ -8,6 +8,7 @@ import com.qingji.app.ai.agent.TrustLabel
 import com.qingji.app.data.local.ai.AiConversationEntity
 import com.qingji.app.data.local.ai.AiDatabase
 import com.qingji.app.data.local.ai.AiMessageEntity
+import com.qingji.app.data.local.ai.AiTokenUsageEntity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import org.json.JSONArray
@@ -125,6 +126,25 @@ class RoomAiChatStore(
                 createdAt = System.currentTimeMillis()
             )
         )
+
+        // 阶段 L：用量与消息一起落库（同一个事务外，但只在上游真的返回 usage 时写）。
+        // 上游没给数就不写行——统计页宁可显示「没有数据」，也不显示估算出来的假数。
+        result.usage?.let { usage ->
+            runCatching {
+                dao.insertTokenUsage(
+                    AiTokenUsageEntity(
+                        id = UUID.randomUUID().toString(),
+                        conversationId = conversationId,
+                        providerId = "",
+                        modelId = "",
+                        inputTokens = usage.promptTokens,
+                        outputTokens = usage.completionTokens,
+                        taskType = "agent_chat",
+                        requestedAt = System.currentTimeMillis()
+                    )
+                )
+            }
+        }
     }
 
     override suspend fun appendErrorMessage(id: String, conversationId: String, text: String) {

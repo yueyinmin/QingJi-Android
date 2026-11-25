@@ -39,6 +39,27 @@ class QingJiApp : Application() {
                 repo.ensurePresetExercises()
 
                 // v2.8：默认档案不灌入——首次启动走引导页让用户填自己的数据。
+
+                // --------------------------------------------------------
+                // 阶段 L：异常恢复 —— 把上次卡在 EXECUTING 的提案收尾。
+                // 进程被系统杀掉、断电、或执行到一半闪退时，台账会停在 EXECUTING；
+                // 不处理的话这条记录永远「正在执行」，用户界面上也一直转圈。
+                // 这里只做收尾（已落库标 EXECUTED，否则标 FAILED），不重试写入。
+                // --------------------------------------------------------
+                runCatching {
+                    com.qingji.app.ai.proposal.ProposalManager(
+                        mainDb = com.qingji.app.data.local.AppDatabase.get(this@QingJiApp),
+                        aiDb = com.qingji.app.data.local.ai.AiDatabase.get(this@QingJiApp),
+                        executors = listOf(
+                            com.qingji.app.ai.proposal.PlanProposalExecutor(
+                                com.qingji.app.data.repository.TrainingRepository(this@QingJiApp)
+                            )
+                        )
+                    ).recoverExecuting()
+                }.onFailure { e ->
+                    // 收尾失败不该拦着 App 启动，下次启动会再试一次
+                    android.util.Log.w("QingJiApp", "启动时收尾未完成的提案失败", e)
+                }
             } catch (e: Exception) {
                 // 以前这里是裸协程，一旦写库失败（磁盘满、数据库损坏）异常没人接，
                 // 会直接抛到主线程把 App 干掉，表现就是「一打开就闪退」。

@@ -39,8 +39,11 @@ object BackupFormat {
      * 8 = B1.1 训练段补入 workout_cardio_detail 与 recordType/targetConfigJson/itemMetaJson。
      *     老备份缺这些字段时按安全默认值读取；version < 8 的训练段仍按 v3 规则整包覆盖，
      *     有氧明细缺省为空，不会把老备份误判成“没有训练模块”。
+     * 9 = 阶段 L 起，多一段 aiData（AI 会话 / 消息 / 长期记忆 / 提醒历史）。
+     *     version < 9 的备份没有这段，导入时**不清本机 AI 数据**（那时还没有 AI 模块），
+     *     免得导旧备份把现在的对话和记忆清空；version >= 9 才整段覆盖。
      */
-    const val VERSION = 8
+    const val VERSION = 9
 
     /** CSV 表头，顺序不能乱，Excel 里看到的列顺序就是它。 */
     val CSV_HEADER = listOf(

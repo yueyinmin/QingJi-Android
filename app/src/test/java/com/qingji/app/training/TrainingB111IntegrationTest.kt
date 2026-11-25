@@ -196,7 +196,8 @@ class TrainingB111IntegrationTest {
         val json = backup.toJson()
         val parsed = parseTraining(json)
         assertNotNull(parsed)
-        assertEquals(8, BackupFormat.VERSION)
+        // 阶段 L 把导出端版本推到 9（新增 aiData 段）；训练段自身格式未变
+        assertEquals(9, BackupFormat.VERSION)
         assertEquals(1, parsed!!.sessions.size)
         assertEquals(1, parsed.workoutExercises.size)
         assertEquals(1, parsed.cardioDetails.size)

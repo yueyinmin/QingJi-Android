@@ -116,10 +116,13 @@ class QingJiAgent(
         val seenCallIds = HashSet<String>()
         val seenFingerprints = HashSet<String>()
         var totalTools = 0
+        // 阶段 L：多轮工具调用会把用量分散在每次响应里，这里逐轮累加
+        var totalUsage: TokenUsage? = null
 
         for (round in 1..maxRounds) {
             val response = generate(initial.copy(messages = messages.toList()))
             val calls = response.toolCalls
+            totalUsage = addUsage(totalUsage, response.usage)
 
             if (calls.isEmpty()) {
                 val parsed = responseParser.parse(
@@ -131,7 +134,8 @@ class QingJiAgent(
                     conclusions = parsed.conclusions,
                     rounds = round,
                     toolExecutions = executions,
-                    warnings = warnings + parsed.warnings
+                    warnings = warnings + parsed.warnings,
+                    usage = totalUsage
                 )
             }
 
@@ -182,6 +186,22 @@ class QingJiAgent(
         }
 
         throw AiError.InvalidResponse("Agent 达到最大交互轮数 $maxRounds，未生成最终答案")
+    }
+
+    /**
+     * 阶段 L：两轮 Token 用量相加。
+     * 任一字段缺失就保持 null —— 不把「上游没给」当 0 累加，
+     * 否则会得出「明明没返回数据，总量却是 0」的假数字。
+     */
+    private fun addUsage(acc: TokenUsage?, next: TokenUsage?): TokenUsage? {
+        if (next == null) return acc
+        if (acc == null) return next
+        fun sum(a: Int?, b: Int?): Int? = if (a == null || b == null) null else a + b
+        return TokenUsage(
+            promptTokens = sum(acc.promptTokens, next.promptTokens),
+            completionTokens = sum(acc.completionTokens, next.completionTokens),
+            totalTokens = sum(acc.totalTokens, next.totalTokens)
+        )
     }
 
     private fun prepareCalls(

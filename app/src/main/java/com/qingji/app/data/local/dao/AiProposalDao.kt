@@ -26,6 +26,21 @@ interface AiProposalDao {
     @Query("UPDATE ai_proposal_execution SET status = :status, errorCode = :errorCode, errorMessage = :errorMessage, updatedAt = :updatedAt WHERE id = :id")
     suspend fun updateStatus(id: Long, status: String, errorCode: String, errorMessage: String, updatedAt: Long)
 
+    /**
+     * 阶段 L：恢复备份后，业务数据已整包换掉，卡在 EXECUTING 的台账不可能再有结果，
+     * 统一标 STALE（而不是 FAILED）：语义是「作废」，不是「执行失败」。
+     */
+    @Query(
+        "UPDATE ai_proposal_execution SET status = :status, errorCode = :errorCode, " +
+            "errorMessage = :errorMessage, updatedAt = :updatedAt WHERE status = 'EXECUTING'"
+    )
+    suspend fun markExecutingStale(
+        status: String,
+        errorCode: String,
+        errorMessage: String,
+        updatedAt: Long
+    ): Int
+
     @Query("UPDATE ai_proposal_execution SET status = :status, executedAt = :executedAt, updatedAt = :updatedAt WHERE id = :id")
     suspend fun markFinished(id: Long, status: String, executedAt: Long, updatedAt: Long)
 

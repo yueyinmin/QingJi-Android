@@ -16,6 +16,7 @@ import com.qingji.app.data.remote.ai.AiToolCall
 import com.qingji.app.data.remote.ai.AiToolChoice
 import com.qingji.app.data.remote.ai.AiToolDefinition
 import com.qingji.app.data.remote.ai.AiStreamEvent
+import com.qingji.app.data.remote.ai.TokenUsage
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -304,5 +305,81 @@ class QingJiAgentTest {
         assertEquals("今天热量稳定。", deltas.joinToString(""))
         assertEquals("今天热量稳定。", result.answer)
         assertEquals(TrustLabel.INFERRED, result.conclusions.first().trust)
+    }
+
+    // ---------- 阶段 L：Token 用量 ----------
+
+    @Test
+    fun `多轮工具调用的用量逐轮累加`() = runTest {
+        val registry = ToolRegistry().apply { register(fakeTool("get_today_summary")) }
+        val provider = QueueProvider(
+            listOf(
+                AiResponse(
+                    "",
+                    toolCalls = listOf(AiToolCall("call_1", "get_today_summary", "{}")),
+                    usage = TokenUsage(promptTokens = 100, completionTokens = 20, totalTokens = 120)
+                ),
+                AiResponse(
+                    finalJson(),
+                    usage = TokenUsage(promptTokens = 150, completionTokens = 30, totalTokens = 180)
+                )
+            )
+        )
+        val agent = QingJiAgent(provider, registry, ToolExecutor(registry))
+
+        val result = agent.run(agentRequest())
+
+        assertEquals(2, result.rounds)
+        assertEquals(250, result.usage?.promptTokens)
+        assertEquals(50, result.usage?.completionTokens)
+        assertEquals(300, result.usage?.totalTokens)
+    }
+
+    @Test
+    fun `上游不给用量时不伪造数字`() = runTest {
+        val provider = QueueProvider(listOf(AiResponse(finalJson())))
+        val agent = QingJiAgent(provider, ToolRegistry(), ToolExecutor(ToolRegistry()))
+
+        val result = agent.run(agentRequest())
+
+        // 没有 usage 就是 null，绝不按字数估算
+        assertEquals(null, result.usage)
+    }
+
+    @Test
+    fun `某一轮缺字段时该字段保持为空而不是当零`() = runTest {
+        val registry = ToolRegistry().apply { register(fakeTool("get_today_summary")) }
+        val provider = QueueProvider(
+            listOf(
+                AiResponse(
+                    "",
+                    toolCalls = listOf(AiToolCall("call_1", "get_today_summary", "{}")),
+                    usage = TokenUsage(promptTokens = 100, completionTokens = 20, totalTokens = 120)
+                ),
+                // 第二轮只给了输出 token
+                AiResponse(
+                    finalJson(),
+                    usage = TokenUsage(promptTokens = null, completionTokens = 30, totalTokens = null)
+                )
+            )
+        )
+        val agent = QingJiAgent(provider, registry, ToolExecutor(registry))
+
+        val result = agent.run(agentRequest())
+
+        assertEquals(null, result.usage?.promptTokens)
+        assertEquals(50, result.usage?.completionTokens)
+        assertEquals(null, result.usage?.totalTokens)
+    }
+
+    @Test
+    fun `超长问题在上下文里被截断并标注`() {
+        val request = agentRequest().copy(question = "问".repeat(5000))
+        val built = ContextBuilder().build(request, emptyList())
+        val userText = textOf(built.messages[1])
+
+        assertTrue(userText.contains("已截断"))
+        // 4000 字 + 前缀 + 截断标记，不该接近原文的 5000
+        assertTrue(userText.length < 4200)
     }
 }

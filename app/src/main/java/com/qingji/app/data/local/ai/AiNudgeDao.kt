@@ -25,6 +25,10 @@ interface AiNudgeDao {
     @Query("SELECT * FROM ai_nudge ORDER BY shownAt DESC LIMIT :limit")
     suspend fun recent(limit: Int): List<AiNudgeEntity>
 
+    /** 阶段 L：整段导出用（备份 aiData 段）。 */
+    @Query("SELECT * FROM ai_nudge ORDER BY shownAt DESC")
+    suspend fun all(): List<AiNudgeEntity>
+
     /** 频控只需要最近一段时间的记录，不把整表读进内存。 */
     @Query("SELECT * FROM ai_nudge WHERE shownAt >= :since ORDER BY shownAt DESC")
     suspend fun since(since: Long): List<AiNudgeEntity>

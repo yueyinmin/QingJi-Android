@@ -47,6 +47,13 @@ class BackupManager(
     private val context: Context,
     /** B1.1.2.2：生产不传；测试注入独立 Room 实例，验证 importJson() 真实入口。 */
     dbOverride: AppDatabase? = null,
+    /**
+     * 阶段 L：AI 库同样可注入。
+     * 测试如果走 `AppDatabase.get(context)` / `AiDatabase.get(context)` 这类全局单例，
+     * Robolectric 下会跨测试类共用已关闭的连接（Illegal connection pointer），
+     * 所以导出/恢复测试一律用内存库，不碰单例。
+     */
+    aiDbOverride: com.qingji.app.data.local.ai.AiDatabase? = null,
     /** B1.1.2.2：生产写真实 DataStore；测试可注入失败，验证副作用失败不误报恢复失败。 */
     private val aiSettingWriter: suspend (Int) -> Unit = { id ->
         com.qingji.app.data.prefs.SettingsStore.set(
@@ -58,6 +65,10 @@ class BackupManager(
 ) {
 
     private val db = dbOverride ?: AppDatabase.get(context)
+
+    private val aiDb: com.qingji.app.data.local.ai.AiDatabase by lazy {
+        aiDbOverride ?: com.qingji.app.data.local.ai.AiDatabase.get(context)
+    }
 
     /**
      * B1.1.2：恢复事务中途钩子，生产为空操作。
@@ -518,11 +529,35 @@ class BackupManager(
         sb.append("  \"selfDiscipline\": ").append(selfDiscipline.toJson().toString()).append(",\n")
 
         // ---------- v3 新增：训练中心 ----------
-        sb.append("  \"training\": ").append(training.toJson().toString()).append("\n")
+        sb.append("  \"training\": ").append(training.toJson().toString()).append(",\n")
+
+        // ---------- v9 新增：AI 数据（阶段 L）----------
+        // 放在最后一段：上面所有段都以逗号收尾，这一段是唯一不带逗号的。
+        sb.append("  \"aiData\": ").append(buildAiBackup().toJson().toString()).append("\n")
 
         sb.append("}\n")
         return sb.toString()
     }
+
+    /**
+     * 阶段 L：把 AI 库的「内容类」数据整段取出。
+     *
+     * 只取会话 / 消息 / 记忆 / 提醒；工具调用与 Token 用量属于过程数据，
+     * 提案是待确认的展示镜像（恢复后一律作废），都不进备份。
+     * AI 库读失败时返回空段——不能因为 AI 库坏了就让整份业务备份导不出来。
+     */
+    private suspend fun buildAiBackup(): AiBackup = runCatching {
+        val dao = aiDb.aiChatDao()
+        val conversations = dao.conversations()
+        AiBackup(
+            conversations = conversations,
+            messages = conversations.flatMap { dao.messages(it.id) },
+            memories = aiDb.aiMemoryDao().all(),
+            nudges = aiDb.aiNudgeDao().all()
+        )
+    }.onFailure { e ->
+        Log.w(TAG, "AI 数据读取失败，本次备份不含 aiData 段内容", e)
+    }.getOrDefault(AiBackup())
 
     // ============================================================
     // 导入（覆盖恢复）
@@ -566,10 +601,45 @@ class BackupManager(
                 Log.w(TAG, "备份恢复已提交：桌面组件刷新失败（$reason），下次进入首页会自动刷新", e)
             }
 
-            Result.success(summaryText(parsed))
+            // ---------- 第三步：AI 库（独立数据库，不在主库事务里） ----------
+            // 顺序刻意放在最后：主库先提交成功，才写 AI 库。
+            // 反过来如果 AI 库先写、主库回滚，会出现「对话指向一套已经不存在的记录」的错位。
+            // AI 库失败不推翻已提交的业务恢复，但要如实告诉用户（摘要里加一句）。
+            val aiRestored = runCatching { restoreAiData(parsed) }.onFailure { e ->
+                val reason = e.message ?: "未知原因"
+                Log.w(TAG, "业务数据已恢复，AI 数据恢复失败（$reason）", e)
+            }.isSuccess
+
+            Result.success(summaryText(parsed, aiRestored))
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    /**
+     * 阶段 L：恢复 AI 数据。
+     *
+     * 兼容：version < 9 或文件里没有 aiData 段 → 一行都不动（老备份不该清空现在的对话）。
+     * 恢复后做两件收尾：
+     * 1. 主库卡在 EXECUTING 的执行台账标 STALE —— 业务数据已经整包换掉，不可能再有结果；
+     * 2. 记忆来源自检 —— 备份里的记忆可能指向已经不存在的消息（比如用户删过会话）。
+     *
+     * internal + 可注入 aiDb：单测用内存库验证，不碰真实文件库。
+     */
+    internal suspend fun restoreAiData(
+        p: ParsedBackup,
+        aiDb: com.qingji.app.data.local.ai.AiDatabase = this.aiDb
+    ) {
+        if (p.version < AiBackup.VERSION || !p.hasAiData) return
+        val now = System.currentTimeMillis()
+        aiDb.withTransaction { p.aiData.restoreInto(aiDb) }
+        db.aiProposalDao().markExecutingStale(
+            status = com.qingji.app.ai.proposal.ProposalStatus.STALE,
+            errorCode = "RESTORED",
+            errorMessage = "恢复了备份，这条执行记录已作废",
+            updatedAt = now
+        )
+        aiDb.aiMemoryDao().invalidateDanglingSourceRefs(now)
     }
 
     /**
@@ -751,7 +821,7 @@ class BackupManager(
      * 导入完成后给用户看的一句话摘要：导进了多少、哪些东西没跟过来。
      * 只统计记录类数据（含 v4 自律摘要），与「记录类 JSON」的导出范围一致。
      */
-    private fun summaryText(p: ParsedBackup): String {
+    private fun summaryText(p: ParsedBackup, aiRestored: Boolean = true): String {
         val parts = mutableListOf<String>()
         if (p.foodLogs.isNotEmpty()) parts.add("饮食 ${p.foodLogs.size} 条")
         if (p.weights.isNotEmpty()) parts.add("体重 ${p.weights.size} 条")
@@ -774,10 +844,16 @@ class BackupManager(
         val brandTotal = p.userBrands.size + p.userBrandDishes.size
         if (brandTotal > 0) parts.add("自建品牌 $brandTotal 条")
         if (p.userFoodGroups.isNotEmpty()) parts.add("食物组 ${p.userFoodGroups.size} 个")
+        // 阶段 L：AI 数据（会话 / 消息 / 记忆 / 提醒）
+        if (p.aiData.conversations.isNotEmpty()) parts.add("AI 会话 ${p.aiData.conversations.size} 段")
+        if (p.aiData.memories.isNotEmpty()) parts.add("AI 记忆 ${p.aiData.memories.size} 条")
+        if (p.aiData.nudges.isNotEmpty()) parts.add("管家提醒 ${p.aiData.nudges.size} 条")
 
         val body = if (parts.isEmpty()) "这份备份里没有记录" else parts.joinToString("、")
         val photoNote = if (p.photos.isNotEmpty()) "照片文件本身不在备份里，需要从旧手机把图片拷过来。" else ""
-        return "导入完成：$body。$photoNote AI Key 不随备份走，需要重新填一次。"
+        // AI 库写入失败：主库已经恢复成功，不能整单报失败，但必须让用户知道
+        val aiNote = if (!aiRestored) "AI 对话与记忆这次没能恢复，可以稍后重试。" else ""
+        return "导入完成：$body。$photoNote$aiNote AI Key 不随备份走，需要重新填一次。"
     }
 
 
