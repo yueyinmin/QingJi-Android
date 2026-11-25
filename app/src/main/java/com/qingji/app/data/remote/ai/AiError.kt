@@ -66,7 +66,7 @@ sealed class AiError(
 
     class InvalidResponse(val detail: String = "") : AiError(
         code = "INVALID_RESPONSE",
-        message = "AI 返回内容无法解析",
+        message = if (detail.isBlank()) "AI 返回内容无法解析" else "AI 返回内容无法解析：${detail.take(80)}",
         retryable = false
     )
 

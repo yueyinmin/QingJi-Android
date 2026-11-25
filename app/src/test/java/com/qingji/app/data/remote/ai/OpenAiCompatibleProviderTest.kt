@@ -358,6 +358,51 @@ class OpenAiCompatibleProviderTest {
     }
 
     @Test
+    fun stream_vendorVariant_messageAndNoSpace_isAccepted() = runTest {
+        val sse = """
+            : ping
+
+            data:{"choices":[{"message":{"content":"变体回复"},"finish_reason":"stop"}]}
+
+            data: [DONE]
+
+        """.trimIndent()
+        server.enqueue(
+            MockResponse()
+                .setHeader("Content-Type", "text/event-stream")
+                .setBody(sse)
+        )
+
+        val events = OpenAiCompatibleProvider().stream(simpleRequest()).toList()
+
+        assertEquals(
+            listOf("变体回复"),
+            events.filterIsInstance<AiStreamEvent.TextDelta>().map { it.text }
+        )
+        assertTrue(events.any { it is AiStreamEvent.Completed })
+    }
+
+    @Test
+    fun stream_errorEvent_emitsStructuredFailure() = runTest {
+        val sse = """
+            data: {"error":{"message":"model not found"}}
+
+        """.trimIndent()
+        server.enqueue(
+            MockResponse()
+                .setHeader("Content-Type", "text/event-stream")
+                .setBody(sse)
+        )
+
+        val events = OpenAiCompatibleProvider().stream(simpleRequest()).toList()
+        val failed = events.filterIsInstance<AiStreamEvent.Failed>()
+
+        assertEquals(1, failed.size)
+        assertTrue(failed[0].error is AiError.InvalidResponse)
+        assertTrue(failed[0].error.message?.contains("model not found") == true)
+    }
+
+    @Test
     fun stream_httpError_emitsFailedEvent() = runTest {
         server.enqueue(MockResponse().setResponseCode(401).setBody("unauthorized"))
 

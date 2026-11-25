@@ -112,9 +112,17 @@ class OpenAiCompatibleProvider(
                             continue
                         }
 
+                        if (event.has("error")) {
+                            val detail = event.optJSONObject("error")?.optString("message")
+                                ?: event.optString("error")
+                            trySend(AiStreamEvent.Failed(AiError.InvalidResponse(detail.take(120))))
+                            break
+                        }
+
                         event.optJSONObject("usage")?.let { streamUsage = parseUsage(it) }
                         val choice = event.optJSONArray("choices")?.optJSONObject(0) ?: continue
-                        val delta = choice.optJSONObject("delta")
+                        // 大多数供应商用 delta；少数兼容实现直接给 message。
+                        val delta = choice.optJSONObject("delta") ?: choice.optJSONObject("message")
 
                         delta?.optString("content")?.takeIf { it.isNotEmpty() }
                             ?.let { trySend(AiStreamEvent.TextDelta(it)) }
