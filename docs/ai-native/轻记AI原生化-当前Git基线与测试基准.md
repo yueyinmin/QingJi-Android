@@ -100,8 +100,8 @@ PY
 | 项目 | 结果 |
 |---|---|
 | `testDebugUnitTest` | **BUILD SUCCESSFUL** |
-| suites | 77 |
-| tests | 518 |
+| suites | 78 |
+| tests | 520 |
 | failures | 0 |
 | errors | 0 |
 | skipped | 0 |

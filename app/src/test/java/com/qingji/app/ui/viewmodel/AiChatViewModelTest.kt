@@ -6,8 +6,13 @@ import com.qingji.app.ai.agent.AgentConclusion
 import com.qingji.app.ai.agent.AgentResult
 import com.qingji.app.ai.agent.AgentToolExecution
 import com.qingji.app.ai.agent.TrustLabel
+import com.qingji.app.data.ai.AiChatStore
+import com.qingji.app.data.ai.AiConversationSummary
+import com.qingji.app.data.ai.PersistedChatMessage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -22,6 +27,96 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.time.LocalDate
+import java.util.UUID
+
+private class FakeAiChatStore : AiChatStore {
+    private val conversationsFlow = MutableStateFlow<List<AiConversationSummary>>(emptyList())
+    private val messages = LinkedHashMap<String, MutableList<PersistedChatMessage>>()
+    private val messageFlows = LinkedHashMap<String, MutableStateFlow<List<PersistedChatMessage>>>()
+
+    override fun observeConversations(): Flow<List<AiConversationSummary>> = conversationsFlow
+
+    override fun observeMessages(conversationId: String): Flow<List<PersistedChatMessage>> =
+        messageFlows.getOrPut(conversationId) { MutableStateFlow(emptyList()) }
+
+    override suspend fun ensureConversation(entryPage: String): AiConversationSummary =
+        conversationsFlow.value.firstOrNull { it.entryPage == entryPage } ?: createConversation(entryPage)
+
+    override suspend fun createConversation(entryPage: String): AiConversationSummary {
+        val summary = AiConversationSummary(
+            id = UUID.randomUUID().toString(),
+            title = "新对话",
+            entryPage = entryPage,
+            updatedAt = System.currentTimeMillis()
+        )
+        conversationsFlow.value = listOf(summary) + conversationsFlow.value
+        messages[summary.id] = mutableListOf()
+        messageFlows[summary.id] = MutableStateFlow(emptyList())
+        return summary
+    }
+
+    override suspend fun appendUserMessage(id: String, conversationId: String, text: String) {
+        add(
+            PersistedChatMessage(id, conversationId, nextSequence(conversationId), "user", text)
+        )
+    }
+
+    override suspend fun appendAssistantMessage(id: String, conversationId: String, result: AgentResult) {
+        add(
+            PersistedChatMessage(
+                id = id,
+                conversationId = conversationId,
+                sequence = nextSequence(conversationId),
+                role = "assistant",
+                text = result.answer,
+                conclusions = result.conclusions,
+                tools = result.toolExecutions,
+                warnings = result.warnings
+            )
+        )
+    }
+
+    override suspend fun appendErrorMessage(id: String, conversationId: String, text: String) {
+        add(
+            PersistedChatMessage(
+                id,
+                conversationId,
+                nextSequence(conversationId),
+                "assistant",
+                text,
+                isError = true
+            )
+        )
+    }
+
+    override suspend fun deleteMessage(id: String) {
+        messages.forEach { (conversationId, list) ->
+            if (list.removeAll { it.id == id }) refresh(conversationId)
+        }
+    }
+
+    override suspend fun deleteConversation(id: String) {
+        conversationsFlow.value = conversationsFlow.value.filterNot { it.id == id }
+        messages.remove(id)
+        messageFlows.remove(id)
+    }
+
+    private fun add(message: PersistedChatMessage) {
+        messages.getOrPut(message.conversationId) { mutableListOf() }.add(message)
+        refresh(message.conversationId)
+        conversationsFlow.value = conversationsFlow.value.map {
+            if (it.id == message.conversationId) it.copy(updatedAt = System.currentTimeMillis()) else it
+        }
+    }
+
+    private fun refresh(conversationId: String) {
+        messageFlows.getOrPut(conversationId) { MutableStateFlow(emptyList()) }.value =
+            messages[conversationId].orEmpty().toList()
+    }
+
+    private fun nextSequence(conversationId: String): Int =
+        (messages[conversationId]?.maxOfOrNull { it.sequence } ?: 0) + 1
+}
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -42,11 +137,13 @@ class AiChatViewModelTest {
     }
 
     @Test
-    fun send_success_addsUserAndAssistantMessages() = runTest {
+    fun send_success_persistsUserAndAssistantMessages() = runTest {
         var seenQuestion = ""
         var seenContext = ""
+        val store = FakeAiChatStore()
         val vm = AiChatViewModel(
             app,
+            testStore = store,
             testRunner = { question, context ->
                 seenQuestion = question
                 seenContext = context
@@ -72,12 +169,13 @@ class AiChatViewModelTest {
         assertEquals("我今天吃得怎么样？", seenQuestion)
         assertEquals("饮食页", seenContext)
         assertFalse(state.isRunning)
-        assertEquals(3, state.messages.size)
-        assertEquals(ChatRole.USER, state.messages[1].role)
-        assertEquals(ChatRole.ASSISTANT, state.messages[2].role)
-        assertEquals("今天热量稳定。", state.messages[2].text)
-        assertEquals(TrustLabel.FACT, state.messages[2].conclusions[0].trust)
-        assertEquals("get_today_summary", state.messages[2].tools[0].name)
+        assertEquals(2, state.messages.size)
+        assertEquals(ChatRole.USER, state.messages[0].role)
+        assertEquals(ChatRole.ASSISTANT, state.messages[1].role)
+        assertEquals("今天热量稳定。", state.messages[1].text)
+        assertEquals(TrustLabel.FACT, state.messages[1].conclusions[0].trust)
+        assertEquals("get_today_summary", state.messages[1].tools[0].name)
+        assertTrue(state.conversations.size >= 1)
     }
 
     @Test
@@ -85,6 +183,7 @@ class AiChatViewModelTest {
         var attempts = 0
         val vm = AiChatViewModel(
             app,
+            testStore = FakeAiChatStore(),
             testRunner = { _, _ ->
                 attempts++
                 if (attempts == 1) throw IllegalStateException("network down")
@@ -104,19 +203,46 @@ class AiChatViewModelTest {
     }
 
     @Test
-    fun clear_resetsConversationButKeepsContext() = runTest {
+    fun newConversation_selectConversation_restoresMessages() = runTest {
         val vm = AiChatViewModel(
             app,
+            testStore = FakeAiChatStore(),
+            testRunner = { q, _ -> AgentResult(q, emptyList(), 1, emptyList()) },
+            testClock = { date }
+        )
+        vm.send("问题一")
+        val firstId = vm.uiState.value.activeConversationId!!
+
+        vm.newConversation()
+        val secondId = vm.uiState.value.activeConversationId!!
+        assertTrue(firstId != secondId)
+        assertEquals(1, vm.uiState.value.messages.size)
+
+        vm.send("问题二")
+        vm.selectConversation(firstId)
+
+        assertEquals(firstId, vm.uiState.value.activeConversationId)
+        assertEquals("问题一", vm.uiState.value.messages[0].text)
+        assertEquals(2, vm.uiState.value.conversations.size)
+    }
+
+    @Test
+    fun clear_createsNewConversationAndKeepsContext() = runTest {
+        val vm = AiChatViewModel(
+            app,
+            testStore = FakeAiChatStore(),
             testRunner = { q, _ -> AgentResult(q, emptyList(), 1, emptyList()) },
             testClock = { date }
         )
         vm.setContext("训练页")
         vm.send("我的计划")
+        val beforeClearId = vm.uiState.value.activeConversationId
 
         vm.clear()
 
         assertEquals("训练页", vm.uiState.value.context)
         assertEquals(1, vm.uiState.value.messages.size)
         assertEquals("welcome", vm.uiState.value.messages[0].id)
+        assertTrue(vm.uiState.value.activeConversationId != beforeClearId)
     }
 }

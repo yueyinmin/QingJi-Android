@@ -59,6 +59,7 @@ fun AiChatScreen(
     val state by vm.uiState.collectAsState()
     val listState = rememberLazyListState()
     val quickScroll = rememberScrollState()
+    val conversationScroll = rememberScrollState()
 
     LaunchedEffect(context) { vm.setContext(context) }
     LaunchedEffect(state.messages.size) {
@@ -73,9 +74,40 @@ fun AiChatScreen(
         PageTopBar(
             title = "轻记 AI 管家",
             onBack = onBack,
-            actionText = if (state.messages.size > 1) "清空" else null,
-            onAction = { vm.clear() }
+            actionText = "新会话",
+            onAction = { vm.newConversation() }
         )
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(conversationScroll)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "会话",
+                fontSize = 12.sp,
+                color = TextSecondary
+            )
+            state.conversations.forEach { conversation ->
+                val selected = conversation.id == state.activeConversationId
+                Text(
+                    text = conversation.title,
+                    fontSize = 12.sp,
+                    color = if (selected) Color.White else QingJiGreenDark,
+                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(if (selected) QingJiGreenDark else QingJiGreenLight)
+                        .clickable(enabled = !state.isRunning) {
+                            vm.selectConversation(conversation.id)
+                        }
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                )
+            }
+        }
 
         LazyColumn(
             state = listState,
