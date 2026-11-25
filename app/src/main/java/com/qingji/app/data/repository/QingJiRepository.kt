@@ -1123,8 +1123,9 @@ class QingJiRepository(
         }
 
         val candidates = try {
+            val foods = allFoodsOnce()
             // v1.3.10：候选表带上别名（split "|"），AI 叫别名时也能命中同名库条目。
-            allFoodsOnce().flatMap {
+            val base = foods.flatMap {
                 val per = Per100g(
                     kcal = it.kcalPer100g,
                     protein = it.proteinPer100g,
@@ -1138,6 +1139,25 @@ class QingJiRepository(
                     .map { a -> a to per }
                 listOf(primary) + aliasList
             }
+            // F 阶段：版本化只读别名补丁只追加召回候选，不写回公共食物库。
+            // 版本不匹配时 loader 返回失败，这里跳过补丁，保持旧行为不误伤。
+            val patch = com.qingji.app.domain.FoodAliasPatchLoader.load(context).getOrNull()
+            val patchCandidates = if (patch == null) emptyList() else {
+                val byId = foods.associateBy { it.id }
+                patch.aliases.flatMap { entry ->
+                    entry.candidateFoodIds.mapNotNull { id ->
+                        byId[id]?.let { food ->
+                            entry.alias to Per100g(
+                                kcal = food.kcalPer100g,
+                                protein = food.proteinPer100g,
+                                carb = food.carbPer100g,
+                                fat = food.fatPer100g
+                            )
+                        }
+                    }
+                }
+            }
+            base + patchCandidates
         } catch (e: Exception) {
             emptyList()
         }

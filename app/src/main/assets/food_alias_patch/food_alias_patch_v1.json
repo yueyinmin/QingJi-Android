@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "appliesToCatalogVersion": "0.9-lxj-kcal-match",
+  "aliases": [
+    {
+      "alias": "西红柿炒鸡蛋",
+      "normalizedAlias": "番茄炒蛋",
+      "candidateFoodIds": [100096, 100659, 200143],
+      "preferredFoodId": null,
+      "source": "curated",
+      "note": "同菜异名；营养值冲突需用户确认或后续审校"
+    },
+    {
+      "alias": "番茄炒蛋",
+      "normalizedAlias": "番茄炒蛋",
+      "candidateFoodIds": [100096, 100659, 200143],
+      "preferredFoodId": null,
+      "source": "curated"
+    },
+    {
+      "alias": "木须肉",
+      "normalizedAlias": "木须肉",
+      "candidateFoodIds": [100185],
+      "preferredFoodId": 100185,
+      "source": "curated"
+    },
+    {
+      "alias": "木樨肉",
+      "normalizedAlias": "木须肉",
+      "candidateFoodIds": [100185],
+      "preferredFoodId": 100185,
+      "source": "curated"
+    },
+    {
+      "alias": "青椒肉丝",
+      "normalizedAlias": "青椒肉丝",
+      "candidateFoodIds": [100183],
+      "preferredFoodId": 100183,
+      "source": "curated"
+    },
+    {
+      "alias": "尖椒肉丝",
+      "normalizedAlias": "青椒肉丝",
+      "candidateFoodIds": [100183],
+      "preferredFoodId": 100183,
+      "source": "curated"
+    },
+    {
+      "alias": "宫保鸡丁",
+      "normalizedAlias": "宫保鸡丁",
+      "candidateFoodIds": [100190, 100715, 200097],
+      "preferredFoodId": null,
+      "source": "curated"
+    },
+    {
+      "alias": "宫爆鸡丁",
+      "normalizedAlias": "宫保鸡丁",
+      "candidateFoodIds": [100190, 100715, 200097],
+      "preferredFoodId": null,
+      "source": "curated",
+      "note": "同名多来源营养值差异大，保留候选"
+    }
+  ]
+}
