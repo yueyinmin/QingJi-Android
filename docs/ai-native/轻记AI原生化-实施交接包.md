@@ -486,3 +486,35 @@ app/src/main/java/com/qingji/app/ui/screen/AiChatScreen.kt
 - 模型辅助精排、饮食确认卡片 UI、经提案正式写入饮食记录仍属 F 后续联调项。
 - 用户个人别名/纠正表未新增；本轮只保证公共补丁不被运行时写入污染。
 - 写工具继续保持禁用。
+
+---
+
+## 15. G 阶段实施（2026-11-25）
+
+> 提交：`ad91dd6 feat(ai): implement G stage training analysis and plan suggestion`
+
+### 15.1 落地内容
+
+- 新增 `TrainingAnalysisEngine`：力量/有氧/HIIT 分开统计训练量、频率、RPE、时长与间隔；数据不足标 UNKNOWN，不伪造恢复指标。
+- `TrainingRepository.recentTrainingSnapshots(days)`：只读快照，不改统一运动体系。
+- 新增只读工具 `analyze_training` 与 `suggest_plan_change`；两者都只返回分析结果/提案草稿，不修改计划。
+- 新增 `PlanChangeSuggester`：基于分析生成 before/after 差异与当前 baseVersion；训练过密→建议停用计划，无力量训练→建议启用已有计划。
+- 提案必须经 `ProposalManager` 确认后 CAS 执行；本轮没有绕过提案直接改计划的路径。
+
+### 15.2 验证
+
+| 项 | 结果 |
+|---|---|
+| 三类运动分别统计 | 力量/有氧/HIIT 分开，窗口外记录不计 |
+| 数据不足 | UNKNOWN + 警告，不编恢复指标 |
+| 提案差异 | before/after JSON + baseVersion；确认后由 E 的 CAS 执行器版本 +1 |
+| 新增测试 | 分析 2 例 + 提案 3 例 |
+| `testDebugUnitTest` | 160 suites / **1028 tests / 0 failures / 0 errors / 3 skipped** |
+| `assembleDebug` / `assembleRelease` | BUILD SUCCESSFUL |
+| 偶发项 | `BackupExportScopeTest` 首次全量跑 SQLite 指针错，复跑全绿 |
+
+### 15.3 边界
+
+- 自然语言的「训练反馈→分析」对话呈现、计划优化 UI 确认卡片未接。
+- 计划内容级替换（组数/次数/重量整包修改）执行器未开放；本轮提案只覆盖启用/停用。
+- 写工具继续保持禁用；`suggest_plan_change` 只返回草稿，不执行。
