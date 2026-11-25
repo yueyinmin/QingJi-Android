@@ -251,6 +251,14 @@ class QingJiRepository(
     fun observeDailySummary(date: LocalDate): Flow<DailySummary?> = db.foodLogDao().observeDailySummary(date)
     fun observeMealSummary(date: LocalDate): Flow<List<MealSummary>> = db.foodLogDao().observeMealSummary(date)
     fun observeFoodLogs(date: LocalDate): Flow<List<FoodLog>> = db.foodLogDao().observeByDate(date)
+
+    /**
+     * 阶段 H：一段日期内的饮食记录，供综合健康报告统计「记录完整度 / 蛋白达标天数」。
+     * 只读、不分餐次，聚合放在规则层做，SQL 里不堆统计。
+     */
+    fun observeFoodLogsRange(from: LocalDate, to: LocalDate): Flow<List<FoodLog>> =
+        db.foodLogDao().observeRange(from, to)
+
     fun observeWaterMl(date: LocalDate): Flow<Int?> = db.waterLogDao().observeTodayMl(date)
 
     /** QJ-HEALTH-DATE-WATER-004：指定日期的逐笔饮水明细，按 createdAt 升序。 */

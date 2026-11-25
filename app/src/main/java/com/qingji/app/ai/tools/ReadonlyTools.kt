@@ -327,20 +327,7 @@ private class AnalyzeTrainingTool(
             put("days", analysis.windowDays)
             put("insufficientData", analysis.insufficientData)
             put("warnings", org.json.JSONArray(analysis.warnings))
-            put("types", JSONObject().apply {
-                analysis.totals.forEach { (type, summary) ->
-                    put(type.key, JSONObject().apply {
-                        put("sessions", summary.sessions)
-                        put("totalSets", summary.totalSets)
-                        put("volumeKg", summary.volumeKg)
-                        put("durationSec", summary.durationSec)
-                        put("averageRpe", ToolArgs.number(summary.averageRpe))
-                        put("sessionsPerWeek", summary.sessionsPerWeek)
-                        put("minGapDays", ToolArgs.integer(summary.minGapDays))
-                        put("trust", summary.trust.name)
-                    })
-                }
-            })
+            put("types", trainingTypesJson(analysis))
         }.toString()
     }
 }
@@ -377,13 +364,245 @@ private class SuggestPlanChangeTool(
     }
 }
 
+/** 可信度标签的口径说明：让模型照着标注，别把推断说成记录。 */
+private fun trustLegend(): JSONObject = JSONObject()
+    .put("RECORDED", "用户实际记录的数据")
+    .put("CALCULATED", "本地公式计算的结果")
+    .put("AI_INFERRED", "模型推断，不是记录")
+    .put("MISSING", "数据缺失，无法计算")
+    .put("SUGGESTION", "建议，不是事实")
+
+private const val TRUST_NOTE =
+    "报告只含本地记录与公式计算；你补充的推断必须标 AI_INFERRED，建议必须标 SUGGESTION，" +
+        "不得声称已经修改或写入了身体数据"
+
+/** 身体数据各分区（体重/BMI/体脂/围度/完整度/目标），每块都带 trust。 */
+private fun bodySectionsJson(a: com.qingji.app.domain.BodyAnalysis): JSONObject = JSONObject().apply {
+    put("weight", JSONObject().apply {
+        put("trust", a.weight.trust.name)
+        put("latestKg", ToolArgs.number(a.weight.latestKg))
+        put("latestDate", ToolArgs.text(a.weight.latestDate?.toString()))
+        put("change7dKg", ToolArgs.number(a.weight.change7dKg))
+        put("change28dKg", ToolArgs.number(a.weight.change28dKg))
+        put("average7dKg", ToolArgs.number(a.weight.average7dKg))
+        put("averageWindowKg", ToolArgs.number(a.weight.averageWindowKg))
+        put("weeklyRateKg", ToolArgs.number(a.weight.weeklyRateKg))
+        put("direction", a.weight.direction.name)
+    })
+    put("bmi", JSONObject().apply {
+        put("trust", a.bmi.trust.name)
+        put("value", ToolArgs.number(a.bmi.value))
+        put("category", ToolArgs.text(a.bmi.category))
+        put("heightCm", ToolArgs.number(a.bmi.heightCm))
+        put("weightKg", ToolArgs.number(a.bmi.weightKg))
+    })
+    put("bodyFat", JSONObject().apply {
+        put("trust", a.bodyFat.trust.name)
+        put("latestPct", ToolArgs.number(a.bodyFat.latestPct))
+        put("latestDate", ToolArgs.text(a.bodyFat.latestDate?.toString()))
+        put("change14dPct", ToolArgs.number(a.bodyFat.change14dPct))
+    })
+    put("measures", JSONObject().apply {
+        put("trust", a.measures.trust.name)
+        a.measures.latest?.let { m ->
+            put("latestDate", m.date.toString())
+            put("waistCm", ToolArgs.number(m.waistCm))
+            put("chestCm", ToolArgs.number(m.chestCm))
+            put("hipCm", ToolArgs.number(m.hipCm))
+            put("thighCm", ToolArgs.number(m.thighCm))
+            put("armCm", ToolArgs.number(m.armCm))
+        }
+        put("waistSpanDays", ToolArgs.integer(a.measures.waistSpanDays))
+        put("waistChangeCm", ToolArgs.number(a.measures.waistChangeCm))
+    })
+    put("completeness", JSONObject().apply {
+        put("trust", a.completeness.trust.name)
+        put("weightDays", a.completeness.weightDays)
+        put("requiredWeightDays", a.completeness.requiredWeightDays)
+        put("measureDays", a.completeness.measureDays)
+        put("averageGapDays", ToolArgs.integer(a.completeness.averageGapDays))
+        put("level", a.completeness.level)
+    })
+    put("goal", JSONObject().apply {
+        put("trust", a.goal.trust.name)
+        put("startWeightKg", ToolArgs.number(a.goal.startWeightKg))
+        put("targetWeightKg", ToolArgs.number(a.goal.targetWeightKg))
+        put("currentWeightKg", ToolArgs.number(a.goal.currentWeightKg))
+        put("remainingKg", ToolArgs.number(a.goal.remainingKg))
+        put("progressPct", ToolArgs.number(a.goal.progressPct))
+        put("estimatedWeeks", ToolArgs.number(a.goal.estimatedWeeks))
+    })
+}
+
+/** 训练三类汇总（综合报告复用 G 阶段的统计口径）。 */
+private fun trainingTypesJson(t: com.qingji.app.domain.TrainingAnalysis): JSONObject = JSONObject().apply {
+    t.totals.forEach { (type, summary) ->
+        put(type.key, JSONObject().apply {
+            put("sessions", summary.sessions)
+            put("totalSets", summary.totalSets)
+            put("volumeKg", summary.volumeKg)
+            put("durationSec", summary.durationSec)
+            put("averageRpe", ToolArgs.number(summary.averageRpe))
+            put("sessionsPerWeek", summary.sessionsPerWeek)
+            put("minGapDays", ToolArgs.integer(summary.minGapDays))
+            put("trust", summary.trust.name)
+        })
+    }
+}
+
+/**
+ * 阶段 H：只读身体数据。
+ *
+ * 所有数值都在 BodyAnalysisEngine 里算好（BMI 不允许模型自己算），
+ * 这里只负责把结果和信任标签摊平成 JSON。
+ */
+private class GetBodyMetricsTool(
+    private val weights: suspend () -> List<com.qingji.app.domain.WeightPoint>,
+    private val measures: suspend () -> List<com.qingji.app.domain.MeasurePoint>,
+    private val profile: suspend () -> com.qingji.app.domain.BodyProfile?,
+    private val today: () -> LocalDate
+) : AiTool {
+    override val name = "get_body_metrics"
+    override val description = "读取体重趋势、BMI、体脂率、围度、记录完整度与目标进度；数值全部本地计算，只读"
+    override val parametersJson = """
+        {"type":"object","properties":{"days":{"type":"integer","minimum":7,"maximum":180}},"required":[]}
+    """.trimIndent()
+    override val readOnly = true
+
+    override suspend fun execute(argumentsJson: String): String {
+        val args = ToolArgs.parse(argumentsJson, name)
+        val days = args.optInt("days", 28).coerceIn(7, 180)
+        val analysis = com.qingji.app.domain.BodyAnalysisEngine.analyze(
+            weights = weights(),
+            measures = measures(),
+            profile = profile(),
+            today = today(),
+            windowDays = days
+        )
+        return JSONObject().apply {
+            put("tool", name)
+            put("generatedFor", analysis.generatedFor.toString())
+            put("windowDays", analysis.windowDays)
+            put("insufficientData", analysis.insufficientData)
+            put("sections", bodySectionsJson(analysis))
+            put("facts", JSONArray(analysis.facts))
+            put("warnings", JSONArray(analysis.warnings))
+            put("trustLegend", trustLegend())
+            put("note", TRUST_NOTE)
+        }.toString()
+    }
+}
+
+/**
+ * 阶段 H：综合健康报告 = 身体数据 + 训练 + 饮食记录完整度。
+ * 三块都在本地拼好，模型只做解释，不给医学结论。
+ */
+private class GetHealthReportTool(
+    private val weights: suspend () -> List<com.qingji.app.domain.WeightPoint>,
+    private val measures: suspend () -> List<com.qingji.app.domain.MeasurePoint>,
+    private val profile: suspend () -> com.qingji.app.domain.BodyProfile?,
+    private val snapshots: suspend (Int) -> List<com.qingji.app.domain.TrainingSessionSnapshot>,
+    private val foodLogs: suspend (LocalDate, LocalDate) -> List<com.qingji.app.domain.FoodLogPoint>,
+    private val today: () -> LocalDate
+) : AiTool {
+    override val name = "get_health_report"
+    override val description = "综合身体数据、训练与饮食记录生成健康报告；只读，区分记录/计算/缺失"
+    override val parametersJson = """
+        {"type":"object","properties":{"days":{"type":"integer","minimum":7,"maximum":90}},"required":[]}
+    """.trimIndent()
+    override val readOnly = true
+
+    override suspend fun execute(argumentsJson: String): String {
+        val args = ToolArgs.parse(argumentsJson, name)
+        val days = args.optInt("days", 28).coerceIn(7, 90)
+        val end = today()
+        val from = end.minusDays(days - 1L)
+        val bodyProfile = profile()
+        val body = com.qingji.app.domain.BodyAnalysisEngine.analyze(
+            weights = weights(),
+            measures = measures(),
+            profile = bodyProfile,
+            today = end,
+            windowDays = days
+        )
+        val training = com.qingji.app.domain.TrainingAnalysisEngine.analyze(
+            snapshots = snapshots(days),
+            today = end,
+            windowDays = days
+        )
+        val report = com.qingji.app.domain.HealthReportBuilder.build(
+            body = body,
+            training = training,
+            foodLogs = foodLogs(from, end),
+            proteinGoalG = bodyProfile?.proteinGoalG ?: 0,
+            today = end,
+            windowDays = days
+        )
+        return JSONObject().apply {
+            put("tool", name)
+            put("generatedFor", report.generatedFor.toString())
+            put("windowDays", report.windowDays)
+            put("insufficientData", report.insufficientData)
+            put("summary", JSONArray(report.summary))
+            put("body", bodySectionsJson(report.body))
+            put("training", JSONObject().apply {
+                put("insufficientData", report.training.insufficientData)
+                put("types", trainingTypesJson(report.training))
+            })
+            put("nutrition", JSONObject().apply {
+                put("trust", report.nutrition.trust.name)
+                put("loggedDays", report.nutrition.loggedDays)
+                put("averageKcal", ToolArgs.integer(report.nutrition.averageKcal))
+                put("averageProteinG", ToolArgs.integer(report.nutrition.averageProteinG))
+                put("proteinGoalG", report.nutrition.proteinGoalG)
+                put("daysMeetingProtein", report.nutrition.daysMeetingProtein)
+            })
+            put("warnings", JSONArray(report.warnings))
+            put("trustLegend", trustLegend())
+            put("note", TRUST_NOTE)
+        }.toString()
+    }
+}
+
 /** 把现有 Repository 装配成只读工具注册表。 */
 class ReadonlyToolFactory(
     private val qingJiRepository: QingJiRepository,
     private val healthRepository: HealthRepository,
     private val trainingRepository: TrainingRepository
 ) {
-    fun createRegistry(): ToolRegistry = ToolRegistry().apply {
+    fun createRegistry(): ToolRegistry {
+        // 阶段 H：身体数据只在这里做一次实体→规则层的映射，分析与报告都不直接碰 Room 实体
+        val weightPoints: suspend () -> List<com.qingji.app.domain.WeightPoint> = {
+            qingJiRepository.observeWeightLogs().first().map {
+                com.qingji.app.domain.WeightPoint(date = it.date, weightKg = it.weightKg, bodyFatPct = it.bodyFat)
+            }
+        }
+        val measurePoints: suspend () -> List<com.qingji.app.domain.MeasurePoint> = {
+            qingJiRepository.observeBodyMeasures().first().map {
+                com.qingji.app.domain.MeasurePoint(
+                    date = it.date,
+                    waistCm = it.waistCm,
+                    chestCm = it.chestCm,
+                    hipCm = it.hipCm,
+                    thighCm = it.thighCm,
+                    armCm = it.armCm
+                )
+            }
+        }
+        val bodyProfile: suspend () -> com.qingji.app.domain.BodyProfile? = {
+            qingJiRepository.observeProfile().first()?.let {
+                com.qingji.app.domain.BodyProfile(
+                    heightCm = it.heightCm,
+                    startWeightKg = it.startWeight,
+                    targetWeightKg = it.targetWeight,
+                    gender = it.gender,
+                    birthday = it.birthday,
+                    proteinGoalG = it.proteinGoalG
+                )
+            }
+        }
+
+        return ToolRegistry().apply {
         register(
             GetTodaySummaryTool(
                 dailySummary = { qingJiRepository.observeDailySummary(it).first() },
@@ -424,6 +643,29 @@ class ReadonlyToolFactory(
                 planExercises = { trainingRepository.observePlanExercises().first() }
             )
         )
+        register(
+            GetBodyMetricsTool(
+                weights = weightPoints,
+                measures = measurePoints,
+                profile = bodyProfile,
+                today = { com.qingji.app.domain.AppClock.today() }
+            )
+        )
+        register(
+            GetHealthReportTool(
+                weights = weightPoints,
+                measures = measurePoints,
+                profile = bodyProfile,
+                snapshots = { trainingRepository.recentTrainingSnapshots(it) },
+                foodLogs = { from, to ->
+                    qingJiRepository.observeFoodLogsRange(from, to).first().map {
+                        com.qingji.app.domain.FoodLogPoint(date = it.date, kcal = it.kcal, proteinG = it.proteinG)
+                    }
+                },
+                today = { com.qingji.app.domain.AppClock.today() }
+            )
+        )
+        }
     }
 
     fun createExecutor(maxConcurrency: Int = 2): ToolExecutor =
