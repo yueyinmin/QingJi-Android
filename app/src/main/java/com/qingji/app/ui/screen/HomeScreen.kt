@@ -84,6 +84,8 @@ fun HomeScreen(
     onAddRecord: () -> Unit = {},
     /** QJ-AI-HISTORY-DATE-V1：带首页当前选中日期进入 AI 分析（历史日期分析用）。 */
     onOpenAnalysis: (LocalDate) -> Unit = {},
+    /** 统一 AI 管家入口：所有业务页上下文都进入同一会话系统。 */
+    onOpenAiChat: () -> Unit = {},
     onOpenWeight: () -> Unit = {},
     onOpenImage: () -> Unit = {},
     /** 点某一餐卡片 → 进用餐详情（带那一天 + 餐次）。 */
@@ -343,6 +345,17 @@ fun HomeScreen(
                             .padding(horizontal = 9.dp, vertical = 5.dp)
                     )
                 }
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = s("✦ AI 管家"),
+                    fontSize = 11.sp,
+                    color = QingJiGreenDark,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(QingJiGreenLight)
+                        .pressable { onOpenAiChat() }
+                        .padding(horizontal = 9.dp, vertical = 5.dp)
+                )
             }
             // 2026-11-24：右侧工具图标 → 工具页（卡路里换算等）
             androidx.compose.material3.IconButton(onClick = onOpenTools) {

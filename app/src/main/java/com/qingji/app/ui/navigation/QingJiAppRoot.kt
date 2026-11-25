@@ -55,6 +55,7 @@ import com.qingji.app.ui.viewmodel.DiaryViewModel
 import com.qingji.app.ui.viewmodel.MineViewModel
 import com.qingji.app.ui.screen.BackupScreen
 import com.qingji.app.ui.screen.AiAnalysisScreen
+import com.qingji.app.ui.screen.AiChatScreen
 import com.qingji.app.ui.screen.AiConfigScreen
 import com.qingji.app.ui.screen.DiaryEditScreen
 import com.qingji.app.ui.screen.DiaryScreen
@@ -493,6 +494,7 @@ fun QingJiAppRoot(
                             onAddRecord = { showAddSheet = true },
                             // QJ-AI-HISTORY-DATE-V1：带首页选中日期进入 AI 分析（直达入口仍走无参路由=今天）
                             onOpenAnalysis = { date -> navController.navigate(QingJiRoutes.aiAnalysis(date)) },
+                            onOpenAiChat = { navController.navigate(QingJiRoutes.aiChat("首页")) },
                             onOpenWeight = { navController.navigate(QingJiRoutes.Weight) },
                             onOpenImage = { navController.navigate(QingJiRoutes.ImageRecord) },
                             onOpenMealDetail = { date, meal ->
@@ -675,6 +677,21 @@ fun QingJiAppRoot(
                             targetDate = QingJiRoutes.aiAnalysisDate(entry.arguments?.getString("date")),
                             onBack = { navController.popBackStack() },
                             onOpenAiConfig = { navController.navigate(QingJiRoutes.AiConfig) }
+                        )
+                    }
+                    composable(
+                        route = QingJiRoutes.AiChat,
+                        arguments = listOf(
+                            navArgument("context") {
+                                type = NavType.StringType
+                                defaultValue = "首页"
+                            }
+                        )
+                    ) { entry ->
+                        val context = entry.arguments?.getString("context") ?: "首页"
+                        AiChatScreen(
+                            onBack = { navController.popBackStack() },
+                            context = context
                         )
                     }
                     composable(

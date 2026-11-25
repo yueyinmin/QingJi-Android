@@ -1063,6 +1063,22 @@ class QingJiRepository(
     private suspend fun todayAiCalls(date: LocalDate): Int =
         db.usageStatDao().countByType(date, "ai") ?: 0
 
+    /** AI 管家/聊天入口复用同一配置闸门：未配置、关闭、超日限都在这里挡住。 */
+    suspend fun ensureAiAvailable(date: LocalDate): AiConfig {
+        val config = getAiConfig()
+            ?: throw AiException("还没配置 AI 服务，去 设置 → AI 服务配置 填一次")
+        if (!config.enabled) throw AiException("AI 功能已关闭，去 设置 → AI 服务配置 打开开关")
+        if (todayAiCalls(date) >= config.dailyLimit) {
+            throw AiException("今天的 AI 调用已达上限 ${config.dailyLimit} 次，手动修改仍然可用")
+        }
+        return config
+    }
+
+    /** 一次助手任务记一次调用，不按内部 Agent 轮次重复扣。 */
+    suspend fun recordAiCall(date: LocalDate) {
+        db.usageStatDao().increment(date, "ai")
+    }
+
     /**
      * v3.4.0：把用户在确认页改过的名字记下来，下次识别到同样的 AI 原名自动套用。
      * 存的是 DataStore 里一个字符串，不建表、不升 Room 版本。
