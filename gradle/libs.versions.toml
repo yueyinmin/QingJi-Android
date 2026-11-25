@@ -19,6 +19,7 @@ biometric = "1.1.0"  # 日记隐私锁：稳定版(1.4.0-rc01要求AGP>=8.9.1,�
 coil = "2.7.0"                         # 图片加载
 coroutines = "1.9.0"                   # 后台线程（首次启动灌假数据要用）
 okhttp = "4.12.0"                      # 发 AI 请求的 HTTP 客户端
+mockWebServer = "4.12.0"               # AI Provider 契约测试用的本地假服务器
 zxing = "3.5.3"                        # 扫条码：纯 Java 解码，约 0.5MB（ML Kit 会让 APK 涨到 40MB，已弃用）
 glance = "1.1.1"                       # Jetpack Glance：桌面小组件（M8）
 junit = "4.13.2"                       # 本地单元测试
@@ -55,7 +56,9 @@ coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coi
 # coil-svg 负责把本地 assets 里的 SVG 解码成 Drawable，不引入额外图片框架。
 coil-svg = { group = "io.coil-kt", name = "coil-svg", version.ref = "coil" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
+kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
+mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", version.ref = "mockWebServer" }
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
 androidx-glance-appwidget = { group = "androidx.glance", name = "glance-appwidget", version.ref = "glance" }
 androidx-glance-material3 = { group = "androidx.glance", name = "glance-material3", version.ref = "glance" }

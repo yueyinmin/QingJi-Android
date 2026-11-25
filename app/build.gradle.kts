@@ -243,6 +243,8 @@ dependencies {
 
     // 本地单元测试（只测纯 Kotlin 逻辑，不需要手机/模拟器）
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.mockwebserver)
 
     // v1.0.6：备份解析测试要用真的 org.json。
     // 安卓 SDK 里那个 org.json 在 JVM 单测里是「空壳」，一调就抛

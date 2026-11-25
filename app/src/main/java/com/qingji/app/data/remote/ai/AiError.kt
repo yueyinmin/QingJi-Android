@@ -14,6 +14,12 @@ sealed class AiError(
     cause: Throwable? = null
 ) : Exception(message, cause) {
 
+    class Configuration(val detail: String) : AiError(
+        code = "CONFIGURATION",
+        message = detail,
+        retryable = false
+    )
+
     class Network(cause: Throwable? = null) : AiError(
         code = "NETWORK",
         message = "连不上 AI 服务，请检查网络",
