@@ -4,6 +4,7 @@ import com.qingji.app.data.local.entity.AiConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
@@ -265,8 +266,9 @@ class OpenAiCompatibleProviderTest {
         assertTrue(result.success)
         assertTrue(result.capabilities.chat)
         assertTrue(result.capabilities.imageInput)
-        assertFalse(result.capabilities.streaming)
-        assertFalse(result.capabilities.toolCalling)
+        assertTrue(result.capabilities.streaming)
+        assertTrue(result.capabilities.toolCalling)
+        assertTrue(result.capabilities.streamingToolCalling)
         assertTrue(provider.capabilities(cfg).chat)
     }
 
@@ -292,5 +294,137 @@ class OpenAiCompatibleProviderTest {
         } catch (e: AiError.Configuration) {
             assertEquals("CONFIGURATION", e.code)
         }
+    }
+
+    @Test
+    fun stream_textEmitsTextDeltasAndCompleted() = runTest {
+        val sse = """
+            data: {"choices":[{"delta":{"content":"你"},"finish_reason":null}]}
+
+            data: {"choices":[{"delta":{"content":"好"},"finish_reason":null}]}
+
+            data: {"choices":[{"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":2,"total_tokens":12}}
+
+            data: [DONE]
+
+        """.trimIndent()
+        server.enqueue(
+            MockResponse()
+                .setHeader("Content-Type", "text/event-stream")
+                .setBody(sse)
+        )
+
+        val events = OpenAiCompatibleProvider().stream(simpleRequest()).toList()
+
+        assertEquals(
+            listOf("你", "好"),
+            events.filterIsInstance<AiStreamEvent.TextDelta>().map { it.text }
+        )
+        val completed = events.filterIsInstance<AiStreamEvent.Completed>()
+        assertEquals(1, completed.size)
+        assertEquals(12, completed[0].usage?.totalTokens)
+
+        val body = JSONObject(server.takeRequest(2, TimeUnit.SECONDS)!!.body.readUtf8())
+        assertTrue(body.getBoolean("stream"))
+    }
+
+    @Test
+    fun stream_toolCall_emitsStartArgumentsAndComplete() = runTest {
+        val sse = """
+            data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"get_today_summary","arguments":"{\"date\""}}]},"finish_reason":null}]}
+
+            data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":":\"2026-11-25\"}"}}]},"finish_reason":"tool_calls"}]}
+
+            data: [DONE]
+
+        """.trimIndent()
+        server.enqueue(
+            MockResponse()
+                .setHeader("Content-Type", "text/event-stream")
+                .setBody(sse)
+        )
+
+        val events = OpenAiCompatibleProvider().stream(simpleRequest()).toList()
+
+        val started = events.filterIsInstance<AiStreamEvent.ToolCallStarted>()
+        val deltas = events.filterIsInstance<AiStreamEvent.ToolArgumentsDelta>()
+        val completed = events.filterIsInstance<AiStreamEvent.ToolCallCompleted>()
+        assertEquals(1, started.size)
+        assertEquals("call_1", started[0].callId)
+        assertEquals("get_today_summary", started[0].name)
+        assertEquals("{\"date\":\"2026-11-25\"}", deltas.joinToString("") { it.fragment })
+        assertEquals(1, completed.size)
+        assertEquals("call_1", completed[0].callId)
+    }
+
+    @Test
+    fun stream_httpError_emitsFailedEvent() = runTest {
+        server.enqueue(MockResponse().setResponseCode(401).setBody("unauthorized"))
+
+        val events = OpenAiCompatibleProvider().stream(simpleRequest()).toList()
+
+        val failed = events.filterIsInstance<AiStreamEvent.Failed>()
+        assertEquals(1, failed.size)
+        assertTrue(failed[0].error is AiError.InvalidApiKey)
+    }
+
+    @Test
+    fun generate_withTools_sendsSchemaAndParsesToolCalls() = runTest {
+        val toolResponse = """
+            {
+              "choices":[{"message":{"content":"","tool_calls":[
+                {"id":"call_1","type":"function","function":{"name":"get_today_summary","arguments":"{\"date\":\"2026-11-25\"}"}}
+              ]},"finish_reason":"tool_calls"}],
+              "usage":{"prompt_tokens":20,"completion_tokens":5,"total_tokens":25}
+            }
+        """.trimIndent()
+        server.enqueue(MockResponse().setBody(toolResponse))
+        val tool = AiToolDefinition(
+            name = "get_today_summary",
+            description = "读取今日摘要",
+            parametersJson = """{"type":"object","properties":{"date":{"type":"string"}},"required":["date"]}"""
+        )
+        val request = simpleRequest().copy(tools = listOf(tool), toolChoice = AiToolChoice.Required)
+
+        val response = OpenAiCompatibleProvider().generate(request)
+
+        assertEquals(1, response.toolCalls.size)
+        assertEquals("call_1", response.toolCalls[0].id)
+        assertEquals("get_today_summary", response.toolCalls[0].name)
+        assertEquals("{\"date\":\"2026-11-25\"}", response.toolCalls[0].arguments)
+        assertEquals("tool_calls", response.finishReason)
+        assertEquals(20, response.usage?.promptTokens)
+
+        val body = JSONObject(server.takeRequest(2, TimeUnit.SECONDS)!!.body.readUtf8())
+        val sentTool = body.getJSONArray("tools").getJSONObject(0)
+        assertEquals("function", sentTool.getString("type"))
+        assertEquals(tool.name, sentTool.getJSONObject("function").getString("name"))
+        assertEquals("required", body.getString("tool_choice"))
+    }
+
+    @Test
+    fun generate_toolResultMessages_keepCallIdMapping() = runTest {
+        server.enqueue(MockResponse().setBody(successBody()))
+        val request = simpleRequest().copy(
+            messages = listOf(
+                AiMessage.assistantToolCalls(
+                    listOf(AiToolCall("call_1", "get_today_summary", "{\"date\":\"2026-11-25\"}"))
+                ),
+                AiMessage.toolResult("call_1", "今日摄入 1800 千卡")
+            )
+        )
+
+        OpenAiCompatibleProvider().generate(request)
+
+        val messages = JSONObject(server.takeRequest(2, TimeUnit.SECONDS)!!.body.readUtf8())
+            .getJSONArray("messages")
+        assertEquals("assistant", messages.getJSONObject(0).getString("role"))
+        assertEquals(
+            "get_today_summary",
+            messages.getJSONObject(0).getJSONArray("tool_calls").getJSONObject(0)
+                .getJSONObject("function").getString("name")
+        )
+        assertEquals("tool", messages.getJSONObject(1).getString("role"))
+        assertEquals("call_1", messages.getJSONObject(1).getString("tool_call_id"))
     }
 }

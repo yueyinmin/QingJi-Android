@@ -9,7 +9,13 @@ import java.util.concurrent.TimeUnit
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaType
@@ -22,10 +28,10 @@ import org.json.JSONException
 import org.json.JSONObject
 
 /**
- * OpenAI 兼容协议适配器（B01）。
+ * OpenAI 兼容协议适配器。
  *
- * 只实现普通生成、图片输入、连接测试、错误映射、response_format 降级和请求取消。
- * SSE 与 Tool Calling 分别由 B02 / B03 扩展，不在本类提前放空实现。
+ * 支持：普通生成、图片输入、SSE 文本流、Tool Calling、流式工具参数、
+ * 工具结果回传、错误映射、response_format 降级与请求取消。
  */
 class OpenAiCompatibleProvider(
     private val clientFactory: (AiConfig) -> OkHttpClient = { defaultClient(it) },
@@ -38,7 +44,11 @@ class OpenAiCompatibleProvider(
         val model = modelFor(request)
         validate(request.config, request.key, model)
 
-        val body = buildBodyJson(request, includeResponseFormat = request.forceJsonObject)
+        val body = buildBodyJson(
+            request = request,
+            includeResponseFormat = request.forceJsonObject,
+            stream = false
+        )
         val http = call(
             config = request.config,
             key = request.key,
@@ -47,7 +57,120 @@ class OpenAiCompatibleProvider(
         )
         val parsed = parseResponse(http.body, requireJson = request.forceJsonObject)
         markCapability(request.config, model, request.messages.hasImagePart())
-        return AiResponse(content = parsed.first, model = model, usage = parsed.second)
+        return AiResponse(
+            content = parsed.content,
+            model = model,
+            usage = parsed.usage,
+            toolCalls = parsed.toolCalls,
+            finishReason = parsed.finishReason
+        )
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    override fun stream(request: AiRequest): Flow<AiStreamEvent> = callbackFlow {
+        val model = modelFor(request)
+        var activeCall: Call? = null
+
+        try {
+            validate(request.config, request.key, model)
+            val body = buildBodyJson(
+                request = request,
+                includeResponseFormat = false,
+                stream = true
+            )
+            val client = clientFactory(request.config)
+            val httpRequest = Request.Builder()
+                .url(endpoint(request.config))
+                .addHeader("Authorization", "Bearer ${request.key}")
+                .addHeader("Content-Type", "application/json")
+                .post(body.toRequestBody(JSON_MEDIA))
+                .build()
+            activeCall = client.newCall(httpRequest)
+            var streamUsage: TokenUsage? = null
+
+            withContext(Dispatchers.IO) {
+                activeCall!!.execute().use { response ->
+                    if (response.code !in 200..299) {
+                        throw mapHttpError(
+                            HttpResult(response.code, response.body?.string().orEmpty())
+                        )
+                    }
+                    val source = response.body?.source()
+                        ?: throw AiError.StreamInterrupted()
+
+                    val accumulators = linkedMapOf<Int, ToolCallAccumulator>()
+
+                    while (!isClosedForSend) {
+                        val line = source.readUtf8Line() ?: break
+                        val payload = line.removePrefix("data:").trim()
+                        if (payload.isEmpty() || !line.startsWith("data:")) continue
+                        if (payload == "[DONE]") break
+
+                        val event = try {
+                            JSONObject(payload)
+                        } catch (_: JSONException) {
+                            continue
+                        }
+
+                        event.optJSONObject("usage")?.let { streamUsage = parseUsage(it) }
+                        val choice = event.optJSONArray("choices")?.optJSONObject(0) ?: continue
+                        val delta = choice.optJSONObject("delta")
+
+                        delta?.optString("content")?.takeIf { it.isNotEmpty() }
+                            ?.let { trySend(AiStreamEvent.TextDelta(it)) }
+
+                        delta?.optJSONArray("tool_calls")?.let { calls ->
+                            for (i in 0 until calls.length()) {
+                                val callJson = calls.optJSONObject(i) ?: continue
+                                val index = callJson.optInt("index", i)
+                                val function = callJson.optJSONObject("function")
+                                val id = callJson.optString("id").takeIf { it.isNotBlank() }
+                                val name = function?.optString("name")?.takeIf { it.isNotBlank() }
+                                val args = function?.optString("arguments")?.takeIf { it.isNotEmpty() }
+
+                                val acc = accumulators.getOrPut(index) { ToolCallAccumulator(index) }
+                                if (id != null && acc.id.isBlank()) acc.id = id
+                                if (name != null && acc.name.isBlank()) acc.name = name
+                                if (acc.id.isBlank()) acc.id = "tool_$index"
+
+                                if (!acc.started && acc.name.isNotBlank()) {
+                                    trySend(AiStreamEvent.ToolCallStarted(acc.id, acc.name))
+                                    acc.started = true
+                                }
+                                if (args != null) {
+                                    acc.arguments.append(args)
+                                    trySend(AiStreamEvent.ToolArgumentsDelta(acc.id, args))
+                                }
+                            }
+                        }
+
+                        val finishReason = choice.optString("finish_reason")
+                        if (finishReason == "tool_calls") {
+                            completeToolCalls(accumulators) { trySend(it) }
+                        }
+                    }
+
+                    completeToolCalls(accumulators) { trySend(it) }
+                }
+            }
+
+            markCapability(request.config, model, request.messages.hasImagePart())
+            trySend(AiStreamEvent.Completed(usage = streamUsage))
+            close()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: AiError) {
+            trySend(AiStreamEvent.Failed(e))
+            close()
+        } catch (e: IOException) {
+            trySend(AiStreamEvent.Failed(mapThrowable(e)))
+            close()
+        } catch (e: Exception) {
+            trySend(AiStreamEvent.Failed(mapThrowable(e)))
+            close()
+        }
+
+        awaitClose { activeCall?.cancel() }
     }
 
     override suspend fun testConnection(config: AiConfig, key: String): ConnectionResult {
@@ -63,9 +186,9 @@ class OpenAiCompatibleProvider(
             parseResponse(http.body, requireJson = false)
             val capabilities = AiProviderCapabilities(
                 chat = true,
-                streaming = false,
-                toolCalling = false,
-                streamingToolCalling = false,
+                streaming = true,
+                toolCalling = true,
+                streamingToolCalling = true,
                 jsonSchema = false,
                 imageInput = config.visionModel.isNotBlank(),
                 audioInput = false
@@ -100,7 +223,11 @@ class OpenAiCompatibleProvider(
     private fun List<AiMessage>.hasImagePart(): Boolean =
         any { message -> message.parts.any { it is AiContentPart.ImageBase64 } }
 
-    private fun buildBodyJson(request: AiRequest, includeResponseFormat: Boolean): String {
+    private fun buildBodyJson(
+        request: AiRequest,
+        includeResponseFormat: Boolean,
+        stream: Boolean
+    ): String {
         val model = modelFor(request)
         return JSONObject().apply {
             put("model", model)
@@ -109,15 +236,73 @@ class OpenAiCompatibleProvider(
             if (includeResponseFormat) {
                 put("response_format", JSONObject().put("type", "json_object"))
             }
+            if (stream) put("stream", true)
+            if (request.tools.isNotEmpty()) {
+                put("tools", JSONArray().apply {
+                    request.tools.forEach { tool ->
+                        put(
+                            JSONObject()
+                                .put("type", "function")
+                                .put(
+                                    "function",
+                                    JSONObject()
+                                        .put("name", tool.name)
+                                        .put("description", tool.description)
+                                        .put("parameters", JSONObject(tool.parametersJson))
+                                )
+                        )
+                    }
+                })
+                put("tool_choice", toolChoiceJson(request.toolChoice))
+            }
             put("messages", JSONArray().apply {
                 request.messages.forEach { message -> put(messageToJson(message)) }
             })
         }.toString()
     }
 
+    private fun toolChoiceJson(choice: AiToolChoice): Any = when (choice) {
+        AiToolChoice.Auto -> "auto"
+        AiToolChoice.None -> "none"
+        AiToolChoice.Required -> "required"
+        is AiToolChoice.Named -> JSONObject()
+            .put("type", "function")
+            .put("function", JSONObject().put("name", choice.name))
+    }
+
     private fun messageToJson(message: AiMessage): JSONObject {
         val textParts = message.parts.filterIsInstance<AiContentPart.Text>()
         val imageParts = message.parts.filterIsInstance<AiContentPart.ImageBase64>()
+
+        if (message.toolCallId != null) {
+            return JSONObject()
+                .put("role", "tool")
+                .put("tool_call_id", message.toolCallId)
+                .put("content", textParts.joinToString("\n") { it.text })
+        }
+
+        if (message.toolCalls.isNotEmpty()) {
+            val obj = JSONObject()
+                .put("role", message.role)
+                .put("content", textParts.firstOrNull()?.text.orEmpty())
+            obj.put("tool_calls", JSONArray().apply {
+                message.toolCalls.forEach { call ->
+                    put(
+                        JSONObject()
+                            .put("id", call.id)
+                            .put("type", "function")
+                            .put(
+                                "function",
+                                JSONObject()
+                                    .put("name", call.name)
+                                    .put("arguments", call.arguments)
+                            )
+                    )
+                }
+            })
+            return obj
+        }
+
         if (imageParts.isEmpty() && textParts.size == 1) {
             return JSONObject().put("role", message.role).put("content", textParts[0].text)
         }
@@ -205,7 +390,7 @@ class OpenAiCompatibleProvider(
         return if (raw.endsWith("/chat/completions")) raw else "$raw/chat/completions"
     }
 
-    private fun parseResponse(raw: String, requireJson: Boolean): Pair<String, TokenUsage?> {
+    private fun parseResponse(raw: String, requireJson: Boolean): ParsedResponse {
         val trimmed = raw.trim()
         if (trimmed.isBlank()) throw AiError.InvalidResponse("AI 返回内容为空")
 
@@ -215,28 +400,41 @@ class OpenAiCompatibleProvider(
             if (requireJson) {
                 throw AiError.InvalidResponse("返回内容不是合法 JSON：${trimmed.take(80)}")
             }
-            // 分析类请求允许纯文本回复；识别类请求会把文本交给 AiRecognitionParser 再抠 JSON。
-            return trimmed to null
+            return ParsedResponse(content = trimmed)
         }
 
-        val content = root.optJSONArray("choices")
-            ?.optJSONObject(0)
-            ?.optJSONObject("message")
-            ?.optString("content")
-            ?.takeIf { it.isNotBlank() }
+        val message = root.optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("message")
+        val content = message?.optString("content")?.takeIf { it.isNotBlank() }
             ?: root.optString("content").takeIf { it.isNotBlank() }
             ?: trimmed
+        val usage = root.optJSONObject("usage")?.let { parseUsage(it) }
+        val toolCalls = parseToolCalls(message?.optJSONArray("tool_calls"))
+        val finishReason = root.optJSONArray("choices")
+            ?.optJSONObject(0)
+            ?.optString("finish_reason")
+            ?.takeIf { it.isNotBlank() }
 
-        val usageObject = root.optJSONObject("usage")
-        val usage = usageObject?.let {
-            TokenUsage(
-                promptTokens = it.optIntOrNull("prompt_tokens"),
-                completionTokens = it.optIntOrNull("completion_tokens"),
-                totalTokens = it.optIntOrNull("total_tokens")
+        return ParsedResponse(content, usage, toolCalls, finishReason)
+    }
+
+    private fun parseToolCalls(array: JSONArray?): List<AiToolCall> {
+        if (array == null) return emptyList()
+        return (0 until array.length()).mapNotNull { i ->
+            val obj = array.optJSONObject(i) ?: return@mapNotNull null
+            val function = obj.optJSONObject("function") ?: return@mapNotNull null
+            AiToolCall(
+                id = obj.optString("id").takeIf { it.isNotBlank() } ?: "tool_$i",
+                name = function.optString("name"),
+                arguments = function.optString("arguments")
             )
         }
-        return content to usage
     }
+
+    private fun parseUsage(obj: JSONObject): TokenUsage = TokenUsage(
+        promptTokens = obj.optIntOrNull("prompt_tokens"),
+        completionTokens = obj.optIntOrNull("completion_tokens"),
+        totalTokens = obj.optIntOrNull("total_tokens")
+    )
 
     private fun JSONObject.optIntOrNull(name: String): Int? =
         if (has(name) && !isNull(name)) optInt(name) else null
@@ -259,12 +457,26 @@ class OpenAiCompatibleProvider(
     }
 
     private fun markCapability(config: AiConfig, model: String, hasImage: Boolean) {
+        if (model.isBlank()) return
         val previous = capabilities(config)
-        if (!previous.chat && model.isNotBlank()) {
-            capabilityCache[cacheKey(config)] = previous.copy(
-                chat = true,
-                imageInput = previous.imageInput || hasImage
-            )
+        capabilityCache[cacheKey(config)] = previous.copy(
+            chat = true,
+            streaming = true,
+            toolCalling = true,
+            streamingToolCalling = true,
+            imageInput = previous.imageInput || hasImage
+        )
+    }
+
+    private fun completeToolCalls(
+        accumulators: Map<Int, ToolCallAccumulator>,
+        emit: (AiStreamEvent) -> Unit
+    ) {
+        accumulators.values.sortedBy { it.index }.forEach { acc ->
+            if (!acc.completed && acc.started) {
+                emit(AiStreamEvent.ToolCallCompleted(acc.id))
+                acc.completed = true
+            }
         }
     }
 
@@ -280,6 +492,21 @@ class OpenAiCompatibleProvider(
         val body: String,
         val retryAfterSec: Long? = null
     )
+
+    private data class ParsedResponse(
+        val content: String,
+        val usage: TokenUsage? = null,
+        val toolCalls: List<AiToolCall> = emptyList(),
+        val finishReason: String? = null
+    )
+
+    private class ToolCallAccumulator(val index: Int) {
+        var id: String = ""
+        var name: String = ""
+        val arguments = StringBuilder()
+        var started: Boolean = false
+        var completed: Boolean = false
+    }
 
     companion object {
         private val JSON_MEDIA = "application/json; charset=utf-8".toMediaType()
