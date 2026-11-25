@@ -1613,7 +1613,7 @@ class QingJiRepository(
      * 恢复出厂：回到「刚装完这个 App」的状态。
      *
      * 28 张表全清（含训练中心 6 张 + 自律模块 7 张）+ DataStore 设置全清 + 训练草稿/单位偏好全清
-     * + API Key 清掉 + 本地图片全删 + 闹钟全取消 + AI 库 5 张表全清。
+     * + API Key 清掉 + 本地图片全删 + 闹钟全取消 + AI 库 6 张表全清（阶段 I 起含长期记忆）。
      * 清完之后 `onboarding_done` 变成 false，QingJiAppRoot 订阅的 settings 流
      * 会自动把界面切回引导页 —— 不需要重启 App，也不用自己写导航逻辑。
      *
@@ -1660,6 +1660,8 @@ class QingJiRepository(
 
         // 设置里含主题、昵称、目标模式、AI 纠错表、引导完成标记，一起清
         SettingsStore.clear(context)
+        // 阶段 I：长期记忆的「不再记住此类」开关也在独立 DataStore 里，一并清
+        com.qingji.app.data.prefs.AiMemoryPrefs.clear(context)
         // 训练草稿与 kg/lb 偏好（SharedPreferences，跟 DataStore 不是一个地方）
         com.qingji.app.data.prefs.WorkoutDraftStore(context).clearAll()
         // Key 在 AndroidKeyStore 加密存储里，跟 DataStore 是两个地方（清全部服务 + 旧字段）

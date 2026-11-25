@@ -61,11 +61,12 @@ import com.qingji.app.ui.viewmodel.AiChatViewModel
 import com.qingji.app.ui.viewmodel.ChatMessageUi
 import com.qingji.app.ui.viewmodel.ChatRole
 
-/** 统一 AI 管家对话页。先做单会话内存态，不引入 AI 库。 */
+/** 统一 AI 管家对话页。会话与长期记忆都放在独立 AI 库，删除会话不影响记忆。 */
 @Composable
 fun AiChatScreen(
     onBack: () -> Unit,
     context: String = "首页",
+    onOpenMemory: () -> Unit = {},
     vm: AiChatViewModel = viewModel()
 ) {
     val state by vm.uiState.collectAsState()
@@ -193,6 +194,17 @@ fun AiChatScreen(
                         .padding(horizontal = 10.dp, vertical = 6.dp)
                 )
             }
+            // 阶段 I：记忆入口常驻；会话删了记忆还在，所以入口不能只在会话菜单里
+            Text(
+                text = "记忆",
+                fontSize = 12.sp,
+                color = QingJiGreenDark,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(QingJiGreenLight)
+                    .clickable(enabled = !state.isRunning) { onOpenMemory() }
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
+            )
         }
 
         LazyColumn(
@@ -273,6 +285,33 @@ fun AiChatScreen(
                 color = QingJiGreenDark,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
             )
+        }
+
+        // 阶段 I：刚记住的内容给一行反馈，并可跳到记忆管理去改
+        state.justRemembered?.let { content ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "已记住：$content",
+                    fontSize = 12.sp,
+                    color = QingJiGreenDark,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    text = "管理",
+                    fontSize = 12.sp,
+                    color = QingJiGreenDark,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(QingJiGreenLight)
+                        .clickable { onOpenMemory() }
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                )
+            }
         }
 
         OutlinedTextField(

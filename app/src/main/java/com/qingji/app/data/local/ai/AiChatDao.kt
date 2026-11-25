@@ -69,6 +69,7 @@ interface AiChatDao {
         clearTokenUsage()
         clearMessages()
         clearConversations()
+        clearMemories()
     }
 
     // ---------- 阶段 E：提案展示状态（权威仍在主库 ai_proposal_execution） ----------
@@ -102,4 +103,8 @@ interface AiChatDao {
 
     @Query("DELETE FROM ai_conversation")
     suspend fun clearConversations()
+
+    /** 阶段 I：长期记忆也要清；删会话不等于删记忆，只有恢复出厂才整表清。 */
+    @Query("DELETE FROM ai_memory")
+    suspend fun clearMemories()
 }

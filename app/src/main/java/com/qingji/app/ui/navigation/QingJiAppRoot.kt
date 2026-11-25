@@ -695,7 +695,14 @@ fun QingJiAppRoot(
                         val context = entry.arguments?.getString("context") ?: "首页"
                         AiChatScreen(
                             onBack = { navController.popBackStack() },
-                            context = context
+                            context = context,
+                            onOpenMemory = { navController.navigate(QingJiRoutes.AiMemory) }
+                        )
+                    }
+                    // 阶段 I：长期记忆管理（查看/纠正/失效/删除/关类别）
+                    composable(route = QingJiRoutes.AiMemory) {
+                        com.qingji.app.ui.screen.MemoryScreen(
+                            onBack = { navController.popBackStack() }
                         )
                     }
                     composable(

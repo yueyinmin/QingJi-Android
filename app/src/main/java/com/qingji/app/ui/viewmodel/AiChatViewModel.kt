@@ -9,12 +9,16 @@ import com.qingji.app.ai.agent.AgentRequest
 import com.qingji.app.ai.agent.AgentResult
 import com.qingji.app.ai.agent.AgentToolExecution
 import com.qingji.app.ai.agent.QingJiAgent
+import com.qingji.app.ai.memory.MemoryManager
 import com.qingji.app.ai.tools.ReadonlyToolFactory
 import com.qingji.app.data.ai.AiChatStore
 import com.qingji.app.data.ai.AiConversationSummary
+import com.qingji.app.data.ai.MemoryStore
 import com.qingji.app.data.ai.PersistedChatMessage
 import com.qingji.app.data.ai.RoomAiChatStore
+import com.qingji.app.data.ai.RoomMemoryStore
 import com.qingji.app.data.local.ai.AiDatabase
+import com.qingji.app.data.prefs.AiMemoryPrefs
 import com.qingji.app.data.remote.ai.AiError
 import com.qingji.app.data.remote.ai.OpenAiCompatibleProvider
 import com.qingji.app.data.repository.HealthRepository
@@ -54,6 +58,8 @@ data class AiChatUiState(
     val attachedImageMime: String = "image/jpeg",
     val isRunning: Boolean = false,
     val hasOlderMessages: Boolean = false,
+    /** 刚记住的内容，展示一行提示后自动消失；null = 没有新记忆 */
+    val justRemembered: String? = null,
     val error: String? = null
 ) {
     val messages: List<ChatMessageUi>
@@ -84,6 +90,10 @@ class AiChatViewModel private constructor(
 
     private val repo by lazy { QingJiRepository(app) }
     private val store: AiChatStore = injectedStore ?: RoomAiChatStore(AiDatabase.get(app))
+    /** 阶段 I：长期记忆与 AI 会话同一个库（qingji_ai.db），会话删了记忆不跟着删。 */
+    private val memoryStore: MemoryStore by lazy { RoomMemoryStore(AiDatabase.get(app)) }
+    /** 测试注入存储时不碰真实库，避免单测依赖 Room。 */
+    private val usesRealStore: Boolean = injectedStore == null
     private val agent by lazy {
         val toolFactory = ReadonlyToolFactory(
             qingJiRepository = repo,
@@ -242,6 +252,7 @@ class AiChatViewModel private constructor(
             it.copy(
                 input = "",
                 error = null,
+                justRemembered = null,
                 isRunning = true,
                 pendingMessage = ChatMessageUi(pendingId, ChatRole.ASSISTANT, "正在查询本地记录…", pending = true)
             )
@@ -253,6 +264,21 @@ class AiChatViewModel private constructor(
                 ?: store.ensureConversation(_uiState.value.context).id.also { selectConversationInternal(it) }
             val context = _uiState.value.context
             store.appendUserMessage(userId, conversationId, question)
+
+            // 阶段 I：只有用户明说「记住…」才写长期记忆；聊天正文不会被自动收集
+            if (usesRealStore) {
+                runCatching {
+                    val disabled = AiMemoryPrefs.disabled(getApplication())
+                    MemoryManager.captureExplicit(
+                        store = memoryStore,
+                        text = question,
+                        sourceRef = userId,
+                        disabled = disabled
+                    )
+                }.getOrNull()?.let { record ->
+                    _uiState.update { it.copy(justRemembered = record.content) }
+                }
+            }
 
             try {
                 var streamStarted = false
@@ -351,17 +377,23 @@ class AiChatViewModel private constructor(
         key: String,
         question: String,
         context: String
-    ) = AgentRequest(
-        config = config,
-        key = key,
-        question = question,
-        taskType = "ai_chat",
-        date = date,
-        page = context,
-        recentSummary = repo.buildDailyFacts(date),
-        imageBase64 = _uiState.value.attachedImageBase64,
-        imageMime = _uiState.value.attachedImageMime
-    )
+    ): AgentRequest {
+        // 阶段 I：按页面上下文取少量相关记忆；记忆读取失败不影响回答主流程
+        val memories = runCatching { MemoryManager.retrieve(memoryStore, context).notes }
+            .getOrDefault(emptyList())
+        return AgentRequest(
+            config = config,
+            key = key,
+            question = question,
+            taskType = "ai_chat",
+            date = date,
+            page = context,
+            recentSummary = repo.buildDailyFacts(date),
+            imageBase64 = _uiState.value.attachedImageBase64,
+            imageMime = _uiState.value.attachedImageMime,
+            memories = memories
+        )
+    }
 
     private fun observeMessages(conversationId: String) {
         messagesJob?.cancel()
