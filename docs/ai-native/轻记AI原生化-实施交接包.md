@@ -370,3 +370,35 @@ app/src/main/java/com/qingji/app/ui/screen/AiChatScreen.kt
 - 语音依赖设备系统识别能力，缺失时提示手动输入。
 - AI 库尚未进入备份导出/恢复；只保证恢复出厂会清干净。
 - 本提交仍在本地 `feature/health-system-v1.1`，未推送；远端 main 仍是 v1.4.5 生产线，合并前需先处理两线分叉。
+
+---
+
+## 12. Git 线收口：AI 链已移植到 main 基线（2026-11-25）
+
+### 12.1 备份与 fetch
+
+- 整目录备份：`C:/qingji-git/QingJi-Android-backup-20261125-1737`（753M，含 .git 与 build）。
+- `git fetch origin` 后确认：`origin/main = 5caaa99`（v1.4.5 生产线），`origin/feature/health-system-v1.1 = 9eb3065`。
+- 两线共同祖先 `839019b`，分别领先 253 / 134 提交；整条 feature 并入 main 预演有 81 个冲突文件，放弃该方案。
+
+### 12.2 采用的方案
+
+- 以 `origin/main 5caaa99` 为准，新建本地分支 `ai-native-on-main`，cherry-pick AI 链 13 个提交（跳过 `c97ada3`，其内容已被 main 的 `d5ae94e` 覆盖）。
+- 冲突处理：保留 main 的 `analyzeExecutor` 注入、`getApiKeyFor(config.id)` 多配置取 Key、带日期 AI 分析、自定义训练计划编辑；AI 侧只合入 Provider/Agent/工具/会话/UI 能力。
+- main 没有 `DietDetail` 页，饮食入口改挂在 `MealDetailScreen`（带「饮食页」上下文）。
+- 恢复 main 版 `HomeInteractionTest`（3 个 skipped）：AI 分支版冒烟测试与 main 的 UI 不兼容，会导致 Compose 不 idle。
+- 修复提交：`e8178d3 fix(ai): keep main's ignored compose smoke test after cherry-pick`。
+
+### 12.3 验证
+
+| 项 | 结果 |
+|---|---|
+| `testDebugUnitTest` | 153 suites / **1010 tests / 0 failures / 0 errors / 3 skipped** |
+| `assembleDebug` / `assembleRelease` | BUILD SUCCESSFUL |
+| 偶发项 | `BackupExportScopeTest` 首次全量跑出现 SQLite 指针错误，单独跑与复跑全量均通过；历史已知问题 |
+
+### 12.4 当前分支状态
+
+- `ai-native-on-main` 本地领先 `origin/main` 14 个提交；**未推送**。
+- 原 `feature/health-system-v1.1` 保留不动（HEAD `b69f48a`），作为历史参考。
+- 后续若发布，需先确认 Release 与版本号，再决定推送/合并方式。
