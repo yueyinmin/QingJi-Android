@@ -646,3 +646,73 @@ app/src/main/java/com/qingji/app/ui/screen/AiChatScreen.kt
 - 提醒只落在管家页顶部，首页/其他业务页不插入卡片（K 阶段要统一入口时再评估）。
 - 静默时段只提供三档预设，不开放任意时刻编辑；体重偏离的冷却固定 72 小时，不可单独调。
 - 写工具继续保持禁用；本轮仍未新增任何写工具（8 个工具全部只读）。
+
+## 19. K 阶段实施（2026-11-25）
+
+> 提交：`feat(ai): implement K stage data privacy hardening`（见 `git log`）
+
+### 19.1 落地内容
+
+**一、API Key 隔离专项（复核 + 补硬保证）**
+
+| 原来就有 | 本轮补的 |
+|---|---|
+| Keystore AES/GCM 256，alias `qingji_ai_api_key`，密文+IV 存 `qingji_secure_prefs`，按 `configId` 分组互不覆盖 | 系统备份规则改为「只 include database」，并显式排除 AI 库；sharedpref 因为不在 include 范围内天然不备份 |
+| Key 不进 Room、不进 App 导出 JSON、不回声（已保存时留空=不改）、界面掩码输入 | 导出 JSON 增加整份文本扫描断言：不得出现 `sk-`、`cipher_text`、`"iv"`、`Bearer `、Keystore 别名 |
+| 解不开就清残片并返回 null（要求重填，不静默显示已保存） | 保留不变；本轮把这条写进验收表，避免以后被人「优化」成静默兜底 |
+
+**二、日志脱敏专项**
+
+- 新增 `domain/privacy/SecretRedactor`（纯函数、无 IO、不依赖 Android）：`Bearer xxx`、`sk-xxx`、`api_key/token/secret/password=...`、单独的 `key=`（值 ≥8 位才打码，避免误伤「key: 键盘布局」）、URL 里的 `user:pass@`、≥32 位字母数字混合长串，统一换成 `***`；先脱敏后截断，防止半截 token 绕过识别。
+- 接入点：
+  - `AiError.InvalidResponse` / `AiError.Unknown`：在构造时脱敏（message 会进 UI、进聊天记录）；
+  - `OpenAiCompatibleProvider`：HTTP 错误正文、非 JSON 返回、流式 `error` 事件、连接测试结果，4 处都先过脱敏；
+  - `AiChatViewModel.readableError()`：所有异常统一再过一遍再落库，防止新异常类型漏网。
+- release 包在 `proguard-rules.pro` 里去掉 `Log.v/d/i`（保留 `w/e`）：少一类泄漏面，也少刷 logcat。**现有 21 处 `Log.*` 已逐条复核**，都是表名/组件名 + 通用描述，不含 Key、Token、请求体。
+
+**三、数据删除覆盖 AI 数据**
+
+- 会话删除从「打 `deletedAt` 标记」改为**事务内真删**：`ai_message`、`ai_tool_call`、`ai_token_usage`、`ai_conversation` 一起清；其它会话与 `ai_proposal`（无会话外键的展示镜像）不动。
+- 记忆按用户选择处理：不勾选 → 该会话产生的记忆标 `INVALIDATED`（保留可查看，不再注入）；勾选 → 直接删除。删除弹窗会先查出条数（`countMemoriesFrom`），并列出将删除项，符合《长期记忆数据边界设计》第 76–82 行。
+- 新增 `ai/privacy/AiPrivacyCleaner`：一键清 AI 库 7 张表 + `ai_memory_prefs` + `ai_nudge_prefs`，并回报「删了多少个会话/消息/记忆/提醒」。**保留 AI 服务配置与 Key**（那是配置，不是内容；要连 Key 一起清走恢复出厂）。
+- 隐私页新增第三档「AI 数据」：位于「清除记录」与「恢复出厂」之间，文案写清删什么、留什么；确认弹窗先显示真实规模。
+- 记忆自检：打开记忆页时跑一条 SQL，把 `sourceRef` 是 UUID 但已找不到对应消息的记忆标 `INVALIDATED`（只处理 36 位 UUID，避免误伤未来可能写入的「业务记录 id」）。失败静默，不影响浏览。
+
+**四、用户数据与 AI 数据边界**
+
+- 主库（业务记录，用户自己录的）是源；AI 库（会话/消息/工具/记忆/提醒）是派生。删 AI 数据一条业务记录都不动。
+- 系统云备份与换机直传：只带主库。**AI 库整体排除**——聊天原文与长期记忆不随「用户无感上传」进厂商云；要带走请走 App 内主动导出（L 阶段做 AI 库备份段）。
+- 长期记忆仍只存结构化短句（最长 120 字）、带来源与可信度，不存聊天全文。
+
+**五、权限与组件复核（逐个核对 `AndroidManifest.xml`）**
+
+| 权限 | 用途 | 触发时机 | 拒绝后 |
+|---|---|---|---|
+| `INTERNET` | 调用户自填的 AI 服务 | 只在你点「识别 / 问管家」时；不配 Key 完全不联网 | 本地功能照常 |
+| `RECORD_AUDIO` | 语音记账 | 按下麦克风才申请 | 可继续手动输入 |
+| `POST_NOTIFICATIONS` | 提醒 / 断食通知 | 设置页里开启提醒时引导 | 提醒不弹，记录照常 |
+| `RECEIVE_BOOT_COMPLETED` | 重启后重排闹钟 | 系统广播，仅重排 | 重启后提醒失效 |
+| `FOREGROUND_SERVICE`(+`SPECIAL_USE`) | 断食常驻计时 | 开始断食时 | 不计时，历史记录不受影响 |
+
+组件导出面：`MainActivity` 与 9 个 `activity-alias` 为桌面入口（必要，MainActivity 本身无 intent-filter，外部需精确类名）；`FileProvider` `exported=false` + `grantUriPermissions`，路径白名单只有 `images/`、`images/`（缓存）、`backup/` 三个；所有 receiver / service 均 `exported=false`。
+
+### 19.2 验证
+
+| 项 | 结果 |
+|---|---|
+| 脱敏规则 | 13 例：`sk-`、`Bearer`、`api_key=`、`token:`、`?key=`、`password=`、URL 账号密码、长串、误伤保护（中文/短词/「key: 键盘布局」）、截断、`containsSecret` 自检 |
+| 会话深删 | 6 例：消息/工具/用量真删、其它会话不受影响、记忆默认失效、勾选直删、不影响别的会话的记忆、删除前计数、来源自检只动 UUID 形式 |
+| 一键清 AI 数据 | 1 例：统计 → 清空 → 整库复核为空、摘要文案正确 |
+| 备份不含密钥 | 追加断言：整份导出 JSON 无 `sk-` / `cipher_text` / `"iv"` / `Bearer ` / Keystore 别名 |
+| 权限与组件 | 5 项权限 + 全部组件逐个核对，结论见上表 |
+| `testDebugUnitTest` | 172 suites / **1129 tests**（+19）/ 0 errors / 3 skipped；唯一失败仍是既有偶发 `BackupExportScopeTest`（单跑通过，含本轮新增断言） |
+| `assembleDebug` / `assembleRelease` | BUILD SUCCESSFUL（release 的 lintVital 已通过，备份规则 xml 的 include/exclude 组合无告警） |
+
+### 19.3 边界
+
+- 不自动识别聊天里的身份证/手机号等个人敏感信息：那是用户主动输入的内容，App 只保证「不额外扩散」（不传云端除用户自己配的服务商）。
+- 会话删除**不删** `ai_proposal`：提案是跨会话的执行展示镜像，没有会话外键；它的清理归「一键清 AI 数据 / 恢复出厂」。
+- 一键清 AI 数据**不删** `ai_proposal_execution`（主库执行台账）：避免出现「台账没了但计划已改过」的对不上；该表随恢复出厂清。
+- 系统备份排除 AI 库是「保守选择」，不是 L 阶段的最终形态：L 做 AI 库备份段时，用户主动导出的那份仍然可以包含 AI 数据。
+- 日志只去掉 `v/d/i`，保留 `w/e`：线上排障需要；已复核不含敏感串。
+- 写工具继续保持禁用；本轮仍未新增任何写工具（8 个工具全部只读）。
