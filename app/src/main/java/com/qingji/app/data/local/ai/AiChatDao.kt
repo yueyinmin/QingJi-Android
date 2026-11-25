@@ -2,6 +2,7 @@ package com.qingji.app.data.local.ai
 
 import androidx.room.Dao
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
@@ -69,6 +70,23 @@ interface AiChatDao {
         clearMessages()
         clearConversations()
     }
+
+    // ---------- 阶段 E：提案展示状态（权威仍在主库 ai_proposal_execution） ----------
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertProposal(proposal: AiProposalEntity)
+
+    @Query("SELECT * FROM ai_proposal WHERE id = :id LIMIT 1")
+    suspend fun proposal(id: String): AiProposalEntity?
+
+    @Query("SELECT * FROM ai_proposal WHERE status = :status")
+    suspend fun proposalsByStatus(status: String): List<AiProposalEntity>
+
+    @Query("SELECT * FROM ai_proposal")
+    suspend fun allProposals(): List<AiProposalEntity>
+
+    @Query("UPDATE ai_proposal SET status = :status, updatedAt = :updatedAt WHERE id = :id")
+    suspend fun updateProposalStatus(id: String, status: String, updatedAt: Long)
 
     @Query("DELETE FROM ai_tool_call")
     suspend fun clearToolCalls()

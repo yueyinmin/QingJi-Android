@@ -1624,6 +1624,8 @@ class QingJiRepository(
             db.selfDisciplineSettingDao().clearAll()
             db.selfDisciplineMilestoneDao().clearAll()
             db.selfDisciplineInterventionDao().clearAll()
+            db.aiProposalDao().clearExecutions()
+            db.aiProposalDao().clearLogs()
         }
         // AI 库是独立数据库，不在主库事务里；主库清完再单独清。
         com.qingji.app.data.local.ai.AiDatabase.get(context).aiChatDao().clearAll()

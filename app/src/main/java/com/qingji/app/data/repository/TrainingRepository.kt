@@ -393,8 +393,21 @@ class TrainingRepository(
         val now = System.currentTimeMillis()
         val library = exerciseDao.findAll()
         db.withTransaction {
-            planDao.deactivateAll()
-            planDao.insertAll(listOf(TrainingPlan(uuid, name, source, true, now)))
+            // 阶段 E：被停用的旧计划也递增版本，保证所有写入入口都有版本痕迹。
+            planDao.deactivateAllWithVersion(now)
+            planDao.insertAll(
+                listOf(
+                    TrainingPlan(
+                        uuid = uuid,
+                        name = name,
+                        source = source,
+                        isActive = true,
+                        createdAt = now,
+                        version = 1L,
+                        updatedAt = now
+                    )
+                )
+            )
             (1..7).forEach { weekday ->
                 val tplDay = days.firstOrNull { it.weekday == weekday }
                 val dayId = planDayDao.insertOne(
@@ -473,7 +486,19 @@ class TrainingRepository(
         val uuid = "plan-${java.util.UUID.randomUUID()}"
         val now = System.currentTimeMillis()
         db.withTransaction {
-            planDao.insertAll(listOf(TrainingPlan(uuid, name, "history:${sessionUuid}", false, now)))
+            planDao.insertAll(
+                listOf(
+                    TrainingPlan(
+                        uuid = uuid,
+                        name = name,
+                        source = "history:${sessionUuid}",
+                        isActive = false,
+                        createdAt = now,
+                        version = 1L,
+                        updatedAt = now
+                    )
+                )
+            )
             val dayId = planDayDao.insertOne(
                 TrainingPlanDay(planUuid = uuid, weekday = weekday, title = title, isRest = false)
             )
@@ -512,25 +537,72 @@ class TrainingRepository(
         return uuid to missing
     }
 
-    suspend fun deactivatePlan(uuid: String) = planDao.setActive(uuid, false)
-
-    /** 从历史里重新启用：仍然保证同时只有一个 isActive=true。 */
-    suspend fun reactivatePlan(uuid: String) {
-        db.withTransaction {
-            planDao.deactivateAll()
-            planDao.setActive(uuid, true)
+    /** 阶段 E：停用走 CAS；版本不匹配即视为被别人改过。 */
+    suspend fun deactivatePlan(uuid: String) {
+        val now = System.currentTimeMillis()
+        val affected = db.withTransaction {
+            val plan = planDao.findByUuid(uuid) ?: return@withTransaction 0
+            planDao.casSetActive(uuid, false, plan.version, now)
         }
+        if (affected == 0) throw com.qingji.app.domain.PlanVersionConflictException()
     }
 
-    /** 删计划：连它下面的日与动作安排一起删，不留孤儿行。 */
+    /** 从历史里重新启用：仍然保证同时只有一个 isActive=true，且所有受影响计划都递增版本。 */
+    suspend fun reactivatePlan(uuid: String) {
+        val now = System.currentTimeMillis()
+        val ok = db.withTransaction {
+            val target = planDao.findByUuid(uuid) ?: return@withTransaction false
+            planDao.deactivateAllWithVersion(now)
+            // deactivateAll 可能刚把目标也递增了版本，必须重读再 CAS。
+            val current = planDao.findByUuid(uuid) ?: return@withTransaction false
+            planDao.casSetActive(uuid, true, current.version, now) == 1
+        }
+        if (!ok) throw com.qingji.app.domain.PlanVersionConflictException()
+    }
+
+    /** 删计划：连它下面的日与动作安排一起删；存在即冲突，版本不匹配不删。 */
     suspend fun deletePlan(uuid: String) {
-        db.withTransaction {
+        val ok = db.withTransaction {
+            val plan = planDao.findByUuid(uuid) ?: return@withTransaction false
+            if (planDao.deleteByVersion(uuid, plan.version) == 0) return@withTransaction false
             val dayIds = planDayDao.findByPlan(uuid).map { it.id }
             if (dayIds.isNotEmpty()) planExerciseDao.deleteByDayIds(dayIds)
             planDayDao.deleteByPlan(uuid)
-            planDao.deleteByUuid(uuid)
+            true
+        }
+        if (!ok) throw com.qingji.app.domain.PlanVersionConflictException()
+    }
+
+    /** 阶段 E：提案执行器用——按 baseVersion CAS 启用/停用计划。 */
+    suspend fun casSetActiveForProposal(
+        uuid: String,
+        active: Boolean,
+        baseVersion: Long
+    ): Boolean = db.withTransaction {
+        // 启用时先保证唯一激活，且只递增其它计划，不提前动目标版本。
+        if (active) {
+            val base = planDao.versionOf(uuid) ?: return@withTransaction false
+            if (base != baseVersion) return@withTransaction false
+            planDao.deactivateAllWithVersion(System.currentTimeMillis())
+            val current = planDao.versionOf(uuid) ?: return@withTransaction false
+            planDao.casSetActive(uuid, true, current, System.currentTimeMillis()) == 1
+        } else {
+            planDao.casSetActive(uuid, false, baseVersion, System.currentTimeMillis()) == 1
         }
     }
+
+    /** 阶段 E：提案执行器用——CAS 删除计划及其子表。 */
+    suspend fun casDeleteForProposal(uuid: String, baseVersion: Long): Boolean =
+        db.withTransaction {
+            if (planDao.deleteByVersion(uuid, baseVersion) == 0) return@withTransaction false
+            val dayIds = planDayDao.findByPlan(uuid).map { it.id }
+            if (dayIds.isNotEmpty()) planExerciseDao.deleteByDayIds(dayIds)
+            planDayDao.deleteByPlan(uuid)
+            true
+        }
+
+    /** 阶段 E：提案执行器/对账用——读当前版本。 */
+    suspend fun planVersion(uuid: String): Long? = planDao.versionOf(uuid)
 
     // 备份的整表导出/覆盖恢复统一放在 data/backup/TrainingBackup.kt + BackupManager，
     // 这里不再做第二套，免得以后两边字段不一致。

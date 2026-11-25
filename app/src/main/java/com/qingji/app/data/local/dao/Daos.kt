@@ -42,6 +42,24 @@ interface UserProfileDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun save(profile: UserProfile)
 
+    /**
+     * 阶段 E：营养目标 CAS。影响 1 行 = 成功，0 行 = 版本冲突（STALE）。
+     * 字段名用 camelCase，与 Room schema 逐字一致。
+     */
+    @Query(
+        """UPDATE user_profile SET dailyKcalGoal = :kcal, proteinGoalG = :protein,
+        carbGoalG = :carb, fatGoalG = :fat, goalVersion = goalVersion + 1,
+        goalUpdatedAt = :now WHERE id = 1 AND goalVersion = :baseVersion"""
+    )
+    suspend fun casUpdateGoals(
+        kcal: Int,
+        protein: Int,
+        carb: Int,
+        fat: Int,
+        baseVersion: Long,
+        now: Long
+    ): Int
+
     @Query("DELETE FROM user_profile")
     suspend fun clear()
 }

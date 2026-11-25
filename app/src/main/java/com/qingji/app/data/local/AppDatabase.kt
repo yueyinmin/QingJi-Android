@@ -9,6 +9,7 @@ import androidx.room.TypeConverters
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.qingji.app.data.local.dao.AiConfigDao
+import com.qingji.app.data.local.dao.AiProposalDao
 import com.qingji.app.data.local.dao.BodyMeasureDao
 import com.qingji.app.data.local.dao.DiaryDao
 import com.qingji.app.data.local.dao.ExerciseLogDao
@@ -82,6 +83,8 @@ import com.qingji.app.data.local.entity.ExerciseCalorieConfigEntity
 import com.qingji.app.data.local.entity.ExerciseSessionCalorieEntity
 import com.qingji.app.data.local.entity.SleepRecordEntity
 import com.qingji.app.data.local.entity.DailyHealthSummaryEntity
+import com.qingji.app.data.local.entity.AiProposalExecutionEntity
+import com.qingji.app.data.local.entity.AiOperationLogEntity
 import java.time.LocalDate
 
 /**
@@ -160,9 +163,12 @@ class Converters {
         UserFoodGroup::class,
         UserFoodGroupItem::class,
         // 统一训练体系（Room 19→20）：有氧项目明细，旧表一列不动
-        WorkoutCardioDetail::class
+        WorkoutCardioDetail::class,
+        // 阶段 E（Room 22→23）：提案执行权威记录 + 审计，旧表只加版本列
+        AiProposalExecutionEntity::class,
+        AiOperationLogEntity::class
     ],
-    version = 22,
+    version = 23,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -210,6 +216,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun exerciseSessionCalorieDao(): ExerciseSessionCalorieDao
     abstract fun sleepDao(): SleepDao
     abstract fun dailyHealthSummaryDao(): DailyHealthSummaryDao
+    abstract fun aiProposalDao(): AiProposalDao
 
     companion object {
         /** 整个 App 只保留一个数据库实例，重复创建会出问题。 */
@@ -538,7 +545,8 @@ abstract class AppDatabase : RoomDatabase() {
                 MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16,
                 MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20,
                 MIGRATION_20_21,
-                MIGRATION_21_22
+                MIGRATION_21_22,
+                MIGRATION_22_23
             )
         }
 
@@ -952,6 +960,71 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE `plan_exercise` ADD COLUMN `recordType` TEXT NOT NULL DEFAULT ''")
                 db.execSQL("ALTER TABLE `plan_exercise` ADD COLUMN `targetConfigJson` TEXT NOT NULL DEFAULT ''")
                 db.execSQL("ALTER TABLE `workout_exercise` ADD COLUMN `itemMetaJson` TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
+        /**
+         * 阶段 E（Room 22→23）：训练计划/营养目标加版本源，新增提案执行权威表与审计表。
+         * 设计文档写的是 v15→v16（当时基线），当前 main 已到 v22，故顺延为 22→23。
+         * SQL 语义与《迁移SQL与别名覆盖率收口报告》一致；defaultValue 与 Entity 逐字一致。
+         */
+        internal val MIGRATION_22_23 = object : Migration(22, 23) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `training_plan` ADD COLUMN `version` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `training_plan` ADD COLUMN `updatedAt` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `user_profile` ADD COLUMN `goalVersion` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `user_profile` ADD COLUMN `goalUpdatedAt` INTEGER NOT NULL DEFAULT 0")
+
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `ai_proposal_execution` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    `proposalId` TEXT NOT NULL,
+                    `proposalType` TEXT NOT NULL,
+                    `targetTable` TEXT NOT NULL DEFAULT '',
+                    `targetRecordId` TEXT NOT NULL DEFAULT '',
+                    `baseVersion` INTEGER NOT NULL DEFAULT 0,
+                    `status` TEXT NOT NULL,
+                    `idempotencyKey` TEXT NOT NULL,
+                    `errorCode` TEXT NOT NULL DEFAULT '',
+                    `errorMessage` TEXT NOT NULL DEFAULT '',
+                    `createdAt` INTEGER NOT NULL,
+                    `executedAt` INTEGER NOT NULL DEFAULT 0,
+                    `updatedAt` INTEGER NOT NULL DEFAULT 0
+                    )"""
+                )
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS `index_ai_proposal_execution_idempotencyKey` " +
+                        "ON `ai_proposal_execution` (`idempotencyKey`)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_ai_proposal_execution_proposalId` " +
+                        "ON `ai_proposal_execution` (`proposalId`)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_ai_proposal_execution_status` " +
+                        "ON `ai_proposal_execution` (`status`)"
+                )
+
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `ai_operation_log` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    `proposalId` TEXT NOT NULL DEFAULT '',
+                    `action` TEXT NOT NULL,
+                    `result` TEXT NOT NULL,
+                    `errorCode` TEXT NOT NULL DEFAULT '',
+                    `detailsJson` TEXT NOT NULL DEFAULT '',
+                    `idempotencyKey` TEXT NOT NULL DEFAULT '',
+                    `executedAt` INTEGER NOT NULL
+                    )"""
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_ai_operation_log_proposalId` " +
+                        "ON `ai_operation_log` (`proposalId`)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_ai_operation_log_idempotencyKey` " +
+                        "ON `ai_operation_log` (`idempotencyKey`)"
+                )
             }
         }
 

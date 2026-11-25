@@ -69,7 +69,10 @@ data class TrainingPlan(
     val name: String,
     @ColumnInfo(defaultValue = "") val source: String = "custom",       // template:xxx / custom
     @ColumnInfo(defaultValue = "0") val isActive: Boolean = false,
-    @ColumnInfo(defaultValue = "0") val createdAt: Long = 0L
+    @ColumnInfo(defaultValue = "0") val createdAt: Long = 0L,
+    /** 阶段 E：父计划唯一 CAS 版本源。子表随父整包替换，不单独设版本。 */
+    @ColumnInfo(defaultValue = "0") val version: Long = 0L,
+    @ColumnInfo(defaultValue = "0") val updatedAt: Long = 0L
 )
 
 /** 表 18：计划日（周循环，weekday 1=周一 … 7=周日）。 */

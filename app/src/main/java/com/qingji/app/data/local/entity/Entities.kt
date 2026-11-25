@@ -46,7 +46,10 @@ data class UserProfile(
     @ColumnInfo(defaultValue = "800")
     val calciumGoalMg: Int = 800,
     val unit: String = "kg",             // 展示单位：kg / jin（斤）
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    /** 阶段 E：营养目标版本，与训练计划版本分开。 */
+    @ColumnInfo(defaultValue = "0") val goalVersion: Long = 0L,
+    @ColumnInfo(defaultValue = "0") val goalUpdatedAt: Long = 0L
 )
 
 /**

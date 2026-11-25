@@ -92,12 +92,45 @@ interface TrainingPlanDao {
     @Query("SELECT * FROM training_plan WHERE isActive = 1 LIMIT 1")
     suspend fun findActive(): TrainingPlan?
 
-    /** 启用新计划前，先把旧的置 false（调用方包在事务里，保证同时只有一个 true）。 */
+    @Query("SELECT * FROM training_plan WHERE uuid = :uuid LIMIT 1")
+    suspend fun findByUuid(uuid: String): TrainingPlan?
+
+    @Query("SELECT version FROM training_plan WHERE uuid = :uuid LIMIT 1")
+    suspend fun versionOf(uuid: String): Long?
+
+    /** 启用新计划前，先把旧的置 false 并递增版本（调用方包在事务里）。 */
+    @Query("UPDATE training_plan SET isActive = 0, version = version + 1, updatedAt = :now WHERE isActive = 1")
+    suspend fun deactivateAllWithVersion(now: Long)
+
     @Query("UPDATE training_plan SET isActive = 0")
     suspend fun deactivateAll()
 
     @Query("UPDATE training_plan SET isActive = :active WHERE uuid = :uuid")
     suspend fun setActive(uuid: String, active: Boolean)
+
+    /** 阶段 E：isActive 变更也走 CAS，防止提案确认前人工改过计划。 */
+    @Query(
+        """UPDATE training_plan SET isActive = :active, version = version + 1,
+        updatedAt = :now WHERE uuid = :uuid AND version = :baseVersion"""
+    )
+    suspend fun casSetActive(uuid: String, active: Boolean, baseVersion: Long, now: Long): Int
+
+    /** 阶段 E：整包替换父计划内容，子表写入由调用方在同一事务内完成。 */
+    @Query(
+        """UPDATE training_plan SET name = :name, source = :source,
+        version = version + 1, updatedAt = :now WHERE uuid = :uuid AND version = :baseVersion"""
+    )
+    suspend fun casReplaceContent(
+        uuid: String,
+        name: String,
+        source: String,
+        baseVersion: Long,
+        now: Long
+    ): Int
+
+    /** 存在即冲突语义：版本不匹配不删。 */
+    @Query("DELETE FROM training_plan WHERE uuid = :uuid AND version = :baseVersion")
+    suspend fun deleteByVersion(uuid: String, baseVersion: Long): Int
 
     @Query("DELETE FROM training_plan WHERE uuid = :uuid")
     suspend fun deleteByUuid(uuid: String)
