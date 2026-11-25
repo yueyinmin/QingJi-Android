@@ -452,3 +452,37 @@ app/src/main/java/com/qingji/app/ui/screen/AiChatScreen.kt
 - 营养目标 CAS DAO 已就绪，但设置页尚未切到 CAS 写入路径；AI 目标提案未开放。
 - 提案确认 UI、EXECUTING 启动扫描的 App 启动时调用点未接入；当前 Manager 可通过测试/后续阶段显式调用。
 - 写工具仍禁用，满足「E 不过不开放写入」纪律。
+
+---
+
+## 14. F 阶段实施（2026-11-25）
+
+> 提交：`bf9584f feat(ai): implement F stage alias patch and matching engine`
+
+### 14.1 落地内容
+
+- 新增版本化只读资源：`app/src/main/assets/food_alias_patch/food_alias_patch_v1.json`，`schemaVersion=1`、`appliesToCatalogVersion=0.9-lxj-kcal-match`。
+- 新增 `FoodAliasPatchLoader`：从 assets 加载、校验 schema 与食物库版本；版本不匹配直接失败，调用方禁用补丁。
+- 新增 `FoodMatchingEngine`：完全命中（名称/别名/补丁别名/拼音）→ LIKE 补位 → Top20 排序 → Top5；多候选全部保留，不自动收敛；无匹配返回空。
+- `QingJiRepository` 的 AI 识别本地校正候选表并入补丁别名；补丁失败时跳过，保持旧行为。
+- 补丁只读，**不写回 `food_catalog.db`**；用户个人纠正继续走用户侧表（本轮未新增表）。
+
+### 14.2 验收
+
+| 项 | 结果 |
+|---|---|
+| 8 个样例词 | **8/8 可达**，3 个原不可达词（木樨肉/尖椒肉丝/宫爆鸡丁）通过补丁可达 |
+| 多来源 | 宫爆鸡丁保留 3 个候选，不自动选一个 |
+| 版本校验 | 食物库版本不匹配时 loader 失败，禁用补丁 |
+| 无匹配 | 返回空列表，不强行选相似食物 |
+| 新增测试 | loader 2 例 + engine 4 例 |
+| `testDebugUnitTest` | 158 suites / **1023 tests / 0 failures / 0 errors / 3 skipped** |
+| `assembleDebug` / `assembleRelease` | BUILD SUCCESSFUL |
+| 偶发项 | `BackupExportScopeTest` 首次全量跑 SQLite 指针错，复跑全绿 |
+
+### 14.3 边界
+
+- 食谱组合菜走 `food_composition` 的召回尚未接入本引擎；当前引擎覆盖标准库与补丁别名。
+- 模型辅助精排、饮食确认卡片 UI、经提案正式写入饮食记录仍属 F 后续联调项。
+- 用户个人别名/纠正表未新增；本轮只保证公共补丁不被运行时写入污染。
+- 写工具继续保持禁用。
