@@ -402,3 +402,53 @@ app/src/main/java/com/qingji/app/ui/screen/AiChatScreen.kt
 - `ai-native-on-main` 本地领先 `origin/main` 14 个提交；**未推送**。
 - 原 `feature/health-system-v1.1` 保留不动（HEAD `b69f48a`），作为历史参考。
 - 后续若发布，需先确认 Release 与版本号，再决定推送/合并方式。
+
+---
+
+## 13. E 阶段实施（2026-11-25）
+
+> 提交：`345590f feat(ai): implement E stage migration CAS and proposal manager`
+> 分支：`ai-native-on-main`（从 `origin/main 5caaa99` 移植后的线）。
+
+### 13.1 迁移编号适配
+
+- 收口报告写的是 v15→v16，因为当时设计基线是 v15。**当前 main 已是 v22**，v15→v16 已被其它功能占用。
+- 本轮按相同 SQL 语义落为 **`MIGRATION_22_23`**：主库版本 22→23，schema 导出 `23.json`，迁移链 `ALL_MIGRATIONS` 已同步。
+- 内容：`training_plan.version/updatedAt`、`user_profile.goalVersion/goalUpdatedAt`、`ai_proposal_execution`（幂等键唯一索引）、`ai_operation_log` 及索引。
+
+### 13.2 版本控制
+
+- 训练计划父表 `version` 为唯一 CAS 源，子表随父整包替换。
+- 6 个写入入口全部维护版本：`activatePlan`、`useTemplate`（委托）、`saveSessionAsTemplate`、`deactivatePlan`、`reactivatePlan`、`deletePlan`。
+- `deactivateAll` 改为 `deactivateAllWithVersion`：被停用计划全部递增版本。
+- 新增 `casSetActiveForProposal` / `casDeleteForProposal` / `planVersion` 供提案执行器使用。
+- 备份恢复沿用整包 `insertAll`，实体已含 version，不会被重置为 0。
+- `user_profile` 新增 `casUpdateGoals()`，人工目标写入与 AI 提案共用同一路径（UI 接入留后续阶段）。
+
+### 13.3 提案状态机
+
+- 新类：`ProposalManager`、`ProposalExecutor`、`PlanProposalExecutor`。
+- 主库 `ai_proposal_execution` 是唯一权威；AI 库 `ai_proposal` 只展示状态。
+- 幂等键 = 提案内容 SHA-256，唯一索引兜底重复确认。
+- 成功：主库事务内 CAS → 业务写入 → EXECUTED → 审计；提交后同步 AI 展示。
+- 失败：事务回滚后在事务外写 STALE/FAILED，避免 FAILED 被回滚抹掉。
+- `recoverExecuting()`：扫描超时 EXECUTING，按执行器判定已落库 → EXECUTED，否则 FAILED。
+- `reconcile()`：主库权威单向覆盖 AI 展示；PENDING 提案过期→EXPIRED、版本不匹配/目标缺失→STALE。
+- 恢复出厂已清空 `ai_proposal_execution` / `ai_operation_log`。
+- **写工具继续禁用**：`ToolRegistry` 仍只注册 4 个只读工具，本轮未向 Agent 暴露任何写入能力。
+
+### 13.4 验证
+
+| 项 | 结果 |
+|---|---|
+| 新增测试 | 迁移 1 组、CAS 2 例、提案 4 例 |
+| `testDebugUnitTest` | 156 suites / **1017 tests / 0 failures / 0 errors / 3 skipped** |
+| `assembleDebug` / `assembleRelease` | BUILD SUCCESSFUL |
+| 偶发项 | `BackupExportScopeTest` 首次全量跑 SQLite 指针错，复跑全绿（历史已知） |
+
+### 13.5 边界与后续
+
+- E 阶段执行器只覆盖训练计划三类（启用/停用/删除），饮食/训练内容替换执行器留 F/G。
+- 营养目标 CAS DAO 已就绪，但设置页尚未切到 CAS 写入路径；AI 目标提案未开放。
+- 提案确认 UI、EXECUTING 启动扫描的 App 启动时调用点未接入；当前 Manager 可通过测试/后续阶段显式调用。
+- 写工具仍禁用，满足「E 不过不开放写入」纪律。
