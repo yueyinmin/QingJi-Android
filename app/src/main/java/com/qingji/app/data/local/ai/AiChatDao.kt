@@ -36,6 +36,12 @@ interface AiChatDao {
     @Query("SELECT * FROM ai_message WHERE conversationId = :conversationId ORDER BY sequence ASC")
     fun observeMessages(conversationId: String): Flow<List<AiMessageEntity>>
 
+    @Query("SELECT * FROM ai_message WHERE conversationId = :conversationId ORDER BY sequence DESC LIMIT :limit")
+    fun observeRecentMessages(conversationId: String, limit: Int): Flow<List<AiMessageEntity>>
+
+    @Query("SELECT COUNT(*) FROM ai_message WHERE conversationId = :conversationId")
+    suspend fun countMessages(conversationId: String): Int
+
     @Query("SELECT * FROM ai_message WHERE conversationId = :conversationId ORDER BY sequence ASC")
     suspend fun messages(conversationId: String): List<AiMessageEntity>
 
@@ -53,4 +59,29 @@ interface AiChatDao {
         insertMessage(message)
         touchConversation(message.conversationId, message.createdAt)
     }
+
+    /** 恢复出厂时清空 AI 库；顺序先子表后主表。 */
+    @Transaction
+    suspend fun clearAll() {
+        clearToolCalls()
+        clearProposals()
+        clearTokenUsage()
+        clearMessages()
+        clearConversations()
+    }
+
+    @Query("DELETE FROM ai_tool_call")
+    suspend fun clearToolCalls()
+
+    @Query("DELETE FROM ai_proposal")
+    suspend fun clearProposals()
+
+    @Query("DELETE FROM ai_token_usage")
+    suspend fun clearTokenUsage()
+
+    @Query("DELETE FROM ai_message")
+    suspend fun clearMessages()
+
+    @Query("DELETE FROM ai_conversation")
+    suspend fun clearConversations()
 }

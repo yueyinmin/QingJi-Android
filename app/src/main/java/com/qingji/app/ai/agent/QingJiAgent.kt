@@ -7,7 +7,12 @@ import com.qingji.app.ai.ToolResult
 import com.qingji.app.data.remote.ai.AiError
 import com.qingji.app.data.remote.ai.AiMessage
 import com.qingji.app.data.remote.ai.AiProvider
+import com.qingji.app.data.remote.ai.AiRequest
+import com.qingji.app.data.remote.ai.AiResponse
+import com.qingji.app.data.remote.ai.AiStreamEvent
 import com.qingji.app.data.remote.ai.AiToolCall
+import com.qingji.app.data.remote.ai.TokenUsage
+import kotlinx.coroutines.flow.collect
 import org.json.JSONObject
 
 /**
@@ -31,7 +36,70 @@ class QingJiAgent(
     private val contextBuilder: ContextBuilder = ContextBuilder(),
     private val responseParser: AgentResponseParser = AgentResponseParser()
 ) {
-    suspend fun run(request: AgentRequest): AgentResult {
+    /** 一次性生成。保留原有调用方与测试契约。 */
+    suspend fun run(request: AgentRequest): AgentResult =
+        runWith(request) { provider.generate(it) }
+
+    /**
+     * 流式生成。工具调用轮次仍走 generate 语义（由 stream 事件拼装），
+     * 最终 answer 片段通过 [onText] 回调给 UI，立即显示。
+     */
+    suspend fun runStreaming(
+        request: AgentRequest,
+        onText: suspend (String) -> Unit
+    ): AgentResult = runWith(request) { streamOnce(it, onText) }
+
+    private suspend fun streamOnce(
+        request: AiRequest,
+        onText: suspend (String) -> Unit
+    ): AiResponse {
+        val filter = AnswerStreamFilter()
+        val rawBuffer = StringBuilder()
+        val calls = LinkedHashMap<String, AiToolCall>()
+        var usage: TokenUsage? = null
+        var streamError: AiError? = null
+
+        provider.stream(request).collect { event ->
+            when (event) {
+                is AiStreamEvent.TextDelta -> {
+                    rawBuffer.append(event.text)
+                    val visible = filter.accept(event.text)
+                    if (visible.isNotEmpty()) onText(visible)
+                }
+                is AiStreamEvent.ToolCallStarted -> calls.putIfAbsent(
+                    event.callId,
+                    AiToolCall(event.callId, event.name, "")
+                )
+                is AiStreamEvent.ToolArgumentsDelta -> {
+                    val previous = calls[event.callId]
+                    val name = previous?.name.orEmpty()
+                    calls[event.callId] = AiToolCall(
+                        event.callId,
+                        name,
+                        (previous?.arguments.orEmpty()) + event.fragment
+                    )
+                }
+                is AiStreamEvent.ToolCallCompleted -> Unit
+                is AiStreamEvent.Completed -> usage = event.usage
+                is AiStreamEvent.Failed -> streamError = event.error
+            }
+        }
+
+        streamError?.let { throw it }
+        var raw = rawBuffer.toString()
+        if (raw.isBlank()) raw = filter.finish()
+        return AiResponse(
+            content = raw,
+            usage = usage,
+            toolCalls = calls.values.toList(),
+            finishReason = if (calls.isEmpty()) "stop" else "tool_calls"
+        )
+    }
+
+    private suspend fun runWith(
+        request: AgentRequest,
+        generate: suspend (AiRequest) -> AiResponse
+    ): AgentResult {
         if (request.question.isBlank()) throw AiError.InvalidResponse("用户问题不能为空")
 
         val maxRounds = request.maxRounds.coerceAtLeast(1)
@@ -50,7 +118,7 @@ class QingJiAgent(
         var totalTools = 0
 
         for (round in 1..maxRounds) {
-            val response = provider.generate(initial.copy(messages = messages.toList()))
+            val response = generate(initial.copy(messages = messages.toList()))
             val calls = response.toolCalls
 
             if (calls.isEmpty()) {

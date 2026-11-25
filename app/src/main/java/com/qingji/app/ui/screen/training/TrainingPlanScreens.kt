@@ -81,6 +81,7 @@ fun TrainingPlanScreen(
     onBack: () -> Unit,
     /** QJ 训练联动：进独立全屏自定义计划编辑页 */
     onOpenCustomEdit: () -> Unit = {},
+    onOpenAiChat: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val plans by vm.plans.collectAsState()
@@ -106,7 +107,7 @@ fun TrainingPlanScreen(
     var showHistoryDatePicker by remember { mutableStateOf(false) }
 
     Column(modifier = modifier.fillMaxSize().background(PageBackground)) {
-        PageTopBar(title = "我的训练计划", onBack = onBack)
+        PageTopBar(title = "我的训练计划", onBack = onBack, actionText = "AI 管家", onAction = onOpenAiChat)
         Column(
             modifier = Modifier
                 .weight(1f)

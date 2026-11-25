@@ -20,6 +20,7 @@ import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -83,6 +84,8 @@ fun ProgressScreen(
     onEditExercise: (com.qingji.app.data.local.entity.ExerciseLog) -> Unit = {},
     /** P1：睡眠日记卡空态的「去记录」直达睡眠页 */
     onOpenSleepDiary: () -> Unit = {},
+    /** D 阶段：从统计页进入 AI 管家，带上页面上下文。 */
+    onOpenAiChat: () -> Unit = {},
     modifier: Modifier = Modifier,
     /** tabfix：滚动状态由 Root 持有，切 Tab 回来不丢位置。 */
     scrollState: ScrollState = rememberScrollState(),
@@ -215,6 +218,7 @@ fun ProgressScreen(
                 color = TextPrimary,
                 modifier = Modifier.weight(1f)
             )
+            TextButton(onClick = onOpenAiChat) { Text("AI 管家") }
             // v11：管理卡片入口——弹层里调进展页各卡片的顺序与显隐（参考吃有数）
             IconButton(onClick = { showCardManager = true }) {
                 Icon(

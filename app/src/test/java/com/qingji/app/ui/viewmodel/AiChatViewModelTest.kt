@@ -95,6 +95,12 @@ private class FakeAiChatStore : AiChatStore {
         }
     }
 
+    override suspend fun renameConversation(id: String, title: String) {
+        conversationsFlow.value = conversationsFlow.value.map {
+            if (it.id == id) it.copy(title = title, updatedAt = System.currentTimeMillis()) else it
+        }
+    }
+
     override suspend fun deleteConversation(id: String) {
         conversationsFlow.value = conversationsFlow.value.filterNot { it.id == id }
         messages.remove(id)
@@ -244,5 +250,56 @@ class AiChatViewModelTest {
         assertEquals(1, vm.uiState.value.messages.size)
         assertEquals("welcome", vm.uiState.value.messages[0].id)
         assertTrue(vm.uiState.value.activeConversationId != beforeClearId)
+    }
+
+    @Test
+    fun send_streamingRunner_updatesPendingTextBeforePersist() = runTest {
+        val vm = AiChatViewModel(
+            app,
+            testStore = FakeAiChatStore(),
+            testStreamRunner = { _, _, onDelta ->
+                onDelta("正在")
+                onDelta("查记录。")
+                AgentResult("正在查记录。", emptyList(), 1, emptyList())
+            },
+            testClock = { date }
+        )
+
+        vm.send("今天怎么样")
+
+        assertEquals("正在查记录。", vm.uiState.value.messages.last().text)
+        assertFalse(vm.uiState.value.messages.last().pending)
+    }
+
+    @Test
+    fun renameConversation_updatesChipTitle() = runTest {
+        val vm = AiChatViewModel(
+            app,
+            testStore = FakeAiChatStore(),
+            testRunner = { q, _ -> AgentResult(q, emptyList(), 1, emptyList()) },
+            testClock = { date }
+        )
+        vm.send("问题")
+        val id = vm.uiState.value.activeConversationId!!
+
+        vm.renameConversation(id, "今日饮食复盘")
+
+        assertEquals("今日饮食复盘", vm.uiState.value.conversations.first { it.id == id }.title)
+    }
+
+    @Test
+    fun attachImage_andVoiceResult_prepareInputWithoutWritingDb() = runTest {
+        val vm = AiChatViewModel(
+            app,
+            testStore = FakeAiChatStore(),
+            testRunner = { q, _ -> AgentResult(q, emptyList(), 1, emptyList()) },
+            testClock = { date }
+        )
+
+        vm.attachImage("YWJj")
+        vm.onVoiceResult("看看这张图")
+
+        assertEquals("YWJj", vm.uiState.value.attachedImageBase64)
+        assertEquals("看看这张图", vm.uiState.value.input)
     }
 }

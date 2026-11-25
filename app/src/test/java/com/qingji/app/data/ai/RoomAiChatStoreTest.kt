@@ -61,4 +61,27 @@ class RoomAiChatStoreTest {
             db.close()
         }
     }
+
+    @Test
+    fun renameAndClearAllWorkOnAiDatabase() = runBlocking {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val db = Room.inMemoryDatabaseBuilder(app, AiDatabase::class.java)
+            .allowMainThreadQueries()
+            .build()
+        try {
+            val store = RoomAiChatStore(db)
+            val conversation = store.createConversation("首页")
+            store.appendUserMessage("u1", conversation.id, "问题一")
+
+            store.renameConversation(conversation.id, "手动改名")
+            assertEquals("手动改名", store.conversationsOnce().single().title)
+            assertEquals(1, store.countMessages(conversation.id))
+
+            db.aiChatDao().clearAll()
+            assertTrue(store.conversationsOnce().isEmpty())
+            assertEquals(0, store.countMessages(conversation.id))
+        } finally {
+            db.close()
+        }
+    }
 }

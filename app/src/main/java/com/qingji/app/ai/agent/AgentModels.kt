@@ -25,6 +25,9 @@ data class AgentRequest(
     val date: LocalDate,
     val page: String? = null,
     val recentSummary: String? = null,
+    /** D 阶段图片输入：base64 不写库、不进日志，只在本次请求内传给模型。 */
+    val imageBase64: String? = null,
+    val imageMime: String = "image/jpeg",
     val maxRounds: Int = 4,
     val maxToolsPerRound: Int = 5,
     val maxTotalTools: Int = 10

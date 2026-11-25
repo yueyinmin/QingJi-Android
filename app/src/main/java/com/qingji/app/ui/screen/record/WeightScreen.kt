@@ -49,6 +49,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun WeightScreen(
     onBack: () -> Unit,
+    onOpenAiChat: () -> Unit = {},
     vm: WeightViewModel = viewModel()
 ) {
     val scope = rememberCoroutineScope()
@@ -102,7 +103,7 @@ fun WeightScreen(
             .fillMaxSize()
             .background(PageBackground)
     ) {
-        PageTopBar(title = "记体重", onBack = onBack)
+        PageTopBar(title = "记体重", onBack = onBack, actionText = "AI 管家", onAction = onOpenAiChat)
 
         Column(
             modifier = Modifier

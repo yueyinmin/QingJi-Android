@@ -54,7 +54,13 @@ class ContextBuilder(
             key = request.key,
             messages = listOf(
                 AiMessage.system(system),
-                AiMessage.user("用户问题：${request.question.trim()}")
+                request.imageBase64?.let { base64 ->
+                    AiMessage.userImage(
+                        text = "用户问题（附一张图片）：${request.question.trim()}",
+                        base64 = base64,
+                        mime = request.imageMime
+                    )
+                } ?: AiMessage.user("用户问题：${request.question.trim()}")
             ),
             temperature = 0.2,
             forceJsonObject = true,

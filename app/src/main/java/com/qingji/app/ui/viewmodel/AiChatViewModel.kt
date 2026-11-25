@@ -50,7 +50,10 @@ data class AiChatUiState(
     val activeConversationId: String? = null,
     val input: String = "",
     val context: String = "首页",
+    val attachedImageBase64: String? = null,
+    val attachedImageMime: String = "image/jpeg",
     val isRunning: Boolean = false,
+    val hasOlderMessages: Boolean = false,
     val error: String? = null
 ) {
     val messages: List<ChatMessageUi>
@@ -74,6 +77,7 @@ class AiChatViewModel private constructor(
     app: Application,
     injectedStore: AiChatStore?,
     injectedRunner: (suspend (String, String) -> AgentResult)?,
+    injectedStreamRunner: (suspend (String, String, (String) -> Unit) -> AgentResult)?,
     injectedClock: (() -> LocalDate)?,
     marker: Unit = Unit
 ) : AndroidViewModel(app) {
@@ -95,16 +99,23 @@ class AiChatViewModel private constructor(
     }
 
     private val clock: () -> LocalDate = injectedClock ?: { AppClock.today() }
-    private val runner: suspend (String, String) -> AgentResult =
-        injectedRunner ?: { question, context -> runDefault(question, context) }
+    private val legacyRunner = injectedRunner
+    /** 三参 runner 支持流式片段；旧测试注入的两参 runner 自动降级为一次性结果。 */
+    private val runner: suspend (String, String, (String) -> Unit) -> AgentResult =
+        { question, context, onDelta ->
+            injectedStreamRunner?.invoke(question, context, onDelta)
+                ?: legacyRunner?.invoke(question, context)
+                ?: runDefaultStreaming(question, context, onDelta)
+        }
 
     private var job: Job? = null
     private var messagesJob: Job? = null
+    private var messageLimit = 100
 
     private val _uiState = MutableStateFlow(AiChatUiState())
     val uiState: StateFlow<AiChatUiState> = _uiState
 
-    constructor(app: Application) : this(app, null, null, null, Unit)
+    constructor(app: Application) : this(app, null, null, null, null, Unit)
 
     /** 测试注入点：替换 Agent 调用与存储，避免测试依赖网络或数据库。 */
     constructor(
@@ -112,7 +123,16 @@ class AiChatViewModel private constructor(
         testStore: AiChatStore,
         testRunner: suspend (String, String) -> AgentResult,
         testClock: () -> LocalDate
-    ) : this(app, testStore, testRunner, testClock, Unit)
+    ) : this(app, testStore, testRunner, null, testClock, Unit)
+
+    /** 流式测试注入点。 */
+    constructor(
+        app: Application,
+        testStore: AiChatStore,
+        testStreamRunner: suspend (String, String, (String) -> Unit) -> AgentResult,
+        testClock: () -> LocalDate,
+        streamMarker: Boolean = true
+    ) : this(app, testStore, null, testStreamRunner, testClock, Unit)
 
     init {
         viewModelScope.launch {
@@ -137,6 +157,28 @@ class AiChatViewModel private constructor(
         _uiState.update { it.copy(input = value, error = null) }
     }
 
+    /** 图片只留在内存里随本次请求发送，不写库、不进日志。 */
+    fun attachImage(base64: String, mime: String = "image/jpeg") {
+        if (base64.isBlank()) return
+        if (base64.length > MAX_IMAGE_BASE64_CHARS) {
+            _uiState.update { it.copy(error = "图片太大，请换一张小一些的") }
+            return
+        }
+        _uiState.update {
+            it.copy(
+                attachedImageBase64 = base64,
+                attachedImageMime = mime,
+                error = null
+            )
+        }
+    }
+
+    /** 系统语音识别结果直接填进输入框，用户可改后再发。 */
+    fun onVoiceResult(text: String) {
+        if (text.isBlank()) return
+        _uiState.update { it.copy(input = listOf(it.input, text).filter { v -> v.isNotBlank() }.joinToString(" ")) }
+    }
+
     fun setContext(context: String) {
         if (context.isBlank()) return
         _uiState.update { it.copy(context = context) }
@@ -154,11 +196,22 @@ class AiChatViewModel private constructor(
         selectConversationInternal(id)
     }
 
+    fun loadOlderMessages() {
+        messageLimit += 100
+        val id = _uiState.value.activeConversationId ?: return
+        observeMessages(id)
+    }
+
     fun newConversation() {
         viewModelScope.launch {
             val created = store.createConversation(_uiState.value.context)
             selectConversationInternal(created.id)
         }
+    }
+
+    fun renameConversation(id: String, title: String) {
+        if (title.isBlank()) return
+        viewModelScope.launch { store.renameConversation(id, title) }
     }
 
     fun deleteConversation(id: String) {
@@ -202,7 +255,17 @@ class AiChatViewModel private constructor(
             store.appendUserMessage(userId, conversationId, question)
 
             try {
-                val result = runner(question, context)
+                var streamStarted = false
+                val result = runner(question, context) { delta ->
+                    if (delta.isNotEmpty()) {
+                        _uiState.update { state ->
+                            val current = state.pendingMessage ?: return@update state
+                            val text = if (streamStarted) current.text + delta else delta
+                            streamStarted = true
+                            state.copy(pendingMessage = current.copy(text = text, pending = true))
+                        }
+                    }
+                }
                 store.appendAssistantMessage(pendingId, conversationId, result)
             } catch (e: CancellationException) {
                 store.appendErrorMessage(pendingId, conversationId, "已取消")
@@ -210,7 +273,12 @@ class AiChatViewModel private constructor(
                 store.appendErrorMessage(pendingId, conversationId, readableError(e))
             } finally {
                 _uiState.update {
-                    it.copy(isRunning = false, pendingMessage = null)
+                    it.copy(
+                        isRunning = false,
+                        pendingMessage = null,
+                        attachedImageBase64 = null,
+                        attachedImageMime = "image/jpeg"
+                    )
                 }
             }
         }
@@ -257,33 +325,69 @@ class AiChatViewModel private constructor(
         val config = repo.ensureAiAvailable(date)
         val key = repo.getApiKeyFor(config.id)
         if (key.isBlank()) throw AiError.Configuration("还没填 API Key，去 设置 → AI 服务配置")
-        val result = agent.run(
-            AgentRequest(
-                config = config,
-                key = key,
-                question = question,
-                taskType = "ai_chat",
-                date = date,
-                page = context,
-                recentSummary = repo.buildDailyFacts(date)
-            )
-        )
+        val result = agent.run(agentRequest(date, config, key, question, context))
         // 一次助手任务只扣一次额度，不按 Agent 内部轮次重复扣。
         repo.recordAiCall(date)
         return result
     }
 
+    private suspend fun runDefaultStreaming(
+        question: String,
+        context: String,
+        onDelta: (String) -> Unit
+    ): AgentResult {
+        val date = clock()
+        val config = repo.ensureAiAvailable(date)
+        val key = repo.getApiKeyFor(config.id)
+        if (key.isBlank()) throw AiError.Configuration("还没填 API Key，去 设置 → AI 服务配置")
+        val result = agent.runStreaming(agentRequest(date, config, key, question, context), onDelta)
+        repo.recordAiCall(date)
+        return result
+    }
+
+    private suspend fun agentRequest(
+        date: LocalDate,
+        config: com.qingji.app.data.local.entity.AiConfig,
+        key: String,
+        question: String,
+        context: String
+    ) = AgentRequest(
+        config = config,
+        key = key,
+        question = question,
+        taskType = "ai_chat",
+        date = date,
+        page = context,
+        recentSummary = repo.buildDailyFacts(date),
+        imageBase64 = _uiState.value.attachedImageBase64,
+        imageMime = _uiState.value.attachedImageMime
+    )
+
     private fun observeMessages(conversationId: String) {
         messagesJob?.cancel()
         messagesJob = viewModelScope.launch {
-            store.observeMessages(conversationId).collect { messages ->
-                _uiState.update { it.copy(persistedMessages = messages.map { message -> toUi(message) }) }
+            store.observeMessagesPaged(conversationId, messageLimit).collect { messages ->
+                val total = store.countMessages(conversationId)
+                _uiState.update {
+                    it.copy(
+                        persistedMessages = messages.map { message -> toUi(message) },
+                        hasOlderMessages = total > messages.size
+                    )
+                }
             }
         }
     }
 
     private fun selectConversationInternal(id: String) {
-        _uiState.update { it.copy(activeConversationId = id, pendingMessage = null, error = null) }
+        messageLimit = 100
+        _uiState.update {
+            it.copy(
+                activeConversationId = id,
+                pendingMessage = null,
+                error = null,
+                hasOlderMessages = false
+            )
+        }
         observeMessages(id)
     }
 
@@ -296,6 +400,10 @@ class AiChatViewModel private constructor(
         isError = message.isError,
         warnings = message.warnings
     )
+
+    private companion object {
+        const val MAX_IMAGE_BASE64_CHARS = 2_000_000
+    }
 
     private fun readableError(e: Throwable): String = when (e) {
         is AiError -> e.message ?: e.code

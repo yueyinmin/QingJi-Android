@@ -22,10 +22,11 @@ fun TrainingHistoryScreen(
     onEditSession: () -> Unit,
     /** 2026-11-18：补记入口，同样跳进行中页（补记模式）。 */
     onBackfill: () -> Unit = {},
+    onOpenAiChat: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxSize().background(PageBackground)) {
-        PageTopBar(title = "训练日记", onBack = onBack)
+        PageTopBar(title = "训练日记", onBack = onBack, actionText = "AI 管家", onAction = onOpenAiChat)
         TrainingDiaryContent(
             vm = vm,
             onStartTraining = onStartTraining,

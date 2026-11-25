@@ -15,6 +15,8 @@ import com.qingji.app.data.remote.ai.AiResponse
 import com.qingji.app.data.remote.ai.AiToolCall
 import com.qingji.app.data.remote.ai.AiToolChoice
 import com.qingji.app.data.remote.ai.AiToolDefinition
+import com.qingji.app.data.remote.ai.AiStreamEvent
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -271,5 +273,36 @@ class QingJiAgentTest {
         job.cancel()
 
         assertTrue(job.isCancelled)
+    }
+
+    @Test
+    fun agent_streaming_emitsOnlyAnswerTextAndKeepsConclusions() = runTest {
+        val raw = finalJson("今天热量稳定。", trust = "INFERRED")
+        val provider = object : AiProvider {
+            override suspend fun generate(request: AiRequest): AiResponse =
+                error("流式测试不应走 generate")
+
+            override fun stream(request: AiRequest) = flow {
+                emit(AiStreamEvent.TextDelta(raw.substring(0, 20)))
+                emit(AiStreamEvent.TextDelta(raw.substring(20)))
+                emit(AiStreamEvent.Completed())
+            }
+
+            override suspend fun testConnection(
+                config: com.qingji.app.data.local.entity.AiConfig,
+                key: String
+            ): ConnectionResult = ConnectionResult(true, "ok", capabilities(config))
+
+            override fun capabilities(config: com.qingji.app.data.local.entity.AiConfig) =
+                AiProviderCapabilities(chat = true, streaming = true, imageInput = false)
+        }
+        val agent = QingJiAgent(provider, ToolRegistry(), ToolExecutor(ToolRegistry()))
+        val deltas = mutableListOf<String>()
+
+        val result = agent.runStreaming(agentRequest()) { deltas.add(it) }
+
+        assertEquals("今天热量稳定。", deltas.joinToString(""))
+        assertEquals("今天热量稳定。", result.answer)
+        assertEquals(TrustLabel.INFERRED, result.conclusions.first().trust)
     }
 }

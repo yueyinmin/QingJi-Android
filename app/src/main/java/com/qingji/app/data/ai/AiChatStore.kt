@@ -29,11 +29,18 @@ interface AiChatStore {
     fun observeConversations(): Flow<List<AiConversationSummary>>
     fun observeMessages(conversationId: String): Flow<List<PersistedChatMessage>>
 
+    /** 长会话只加载最近 limit 条，避免一次性把全部消息读进内存。 */
+    fun observeMessagesPaged(conversationId: String, limit: Int): Flow<List<PersistedChatMessage>> =
+        observeMessages(conversationId)
+
+    suspend fun countMessages(conversationId: String): Int = 0
+
     suspend fun ensureConversation(entryPage: String): AiConversationSummary
     suspend fun createConversation(entryPage: String): AiConversationSummary
     suspend fun appendUserMessage(id: String, conversationId: String, text: String)
     suspend fun appendAssistantMessage(id: String, conversationId: String, result: AgentResult)
     suspend fun appendErrorMessage(id: String, conversationId: String, text: String)
     suspend fun deleteMessage(id: String)
+    suspend fun renameConversation(id: String, title: String)
     suspend fun deleteConversation(id: String)
 }

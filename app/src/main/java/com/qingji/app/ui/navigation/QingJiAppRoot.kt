@@ -570,6 +570,7 @@ fun QingJiAppRoot(
                             // P1：睡眠日记卡空态直达睡眠页
                             onOpenSleepDiary = { navController.navigate(QingJiRoutes.Sleep) },
                             privacyVm = diaryPrivacyVm,
+                            onOpenAiChat = { navController.navigate(QingJiRoutes.aiChat("统计页")) },
                             scrollState = tabScrollStates.getValue(QingJiTab.Progress),
                             weeklySummary = weeklySummary,
                             vm = progressVm
@@ -635,7 +636,10 @@ fun QingJiAppRoot(
                         )
                     }
                     composable(QingJiRoutes.Weight) {
-                        WeightScreen(onBack = { navController.popBackStack() })
+                        WeightScreen(
+                            onBack = { navController.popBackStack() },
+                            onOpenAiChat = { navController.navigate(QingJiRoutes.aiChat("身体数据")) }
+                        )
                     }
                     composable(QingJiRoutes.AiConfig) {
                         AiConfigScreen(onBack = { navController.popBackStack() })
@@ -769,7 +773,8 @@ fun QingJiAppRoot(
                             dateIso = entry.arguments?.getString("date").orEmpty(),
                             mealType = entry.arguments?.getString("mealType").orEmpty(),
                             onBack = { navController.popBackStack() },
-                            onOpenDiary = { id -> navController.navigate(QingJiRoutes.diaryEdit(id)) }
+                            onOpenDiary = { id -> navController.navigate(QingJiRoutes.diaryEdit(id)) },
+                            onOpenAiChat = { navController.navigate(QingJiRoutes.aiChat("饮食页")) }
                         )
                     }
                     // v3.3.0 运动模块：二级选运动 → 三级确认记录
@@ -830,7 +835,8 @@ fun QingJiAppRoot(
                             onBack = { navController.popBackStack() },
                             onStartTraining = { navController.navigate(QingJiRoutes.TrainingActive) },
                             onEditSession = { navController.navigate(QingJiRoutes.TrainingActive) },
-                            onBackfill = { navController.navigate(QingJiRoutes.TrainingActive) }
+                            onBackfill = { navController.navigate(QingJiRoutes.TrainingActive) },
+                            onOpenAiChat = { navController.navigate(QingJiRoutes.aiChat("训练历史")) }
                         )
                     }
                     // ---------- 训练中心 P1 ----------
@@ -875,7 +881,8 @@ fun QingJiAppRoot(
                         TrainingPlanScreen(
                             vm = planVm,
                             onBack = { navController.popBackStack() },
-                            onOpenCustomEdit = { navController.navigate(QingJiRoutes.CustomPlanEdit) }
+                            onOpenCustomEdit = { navController.navigate(QingJiRoutes.CustomPlanEdit) },
+                            onOpenAiChat = { navController.navigate(QingJiRoutes.aiChat("训练计划")) }
                         )
                     }
                     // QJ 训练联动：自定义计划独立全屏编辑页

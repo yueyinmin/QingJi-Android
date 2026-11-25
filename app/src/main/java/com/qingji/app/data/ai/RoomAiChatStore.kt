@@ -36,6 +36,16 @@ class RoomAiChatStore(
     override fun observeMessages(conversationId: String): Flow<List<PersistedChatMessage>> =
         dao.observeMessages(conversationId).map { rows -> rows.map { decode(it) } }
 
+    override fun observeMessagesPaged(
+        conversationId: String,
+        limit: Int
+    ): Flow<List<PersistedChatMessage>> =
+        dao.observeRecentMessages(conversationId, limit.coerceAtLeast(1))
+            .map { rows -> rows.asReversed().map { decode(it) } }
+
+    override suspend fun countMessages(conversationId: String): Int =
+        dao.countMessages(conversationId)
+
     suspend fun conversationsOnce(): List<AiConversationSummary> =
         dao.conversations().map { summary(it) }
 
@@ -134,6 +144,12 @@ class RoomAiChatStore(
 
     override suspend fun deleteMessage(id: String) {
         dao.deleteMessage(id)
+    }
+
+    override suspend fun renameConversation(id: String, title: String) {
+        val clean = title.trim().take(TITLE_LENGTH)
+        if (clean.isBlank()) return
+        dao.updateConversationTitle(id, clean, System.currentTimeMillis())
     }
 
     override suspend fun deleteConversation(id: String) {

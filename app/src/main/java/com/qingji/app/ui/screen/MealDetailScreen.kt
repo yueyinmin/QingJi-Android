@@ -87,6 +87,7 @@ fun MealDetailScreen(
     mealType: String,
     onBack: () -> Unit,
     onOpenDiary: (Long) -> Unit,
+    onOpenAiChat: () -> Unit = {},
     vm: MealDetailViewModel = viewModel()
 ) {
     // 导航参数喂给 ViewModel（AndroidViewModel 是系统创建的，拿不到参数）
@@ -143,6 +144,15 @@ fun MealDetailScreen(
             onBack = onBack,
             actionText = "更多",
             onAction = { showMenu = true }
+        )
+
+        Text(
+            text = "问 AI 管家这一餐",
+            fontSize = 12.sp,
+            color = QingJiGreenDark,
+            modifier = Modifier
+                .padding(horizontal = 16.dp, vertical = 4.dp)
+                .clickable { onOpenAiChat() }
         )
 
         Column(

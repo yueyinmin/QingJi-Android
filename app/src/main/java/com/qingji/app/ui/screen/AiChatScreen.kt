@@ -1,5 +1,11 @@
 package com.qingji.app.ui.screen
 
+import android.app.Activity
+import android.content.Intent
+import android.speech.RecognizerIntent
+import android.util.Base64
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -20,15 +26,21 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -60,9 +72,53 @@ fun AiChatScreen(
     val listState = rememberLazyListState()
     val quickScroll = rememberScrollState()
     val conversationScroll = rememberScrollState()
+    var renameTargetId by remember { mutableStateOf<String?>(null) }
+    var renameText by remember { mutableStateOf("") }
+    var deleteTargetId by remember { mutableStateOf<String?>(null) }
+    val appContext = LocalContext.current
+
+    val pickImage = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val bytes = runCatching {
+            appContext.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+        }.getOrNull()
+        if (bytes == null) {
+            vm.onInputChange("图片读取失败，请换一张")
+        } else {
+            val mime = appContext.contentResolver.getType(uri) ?: "image/jpeg"
+            vm.attachImage(Base64.encodeToString(bytes, Base64.NO_WRAP), mime)
+        }
+    }
+
+    val voiceLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val text = result.data
+                ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+                ?.firstOrNull()
+                .orEmpty()
+            vm.onVoiceResult(text)
+        }
+    }
+
+    fun startVoice() {
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(
+                RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+            )
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "zh-CN")
+            putExtra(RecognizerIntent.EXTRA_PROMPT, "说出你想问的，识别后可修改")
+        }
+        runCatching { voiceLauncher.launch(intent) }
+            .onFailure { vm.onInputChange("这台设备没有语音识别，请手动输入") }
+    }
 
     LaunchedEffect(context) { vm.setContext(context) }
-    LaunchedEffect(state.messages.size) {
+    LaunchedEffect(state.messages.size, state.pendingMessage?.text) {
         if (state.messages.isNotEmpty()) listState.animateScrollToItem(state.messages.lastIndex)
     }
 
@@ -107,6 +163,36 @@ fun AiChatScreen(
                         .padding(horizontal = 10.dp, vertical = 6.dp)
                 )
             }
+            val activeTitle = state.conversations.firstOrNull {
+                it.id == state.activeConversationId
+            }?.title
+            if (activeTitle != null) {
+                Text(
+                    text = "改名",
+                    fontSize = 12.sp,
+                    color = QingJiGreenDark,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(QingJiGreenLight)
+                        .clickable(enabled = !state.isRunning) {
+                            renameTargetId = state.activeConversationId
+                            renameText = activeTitle
+                        }
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                )
+                Text(
+                    text = "删除",
+                    fontSize = 12.sp,
+                    color = Color(0xFFC0392B),
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(QingJiGreenLight)
+                        .clickable(enabled = !state.isRunning && state.conversations.size > 1) {
+                            deleteTargetId = state.activeConversationId
+                        }
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                )
+            }
         }
 
         LazyColumn(
@@ -117,6 +203,23 @@ fun AiChatScreen(
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            if (state.hasOlderMessages) {
+                item {
+                    Text(
+                        text = "加载更早消息",
+                        fontSize = 12.sp,
+                        color = QingJiGreenDark,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 6.dp)
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(QingJiGreenLight)
+                            .clickable(enabled = !state.isRunning) { vm.loadOlderMessages() }
+                            .padding(vertical = 6.dp),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
+            }
             item {
                 Row(
                     modifier = Modifier.padding(vertical = 8.dp),
@@ -163,6 +266,15 @@ fun AiChatScreen(
             }
         }
 
+        if (state.attachedImageBase64 != null) {
+            Text(
+                text = "已附图片 · 发送前可继续补充问题",
+                fontSize = 12.sp,
+                color = QingJiGreenDark,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
+            )
+        }
+
         OutlinedTextField(
             value = state.input,
             onValueChange = vm::onInputChange,
@@ -181,6 +293,20 @@ fun AiChatScreen(
                 .padding(horizontal = 16.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            Button(
+                onClick = { pickImage.launch("image/*") },
+                enabled = !state.isRunning,
+                modifier = Modifier.weight(0.6f)
+            ) {
+                Text("图片")
+            }
+            Button(
+                onClick = { startVoice() },
+                enabled = !state.isRunning,
+                modifier = Modifier.weight(0.6f)
+            ) {
+                Text("语音")
+            }
             Button(
                 onClick = { if (state.isRunning) vm.cancel() else vm.send() },
                 enabled = state.isRunning || state.input.isNotBlank(),
@@ -203,6 +329,49 @@ fun AiChatScreen(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
             )
         }
+    }
+
+    val targetRenameId = renameTargetId
+    if (targetRenameId != null) {
+        AlertDialog(
+            onDismissRequest = { renameTargetId = null },
+            title = { Text("修改会话名称") },
+            text = {
+                OutlinedTextField(
+                    value = renameText,
+                    onValueChange = { renameText = it },
+                    singleLine = true,
+                    placeholder = { Text("给这段对话起个名字") }
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    vm.renameConversation(targetRenameId, renameText)
+                    renameTargetId = null
+                }) { Text("保存") }
+            },
+            dismissButton = {
+                TextButton(onClick = { renameTargetId = null }) { Text("取消") }
+            }
+        )
+    }
+
+    val targetDeleteId = deleteTargetId
+    if (targetDeleteId != null) {
+        AlertDialog(
+            onDismissRequest = { deleteTargetId = null },
+            title = { Text("删除这个会话？") },
+            text = { Text("会话会从列表里移除。删除会话不会删除长期记忆。") },
+            confirmButton = {
+                TextButton(onClick = {
+                    vm.deleteConversation(targetDeleteId)
+                    deleteTargetId = null
+                }) { Text("删除") }
+            },
+            dismissButton = {
+                TextButton(onClick = { deleteTargetId = null }) { Text("取消") }
+            }
+        )
     }
 }
 
