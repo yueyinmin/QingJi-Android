@@ -106,10 +106,22 @@ class RoomAiChatStoreTest {
                     conclusions = emptyList(),
                     rounds = 1,
                     toolExecutions = emptyList(),
-                    usage = TokenUsage(promptTokens = 120, completionTokens = 40, totalTokens = 160)
+                    usage = TokenUsage(promptTokens = 120, completionTokens = 40, totalTokens = 160),
+                    providerId = 3,
+                    modelId = "deepseek-chat",
+                    taskType = "daily_analysis"
                 )
             )
             assertEquals(1, db.aiChatDao().countAllTokenUsage())
+
+            // 验收要求：一条用量要能回答「哪个服务商、哪个模型、什么任务」
+            val row = db.aiChatDao().tokenUsageOf(conversation.id).single()
+            assertEquals("3", row.providerId)
+            assertEquals("deepseek-chat", row.modelId)
+            assertEquals("daily_analysis", row.taskType)
+            assertEquals(120, row.inputTokens)
+            assertEquals(40, row.outputTokens)
+            assertTrue(row.requestedAt > 0)
 
             store.appendAssistantMessage(
                 id = "a2",

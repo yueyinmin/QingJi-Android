@@ -135,7 +135,10 @@ class QingJiAgent(
                     rounds = round,
                     toolExecutions = executions,
                     warnings = warnings + parsed.warnings,
-                    usage = totalUsage
+                    usage = totalUsage,
+                    providerId = request.config.id,
+                    modelId = request.config.textModel,
+                    taskType = request.taskType
                 )
             }
 

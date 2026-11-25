@@ -135,11 +135,12 @@ class RoomAiChatStore(
                     AiTokenUsageEntity(
                         id = UUID.randomUUID().toString(),
                         conversationId = conversationId,
-                        providerId = "",
-                        modelId = "",
+                        // 阶段 L 验收：用量要能对上服务商与模型，否则这条记录没法复盘成本
+                        providerId = result.providerId.takeIf { it != 0 }?.toString().orEmpty(),
+                        modelId = result.modelId,
                         inputTokens = usage.promptTokens,
                         outputTokens = usage.completionTokens,
-                        taskType = "agent_chat",
+                        taskType = result.taskType.ifBlank { "agent_chat" },
                         requestedAt = System.currentTimeMillis()
                     )
                 )

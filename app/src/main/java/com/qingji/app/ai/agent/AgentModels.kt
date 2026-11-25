@@ -68,5 +68,9 @@ data class AgentResult(
      * 阶段 L：整轮对话（含多轮工具调用）累计的 Token 用量。
      * 上游没返回 usage 时是 null——**绝不按字数估算**，宁可没有数据也不造假数。
      */
-    val usage: TokenUsage? = null
+    val usage: TokenUsage? = null,
+    /** 阶段 L 验收要求：用量要能回答「哪个服务商、哪个模型、什么任务」 */
+    val providerId: Int = 0,
+    val modelId: String = "",
+    val taskType: String = ""
 )
