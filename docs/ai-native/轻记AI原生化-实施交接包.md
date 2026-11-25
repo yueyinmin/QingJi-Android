@@ -553,3 +553,47 @@ app/src/main/java/com/qingji/app/ui/screen/AiChatScreen.kt
 - 未做医学风险提示分级（如 BMI 过低/过高时的就医建议），只给数值分类。
 - 写工具继续保持禁用；本轮 8 个工具全部只读。
 
+## 17. I 阶段实施（2026-11-25）
+
+> 提交：`e7e4c9d feat(ai): implement I stage long-term memory and management`
+
+### 17.1 落地内容
+
+- AI 库 v1 → v2：新增 `ai_memory` 表（分类/内容/可信度/来源/来源 id/置信度/状态/过期时间/去重键），三个索引（类别、状态、去重键唯一）；`MIGRATION_1_2` 只加表不动老表，schema `2.json` 已导出。
+- 新增 `domain/memory/MemoryModels.kt`：`MemoryCategory`（偏好/训练/饮食/目标/事件/推断）、`MemoryTruth`（USER_FACT / CONFIRMED / INFERRED）、`MemorySource`、`MemoryStatus`、`MemoryRecord`、`MemoryNote`、`MemoryInjection`。
+- 新增 `MemoryStore` + `RoomMemoryStore`：只做实体↔领域转换；`insert` 唯一键冲突返回 false（幂等）。
+- 新增 `MemoryManager`：
+  - 只有句首「记住 / 帮我记住 / 记一下 / 以后都…」才触发写入，标 USER_FACT；正文里的「记住」不算；聊天正文不会自动收集。
+  - AI 推断只能以 INFERRED 落库，置信度上限 0.8，已有同内容用户事实时拒绝覆盖；**没有任何自动升级路径**，必须 `confirm()` 显式确认（INFERRED → CONFIRMED）。
+  - 按任务检索：饮食页只读饮食/偏好；训练页读训练/偏好/目标；身体/统计读目标/偏好；推断类最多注入 1 条。
+  - 条数（6）与字数（500）双预算，超了标 `truncated`。
+  - 纠正、失效、删除、过期扫描（`expiresAt` 到期标 EXPIRED，不再注入）。
+  - 去重键 = 类别 + 去空白标点小写内容的 SHA-256。
+- 新增 `AiMemoryPrefs`（独立 DataStore）：每个话题类的「不再记住这类内容」开关，只影响以后的新记忆。
+- `ContextBuilder` 注入长期记忆：逐条带 `[可信度][类别]`，并新增 3 条硬规则（记忆不是本轮发言、推断不能单独下结论、不要复述全部记忆）。
+- `AiChatViewModel`：发送时若用户说「记住…」则写入并提示「已记住」；构造请求时按页面检索记忆注入。
+- 删除会话不删记忆（`deleteConversation` 只软删会话）；恢复出厂清 `ai_memory` + 记忆开关。
+- 新增记忆管理页 `MemoryScreen` + `MemoryViewModel`：类别筛选、纠正、失效、删除（二次确认）、推断确认、类别开关；聊天页常驻「记忆」入口。
+
+### 17.2 验证
+
+| 项 | 结果 |
+|---|---|
+| 迁移 1→2 | 老会话数据保留、记忆表可写、三个索引齐全 |
+| 写入边界 | 只有句首触发词写 USER_FACT；正文「记住」不触发；重复内容不写第二遍 |
+| 推断边界 | 推断只能 INFERRED，置信度 >0.8 拒绝；用户事实不可被推断覆盖；确认后才 CONFIRMED |
+| 检索边界 | 饮食问题读不到训练记忆；失效/过期不注入；推断最多 1 条；条数/字数截断 |
+| 会话与记忆 | 删除会话后记忆仍在；恢复出厂才清空 |
+| 新增测试 | 规则 17 例 + 存储 4 例 + 迁移 2 例 + 注入 3 例 |
+| `testDebugUnitTest` | 166 suites / **1074 tests / 0 failures / 0 errors / 3 skipped** |
+| `assembleDebug` / `assembleRelease` | BUILD SUCCESSFUL |
+| 偶发项 | `BackupExportScopeTest`、`TrainingViewModelB112Test` 首次全量跑偶发失败，复跑全绿 |
+
+### 17.3 边界
+
+- 没有自动观察入口：本阶段不会「偷偷」从对话里总结记忆，写工具仍禁用；`captureInferred` 只留给后续阶段调用。
+- 备份/恢复时 sourceRef 失效的校验归 K 阶段；记忆随 AI 库整体备份。
+- 记忆条数上限与默认过期时间留到 L 阶段按性能定；当前默认不过期，靠用户手动失效/删除。
+- 没有做「删除会话时同时删除相关记忆」的二次确认流程，只保证两者互不影响。
+
+
