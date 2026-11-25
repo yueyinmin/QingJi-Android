@@ -597,3 +597,52 @@ app/src/main/java/com/qingji/app/ui/screen/AiChatScreen.kt
 - 没有做「删除会话时同时删除相关记忆」的二次确认流程，只保证两者互不影响。
 
 
+## 18. J 阶段实施（2026-11-25）
+
+> 提交：`feat(ai): implement J stage proactive nudge`（见 `git log`）
+
+### 18.1 落地内容
+
+- AI 库 v2 → v3：新增 `ai_nudge` 表（类别/触发原因/日期键/标题/正文/关键数字/是否需分析/反馈状态/发送时间），三个索引；其中 `(kind, dateKey)` 是**唯一索引**，一天同一类提醒只可能落一条。`MIGRATION_2_3` 只加表不动老表，schema `3.json` 已导出。
+- 新增 `domain/nudge/NudgeModels.kt`：`NudgeKind`（四类 + 优先级）、`NudgeReason`（六种触发细节）、`NudgeFacts`（本地事实快照）、`NudgePolicy`（开关/额度/静默时段/冷却）、`NudgeSkipReason`、`NudgeDecision`、`NudgeRecord`。
+- 新增 `domain/nudge/NudgeRuleEngine.kt`（纯函数，无 IO）：
+  - 记录不完整：20:00 后今天饮食记录 ≤1 条；
+  - 蛋白不足：19:00 后、蛋白目标已设、今天 ≥2 餐、蛋白 < 目标 60%；
+  - 计划未完成：20:00 后、有启用计划、今天有安排（休息日不算）、还没有训练记录；
+  - 体重偏离：目标体重已设、最新记录不超过 3 天、离目标 >0.5kg；近 7 天均值比前 3 周均值反向漂移 ≥0.4kg 判「方向相反」，14 天内峰谷差 ≤0.3kg 且离目标 >1kg 判「停滞」。
+  - 一天只发一条：四类按优先级排序取最高；被关掉或在冷却的自动顺延到下一条，全都不可用就沉默。
+  - 三种「不说话」的理由分开记：`NO_TRIGGER`（判断过且正常）/ `INSUFFICIENT_DATA`（一条都没法判断）/ `COOLDOWN`。
+- 新增 `data/prefs/NudgePrefs.kt`（独立 DataStore `ai_nudge_prefs`）：总开关、单类开关、每天 1～2 条、静默时段（默认 22:00～08:00，支持跨午夜，起止相同视为关闭）。
+- 新增 `data/ai/NudgeStore.kt` + `RoomNudgeStore.kt`：只做存取与实体转换；`insert` 返回 false 即「今天这条已经发过」。
+- 新增 `ai/nudge/NudgeFactsSource.kt`（读事实的接口 + 策略来源 + 静默期计算）、`RepositoryNudgeFactsSource.kt`（复用现有 Repository 查询：今日 `food_log`、`weight_log` 近 28 天、`workout_session` 今日、`todayPlanExercises()`、`user_profile` 目标）、`NudgeManager.kt`。
+- 关键边界：**NudgeManager 不调用任何模型**。进页面只跑本地规则，文案由规则层用本地数字拼出；只有用户主动点「让管家看看」，才把该条提醒里的几个数字变成问题发进对话（走已有只读工具）。
+- 接入点：
+  - `AiChatViewModel`：`loadNudge()`（每次进页面算一次）/`dismissNudge()`/`askAboutNudge()`；`AiChatUiState.nudge` 驱动卡片；测试注入 store 时不启用（不碰真库）。
+  - 聊天页新增「管家提醒」卡片（`ui/components/NudgeCard.kt`）与常驻「提醒」入口。
+  - 新增 `ui/screen/NudgeScreen.kt` + `ui/viewmodel/NudgeViewModel.kt`：开关、每日条数、静默时段三档、四类单独开关、最近 30 条历史（可单条删除 / 整体清空）。
+  - 路由 `QingJiRoutes.AiNudge = "ai_nudge"`，已加入全屏路由集合。
+  - 恢复出厂：`AiChatDao.clearAll()` 增加清 `ai_nudge`，`NudgePrefs.clear()` 与其他独立 DataStore 一起清。
+
+### 18.2 验证
+
+| 项 | 结果 |
+|---|---|
+| 迁移 2→3 | 会话与记忆老数据保留、提醒表可写、三个索引齐全、同类同日第二次写入被唯一索引拦下 |
+| 闭嘴上限 | 总开关关闭 / 静默时段（含跨午夜 22:00–08:00 与 21:00–07:00）/ 当天额度用完 / 同类冷却（含体重 72 小时冷却）全部不落库 |
+| 四类触发 | 记录不完整、蛋白不足、计划未完成、体重方向相反、体重停滞各有正反用例；休息日、已训练、只吃一餐、没设目标、记录超过 3 天均不误报 |
+| 优先级与顺延 | 体重 > 计划 > 蛋白 > 记录；最高优先级被关掉或在冷却时顺延到下一条；全不可用则沉默 |
+| 去重 | 同一 manager 连续两次 `check()` 只落一条（第二次额度/冷却拦下）；`checkRecord()` 第二次返回 null |
+| 降级 | 事实来源抛异常 → `INSUFFICIENT_DATA`，不崩、不落库 |
+| 隐私边界 | `analysisPrompt` 只带本地算好的键值对与「先核对再说建议」，不带原始记录明细 |
+| 新增测试 | 规则 26 例 + 管家流程 10 例 + 迁移 2 例 |
+| `testDebugUnitTest` | 169 suites / **1110 tests / 0 errors / 3 skipped**；唯一失败是既有偶发（见下） |
+| `assembleDebug` / `assembleRelease` | BUILD SUCCESSFUL |
+| 既有偶发（非本阶段引入） | `BackupExportScopeTest` 在全量跑时抛 Robolectric `Illegal connection pointer`；用基线提交 `d4c1e55` 的 worktree 全量复现同一条失败（1074 tests 同一条），单跑与「AI 迁移 + 备份」组合跑均通过 → 既有测试隔离问题（主库单例跨类残留），留给 L 阶段处理 |
+
+### 18.3 边界
+
+- 不做后台定时检查、不发系统通知、不弹窗：只有用户打开管家页那一刻才判断一次，避免「每次开 App 都打扰」。
+- 不做「记录不完整」以外的数据补全建议：卡只说事实与差额，不替用户排菜单。
+- 提醒只落在管家页顶部，首页/其他业务页不插入卡片（K 阶段要统一入口时再评估）。
+- 静默时段只提供三档预设，不开放任意时刻编辑；体重偏离的冷却固定 72 小时，不可单独调。
+- 写工具继续保持禁用；本轮仍未新增任何写工具（8 个工具全部只读）。
