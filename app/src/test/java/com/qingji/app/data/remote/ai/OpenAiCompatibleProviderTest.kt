@@ -16,6 +16,7 @@ import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
@@ -200,11 +201,21 @@ class OpenAiCompatibleProviderTest {
     }
 
     @Test
+    fun generate_plainTextResponse_isAllowedWhenJsonNotForced() = runTest {
+        server.enqueue(MockResponse().setBody("这是一段普通分析回复"))
+
+        val response = OpenAiCompatibleProvider().generate(simpleRequest())
+
+        assertEquals("这是一段普通分析回复", response.content)
+        assertNull(response.usage)
+    }
+
+    @Test
     fun generate_invalidJson_throwsInvalidResponse() = runTest {
         server.enqueue(MockResponse().setBody("{not-json"))
 
         try {
-            OpenAiCompatibleProvider().generate(simpleRequest())
+            OpenAiCompatibleProvider().generate(simpleRequest().copy(forceJsonObject = true))
             fail("Expected AiError.InvalidResponse")
         } catch (e: AiError.InvalidResponse) {
             assertEquals("INVALID_RESPONSE", e.code)

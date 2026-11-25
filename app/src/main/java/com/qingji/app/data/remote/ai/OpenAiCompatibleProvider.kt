@@ -45,7 +45,7 @@ class OpenAiCompatibleProvider(
             bodyJson = body,
             allowFallback = request.forceJsonObject
         )
-        val parsed = parseResponse(http.body)
+        val parsed = parseResponse(http.body, requireJson = request.forceJsonObject)
         markCapability(request.config, model, request.messages.hasImagePart())
         return AiResponse(content = parsed.first, model = model, usage = parsed.second)
     }
@@ -60,7 +60,7 @@ class OpenAiCompatibleProvider(
             }.toString()
 
             val http = call(config, key, body, allowFallback = false)
-            parseResponse(http.body)
+            parseResponse(http.body, requireJson = false)
             val capabilities = AiProviderCapabilities(
                 chat = true,
                 streaming = false,
@@ -205,11 +205,18 @@ class OpenAiCompatibleProvider(
         return if (raw.endsWith("/chat/completions")) raw else "$raw/chat/completions"
     }
 
-    private fun parseResponse(raw: String): Pair<String, TokenUsage?> {
+    private fun parseResponse(raw: String, requireJson: Boolean): Pair<String, TokenUsage?> {
+        val trimmed = raw.trim()
+        if (trimmed.isBlank()) throw AiError.InvalidResponse("AI 返回内容为空")
+
         val root = try {
-            JSONObject(raw)
+            JSONObject(trimmed)
         } catch (e: JSONException) {
-            throw AiError.InvalidResponse("返回内容不是合法 JSON：${raw.take(80)}")
+            if (requireJson) {
+                throw AiError.InvalidResponse("返回内容不是合法 JSON：${trimmed.take(80)}")
+            }
+            // 分析类请求允许纯文本回复；识别类请求会把文本交给 AiRecognitionParser 再抠 JSON。
+            return trimmed to null
         }
 
         val content = root.optJSONArray("choices")
@@ -218,7 +225,7 @@ class OpenAiCompatibleProvider(
             ?.optString("content")
             ?.takeIf { it.isNotBlank() }
             ?: root.optString("content").takeIf { it.isNotBlank() }
-            ?: throw AiError.InvalidResponse("返回内容缺少 content")
+            ?: trimmed
 
         val usageObject = root.optJSONObject("usage")
         val usage = usageObject?.let {

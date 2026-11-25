@@ -31,6 +31,13 @@ import com.qingji.app.data.remote.AiClient
 import com.qingji.app.data.remote.AiException
 import com.qingji.app.data.remote.AiRecognitionResult
 import com.qingji.app.data.remote.OpenFoodFactsClient
+import com.qingji.app.data.remote.ai.AiError
+import com.qingji.app.data.remote.ai.AiMessage
+import com.qingji.app.data.remote.ai.AiPrompts
+import com.qingji.app.data.remote.ai.AiProvider
+import com.qingji.app.data.remote.ai.AiRecognitionParser
+import com.qingji.app.data.remote.ai.AiRequest
+import com.qingji.app.data.remote.ai.OpenAiCompatibleProvider
 import com.qingji.app.domain.AiResultRules
 import com.qingji.app.domain.NutritionMatch
 import com.qingji.app.domain.OmniFoodDetail
@@ -44,6 +51,7 @@ import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * ============================================================
@@ -61,10 +69,12 @@ class QingJiRepository(
     /** V2.1阶段A4：独立数据库注入（仅测试用；生产 null 走进程单例）。 */
     private val dbOverride: com.qingji.app.data.local.AppDatabase? = null,
     /**
-     * QJ-AI-HISTORY-DATE-V1：仅测试注入的文本分析执行器（生产 null 走 AiClient）。
+     * QJ-AI-HISTORY-DATE-V1：仅测试注入的文本分析执行器（生产 null 走 AiProvider）。
      * 用于在单测里捕获真正发给模型的 facts，验证历史日期数据未串到今天。
      */
-    private val analyzeExecutor: (suspend (AiConfig, String, String) -> Result<String>)? = null
+    private val analyzeExecutor: (suspend (AiConfig, String, String) -> Result<String>)? = null,
+    /** B01：AI 服务提供者，生产走 OpenAI 兼容实现。 */
+    private val aiProvider: AiProvider = OpenAiCompatibleProvider()
 ) {
 
     /** 用户自己的数据（可写） */
@@ -73,10 +83,9 @@ class QingJiRepository(
     private val catalog = FoodCatalogDatabase.get(context)
     /**
      * QJ-GOV-2026-04 / P2-03：网络客户端延迟初始化。
-     * 本地只读场景（读档案/体重/历史）不再构造 OkHttp/AiClient，
+     * 本地只读场景（读档案/体重/历史）不再构造 OkHttp 客户端，
      * 首次真正调用 AI 或条码查询时才创建。数据库/标准库仍是进程单例，不重复创建。
      */
-    private val aiClient: AiClient by lazy { AiClient() }
     private val foodApi: OpenFoodFactsClient by lazy { OpenFoodFactsClient() }
 
     private val catalogDao = catalog.catalogDao()
@@ -202,6 +211,41 @@ class QingJiRepository(
                 }
             }
     suspend fun getAiConfig(): AiConfig? = getActiveAiConfig()
+
+    /**
+     * B01：所有 AI 识别统一走 AiProvider。
+     * 保留旧的 Result<AiRecognitionResult> 契约，ViewModel 与屏幕不需要改调用方式。
+     */
+    private suspend fun recognizeWithProvider(
+        config: AiConfig,
+        key: String,
+        systemPrompt: String,
+        userMessage: AiMessage,
+        temperature: Double,
+        forceJsonObject: Boolean
+    ): Result<AiRecognitionResult> = try {
+        val response = aiProvider.generate(
+            AiRequest(
+                config = config,
+                key = key,
+                messages = listOf(AiMessage.system(systemPrompt), userMessage),
+                temperature = temperature,
+                forceJsonObject = forceJsonObject
+            )
+        )
+        Result.success(AiRecognitionParser.parse(response.content))
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: AiError) {
+        Result.failure(e.toLegacy())
+    } catch (e: AiException) {
+        Result.failure(e)
+    } catch (e: Exception) {
+        Result.failure(AiException("连不上 AI 服务：${e.message?.take(100) ?: "未知错误"}"))
+    }
+
+    private fun AiError.toLegacy(): AiException =
+        AiException(message ?: code)
 
     // ---------- 首页当天数据 ----------
     fun observeDailySummary(date: LocalDate): Flow<DailySummary?> = db.foodLogDao().observeDailySummary(date)
@@ -975,8 +1019,16 @@ class QingJiRepository(
             )
         }
 
-        val rule = buildRecognitionRules() + "\n\n" + extraRule
-        val result = aiClient.recognizeText(config, getApiKeyFor(config.id), description, rule)
+        val rule = AiPrompts.SYSTEM_PROMPT + "\n\n用户偏好（优先遵守）：\n" +
+            buildRecognitionRules() + "\n\n" + extraRule
+        val result = recognizeWithProvider(
+            config = config,
+            key = getApiKeyFor(config.id),
+            systemPrompt = rule,
+            userMessage = AiMessage.user(description),
+            temperature = 0.1,
+            forceJsonObject = true
+        )
         if (result.isSuccess) {
             db.usageStatDao().increment(date, "ai")
             return Result.success(correctWithLocalFood(result.getOrThrow()))
@@ -1172,7 +1224,15 @@ class QingJiRepository(
             )
         }
 
-        val result = aiClient.recognizeText(config, getApiKeyFor(config.id), input, buildRecognitionRules())
+        val rule = AiPrompts.SYSTEM_PROMPT + "\n\n用户偏好（优先遵守）：\n" + buildRecognitionRules()
+        val result = recognizeWithProvider(
+            config = config,
+            key = getApiKeyFor(config.id),
+            systemPrompt = rule,
+            userMessage = AiMessage.user(input),
+            temperature = 0.1,
+            forceJsonObject = true
+        )
         if (result.isSuccess) {
             db.usageStatDao().increment(date, "ai")
             return Result.success(correctWithLocalFood(result.getOrThrow()))
@@ -1181,8 +1241,17 @@ class QingJiRepository(
     }
 
     /** 测试连接不走熔断计数，也不要求「已启用」。 */
-    suspend fun testConnection(config: AiConfig, key: String): Result<String> =
-        aiClient.testConnection(config, key)
+    suspend fun testConnection(config: AiConfig, key: String): Result<String> = try {
+        val result = aiProvider.testConnection(config, key)
+        if (result.success) Result.success(result.message)
+        else Result.failure(AiException(result.message))
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: AiError) {
+        Result.failure(e.toLegacy())
+    } catch (e: Exception) {
+        Result.failure(AiException("连不上：${e.message?.take(100) ?: "未知错误"}"))
+    }
 
     /** 图片识别和分析共用的一道闸：没配 / 没启用 / 超上限都在这里挡住。 */
     private suspend fun requireAi(date: LocalDate): AiConfig {
@@ -1198,7 +1267,15 @@ class QingJiRepository(
     /** 图片识别（M3.2）。成功才计一次 AI 调用，失败不扣额度。 */
     suspend fun recognizeImage(base64Jpeg: String, date: LocalDate): Result<AiRecognitionResult> = try {
         val config = requireAi(date)
-        val result = aiClient.recognizeImage(config, getApiKeyFor(config.id), base64Jpeg, buildRecognitionRules())
+        val rule = AiPrompts.VISION_PROMPT + "\n\n用户偏好（优先遵守）：\n" + buildRecognitionRules()
+        val result = recognizeWithProvider(
+            config = config,
+            key = getApiKeyFor(config.id),
+            systemPrompt = rule,
+            userMessage = AiMessage.userImage("识别这份食物并估算份量", base64Jpeg),
+            temperature = 0.1,
+            forceJsonObject = false
+        )
         if (result.isSuccess) {
             db.usageStatDao().increment(date, "ai")
             Result.success(correctWithLocalFood(result.getOrThrow()))
@@ -1258,12 +1335,27 @@ class QingJiRepository(
         val result = if (analyzeExecutor != null) {
             analyzeExecutor(config, getApiKeyFor(config.id), facts)
         } else {
-            aiClient.analyze(config, getApiKeyFor(config.id), facts)
+            val response = aiProvider.generate(
+                AiRequest(
+                    config = config,
+                    key = getApiKeyFor(config.id),
+                    messages = listOf(
+                        AiMessage.system(AiPrompts.ANALYSIS_RULE),
+                        AiMessage.user(facts)
+                    ),
+                    temperature = config.temperature,
+                    forceJsonObject = false
+                )
+            )
+            val text = response.content.replace("```json", "").replace("```", "").trim()
+            Result.success(text.ifBlank { "AI 没有给出内容，换个时间范围再试" })
         }
         if (result.isSuccess) db.usageStatDao().increment(usageDate, "ai")
         result
     } catch (e: AiException) {
         Result.failure(e)
+    } catch (e: Exception) {
+        Result.failure(AiException("连不上 AI 服务：${e.message?.take(100) ?: "未知错误"}"))
     }
 
     /**
