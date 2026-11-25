@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.qingji.app.ai.agent.TrustLabel
+import com.qingji.app.ui.components.NudgeCard
 import com.qingji.app.ui.components.PageTopBar
 import com.qingji.app.ui.theme.CardWhite
 import com.qingji.app.ui.theme.PageBackground
@@ -67,6 +68,7 @@ fun AiChatScreen(
     onBack: () -> Unit,
     context: String = "首页",
     onOpenMemory: () -> Unit = {},
+    onOpenNudge: () -> Unit = {},
     vm: AiChatViewModel = viewModel()
 ) {
     val state by vm.uiState.collectAsState()
@@ -119,6 +121,8 @@ fun AiChatScreen(
     }
 
     LaunchedEffect(context) { vm.setContext(context) }
+    // 阶段 J：进页面才算一次提醒，且只跑本地规则
+    LaunchedEffect(context) { vm.loadNudge() }
     LaunchedEffect(state.messages.size, state.pendingMessage?.text) {
         if (state.messages.isNotEmpty()) listState.animateScrollToItem(state.messages.lastIndex)
     }
@@ -205,6 +209,17 @@ fun AiChatScreen(
                     .clickable(enabled = !state.isRunning) { onOpenMemory() }
                     .padding(horizontal = 10.dp, vertical = 6.dp)
             )
+            // 阶段 J：提醒入口（开关 + 历史），关掉之后这里也不会再出现卡片
+            Text(
+                text = "提醒",
+                fontSize = 12.sp,
+                color = QingJiGreenDark,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(QingJiGreenLight)
+                    .clickable(enabled = !state.isRunning) { onOpenNudge() }
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
+            )
         }
 
         LazyColumn(
@@ -254,14 +269,25 @@ fun AiChatScreen(
             }
         }
 
+        // 阶段 J：本地规则算出来的主动提醒。一天最多一条，说完就不再出现。
+        state.nudge?.let { nudge ->
+            NudgeCard(
+                title = nudge.title,
+                body = nudge.body,
+                canAnalyze = nudge.needsAnalysis,
+                enabled = !state.isRunning,
+                onAsk = { vm.askAboutNudge() },
+                onDismiss = { vm.dismissNudge() }
+            )
+        }
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .horizontalScroll(quickScroll)
                 .padding(horizontal = 16.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            listOf("我今天吃得怎么样？", "这周训练怎么样？", "我的训练计划是什么？").forEach { question ->
+        ) {            listOf("我今天吃得怎么样？", "这周训练怎么样？", "我的训练计划是什么？").forEach { question ->
                 Text(
                     text = question,
                     fontSize = 12.sp,

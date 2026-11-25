@@ -70,6 +70,7 @@ interface AiChatDao {
         clearMessages()
         clearConversations()
         clearMemories()
+        clearNudges()
     }
 
     // ---------- 阶段 E：提案展示状态（权威仍在主库 ai_proposal_execution） ----------
@@ -107,4 +108,8 @@ interface AiChatDao {
     /** 阶段 I：长期记忆也要清；删会话不等于删记忆，只有恢复出厂才整表清。 */
     @Query("DELETE FROM ai_memory")
     suspend fun clearMemories()
+
+    /** 阶段 J：主动提醒的历史与频控记录同样属于 AI 数据，恢复出厂一起清。 */
+    @Query("DELETE FROM ai_nudge")
+    suspend fun clearNudges()
 }

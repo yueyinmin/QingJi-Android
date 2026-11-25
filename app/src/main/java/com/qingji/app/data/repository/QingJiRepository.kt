@@ -1662,6 +1662,8 @@ class QingJiRepository(
         SettingsStore.clear(context)
         // 阶段 I：长期记忆的「不再记住此类」开关也在独立 DataStore 里，一并清
         com.qingji.app.data.prefs.AiMemoryPrefs.clear(context)
+        // 阶段 J：主动提醒的开关与静默时段同样单独存，恢复出厂要一起回到默认
+        com.qingji.app.data.prefs.NudgePrefs.clear(context)
         // 训练草稿与 kg/lb 偏好（SharedPreferences，跟 DataStore 不是一个地方）
         com.qingji.app.data.prefs.WorkoutDraftStore(context).clearAll()
         // Key 在 AndroidKeyStore 加密存储里，跟 DataStore 是两个地方（清全部服务 + 旧字段）

@@ -10,6 +10,8 @@ import com.qingji.app.ai.agent.AgentResult
 import com.qingji.app.ai.agent.AgentToolExecution
 import com.qingji.app.ai.agent.QingJiAgent
 import com.qingji.app.ai.memory.MemoryManager
+import com.qingji.app.ai.nudge.NudgeManager
+import com.qingji.app.ai.nudge.RepositoryNudgeFactsSource
 import com.qingji.app.ai.tools.ReadonlyToolFactory
 import com.qingji.app.data.ai.AiChatStore
 import com.qingji.app.data.ai.AiConversationSummary
@@ -17,14 +19,17 @@ import com.qingji.app.data.ai.MemoryStore
 import com.qingji.app.data.ai.PersistedChatMessage
 import com.qingji.app.data.ai.RoomAiChatStore
 import com.qingji.app.data.ai.RoomMemoryStore
+import com.qingji.app.data.ai.RoomNudgeStore
 import com.qingji.app.data.local.ai.AiDatabase
 import com.qingji.app.data.prefs.AiMemoryPrefs
+import com.qingji.app.data.prefs.NudgePrefs
 import com.qingji.app.data.remote.ai.AiError
 import com.qingji.app.data.remote.ai.OpenAiCompatibleProvider
 import com.qingji.app.data.repository.HealthRepository
 import com.qingji.app.data.repository.QingJiRepository
 import com.qingji.app.data.repository.TrainingRepository
 import com.qingji.app.domain.AppClock
+import com.qingji.app.domain.nudge.NudgeRecord
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -60,6 +65,8 @@ data class AiChatUiState(
     val hasOlderMessages: Boolean = false,
     /** 刚记住的内容，展示一行提示后自动消失；null = 没有新记忆 */
     val justRemembered: String? = null,
+    /** 阶段 J：本地规则算出的主动提醒；null = 这次没什么要说的 */
+    val nudge: NudgeRecord? = null,
     val error: String? = null
 ) {
     val messages: List<ChatMessageUi>
@@ -109,6 +116,26 @@ class AiChatViewModel private constructor(
     }
 
     private val clock: () -> LocalDate = injectedClock ?: { AppClock.today() }
+    /**
+     * 阶段 J：主动管家。只在真实存储下启用——测试注入的 store 意味着不碰 Room，
+     * 这时如果去查提醒会顺带把真库拉起来，测试就不纯粹了。
+     */
+    private val nudgeManager: NudgeManager? by lazy {
+        if (!usesRealStore) {
+            null
+        } else {
+            NudgeManager(
+                store = RoomNudgeStore(AiDatabase.get(app)),
+                factsSource = RepositoryNudgeFactsSource(
+                    repo = repo,
+                    training = TrainingRepository(app)
+                ),
+                policySource = { NudgePrefs.policy(app) }
+            )
+        }
+    }
+    /** 提醒每次进页面只算一次，避免来回切页重复判断。 */
+    private var nudgeLoaded = false
     private val legacyRunner = injectedRunner
     /** 三参 runner 支持流式片段；旧测试注入的两参 runner 自动降级为一次性结果。 */
     private val runner: suspend (String, String, (String) -> Unit) -> AgentResult =
@@ -187,6 +214,41 @@ class AiChatViewModel private constructor(
     fun onVoiceResult(text: String) {
         if (text.isBlank()) return
         _uiState.update { it.copy(input = listOf(it.input, text).filter { v -> v.isNotBlank() }.joinToString(" ")) }
+    }
+
+    /**
+     * 阶段 J：进页面时算一次主动提醒。
+     *
+     * 注意这里**只跑本地规则**，不联网；而且只在用户真正打开管家页时才跑，
+     * 不做后台定时检查——不主动弹窗、不推通知，避免变成骚扰。
+     */
+    fun loadNudge() {
+        val manager = nudgeManager ?: return
+        if (nudgeLoaded) return
+        nudgeLoaded = true
+        viewModelScope.launch {
+            val record = runCatching { manager.checkRecord() }.getOrNull()
+            _uiState.update { it.copy(nudge = record) }
+        }
+    }
+
+    /** 用户点「知道了」：只改反馈状态，不删历史。 */
+    fun dismissNudge() {
+        val record = _uiState.value.nudge ?: return
+        _uiState.update { it.copy(nudge = null) }
+        viewModelScope.launch { runCatching { nudgeManager?.dismiss(record.id) } }
+    }
+
+    /**
+     * 用户点「让管家看看」：把提醒里已经算好的数字变成一个问题发出去。
+     * 这是唯一会因此产生网络请求的入口，必须用户亲手点。
+     */
+    fun askAboutNudge() {
+        val record = _uiState.value.nudge ?: return
+        val manager = nudgeManager ?: return
+        _uiState.update { it.copy(nudge = null) }
+        viewModelScope.launch { runCatching { manager.markActed(record.id) } }
+        send(manager.analysisPrompt(record))
     }
 
     fun setContext(context: String) {

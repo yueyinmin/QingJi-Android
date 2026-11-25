@@ -696,12 +696,19 @@ fun QingJiAppRoot(
                         AiChatScreen(
                             onBack = { navController.popBackStack() },
                             context = context,
-                            onOpenMemory = { navController.navigate(QingJiRoutes.AiMemory) }
+                            onOpenMemory = { navController.navigate(QingJiRoutes.AiMemory) },
+                            onOpenNudge = { navController.navigate(QingJiRoutes.AiNudge) }
                         )
                     }
                     // 阶段 I：长期记忆管理（查看/纠正/失效/删除/关类别）
                     composable(route = QingJiRoutes.AiMemory) {
                         com.qingji.app.ui.screen.MemoryScreen(
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
+                    // 阶段 J：管家提醒设置与历史（开关/静默时段/每日条数/回看）
+                    composable(route = QingJiRoutes.AiNudge) {
+                        com.qingji.app.ui.screen.NudgeScreen(
                             onBack = { navController.popBackStack() }
                         )
                     }

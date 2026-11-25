@@ -52,6 +52,8 @@ object QingJiRoutes {
     fun aiChat(context: String = "首页") = "ai_chat/$context"
     /** 阶段 I：AI 长期记忆管理页（查看/纠正/失效/删除/关类别）。 */
     const val AiMemory = "ai_memory"
+    /** 阶段 J：管家提醒的设置与历史（开关/静默时段/条数/回看）。 */
+    const val AiNudge = "ai_nudge"
     /** M9 数据备份 / 导出 / 导入。 */
     const val Backup = "backup"
     /** 0 = 新写一篇；大于 0 = 编辑已有那篇的 id。 */
@@ -142,7 +144,7 @@ object QingJiRoutes {
     /** 这些是全屏子页面：打开时不显示底部导航栏。 */
     val fullScreenRoutes = setOf(
         Settings, SearchFood, TextAi, Weight, AiConfig, Profile,
-        ImageRecord, VoiceRecord, Barcode, AiAnalysis, AiAnalysisWithDate, AiChat, AiMemory, Backup, DiaryEdit, MealDetail,
+        ImageRecord, VoiceRecord, Barcode, AiAnalysis, AiAnalysisWithDate, AiChat, AiMemory, AiNudge, Backup, DiaryEdit, MealDetail,
         Fasting, FoodPreference, FoodLibrary, CustomFoodEdit, UserBrandManage, FoodLibrarySearch,
         Tools, CalorieConverter,
         WidgetSettings, ExercisePicker, ExerciseConfirm, StrengthQuickRecord, // 补记页也是全屏页：隐藏底栏避免遮挡保存按钮

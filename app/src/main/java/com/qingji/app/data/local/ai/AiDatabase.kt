@@ -12,7 +12,8 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  *
  * 版本历史：
  * - v1：会话 / 消息 / 工具调用 / 提案展示 / Token 用量；
- * - v2（阶段 I）：新增 ai_memory 长期记忆表。
+ * - v2（阶段 I）：新增 ai_memory 长期记忆表；
+ * - v3（阶段 J）：新增 ai_nudge 主动提醒发送记录表。
  */
 @Database(
     entities = [
@@ -21,9 +22,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         AiToolCallEntity::class,
         AiProposalEntity::class,
         AiTokenUsageEntity::class,
-        AiMemoryEntity::class
+        AiMemoryEntity::class,
+        AiNudgeEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = true
 )
 abstract class AiDatabase : RoomDatabase() {
@@ -31,6 +33,8 @@ abstract class AiDatabase : RoomDatabase() {
     abstract fun aiChatDao(): AiChatDao
 
     abstract fun aiMemoryDao(): AiMemoryDao
+
+    abstract fun aiNudgeDao(): AiNudgeDao
 
     companion object {
         /**
@@ -61,6 +65,38 @@ abstract class AiDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * v2 → v3：只加主动提醒记录表与三个索引。
+         *
+         * (kind, dateKey) 是唯一索引，「一天同一种提醒只发一次」靠它兜底，
+         * 不依赖调用方加锁；另外两个单列索引给「按类看历史」「按日期统计额度」用。
+         */
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `ai_nudge` (" +
+                        "`id` TEXT NOT NULL, " +
+                        "`kind` TEXT NOT NULL, " +
+                        "`reason` TEXT NOT NULL, " +
+                        "`dateKey` TEXT NOT NULL, " +
+                        "`title` TEXT NOT NULL, " +
+                        "`body` TEXT NOT NULL, " +
+                        "`factsJson` TEXT NOT NULL, " +
+                        "`needsAnalysis` INTEGER NOT NULL, " +
+                        "`outcome` TEXT NOT NULL, " +
+                        "`shownAt` INTEGER NOT NULL, " +
+                        "`updatedAt` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`id`))"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_ai_nudge_kind` ON `ai_nudge` (`kind`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_ai_nudge_dateKey` ON `ai_nudge` (`dateKey`)")
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS `index_ai_nudge_kind_dateKey` " +
+                        "ON `ai_nudge` (`kind`, `dateKey`)"
+                )
+            }
+        }
+
         @Volatile
         private var INSTANCE: AiDatabase? = null
 
@@ -71,7 +107,7 @@ abstract class AiDatabase : RoomDatabase() {
                     AiDatabase::class.java,
                     "qingji_ai.db"
                 )
-                    .addMigrations(MIGRATION_1_2)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .build()
                     .also { INSTANCE = it }
             }
