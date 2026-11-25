@@ -518,3 +518,38 @@ app/src/main/java/com/qingji/app/ui/screen/AiChatScreen.kt
 - 自然语言的「训练反馈→分析」对话呈现、计划优化 UI 确认卡片未接。
 - 计划内容级替换（组数/次数/重量整包修改）执行器未开放；本轮提案只覆盖启用/停用。
 - 写工具继续保持禁用；`suggest_plan_change` 只返回草稿，不执行。
+
+## 16. H 阶段实施（2026-11-25）
+
+> 提交：`0981b51 feat(ai): implement H stage body analysis and health report`
+
+### 16.1 落地内容
+
+- 新增 `BodyAnalysisEngine`：体重趋势（最新值、7/28 天变化、7 天与窗口平均、每周速度、方向）、BMI、体脂、围度、记录完整度、目标进度，全部本地算。
+- 新增 `BodyTrust` 五级口径：`RECORDED / CALCULATED / AI_INFERRED / MISSING / SUGGESTION`；规则层只产出前三类 + MISSING，另外两类是写给模型看的标注约定。
+- 新增 `HealthReportBuilder`：把身体数据、训练分析（复用 G）、饮食记录完整度拼成综合报告；饮食平均只看有记录的天，缺记录不按 0 算。
+- 新增只读工具 `get_body_metrics`、`get_health_report`；两条都 `readOnly = true`，只回数字与信任标签。
+- `QingJiRepository.observeFoodLogsRange(from, to)`：区间只读查询，供报告统计。
+- 工具输出统一附 `trustLegend` 与 note：推断标 `AI_INFERRED`、建议标 `SUGGESTION`、不得声称改了身体数据。
+
+### 16.2 验证
+
+| 项 | 结果 |
+|---|---|
+| 体重趋势 | 记录跨度 <14 天不给速度；未来日期与 20~400kg 外的异常值排除 |
+| BMI | 一律走 `NutritionCalculator.bmi`，身高缺失返回 null + MISSING，不让模型算 |
+| 体脂 / 围度 | 没有记录就 MISSING，绝不拿体重反推体脂；腰围间隔 <7 天不比较 |
+| 目标进度 | 需起始/目标体重齐全；方向相反时不给预计周数并给警告 |
+| 饮食完整度 | 平均热量按有记录天数算；<3 天标数据不足 |
+| 新增测试 | 身体分析 13 例 + 综合报告 5 例 |
+| `testDebugUnitTest` | 162 suites / **1046 tests / 0 failures / 0 errors / 3 skipped** |
+| `assembleDebug` / `assembleRelease` | BUILD SUCCESSFUL |
+| 偶发项 | `BackupExportScopeTest` 首次全量跑 SQLite 指针错，复跑全绿 |
+
+### 16.3 边界
+
+- 报告只在对话里解释，没有独立的「健康报告」页面；数据仍由用户在体重/围度页录入。
+- 没有体脂/围度设备接入，也没有基础代谢二次校准。
+- 未做医学风险提示分级（如 BMI 过低/过高时的就医建议），只给数值分类。
+- 写工具继续保持禁用；本轮 8 个工具全部只读。
+
