@@ -60,5 +60,13 @@ class BackupExportScopeTest {
         assertFalse(keys.contains("searchHistory"))
         assertFalse(keys.contains("foodSearchHistory"))
         assertFalse(keys.contains("apiKey"))
+
+        // 阶段 K：整份文件扫一遍，任何位置都不许出现密钥痕迹
+        val raw = file.readText(Charsets.UTF_8)
+        assertFalse("导出文件不应出现 sk- 形式的 Key", raw.contains("sk-"))
+        assertFalse("导出文件不应出现 Key 密文字段", raw.contains("cipher_text"))
+        assertFalse("导出文件不应出现 iv 字段", raw.contains("\"iv\""))
+        assertFalse("导出文件不应出现 Bearer 头", raw.contains("Bearer "))
+        assertFalse("导出文件不应出现 Keystore 别名", raw.contains("qingji_ai_api_key"))
     }
 }

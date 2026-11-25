@@ -30,3 +30,18 @@
 # ZXing 条码库
 -keep class com.google.zxing.** { *; }
 -dontwarn com.google.zxing.**
+
+# ============================================================
+# 阶段 K：日志最小化
+# ------------------------------------------------------------
+# release 包里去掉 verbose / debug / info 三档日志：
+# 1. 这些日志对用户没有价值，只是刷 logcat；
+# 2. 少一类「将来谁随手打了个敏感串」的泄漏面。
+# 保留 warn / error —— 线上排查问题要靠它们，而且现有 warn/error 调用点
+# 已逐个复核过，不含 Key、Token、明文请求体。
+# ============================================================
+-assumenosideeffects class android.util.Log {
+    public static int v(...);
+    public static int d(...);
+    public static int i(...);
+}

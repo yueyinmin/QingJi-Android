@@ -620,7 +620,9 @@ fun SettingsScreen(
             DialogKind.PRIVACY -> PrivacyPage(
                 onClearRecords = { vm.clearRecords() }, onFactoryReset = { vm.factoryReset() },
                 onBack = { dialog = null }, useSheet = false,
-                privacyVm = privacyVm
+                privacyVm = privacyVm,
+                onInspectAiData = { vm.inspectAiData() },
+                onClearAiData = { vm.clearAiData() }
             )
 
             DialogKind.ICON -> com.qingji.app.ui.screen.settings.AppIconSettingsPage(

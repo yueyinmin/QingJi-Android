@@ -1,4 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  阶段 K：系统自动备份（Android 11 及以下的 full backup）只保留业务数据库。
+  - include 只写 database：只要没有 include，sharedpref / file / root / external
+    这几个域天然就不在备份范围内 —— 这本身就是「不备份」的最强写法；
+  - 因此下面不能再给这些域写 exclude：lint 会报「. 不在已 include 的路径里」，
+    因为 exclude 只对 include 覆盖的域生效；
+  - database 域里单独排除 AI 库：chat 原文与长期记忆属于「用户无感上传」的范围之外，
+    要带走请走 App 内的主动导出（知情、可控）。
+-->
 <full-backup-content>
     <include domain="database" path="." />
+    <exclude domain="database" path="qingji_ai.db" />
+    <exclude domain="database" path="qingji_ai.db-shm" />
+    <exclude domain="database" path="qingji_ai.db-wal" />
 </full-backup-content>

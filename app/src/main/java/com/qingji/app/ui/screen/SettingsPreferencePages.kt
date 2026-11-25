@@ -172,10 +172,17 @@ internal fun PrivacyPage(
     onBack: () -> Unit,
     useSheet: Boolean = false,
     /** V1：日记隐私锁统一状态（Activity 作用域），由设置页调用统一业务层。 */
-    privacyVm: com.qingji.app.ui.viewmodel.DiaryPrivacyViewModel? = null
+    privacyVm: com.qingji.app.ui.viewmodel.DiaryPrivacyViewModel? = null,
+    /** 阶段 K：AI 数据规模（点在清除按钮上才查，不用一进页面就读库）。 */
+    onInspectAiData: suspend () -> String = { "" },
+    /** 阶段 K：清除全部 AI 数据（会话 / 消息 / 工具记录 / 记忆 / 提醒）。 */
+    onClearAiData: () -> Unit = {}
 ) {
     var confirmRecords by remember { mutableStateOf(false) }
     var confirmReset by remember { mutableStateOf(false) }
+    // 阶段 K：AI 数据单独一档，确认弹窗里先告诉用户要删掉多少
+    var confirmAi by remember { mutableStateOf(false) }
+    var aiSummary by remember { mutableStateOf("") }
     var showSetup by remember { mutableStateOf(false) }
     var showDisable by remember { mutableStateOf(false) }
     var pin1 by remember { mutableStateOf("") }
@@ -255,6 +262,33 @@ internal fun PrivacyPage(
 
         Spacer(Modifier.height(20.dp))
 
+        // ---------- 阶段 K：AI 数据单独一档 ----------
+        Text(
+            text = "AI 数据",
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = TextPrimary
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = "删掉 AI 管家产生的全部内容：对话与消息、工具调用记录、用量记录、" +
+                "长期记忆、管家提醒历史，以及「不再记住此类」和提醒开关。\n" +
+                "AI 服务配置和 API Key 会保留（不想留 Key 就用下面的恢复出厂）；" +
+                "饮食、体重、训练这些业务记录一条不动。",
+            fontSize = 11.sp,
+            color = TextSecondary,
+            lineHeight = 17.sp
+        )
+        Spacer(Modifier.height(8.dp))
+        DangerActionButton(text = "清除全部 AI 数据") {
+            privacyScope.launch {
+                aiSummary = onInspectAiData()
+                confirmAi = true
+            }
+        }
+
+        Spacer(Modifier.height(20.dp))
+
         // ---------- 第二档：恢复出厂 ----------
         Text(
             text = "恢复出厂设置",
@@ -292,6 +326,29 @@ internal fun PrivacyPage(
                 text = "饮食、体重、饮水、日记、围度、照片、运动、断食、训练记录都会删掉，" +
                     "删了就找不回来。档案、目标、动作库和训练计划会留着。\n\n" +
                     "建议先去「数据备份与导出」导一份 JSON。",
+                fontSize = 14.sp,
+                color = TextPrimary,
+                lineHeight = 21.sp
+            )
+        }
+    }
+
+    if (confirmAi) {
+        com.qingji.app.ui.components.AppDialog(
+            title = "确定清除全部 AI 数据？",
+            confirmText = "确认清除",
+            danger = true,
+            onConfirm = {
+                confirmAi = false
+                onClearAiData()
+            },
+            dismissText = "取消",
+            onDismiss = { confirmAi = false }
+        ) {
+            Text(
+                text = "将要删除：$aiSummary。\n\n" +
+                    "对话、消息、长期记忆、提醒历史都会消失，删了找不回来。" +
+                    "饮食、体重、训练等业务记录不受影响，AI 服务配置和 Key 也会保留。",
                 fontSize = 14.sp,
                 color = TextPrimary,
                 lineHeight = 21.sp

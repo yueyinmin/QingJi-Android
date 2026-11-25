@@ -64,6 +64,34 @@ interface AiMemoryDao {
     @Query("DELETE FROM ai_memory WHERE id = :id")
     suspend fun deleteById(id: String)
 
+    // ---------- 阶段 K：来源失效与按来源清理 ----------
+
+    /** 用户选择「连记忆一起删」时使用；调用方必须保证非空（空列表会生成非法 SQL）。 */
+    @Query("DELETE FROM ai_memory WHERE sourceRef IN (:sourceRefs)")
+    suspend fun deleteBySourceRefs(sourceRefs: List<String>)
+
+    /** 只失效不删除：会话删了，但这条记忆作为历史仍可查看。 */
+    @Query("UPDATE ai_memory SET status = 'INVALIDATED', updatedAt = :now WHERE sourceRef IN (:sourceRefs)")
+    suspend fun invalidateBySourceRefs(sourceRefs: List<String>, now: Long)
+
+    @Query("SELECT COUNT(*) FROM ai_memory WHERE sourceRef IN (:sourceRefs)")
+    suspend fun countBySourceRefs(sourceRefs: List<String>): Int
+
+    /**
+     * 阶段 K：来源已不存在的记忆统一标失效。
+     * 只处理 sourceRef 形如 UUID（36 位、带连字符）的记录，避免误伤未来可能写入的
+     * 「业务记录 id」；已删除的会话其消息也一并消失，所以用 ai_message 做存在性判断。
+     */
+    @Query(
+        "UPDATE ai_memory SET status = 'INVALIDATED', updatedAt = :now " +
+            "WHERE status = 'ACTIVE' AND sourceRef <> '' AND length(sourceRef) = 36 " +
+            "AND sourceRef NOT IN (SELECT id FROM ai_message)"
+    )
+    suspend fun invalidateDanglingSourceRefs(now: Long): Int
+
+    @Query("SELECT COUNT(*) FROM ai_memory")
+    suspend fun countAll(): Int
+
     @Query("DELETE FROM ai_memory")
     suspend fun clearAll()
 

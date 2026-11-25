@@ -104,6 +104,26 @@ class MemoryManagerTest {
             items.removeAll { it.id == id }
         }
 
+        // 阶段 K 新增接口：这个假存储不模拟「来源是否存在」，只保证签名齐全
+        override suspend fun deleteBySourceRefs(sourceRefs: List<String>) {
+            if (sourceRefs.isEmpty()) return
+            items.removeAll { it.sourceRef in sourceRefs }
+        }
+
+        override suspend fun invalidateBySourceRefs(sourceRefs: List<String>, now: Long) {
+            if (sourceRefs.isEmpty()) return
+            // 沿用之前的写法：先算新列表再整体替换，避免 replaceAll 在遍历中改动集合
+            val updated = items.map {
+                if (it.sourceRef in sourceRefs) {
+                    it.copy(status = MemoryStatus.INVALIDATED, updatedAt = now)
+                } else it
+            }
+            items.clear()
+            items.addAll(updated)
+        }
+
+        override suspend fun invalidateDangling(now: Long): Int = 0
+
         override suspend fun clearAll() = items.clear()
 
         override suspend fun expireOverdue(now: Long): Int {

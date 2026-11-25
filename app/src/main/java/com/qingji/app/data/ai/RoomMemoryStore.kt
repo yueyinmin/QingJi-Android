@@ -63,6 +63,19 @@ class RoomMemoryStore(private val db: AiDatabase) : MemoryStore {
 
     override suspend fun delete(id: String) = dao.deleteById(id)
 
+    // 空列表会生成非法的 IN ()，统一在存储层挡住，调用方不用每处都判空
+    override suspend fun deleteBySourceRefs(sourceRefs: List<String>) {
+        if (sourceRefs.isEmpty()) return
+        dao.deleteBySourceRefs(sourceRefs)
+    }
+
+    override suspend fun invalidateBySourceRefs(sourceRefs: List<String>, now: Long) {
+        if (sourceRefs.isEmpty()) return
+        dao.invalidateBySourceRefs(sourceRefs, now)
+    }
+
+    override suspend fun invalidateDangling(now: Long): Int = dao.invalidateDanglingSourceRefs(now)
+
     override suspend fun clearAll() = dao.clearAll()
 
     override suspend fun expireOverdue(now: Long): Int = dao.expireOverdue(now)

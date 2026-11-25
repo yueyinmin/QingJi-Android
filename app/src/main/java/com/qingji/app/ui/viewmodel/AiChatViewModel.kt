@@ -286,9 +286,14 @@ class AiChatViewModel private constructor(
         viewModelScope.launch { store.renameConversation(id, title) }
     }
 
-    fun deleteConversation(id: String) {
+    /**
+     * 阶段 K：彻底删除会话（消息 / 工具调用 / Token 记录真的从库里消失）。
+     *
+     * @param dropMemories true = 连这段对话记住的内容一起删；false = 记忆保留，标来源失效。
+     */
+    fun deleteConversation(id: String, dropMemories: Boolean = false) {
         viewModelScope.launch {
-            store.deleteConversation(id)
+            store.deleteConversation(id, dropMemories)
             if (_uiState.value.activeConversationId == id) {
                 val next = _uiState.value.conversations.firstOrNull { it.id != id }
                 if (next != null) selectConversationInternal(next.id)
@@ -299,6 +304,10 @@ class AiChatViewModel private constructor(
             }
         }
     }
+
+    /** 删除确认弹窗用：这段对话一共产生了几条长期记忆。 */
+    suspend fun countMemoriesFrom(conversationId: String): Int =
+        runCatching { store.countMemoriesFrom(conversationId) }.getOrDefault(0)
 
     fun send(overrideQuestion: String? = null) {
         if (_uiState.value.isRunning) return
@@ -499,9 +508,17 @@ class AiChatViewModel private constructor(
         const val MAX_IMAGE_BASE64_CHARS = 2_000_000
     }
 
-    private fun readableError(e: Throwable): String = when (e) {
-        is AiError -> e.message ?: e.code
-        is com.qingji.app.data.remote.AiException -> e.message ?: "AI 服务异常"
-        else -> e.message?.take(120) ?: "AI 服务异常，请稍后重试"
+    /**
+     * 阶段 K：这段文字会直接写进聊天记录并展示，所以任何来源都要先脱敏。
+     * AiError 的 message 在构造时已经处理过，这里统一再过一遍，防止新加的异常类型漏掉。
+     */
+    private fun readableError(e: Throwable): String {
+        val raw = when (e) {
+            is AiError -> e.message ?: e.code
+            is com.qingji.app.data.remote.AiException -> e.message ?: "AI 服务异常"
+            else -> e.message ?: "AI 服务异常，请稍后重试"
+        }
+        return com.qingji.app.domain.privacy.SecretRedactor.redact(raw, 120)
+            .ifBlank { "AI 服务异常，请稍后重试" }
     }
 }

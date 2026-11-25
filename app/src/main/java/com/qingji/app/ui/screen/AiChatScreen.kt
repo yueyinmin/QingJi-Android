@@ -78,6 +78,9 @@ fun AiChatScreen(
     var renameTargetId by remember { mutableStateOf<String?>(null) }
     var renameText by remember { mutableStateOf("") }
     var deleteTargetId by remember { mutableStateOf<String?>(null) }
+    // 阶段 K：删除会话时顺带处理这段对话产生的记忆
+    var deleteTargetMemoryCount by remember { mutableStateOf(0) }
+    var deleteTargetDropMemories by remember { mutableStateOf(false) }
     val appContext = LocalContext.current
 
     val pickImage = rememberLauncherForActivityResult(
@@ -422,14 +425,60 @@ fun AiChatScreen(
     }
 
     val targetDeleteId = deleteTargetId
+    // 阶段 K：打开删除确认时先查这段对话产生了几条记忆，好让用户知道会连带影响什么
+    LaunchedEffect(targetDeleteId) {
+        deleteTargetDropMemories = false
+        deleteTargetMemoryCount = targetDeleteId?.let { vm.countMemoriesFrom(it) } ?: 0
+    }
     if (targetDeleteId != null) {
         AlertDialog(
             onDismissRequest = { deleteTargetId = null },
             title = { Text("删除这个会话？") },
-            text = { Text("会话会从列表里移除。删除会话不会删除长期记忆。") },
+            text = {
+                Column {
+                    Text("会话里的消息、工具调用记录会从本机删掉，不能恢复。")
+                    Spacer(Modifier.height(8.dp))
+                    if (deleteTargetMemoryCount > 0) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .clickable { deleteTargetDropMemories = !deleteTargetDropMemories }
+                                .padding(vertical = 4.dp)
+                        ) {
+                            androidx.compose.material3.Checkbox(
+                                checked = deleteTargetDropMemories,
+                                onCheckedChange = { deleteTargetDropMemories = it }
+                            )
+                            Text(
+                                "同时删除这段对话记住的内容（$deleteTargetMemoryCount 条）",
+                                fontSize = 13.sp,
+                                color = TextPrimary
+                            )
+                        }
+                        Text(
+                            if (deleteTargetDropMemories) {
+                                "这 $deleteTargetMemoryCount 条长期记忆会一起删掉。"
+                            } else {
+                                "不勾选也行：记忆会留着，但标成「来源已失效」，不再参与回答。"
+                            },
+                            fontSize = 11.sp,
+                            color = TextSecondary,
+                            lineHeight = 16.sp
+                        )
+                    } else {
+                        Text(
+                            "这段对话没有产生长期记忆，不影响「记忆」里的内容。",
+                            fontSize = 11.sp,
+                            color = TextSecondary
+                        )
+                    }
+                }
+            },
             confirmButton = {
                 TextButton(onClick = {
-                    vm.deleteConversation(targetDeleteId)
+                    vm.deleteConversation(targetDeleteId, deleteTargetDropMemories)
                     deleteTargetId = null
                 }) { Text("删除") }
             },

@@ -1,6 +1,7 @@
 package com.qingji.app.data.remote.ai
 
 import com.qingji.app.data.local.entity.AiConfig
+import com.qingji.app.domain.privacy.SecretRedactor
 import java.io.IOException
 import java.io.InterruptedIOException
 import java.net.SocketTimeoutException
@@ -115,7 +116,12 @@ class OpenAiCompatibleProvider(
                         if (event.has("error")) {
                             val detail = event.optJSONObject("error")?.optString("message")
                                 ?: event.optString("error")
-                            trySend(AiStreamEvent.Failed(AiError.InvalidResponse(detail.take(120))))
+                            // 阶段 K：流式错误同样来自上游，脱敏后再展示
+                            trySend(
+                                AiStreamEvent.Failed(
+                                    AiError.InvalidResponse(SecretRedactor.redact(detail, 120))
+                                )
+                            )
                             break
                         }
 
@@ -207,11 +213,20 @@ class OpenAiCompatibleProvider(
             throw e
         } catch (e: AiError) {
             capabilityCache[cacheKey(config)] = AiProviderCapabilities.NONE
-            ConnectionResult(false, e.message ?: e.code, AiProviderCapabilities.NONE)
+            // 阶段 K：这条文案会显示在配置页，同样先脱敏
+            ConnectionResult(
+                false,
+                SecretRedactor.redact(e.message ?: e.code, 120),
+                AiProviderCapabilities.NONE
+            )
         } catch (e: Exception) {
             val error = mapThrowable(e)
             capabilityCache[cacheKey(config)] = AiProviderCapabilities.NONE
-            ConnectionResult(false, error.message ?: error.code, AiProviderCapabilities.NONE)
+            ConnectionResult(
+                false,
+                SecretRedactor.redact(error.message ?: error.code, 120),
+                AiProviderCapabilities.NONE
+            )
         }
     }
 
@@ -406,7 +421,8 @@ class OpenAiCompatibleProvider(
             JSONObject(trimmed)
         } catch (e: JSONException) {
             if (requireJson) {
-                throw AiError.InvalidResponse("返回内容不是合法 JSON：${trimmed.take(80)}")
+                // 阶段 K：这段正文可能包含服务商回显的请求内容，脱敏后再进提示
+                throw AiError.InvalidResponse("返回内容不是合法 JSON：${SecretRedactor.redact(trimmed, 80)}")
             }
             return ParsedResponse(content = trimmed)
         }
@@ -447,13 +463,17 @@ class OpenAiCompatibleProvider(
     private fun JSONObject.optIntOrNull(name: String): Int? =
         if (has(name) && !isNull(name)) optInt(name) else null
 
-    private fun mapHttpError(result: HttpResult): AiError = when (result.code) {
-        401, 403 -> AiError.InvalidApiKey()
-        402 -> AiError.InsufficientBalance()
-        429 -> AiError.RateLimited(result.retryAfterSec)
-        in 500..599 -> AiError.ModelUnavailable("服务端 ${result.code}：${result.body.take(120)}")
-        400 -> AiError.InvalidResponse("请求参数错误：${result.body.take(120)}")
-        else -> AiError.InvalidResponse("请求失败(${result.code})：${result.body.take(120)}")
+    private fun mapHttpError(result: HttpResult): AiError {
+        // 阶段 K：上游正文可能回显 Key / Token，先脱敏再进错误提示
+        val detail = SecretRedactor.redact(result.body, 120)
+        return when (result.code) {
+            401, 403 -> AiError.InvalidApiKey()
+            402 -> AiError.InsufficientBalance()
+            429 -> AiError.RateLimited(result.retryAfterSec)
+            in 500..599 -> AiError.ModelUnavailable("服务端 ${result.code}：$detail")
+            400 -> AiError.InvalidResponse("请求参数错误：$detail")
+            else -> AiError.InvalidResponse("请求失败(${result.code})：$detail")
+        }
     }
 
     private fun mapThrowable(e: Throwable): AiError = when (e) {

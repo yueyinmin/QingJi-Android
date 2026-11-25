@@ -152,8 +152,29 @@ class RoomAiChatStore(
         dao.updateConversationTitle(id, clean, System.currentTimeMillis())
     }
 
-    override suspend fun deleteConversation(id: String) {
-        dao.softDeleteConversation(id, System.currentTimeMillis())
+    /**
+     * 阶段 K：隐私意义上的删除 —— 内容真的从库里消失，而不是留一个 deletedAt 标记。
+     * 记忆按用户选择处理：一起删，或保留但标来源失效（不再注入 prompt）。
+     */
+    override suspend fun deleteConversation(id: String, dropMemories: Boolean) {
+        database.withTransaction {
+            val messageIds = dao.messageIdsOf(id)
+            dao.deleteConversationDeep(id)
+            if (messageIds.isNotEmpty()) {
+                val memoryDao = database.aiMemoryDao()
+                if (dropMemories) {
+                    memoryDao.deleteBySourceRefs(messageIds)
+                } else {
+                    memoryDao.invalidateBySourceRefs(messageIds, System.currentTimeMillis())
+                }
+            }
+        }
+    }
+
+    override suspend fun countMemoriesFrom(conversationId: String): Int {
+        val messageIds = dao.messageIdsOf(conversationId)
+        if (messageIds.isEmpty()) return 0
+        return database.aiMemoryDao().countBySourceRefs(messageIds)
     }
 
     private suspend fun append(message: AiMessageEntity) {

@@ -1,5 +1,7 @@
 package com.qingji.app.data.remote.ai
 
+import com.qingji.app.domain.privacy.SecretRedactor
+
 /**
  * AI 服务统一错误模型。
  *
@@ -64,9 +66,17 @@ sealed class AiError(
         retryable = true
     )
 
-    class InvalidResponse(val detail: String = "") : AiError(
+    /**
+     * 阶段 K：detail 来自上游响应正文或异常栈，可能回显 Key / Token。
+     * 在这里统一过一遍脱敏，保证 message 进 UI、进聊天记录、进日志时都不带敏感串。
+     */
+    class InvalidResponse(detail: String = "") : AiError(
         code = "INVALID_RESPONSE",
-        message = if (detail.isBlank()) "AI 返回内容无法解析" else "AI 返回内容无法解析：${detail.take(80)}",
+        message = if (detail.isBlank()) {
+            "AI 返回内容无法解析"
+        } else {
+            "AI 返回内容无法解析：${SecretRedactor.redact(detail, 80)}"
+        },
         retryable = false
     )
 
@@ -97,9 +107,10 @@ sealed class AiError(
         retryable = false
     )
 
-    class Unknown(val detail: String = "") : AiError(
+    /** 未预期异常：message 可能带 URL / 请求头，同样先脱敏再展示。 */
+    class Unknown(detail: String = "") : AiError(
         code = "UNKNOWN",
-        message = "AI 服务异常",
+        message = if (detail.isBlank()) "AI 服务异常" else "AI 服务异常：${SecretRedactor.redact(detail, 80)}",
         retryable = false
     )
 }

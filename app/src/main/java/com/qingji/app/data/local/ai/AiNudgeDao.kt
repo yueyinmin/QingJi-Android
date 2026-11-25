@@ -40,4 +40,7 @@ interface AiNudgeDao {
 
     @Query("DELETE FROM ai_nudge")
     suspend fun clearAll()
+
+    @Query("SELECT COUNT(*) FROM ai_nudge")
+    suspend fun countAll(): Int
 }

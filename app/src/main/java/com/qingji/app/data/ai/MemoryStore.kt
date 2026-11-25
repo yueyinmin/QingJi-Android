@@ -41,6 +41,15 @@ interface MemoryStore {
     /** 用户显式删除单条；不动任何正式业务数据。 */
     suspend fun delete(id: String)
 
+    /** 阶段 K：按来源批量删除（删会话时用户勾了「连记忆一起删」）。 */
+    suspend fun deleteBySourceRefs(sourceRefs: List<String>)
+
+    /** 阶段 K：来源被删但保留记忆，只标失效。 */
+    suspend fun invalidateBySourceRefs(sourceRefs: List<String>, now: Long)
+
+    /** 阶段 K：全量自检，把来源已不存在的记忆标失效；返回处理条数。 */
+    suspend fun invalidateDangling(now: Long): Int
+
     suspend fun clearAll()
 
     suspend fun expireOverdue(now: Long): Int

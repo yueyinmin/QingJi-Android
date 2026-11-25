@@ -415,6 +415,24 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** 阶段 K：清除全部 AI 数据前的规模统计（会话 / 消息 / 记忆 / 提醒）。 */
+    suspend fun inspectAiData(): String =
+        runCatching { com.qingji.app.ai.privacy.AiPrivacyCleaner.inspect(context).summary() }
+            .getOrDefault("统计失败，仍可继续清除")
+
+    /**
+     * 阶段 K：清除全部 AI 数据。
+     * 只清「AI 产生的数据」，AI 服务配置与 API Key 不动（那是恢复出厂的事）。
+     */
+    fun clearAiData(onDone: () -> Unit = {}) {
+        viewModelScope.launch {
+            val report = runCatching { com.qingji.app.ai.privacy.AiPrivacyCleaner.clearAll(context) }
+            report.onSuccess { toast("AI 数据已清除：${it.summary()}") }
+                .onFailure { toast("清除失败，请稍后再试") }
+            onDone()
+        }
+    }
+
     /**
      * 恢复出厂：全部清空。清完之后引导标记也变成 false，
      * 界面会自动切回引导页，所以这里只提示一句、不手动导航。

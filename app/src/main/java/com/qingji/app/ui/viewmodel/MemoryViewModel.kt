@@ -69,6 +69,9 @@ class MemoryViewModel private constructor(
         }
         // 打开页面顺手清一次过期记忆；失败不影响浏览
         viewModelScope.launch { runCatching { MemoryManager.expire(store, now()) } }
+        // 阶段 K：来源已被删掉（会话彻底删除 / 备份恢复后对不上）的记忆标失效，
+        // 只做一次 SQL 自检，失败就当没发生——不能因为自检挂了就让人打不开记忆页
+        viewModelScope.launch { runCatching { store.invalidateDangling(now()) } }
     }
 
     fun setFilter(category: MemoryCategory?) {

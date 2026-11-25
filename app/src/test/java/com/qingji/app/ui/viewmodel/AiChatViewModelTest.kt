@@ -101,11 +101,13 @@ private class FakeAiChatStore : AiChatStore {
         }
     }
 
-    override suspend fun deleteConversation(id: String) {
+    override suspend fun deleteConversation(id: String, dropMemories: Boolean) {
         conversationsFlow.value = conversationsFlow.value.filterNot { it.id == id }
         messages.remove(id)
         messageFlows.remove(id)
     }
+
+    override suspend fun countMemoriesFrom(conversationId: String): Int = 0
 
     private fun add(message: PersistedChatMessage) {
         messages.getOrPut(message.conversationId) { mutableListOf() }.add(message)

@@ -34,6 +34,36 @@ interface AiChatDao {
     @Query("UPDATE ai_conversation SET deletedAt = :deletedAt WHERE id = :id")
     suspend fun softDeleteConversation(id: String, deletedAt: Long)
 
+    // ---------- 阶段 K：隐私层面的彻底删除 ----------
+
+    /** 会话里的消息 id；记忆的 sourceRef 写的就是用户消息 id，用来反查来源。 */
+    @Query("SELECT id FROM ai_message WHERE conversationId = :conversationId")
+    suspend fun messageIdsOf(conversationId: String): List<String>
+
+    @Query("DELETE FROM ai_message WHERE conversationId = :conversationId")
+    suspend fun deleteMessagesOf(conversationId: String)
+
+    @Query("DELETE FROM ai_tool_call WHERE conversationId = :conversationId")
+    suspend fun deleteToolCallsOf(conversationId: String)
+
+    @Query("DELETE FROM ai_token_usage WHERE conversationId = :conversationId")
+    suspend fun deleteTokenUsageOf(conversationId: String)
+
+    @Query("DELETE FROM ai_conversation WHERE id = :id")
+    suspend fun deleteConversationRow(id: String)
+
+    /**
+     * 彻底删除一个会话：消息、工具调用、Token 记录、会话行一起删。
+     * 提案表（ai_proposal）没有 conversationId 外键，且属于跨会话的展示镜像，这里不动。
+     */
+    @Transaction
+    suspend fun deleteConversationDeep(id: String) {
+        deleteToolCallsOf(id)
+        deleteTokenUsageOf(id)
+        deleteMessagesOf(id)
+        deleteConversationRow(id)
+    }
+
     @Query("SELECT * FROM ai_message WHERE conversationId = :conversationId ORDER BY sequence ASC")
     fun observeMessages(conversationId: String): Flow<List<AiMessageEntity>>
 
@@ -112,4 +142,18 @@ interface AiChatDao {
     /** 阶段 J：主动提醒的历史与频控记录同样属于 AI 数据，恢复出厂一起清。 */
     @Query("DELETE FROM ai_nudge")
     suspend fun clearNudges()
+
+    // ---------- 阶段 K：数据规模统计（清除前给用户看，清除后回报条数） ----------
+
+    @Query("SELECT COUNT(*) FROM ai_conversation")
+    suspend fun countConversations(): Int
+
+    @Query("SELECT COUNT(*) FROM ai_message")
+    suspend fun countAllMessages(): Int
+
+    @Query("SELECT COUNT(*) FROM ai_tool_call")
+    suspend fun countAllToolCalls(): Int
+
+    @Query("SELECT COUNT(*) FROM ai_token_usage")
+    suspend fun countAllTokenUsage(): Int
 }

@@ -42,5 +42,15 @@ interface AiChatStore {
     suspend fun appendErrorMessage(id: String, conversationId: String, text: String)
     suspend fun deleteMessage(id: String)
     suspend fun renameConversation(id: String, title: String)
-    suspend fun deleteConversation(id: String)
+
+    /**
+     * 阶段 K：彻底删除会话内容（消息 / 工具调用 / Token 记录），不是打个删除标记。
+     *
+     * @param dropMemories true = 连这段对话产生的长期记忆一起删；
+     *                     false = 记忆保留，但标成「来源已失效」，不再注入。
+     */
+    suspend fun deleteConversation(id: String, dropMemories: Boolean = false)
+
+    /** 这段对话一共产生了多少条长期记忆（删除前给用户看数量）。 */
+    suspend fun countMemoriesFrom(conversationId: String): Int = 0
 }
