@@ -90,6 +90,14 @@ object QingJiRoutes {
     const val MealDetail = "meal_detail/{date}/{mealType}"
     fun mealDetail(date: java.time.LocalDate, mealType: String) = "meal_detail/$date/$mealType"
 
+    /**
+     * QJ-RECORD-INPUT-UNIFIED-V3（B5）：日级饮食详情。
+     * 某一天的全部饮食记录，四餐复用首页 MealCard，可翻日期、可点进单餐。
+     * 日期同样用 ISO yyyy-MM-dd，只含数字与连字符，URL 安全。
+     */
+    const val FoodDayDetail = "food_day_detail/{date}"
+    fun foodDayDetail(date: java.time.LocalDate) = "food_day_detail/$date"
+
     /** v3.3.0 运动模块：二级「记录运动」 → 三级「确认记录」。 */
     const val ExercisePicker = "exercise_picker"
     const val ExerciseConfirm = "exercise_confirm/{presetId}?editLogId={editLogId}"
@@ -144,7 +152,7 @@ object QingJiRoutes {
     /** 这些是全屏子页面：打开时不显示底部导航栏。 */
     val fullScreenRoutes = setOf(
         Settings, SearchFood, TextAi, Weight, AiConfig, Profile,
-        ImageRecord, VoiceRecord, Barcode, AiAnalysis, AiAnalysisWithDate, AiChat, AiMemory, AiNudge, Backup, DiaryEdit, MealDetail,
+        ImageRecord, VoiceRecord, Barcode, AiAnalysis, AiAnalysisWithDate, AiChat, AiMemory, AiNudge, Backup, DiaryEdit, MealDetail, FoodDayDetail,
         Fasting, FoodPreference, FoodLibrary, CustomFoodEdit, UserBrandManage, FoodLibrarySearch,
         Tools, CalorieConverter,
         WidgetSettings, ExercisePicker, ExerciseConfirm, StrengthQuickRecord, // 补记页也是全屏页：隐藏底栏避免遮挡保存按钮

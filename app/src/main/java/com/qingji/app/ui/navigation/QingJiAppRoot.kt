@@ -734,7 +734,26 @@ fun QingJiAppRoot(
                             onAddCustomFood = { navController.navigate(QingJiRoutes.customFoodEdit(0L)) },
                             onEditCustomFood = { id -> navController.navigate(QingJiRoutes.customFoodEdit(id)) },
                             onManageBrands = { navController.navigate(QingJiRoutes.UserBrandManage) },
-                            onOpenSearch = { navController.navigate(QingJiRoutes.FoodLibrarySearch) }
+                            onOpenSearch = { navController.navigate(QingJiRoutes.FoodLibrarySearch) },
+                            // B5：记录完可以直接去看这一天吃了什么
+                            onOpenFoodDayDetail = { date ->
+                                navController.navigate(QingJiRoutes.foodDayDetail(date)) {
+                                    launchSingleTop = true
+                                }
+                            }
+                        )
+                    }
+                    // B5：日级饮食详情（某天四餐汇总，复用首页 MealCard）
+                    composable(
+                        route = QingJiRoutes.FoodDayDetail,
+                        arguments = listOf(navArgument("date") { type = NavType.StringType })
+                    ) { entry ->
+                        com.qingji.app.ui.screen.food.FoodDayDetailScreen(
+                            dateIso = entry.arguments?.getString("date").orEmpty(),
+                            onBack = { navController.popBackStack() },
+                            onOpenMealDetail = { date, meal ->
+                                navController.navigate(QingJiRoutes.mealDetail(date, meal))
+                            }
                         )
                     }
                     composable(QingJiRoutes.UserBrandManage) {
@@ -744,7 +763,12 @@ fun QingJiAppRoot(
                         FoodLibrarySearchScreen(
                             onBack = { navController.popBackStack() },
                             onAddCustomFood = { navController.navigate(QingJiRoutes.customFoodEdit(0L)) },
-                            onManageBrands = { navController.navigate(QingJiRoutes.UserBrandManage) }
+                            onManageBrands = { navController.navigate(QingJiRoutes.UserBrandManage) },
+                            onOpenFoodDayDetail = { date ->
+                                navController.navigate(QingJiRoutes.foodDayDetail(date)) {
+                                    launchSingleTop = true
+                                }
+                            }
                         )
                     }
                     composable(
