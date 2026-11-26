@@ -56,4 +56,34 @@ class AerobicLibraryTest {
     fun realActionUuidIsNotPreset() {
         assertNull(AerobicLibrary.presetIdOf("wg:running"))
     }
+
+    @Test
+    fun onlyAerobicPresetsEnterLibrary() {
+        assertTrue(AerobicLibrary.isAerobicPreset(ExercisePreset(name = "跑步 (8 km/h)", met = 8.3)))
+        assertFalse(AerobicLibrary.isAerobicPreset(ExercisePreset(name = "俯卧撑", met = 4.0, category = "力量")))
+        assertFalse(AerobicLibrary.isAerobicPreset(ExercisePreset(name = "瑜伽", met = 2.5, category = "柔韧")))
+    }
+
+    @Test
+    fun canonicalNameStripsParenthesesAndSpaces() {
+        assertTrue(AerobicLibrary.sameCanonicalName("网球（单打）", "网球"))
+        assertTrue(AerobicLibrary.sameCanonicalName("跑步 (8 km/h)", "跑步"))
+        assertFalse(AerobicLibrary.sameCanonicalName("骑行", "跑步"))
+    }
+
+    @Test
+    fun newAerobicActionsFallBackToTypeMet() {
+        assertEquals("running", AerobicLibrary.activityTypeForSlug("treadmill-run"))
+        assertEquals("hiit", AerobicLibrary.activityTypeForSlug("kickboxing-aerobic"))
+        assertNull(AerobicLibrary.activityTypeForSlug("not-a-seed"))
+
+        val mets = mapOf("running" to Triple(7.0, 9.0, 11.0))
+        val entity = ExerciseEntity(uuid = "wg:treadmill-run", name = "跑步机跑步", slug = "treadmill-run")
+        val item = WorkoutItem.Cardio(
+            itemId = "i1", exerciseUuid = entity.uuid, name = entity.name, order = 0,
+            durationSec = 1800L
+        )
+        val settled = TrainingItemMapper.withCardioKcal(item, entity, mets, 70.0)
+        assertTrue(settled.calculatedKcal > 0.0)
+    }
 }

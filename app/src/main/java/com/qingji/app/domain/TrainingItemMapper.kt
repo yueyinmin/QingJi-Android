@@ -204,19 +204,23 @@ object TrainingItemMapper {
         )
     }
 
-    /** 有氧热量：只使用参数库里真实存在的类型 MET；无匹配 MET 时不造数。 */
+    /** 有氧热量：优先动作 slug 级 MET；新增有氧动作按 activityType 映射回参数库。 */
     fun withCardioKcal(
         item: WorkoutItem.Cardio,
         entity: ExerciseEntity?,
         metDefaults: Map<String, Triple<Double, Double, Double>>,
         weightKg: Double
     ): WorkoutItem.Cardio {
-        val activityType = entity?.slug?.takeIf { it.isNotBlank() && metDefaults.containsKey(it) }
+        val slug = entity?.slug?.takeIf { it.isNotBlank() }
+        val activityType = slug?.takeIf { metDefaults.containsKey(it) }
+            ?: AerobicLibrary.activityTypeForSlug(slug)
+        val resolvedType = activityType?.takeIf { metDefaults.containsKey(it) }
+            ?: "strength_moderate".takeIf { metDefaults.containsKey(it) }
             ?: return item.copy(calculatedKcal = 0.0, calculationMethod = "", calculationVersion = "", weightSnapshot = null)
         if (item.durationSec <= 0L || weightKg <= 0.0) {
             return item.copy(calculatedKcal = 0.0, calculationMethod = "", calculationVersion = "", weightSnapshot = null)
         }
-        val met = metDefaults.getValue(activityType).second
+        val met = metDefaults.getValue(resolvedType).second
         val estimate = ExerciseCalculator.estimate(
             met = met,
             weightKg = weightKg,

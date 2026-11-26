@@ -43,6 +43,15 @@ object ExerciseMediaMapping {
     /** 没有可靠素材的自建动作返回 null，界面走统一占位。 */
     fun forUuid(uuid: String): ExerciseMedia? = byUuid[uuid]
 
+    /**
+     * 预设项回退：映射表未命中时按实体自带的 assetPath 临时构造（如「记录有氧」预设
+     * 复用的 302 条 SVG），不写库、不进 byUuid。
+     */
+    fun forEntity(uuid: String, assetPath: String): ExerciseMedia? =
+        byUuid[uuid] ?: assetPath.takeIf { it.isNotBlank() }?.let {
+            ExerciseMedia(slug = "", assetPath = it, attribution = "")
+        }
+
     /** 上游素材不是按名字猜测的候选，所以没有「近似匹配待核对」清单。 */
     val requiresReviewUuids: Set<String> = emptySet()
 }

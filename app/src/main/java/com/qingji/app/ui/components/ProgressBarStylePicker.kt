@@ -49,39 +49,44 @@ fun ProgressBarStylePicker(
             color = TextSecondary
         )
         Spacer(Modifier.height(10.dp))
-        ProgressBarStyle.entries.forEach { style ->
-            val selected = style == current
+        // 2026-11-24：从 7 行列表压成 3 列网格（3+3+1），去掉描述小字，
+        // 整块高度从约 380dp 降到约 150dp；选中项仍播放动画。
+        ProgressBarStyle.entries.chunked(3).forEach { row ->
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(if (selected) QingJiGreenLight else Color.Transparent)
-                    .clickable { onSelect(style) }
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = style.label,
-                        fontSize = 13.sp,
-                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                        color = if (selected) QingJiGreenDark else TextPrimary
-                    )
-                    Text(text = style.description, fontSize = 10.sp, color = TextSecondary)
+                row.forEach { style ->
+                    val selected = style == current
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (selected) QingJiGreenLight else Color.Transparent)
+                            .clickable { onSelect(style) }
+                            .padding(horizontal = 8.dp, vertical = 10.dp)
+                    ) {
+                        Text(
+                            text = style.label,
+                            fontSize = 12.sp,
+                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                            color = if (selected) QingJiGreenDark else TextPrimary,
+                            maxLines = 1
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        StyledProgressBar(
+                            progress = 0.72f,
+                            modifier = Modifier.fillMaxWidth(),
+                            color = QingJiGreen,
+                            barHeight = 8.dp,
+                            style = style,
+                            // 只让当前可见且选中的预览播放，其余静态
+                            animationEnabled = selected
+                        )
+                    }
                 }
-                Spacer(Modifier.weight(0.4f))
-                StyledProgressBar(
-                    progress = 0.72f,
-                    modifier = Modifier
-                        .height(10.dp)
-                        .fillMaxWidth(0.42f),
-                    color = QingJiGreen,
-                    barHeight = 10.dp,
-                    style = style,
-                    // 只让当前可见且选中的预览播放，其余静态
-                    animationEnabled = selected
-                )
             }
+            Spacer(Modifier.height(6.dp))
         }
     }
 }

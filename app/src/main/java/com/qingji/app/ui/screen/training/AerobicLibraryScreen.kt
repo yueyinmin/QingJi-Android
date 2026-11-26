@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.qingji.app.data.local.entity.ExerciseEntity
 import com.qingji.app.domain.AerobicLibrary
+import com.qingji.app.data.training.media.ExerciseMediaMapping
 import com.qingji.app.ui.components.PageTopBar
 import com.qingji.app.ui.components.SectionCard
 import com.qingji.app.ui.theme.CardWhite
@@ -70,12 +71,14 @@ fun AerobicLibraryScreen(
     var query by remember { mutableStateOf("") }
     var sourceFilter by remember { mutableStateOf<String?>(null) }
 
-    // 两套数据源合并；同名项都保留（来源不同，点进去详情也不同）
+    // 两套数据源合并；力量/柔韧预设必须先挡掉，再按规范化名称去重。
     val cardioEntities = remember(all) { all.filter(AerobicLibrary::isAerobic) }
-    val presetEntities = remember(presets) { presets.map(AerobicLibrary::fromPreset) }
+    val presetEntities = remember(presets) {
+        presets.filter(AerobicLibrary::isAerobicPreset).map(AerobicLibrary::fromPreset)
+    }
     val merged = remember(cardioEntities, presetEntities) {
         cardioEntities + presetEntities.filter { p ->
-            cardioEntities.none { it.name.equals(p.name, ignoreCase = true) }
+            cardioEntities.none { AerobicLibrary.sameCanonicalName(it.name, p.name) }
         }
     }
 
@@ -161,10 +164,15 @@ fun AerobicLibraryScreen(
                                     .background(QingJiGreenLight),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(
-                                    e.name.take(1),
-                                    fontSize = 20.sp, fontWeight = FontWeight.Bold, color = QingJiGreenDark
-                                )
+                                ExerciseMediaImage(
+                                    media = ExerciseMediaMapping.forEntity(e.uuid, e.assetPath),
+                                    modifier = Modifier.size(54.dp)
+                                ) {
+                                    Text(
+                                        e.name.take(1),
+                                        fontSize = 20.sp, fontWeight = FontWeight.Bold, color = QingJiGreenDark
+                                    )
+                                }
                             }
                             Spacer(Modifier.size(10.dp))
                             Column(modifier = Modifier.weight(1f)) {

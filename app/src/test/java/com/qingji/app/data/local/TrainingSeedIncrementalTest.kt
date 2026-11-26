@@ -17,7 +17,7 @@ import org.robolectric.RobolectricTestRunner
 
 /**
  * Workout Guide 302 条动作库导入底线：
- *  1. 种子完整：302 条，UUID / 名称唯一，38 个老 UUID 保留，七分类计数吻合；
+ *  1. 种子完整：324 条（302 + 22 有氧扩充），UUID / 名称唯一，38 个老 UUID 保留，七分类计数吻合；
  *  2. 升级只增不覆盖：收藏、自建、训练历史、计划不碰；名字撞车时内置动作改用变式名。
  *
  * 数据来源优先级（明确规则）：
@@ -53,38 +53,41 @@ class TrainingSeedIncrementalTest {
     }
 
     @Test
-    fun `种子 302 条 UUID 与中文名都唯一`() {
+    fun `种子 324 条 UUID 与中文名都唯一`() {
         val all = TrainingSeed.builtIns(1000L)
-        assertEquals(302, all.size)
-        assertEquals(302, all.map { it.uuid }.toSet().size)
-        assertEquals(302, all.map { it.name }.toSet().size)
+        assertEquals(324, all.size)
+        assertEquals(324, all.map { it.uuid }.toSet().size)
+        assertEquals(324, all.map { it.name }.toSet().size)
         assertTrue(all.all { it.englishName.isNotBlank() })
         assertTrue(all.all { it.slug.isNotBlank() })
         assertTrue(all.all { it.assetPath.startsWith("exercises/") })
-        assertTrue(all.all { it.attribution.contains("CC BY-SA 4.0") })
-        assertTrue("上游无步骤数据，必须留空", all.all { it.steps.isEmpty() })
+        assertEquals(302, all.count { it.attribution.contains("CC BY-SA 4.0") })
+        assertEquals(22, all.count { it.attribution.contains("AI-generated") })
+        assertEquals(22, all.count { it.assetPath.endsWith("frame-1.png") })
+        assertEquals("302 条上游无步骤留空，22 条有氧扩充自带步骤",
+            22, all.count { it.steps.isNotBlank() })
     }
 
     @Test
-    fun `38 个老 UUID 保留 264 个新 UUID 稳定 七分类齐全`() {
+    fun `38 个老 UUID 保留 286 个新 UUID 稳定 七分类齐全`() {
         val all = TrainingSeed.builtIns(1000L)
         assertEquals(38, all.count { it.uuid.startsWith("ex-") })
-        assertEquals(264, all.count { it.uuid.startsWith("wg:") })
+        assertEquals(286, all.count { it.uuid.startsWith("wg:") })
         val counts = all.groupingBy { it.category }.eachCount()
         assertEquals(26, counts["chest"])
-        assertEquals(43, counts["back"])
+        assertEquals(46, counts["back"])
         assertEquals(26, counts["shoulders"])
-        assertEquals(35, counts["arms"])
-        assertEquals(114, counts["legs"])
-        assertEquals(54, counts["core"])
+        assertEquals(37, counts["arms"])
+        assertEquals(130, counts["legs"])
+        assertEquals(55, counts["core"])
         assertEquals(4, counts["mobility"])
     }
 
     @Test
-    fun `空库首次灌入 302 条`() = runBlocking {
+    fun `空库首次灌入 324 条`() = runBlocking {
         assertEquals(0, db.exerciseDao().count())
         ensureSeedLikeRepo()
-        assertEquals(302, db.exerciseDao().count())
+        assertEquals(324, db.exerciseDao().count())
     }
 
     @Test
@@ -113,7 +116,7 @@ class TrainingSeedIncrementalTest {
         val custom = dao.findByUuid("user-abc")!!
         assertFalse("自建动作必须还在", custom.isBuiltIn)
         assertTrue("自建动作的收藏必须保留", custom.isFavorite)
-        assertEquals(303, dao.count())
+        assertEquals(325, dao.count())
         assertNotNull(dao.findByUuid("wg:incline-bench-press"))
     }
 
@@ -122,7 +125,7 @@ class TrainingSeedIncrementalTest {
         ensureSeedLikeRepo()
         val before = db.exerciseDao().findAll()
         ensureSeedLikeRepo()
-        assertEquals(302, db.exerciseDao().count())
+        assertEquals(324, db.exerciseDao().count())
         assertEquals(before.map { it.uuid }.toSet(), db.exerciseDao().findAll().map { it.uuid }.toSet())
     }
 
@@ -137,7 +140,7 @@ class TrainingSeedIncrementalTest {
         val custom = dao.findByUuid("user-dup")!!
         assertEquals("我的定义", custom.primaryMuscles)
         assertFalse(custom.isBuiltIn)
-        assertEquals(303, dao.count())
+        assertEquals(325, dao.count())
         val builtIn = db.exerciseDao().findAll().first { it.slug == "incline-bench-press" }
         assertTrue("内置动作应换成变式名", builtIn.name != "上斜杠铃卧推")
         assertTrue(builtIn.isBuiltIn)

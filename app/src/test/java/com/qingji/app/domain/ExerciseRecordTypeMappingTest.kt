@@ -6,14 +6,14 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** 统一运动体系 B1：302 条映射完整性 + resolver 优先级测试（工单 §12.1）。 */
+/** 统一运动体系 B1：324 条映射完整性 + resolver 优先级测试（工单 §12.1）。 */
 class ExerciseRecordTypeMappingTest {
 
     @Test
-    fun `302条映射完整且UUID唯一`() {
+    fun `324条映射完整且UUID唯一`() {
         val map = ExerciseRecordTypeMap.SEED_TYPES
         assertEquals(ExerciseRecordTypeMap.SEED_COUNT, map.size)
-        assertEquals(302, map.size)
+        assertEquals(324, map.size)
         // key 全部非空白、无重复（Map 天然去重，size 相等即证明）
         assertTrue(map.keys.all { it.isNotBlank() })
         assertTrue(map.keys.all { it.startsWith("ex-") || it.startsWith("wg:") })
@@ -23,7 +23,7 @@ class ExerciseRecordTypeMappingTest {
     fun `五类数量与B1_1正式表一致`() {
         val counts = ExerciseRecordTypeMap.SEED_TYPES.values.groupingBy { it }.eachCount()
         assertEquals(252, counts[ExerciseRecordType.STRENGTH])
-        assertEquals(22, counts[ExerciseRecordType.CARDIO])
+        assertEquals(44, counts[ExerciseRecordType.CARDIO])
         assertEquals(1, counts[ExerciseRecordType.HIIT])
         assertEquals(15, counts[ExerciseRecordType.FLEXIBILITY])
         assertEquals(12, counts[ExerciseRecordType.OTHER])
@@ -143,8 +143,8 @@ class ExerciseRecordTypeMappingTest {
     @Test
     fun `未映射与重复ID检查`() {
         val map = ExerciseRecordTypeMap.SEED_TYPES
-        assertEquals(302, map.size)
-        assertEquals(302, map.keys.distinct().size) // 无重复 UUID
+        assertEquals(324, map.size)
+        assertEquals(324, map.keys.distinct().size) // 无重复 UUID
         assertTrue(map.values.all { it in ExerciseRecordType.entries }) // 无未知类型
     }
 

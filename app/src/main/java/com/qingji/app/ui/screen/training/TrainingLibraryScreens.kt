@@ -43,6 +43,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import coil.decode.SvgDecoder
 import coil.request.ImageRequest
+import org.json.JSONObject
 import com.qingji.app.data.local.TrainingSeed
 import com.qingji.app.data.local.entity.ExerciseEntity
 import com.qingji.app.data.training.media.ExerciseMediaMapping
@@ -161,7 +162,7 @@ fun ExerciseLibraryScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             // V2：左侧 54dp 统一圆角浅底板 + 本地 SVG 首帧。
                             // 自建动作 / 图片加载失败时用动作名首字占位，卡片高度不变。
-                            val media = ExerciseMediaMapping.forUuid(e.uuid)
+                            val media = ExerciseMediaMapping.forEntity(e.uuid, e.assetPath)
                             Box(
                                 modifier = Modifier
                                     .size(54.dp)
@@ -252,7 +253,7 @@ fun ExerciseDetailScreen(
             }
             // V2：原 130dp 文字占位换成 190dp 动作插画（本地 SVG 首帧）。
             // 透明底、完整显示、不裁切不拉伸；自建动作 / 加载失败回退原来的文字占位。
-            val media = ExerciseMediaMapping.forUuid(e.uuid)
+            val media = ExerciseMediaMapping.forEntity(e.uuid, e.assetPath)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -275,12 +276,12 @@ fun ExerciseDetailScreen(
                     }
                 }
             }
-            // 302 条素材来自 Workout Guide 上游 manifest 的显式 slug，本地离线加载。
-            // 结构已逐帧校验，但不冒充「真人姿势已审核」：仍标注素材来源与授权。
+            // 素材来源按逐条 attribution 显示：302 条 Workout Guide 走 CC BY-SA，
+            // 11-24 新增 22 条是 AI 生成 PNG，不能冒充 CC BY-SA 署名。
             if (media != null) {
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    "素材来源：Workout Guide · CC BY-SA 4.0；动作示意仅供参考",
+                    "素材来源：${attributionText(media.attribution)}；动作示意仅供参考",
                     fontSize = TextSizes.Tiny, color = TextSecondary
                 )
             }
@@ -308,12 +309,7 @@ fun ExerciseDetailScreen(
             if (media != null) {
                 Spacer(Modifier.height(10.dp))
                 SectionCard {
-                    InfoLine(
-                        "素材署名",
-                        if (media.attribution.contains("Everkinetic"))
-                            "Bryl Lim / Everkinetic · CC BY-SA 4.0"
-                        else "Bryl Lim · CC BY-SA 4.0"
-                    )
+                    InfoLine("素材署名", attributionText(media.attribution))
                 }
             }
             Spacer(Modifier.height(10.dp))
@@ -371,6 +367,26 @@ fun ExerciseDetailScreen(
                 Text("用这个动作开始训练", fontSize = TextSizes.Body)
             }
         }
+    }
+}
+
+/**
+ * 素材署名逐条解析：302 条 Workout Guide 用原授权；11-24 新增 22 条是
+ * AI 生成 PNG，明确标 AI-generated，绝不泛化成 CC BY-SA 4.0。
+ */
+internal fun attributionText(raw: String): String {
+    if (raw.isBlank()) return "未标注"
+    val json = try { JSONObject(raw) } catch (_: Exception) { return "未标注" }
+    val creator = json.optString("creator").ifBlank { "未标注" }
+    val license = json.optString("license").ifBlank { "" }
+    return when {
+        license.equals("AI-generated", ignoreCase = true) ->
+            "$creator · AI 生成（无 CC 授权）"
+        creator.contains("Everkinetic", ignoreCase = true) ->
+            "$creator · CC BY-SA 4.0"
+        license.contains("CC BY-SA", ignoreCase = true) ->
+            "$creator · CC BY-SA 4.0"
+        else -> "$creator · ${license.ifBlank { "未标注" }}"
     }
 }
 

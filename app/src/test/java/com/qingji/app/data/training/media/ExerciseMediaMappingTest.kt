@@ -7,17 +7,18 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Workout Guide 302 条本地素材映射的静态校验。 */
+/** Workout Guide 324 条本地素材映射的静态校验（302 条三帧 SVG + 22 条 AI 单帧 PNG）。 */
 class ExerciseMediaMappingTest {
 
     @Test
-    fun `302 条都有本地三帧素材与授权`() {
+    fun `324 条都有本地素材与授权`() {
         val all = ExerciseMediaMapping.mappings.values
-        assertEquals(302, all.size)
+        assertEquals(324, all.size)
         assertTrue(all.all { it.slug.isNotBlank() })
         assertTrue(all.all { it.assetPath.startsWith("exercises/") })
-        assertTrue(all.all { it.assetPath.contains("/frame-1.svg") })
-        assertTrue(all.all { it.attribution.contains("CC BY-SA 4.0") })
+        assertTrue(all.all { it.assetPath.contains("/frame-1.svg") || it.assetPath.contains("/frame-1.png") })
+        assertEquals(302, all.count { it.attribution.contains("CC BY-SA 4.0") })
+        assertEquals(22, all.count { it.attribution.contains("AI-generated") })
     }
 
     @Test
@@ -33,7 +34,7 @@ class ExerciseMediaMappingTest {
     @Test
     fun `每条素材路径唯一且不含中文或空格`() {
         val paths = ExerciseMediaMapping.mappings.values.map { it.assetPath }
-        assertEquals(302, paths.toSet().size)
+        assertEquals(324, paths.toSet().size)
         paths.forEach { p ->
             assertFalse(p.contains(' '))
             assertTrue(p.none { it.code > 0x7F })

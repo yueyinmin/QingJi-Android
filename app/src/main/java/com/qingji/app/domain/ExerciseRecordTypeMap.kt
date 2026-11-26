@@ -309,6 +309,28 @@ object ExerciseRecordTypeMap {
         "wg:fast-feet" to ExerciseRecordType.CARDIO, // 快速脚步
         "wg:sprawl" to ExerciseRecordType.STRENGTH, // 俯身跳
         "wg:seal-jack" to ExerciseRecordType.CARDIO, // 海豹跳
+        "wg:kickboxing-aerobic" to ExerciseRecordType.CARDIO, // 搏击操
+        "wg:aerobic-dance" to ExerciseRecordType.CARDIO, // 有氧舞蹈（尊巴）
+        "wg:step-aerobics" to ExerciseRecordType.CARDIO, // 踏板操
+        "wg:trampoline-fitness" to ExerciseRecordType.CARDIO, // 健身蹦床
+        "wg:versa-climber" to ExerciseRecordType.CARDIO, // 攀爬机
+        "wg:roller-skating" to ExerciseRecordType.CARDIO, // 轮滑
+        "wg:tennis" to ExerciseRecordType.CARDIO, // 网球（单打）
+        "wg:volleyball" to ExerciseRecordType.CARDIO, // 排球
+        "wg:basketball" to ExerciseRecordType.CARDIO, // 篮球
+        "wg:badminton" to ExerciseRecordType.CARDIO, // 羽毛球
+        "wg:soccer" to ExerciseRecordType.CARDIO, // 足球
+        "wg:table-tennis" to ExerciseRecordType.CARDIO, // 乒乓球
+        "wg:fencing" to ExerciseRecordType.CARDIO, // 击剑
+        "wg:heavy-bag-boxing" to ExerciseRecordType.CARDIO, // 拳击沙袋
+        "wg:rock-climbing" to ExerciseRecordType.CARDIO, // 攀岩
+        "wg:alpine-skiing" to ExerciseRecordType.CARDIO, // 双板滑雪
+        "wg:kayaking" to ExerciseRecordType.CARDIO, // 皮划艇
+        "wg:stepper" to ExerciseRecordType.CARDIO, // 踏步机
+        "wg:recumbent-bike" to ExerciseRecordType.CARDIO, // 卧式健身车
+        "wg:arm-bike" to ExerciseRecordType.CARDIO, // 上肢曲柄训练器
+        "wg:arc-trainer" to ExerciseRecordType.CARDIO, // 弧步训练器
+        "wg:treadmill-run" to ExerciseRecordType.CARDIO, // 跑步机跑步
         "wg:cat-cow-stretch" to ExerciseRecordType.FLEXIBILITY, // 猫牛式
         "wg:arm-circles" to ExerciseRecordType.FLEXIBILITY, // 绕臂
         "wg:worlds-greatest-stretch" to ExerciseRecordType.FLEXIBILITY, // 世界最佳拉伸
@@ -326,7 +348,7 @@ object ExerciseRecordTypeMap {
     )
 
     /** 种子条数（用于完整性校验）。 */
-    const val SEED_COUNT = 302
+    const val SEED_COUNT = 324
 
     /** 精确 UUID 查询；未命中返回 null（调用方降级 OTHER）。 */
     fun find(uuid: String?): ExerciseRecordType? = uuid?.let { SEED_TYPES[it] }
