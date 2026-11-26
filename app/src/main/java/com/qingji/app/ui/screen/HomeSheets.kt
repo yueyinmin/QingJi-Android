@@ -1,18 +1,14 @@
 package com.qingji.app.ui.screen
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -35,14 +31,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.qingji.app.domain.AppClock
-import com.qingji.app.ui.components.AppDialog
-import com.qingji.app.ui.components.WheelDatePicker
-import com.qingji.app.ui.components.WheelTimePicker
+import com.qingji.app.domain.WaterQuickAdd
+import com.qingji.app.domain.input.NumericEmptyPolicy
+import com.qingji.app.domain.input.NumericInputState
+import com.qingji.app.ui.components.RecordDateDialog
+import com.qingji.app.ui.components.RecordDateTimeRow
+import com.qingji.app.ui.components.RecordTimeDialog
+import com.qingji.app.ui.components.SheetActionBar
+import com.qingji.app.ui.components.SheetScaffoldContent
 import com.qingji.app.ui.i18n.s
 import com.qingji.app.ui.theme.CardWhite
 import com.qingji.app.ui.theme.DividerColor
 import com.qingji.app.ui.theme.MultiColor
-import com.qingji.app.ui.theme.PageBackground
 import com.qingji.app.ui.theme.QingJiGreen
 import com.qingji.app.ui.theme.QingJiGreenDark
 import com.qingji.app.ui.theme.QingJiGreenLight
@@ -51,6 +51,9 @@ import com.qingji.app.ui.theme.TextSecondary
 import com.qingji.app.ui.theme.pressable
 import com.qingji.app.ui.viewmodel.HomeUiState
 import java.time.LocalDate
+
+/** 饮水弹层的默认待记录水量（工单沿用 200ml）。 */
+private const val DEFAULT_WATER_ML = 200
 
 
 /**
@@ -77,11 +80,21 @@ fun QuickWaterSheet(
     onDismiss: () -> Unit,
     onOpenDetail: (() -> Unit)? = null
 ) {
-    // QJ-WATER-SHEET-V2.1：待记录水量用 String 受控，允许编辑中出现空值/中间态；
-    // 默认 200ml 不变，只在确认时转成 Int 交给业务层。
-    var pendingMl by remember { mutableStateOf("200") }
-    // 是否处于数字编辑状态（点击中间数字进入，点完成/快捷/加减退出）
-    var editing by remember { mutableStateOf(false) }
+    // QJ-RECORD-INPUT-UNIFIED-V3 / B3：待记录水量交给统一数字状态机。
+    // min = 1 沿用 WaterQuickAdd 口径；空值策略 = 恢复原值 ——
+    // 清空后「完成」/失焦回到 200，绝不把空值偷偷变成 1ml（旧实现的毛病）。
+    var mlState by remember {
+        mutableStateOf(
+            NumericInputState.of(
+                value = DEFAULT_WATER_ML.toDouble(),
+                min = WaterQuickAdd.MIN_ML.toDouble(),
+                max = WaterQuickAdd.MAX_ML.toDouble(),
+                decimals = 0,
+                emptyPolicy = NumericEmptyPolicy.RESTORE_ORIGINAL,
+                emptyFallback = DEFAULT_WATER_ML.toDouble()
+            )
+        )
+    }
     var submitted by remember { mutableStateOf(false) }
     // QJ-HEALTH-DATE-WATER-004：日期默认今天、时间默认当前（走 AppClock 时区）；
     // 用户可用滚轮改历史日期与具体时间，取消不写库。
@@ -89,14 +102,13 @@ fun QuickWaterSheet(
     var pendingTime by remember { mutableStateOf(AppClock.now().toLocalTime().withSecond(0).withNano(0)) }
     var showDateWheel by remember { mutableStateOf(false) }
     var showTimeWheel by remember { mutableStateOf(false) }
-    // 滚轮临时值：年/月/日三个数字（滚轮本身不校验业务口径，
-    // 是否合法、是否未来日期在确定时统一校验，非法不写回 pendingDate）
-    var draftY by remember { mutableStateOf(pendingDate.year) }
-    var draftM by remember { mutableStateOf(pendingDate.monthValue) }
-    var draftD by remember { mutableStateOf(pendingDate.dayOfMonth) }
 
     androidx.compose.material3.ModalBottomSheet(
         onDismissRequest = onDismiss,
+        // 一打开就展开到内容需要的高度：默认的半屏会把底部操作区挤出屏幕
+        sheetState = androidx.compose.material3.rememberModalBottomSheetState(
+            skipPartiallyExpanded = true
+        ),
         containerColor = CardWhite,
         contentColor = TextPrimary,
         scrimColor = Color.Black.copy(alpha = 0.28f),
@@ -110,38 +122,29 @@ fun QuickWaterSheet(
             )
         }
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 28.dp)
-        ) {
-            // V3.1：内容区可滚动，取消/确认按钮固定在底部，永远不用上滑才能看到。
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    // 限制内容高度：超出滚动，按钮区永远留在弹窗内可见
-                    .heightIn(max = 380.dp)
-                    .verticalScroll(rememberScrollState())
-            ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(text = "💧", fontSize = 18.sp)
-                Spacer(Modifier.size(6.dp))
-                Text(
-                    text = s("记录饮水"),
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary
-                )
-                Spacer(Modifier.weight(1f))
-                Text(
-                    text = "已喝 $waterMl / 目标 ${goalMl}ml",
-                    fontSize = 11.sp,
-                    color = TextSecondary
-                )
-            }
-
-            Spacer(Modifier.height(16.dp))
+        // 三段式：标题固定 / 中间可滚 / 底部固定。
+        // Insets 由 ModalBottomSheet 自己消费，这里绝不再叠 imePadding。
+        SheetScaffoldContent(
+            header = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(text = "💧", fontSize = 18.sp)
+                    Spacer(Modifier.size(6.dp))
+                    Text(
+                        text = s("记录饮水"),
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+                    Spacer(Modifier.weight(1f))
+                    Text(
+                        text = "已喝 $waterMl / 目标 ${goalMl}ml",
+                        fontSize = 11.sp,
+                        color = TextSecondary
+                    )
+                }
+                Spacer(Modifier.height(14.dp))
+            },
+            content = {
 
             // ---------- 当前待记录的水量（大字 + 加减） ----------
             Text(text = s("今日饮水"), fontSize = 12.sp, color = TextSecondary)
@@ -157,26 +160,26 @@ fun QuickWaterSheet(
                         .clip(RoundedCornerShape(12.dp))
                         .background(QingJiGreenLight)
                         .pressable {
-                            pendingMl = com.qingji.app.domain.WaterQuickAdd
-                                .step(pendingMl.toIntOrNull() ?: com.qingji.app.domain.WaterQuickAdd.MIN_ML, -50)
-                                .toString()
-                            editing = false
+                            // 加减沿用 WaterQuickAdd.step 的 1..3000 夹紧口径，不重写业务规则；
+                            // 基准值取当前文本，文本为空时退回最近一次确认值（不会从 0 起算）。
+                            val base = mlState.value?.toInt() ?: mlState.committedValue.toInt()
+                            mlState = mlState.setValue(WaterQuickAdd.step(base, -50).toDouble())
                         },
                     contentAlignment = Alignment.Center
                 ) {
                     Text("−", fontSize = 20.sp, color = QingJiGreenDark)
                 }
-                // QJ-WATER-SHEET-V2.1：中间数字整体可点，进入数字编辑状态（整数键盘，不弹系统输入法）
+                // 中间数字整体可点：进入编辑态并自动全选，直接打 350 就是 350（不再是 200350）
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier
                         .clip(RoundedCornerShape(12.dp))
-                        .background(if (editing) QingJiGreenLight else Color.Transparent)
-                        .pressable { editing = true }
+                        .background(if (mlState.isEditing) QingJiGreenLight else Color.Transparent)
+                        .pressable { mlState = mlState.beginEdit() }
                         .padding(horizontal = 16.dp, vertical = 6.dp)
                 ) {
                     Text(
-                        text = pendingMl.ifEmpty { "0" },
+                        text = mlState.text.ifEmpty { "0" },
                         fontSize = 32.sp,
                         fontWeight = FontWeight.Bold,
                         color = MultiColor.WaterText
@@ -189,20 +192,27 @@ fun QuickWaterSheet(
                         .clip(RoundedCornerShape(12.dp))
                         .background(QingJiGreenLight)
                         .pressable {
-                            pendingMl = com.qingji.app.domain.WaterQuickAdd
-                                .step(pendingMl.toIntOrNull() ?: com.qingji.app.domain.WaterQuickAdd.MIN_ML, 50)
-                                .toString()
-                            editing = false
+                            val base = mlState.value?.toInt() ?: mlState.committedValue.toInt()
+                            mlState = mlState.setValue(WaterQuickAdd.step(base, 50).toDouble())
                         },
                     contentAlignment = Alignment.Center
                 ) {
                     Text("+", fontSize = 20.sp, color = QingJiGreenDark)
                 }
             }
+            // 空值/越界时给明确反馈：确认按钮同步置灰，不写库、不静默失败
+            if (!mlState.canSubmit) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = s("请输入 1–3000 之间的饮水量"),
+                    fontSize = 11.sp,
+                    color = com.qingji.app.ui.theme.DangerRed
+                )
+            }
 
             Spacer(Modifier.height(14.dp))
 
-            // ---------- 常用档位：QJ-WATER-SHEET-V2.1 改为累加，不写库、不显示选中态 ----------
+            // ---------- 常用档位：QJ-WATER-SHEET-V2.1 的「累加」口径原样保留 ----------
             Text(text = s("常用饮水量"), fontSize = 12.sp, color = TextSecondary)
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -213,9 +223,8 @@ fun QuickWaterSheet(
                             .clip(RoundedCornerShape(10.dp))
                             .background(QingJiGreenLight)
                             .pressable {
-                                // 累加到待记录值，夹紧 3000；连续点击连续累加
-                                pendingMl = com.qingji.app.domain.WaterQuickAdd.add(pendingMl, ml).toString()
-                                editing = false
+                                // 累加到当前待记录值（WaterQuickAdd 负责 1..3000 夹紧与非法基准兜底）
+                                mlState = mlState.setValue(WaterQuickAdd.add(mlState.text, ml).toDouble())
                             }
                             .padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center
@@ -231,178 +240,75 @@ fun QuickWaterSheet(
                 }
             }
 
-            // ---------- QJ-WATER-SHEET-V2.1：整数数字键盘，仅编辑态显示；完成即校验退出 ----------
-            if (editing) {
+            // ---------- 整数数字键盘，仅编辑态显示；点「完成」即归一化退出 ----------
+            if (mlState.isEditing) {
                 Spacer(Modifier.height(10.dp))
                 WaterNumberKeypad(
-                    value = pendingMl,
-                    onValueChange = { pendingMl = it },
-                    onDone = {
-                        // 完成时校验：非法则回退到当前合法值（默认 200），不关闭弹层
-                        if (!com.qingji.app.domain.WaterQuickAdd.isValid(pendingMl)) {
-                            pendingMl = com.qingji.app.domain.WaterQuickAdd
-                                .add("", com.qingji.app.domain.WaterQuickAdd.MIN_ML).toString()
-                        }
-                        editing = false
-                    }
+                    value = mlState.text,
+                    onValueChange = { mlState = mlState.onTextChange(it) },
+                    // 完成时统一收尾：空值/越界恢复原值（不是 1ml），合法值提交
+                    onDone = { mlState = mlState.endEdit() }
                 )
             }
 
             Spacer(Modifier.height(12.dp))
-            // QJ-HEALTH-DATE-WATER-004：日期和时间由只读文本改为可点区域，复用项目滚轮。
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(PageBackground)
-                        .pressable {
-                            draftY = pendingDate.year
-                            draftM = pendingDate.monthValue
-                            draftD = pendingDate.dayOfMonth
-                            showDateWheel = true
-                        }
-                        .padding(horizontal = 10.dp, vertical = 11.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(text = "📅", fontSize = 13.sp)
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        text = "${pendingDate.monthValue}月${pendingDate.dayOfMonth}日",
-                        fontSize = 13.sp, color = QingJiGreenDark, maxLines = 1
-                    )
-                }
-                Row(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(PageBackground)
-                        .pressable { showTimeWheel = true }
-                        .padding(horizontal = 10.dp, vertical = 11.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(text = "🕐", fontSize = 13.sp)
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        text = java.time.format.DateTimeFormatter.ofPattern("HH:mm").format(pendingTime),
-                        fontSize = 13.sp, color = QingJiGreenDark, maxLines = 1
-                    )
-                }
-            }
-
-            } // end 可滚动内容区
-
-            Spacer(Modifier.height(12.dp))
-            // ---------- 取消 / 确认：唯一的写库时机（固定底部） ----------
-            Spacer(Modifier.height(16.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(QingJiGreenLight)
-                        // 取消不写库，直接关
-                        .pressable { onDismiss() }
-                        .padding(vertical = 14.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(s("取消"), fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium, color = QingJiGreenDark)
-                }
-                Box(
-                    modifier = Modifier
-                        .weight(1.6f)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(QingJiGreen)
-                        .pressable {
-                            if (submitted) return@pressable
-                            // QJ-WATER-SHEET-V2.1：空值/非法值不提交
-                            val ml = pendingMl.toIntOrNull() ?: return@pressable
-                            if (!com.qingji.app.domain.WaterQuickAdd.isValid(pendingMl)) return@pressable
-                            submitted = true
-                            onAdd(ml, pendingDate, pendingTime)
-                            onDismiss()
-                        }
-                        .padding(vertical = 14.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(s("确认记录"), fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold, color = Color.White)
-                }
-            }
-
-            // ---------- 今日详情：只有首页有对应的详情弹层 ----------
-            if (onOpenDetail != null) {
-                Spacer(Modifier.height(12.dp))
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
-                        .border(1.dp, MultiColor.WaterText, RoundedCornerShape(10.dp))
-                        .pressable {
-                            onDismiss()
-                            onOpenDetail.invoke()
-                        }
-                        .padding(vertical = 12.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        // QJ-HEALTH-DATE-WATER-004：首页可能正在看历史日期，标题不再写「今日」
-                        text = s("查看饮水详情"),
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = MultiColor.WaterText
-                    )
-                }
-            }
-        }
-    }
-
-    // ---------- QJ-HEALTH-DATE-WATER-004：日期滚轮（禁未来 + 非法日期拦截） ----------
-    if (showDateWheel) {
-        val today = AppClock.today()
-        // 拼日期可能非法（2月30日）；非法或未来/超一年都置灰确定，不写回表单
-        val draftDate = runCatching { LocalDate.of(draftY, draftM, draftD) }.getOrNull()
-        val draftValid = draftDate != null &&
-            !draftDate.isAfter(today) && !draftDate.isBefore(today.minusDays(365))
-        AppDialog(
-            title = s("选择记录日期"),
-            confirmText = s("确定"),
-            confirmEnabled = draftValid,
-            onConfirm = {
-                if (draftDate != null && draftValid) {
-                    pendingDate = draftDate
-                    showDateWheel = false
-                }
-            },
-            onDismiss = { showDateWheel = false }
-        ) {
-            Text(
-                text = if (draftValid) s("可记录最近一年内的日期，未来日期不能记")
-                       else s("日期无效或超出可记录范围"),
-                fontSize = 11.sp, color = TextSecondary
+            // 日期/时间统一走 RecordDateTimeRow（与食物记录弹层同一套组件与格式）
+            RecordDateTimeRow(
+                date = pendingDate,
+                time = pendingTime,
+                onPickDate = { showDateWheel = true },
+                onPickTime = { showTimeWheel = true }
             )
-            Spacer(Modifier.height(8.dp))
-            WheelDatePicker(
-                initialDate = pendingDate,
-                yearRange = IntRange(today.year - 1, today.year)
-            ) { y, m, d -> draftY = y; draftM = m; draftD = d }
-        }
+            },
+            footer = {
+                // 固定底部：取消 / 确认。这是本弹层唯一的写库时机。
+                SheetActionBar(
+                    confirmText = s("确认记录"),
+                    onConfirm = {
+                        if (submitted) return@SheetActionBar
+                        // 合法值才提交；按钮已按 canSubmit 置灰，这里再兜一层防重复
+                        val committed = mlState.commit() ?: return@SheetActionBar
+                        submitted = true
+                        mlState = committed
+                        onAdd(committed.committedValue.toInt(), pendingDate, pendingTime)
+                        onDismiss()
+                    },
+                    confirmEnabled = mlState.canSubmit && !submitted,
+                    cancelText = s("取消"),
+                    onCancel = onDismiss,
+                    tertiaryText = if (onOpenDetail != null) s("查看饮水详情") else null,
+                    onTertiary = onOpenDetail?.let { open ->
+                        {
+                            onDismiss()
+                            open.invoke()
+                        }
+                    }
+                )
+            }
+        )
     }
 
-    // ---------- QJ-HEALTH-DATE-WATER-004：时间滚轮（只改具体时刻，日期不变） ----------
+    // ---------- 日期 / 时间滚轮：统一组件（禁未来 + 最近一年 + 非法日期拦截） ----------
+    if (showDateWheel) {
+        RecordDateDialog(
+            initialDate = pendingDate,
+            onDismiss = { showDateWheel = false },
+            onConfirm = { picked ->
+                pendingDate = picked
+                showDateWheel = false
+            }
+        )
+    }
+
     if (showTimeWheel) {
-        AppDialog(
-            title = s("选择记录时间"),
-            confirmText = s("确定"),
-            onConfirm = { showTimeWheel = false },
-            onDismiss = { showTimeWheel = false }
-        ) {
-            WheelTimePicker(
-                initialHour = pendingTime.hour,
-                initialMinute = pendingTime.minute
-            ) { h, m -> pendingTime = java.time.LocalTime.of(h, m) }
-        }
+        RecordTimeDialog(
+            initialTime = pendingTime,
+            onDismiss = { showTimeWheel = false },
+            onConfirm = { picked ->
+                pendingTime = picked
+                showTimeWheel = false
+            }
+        )
     }
 }
 

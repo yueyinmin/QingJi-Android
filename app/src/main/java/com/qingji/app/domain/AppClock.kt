@@ -44,4 +44,29 @@ object AppClock {
      */
     fun ofEpochMillisToLocalDate(epochMillis: Long): LocalDate =
         java.time.Instant.ofEpochMilli(epochMillis).atZone(zone).toLocalDate()
+
+    /** epoch 毫秒 → 本地时刻（按当前记录时区，别用系统默认）。 */
+    fun ofEpochMillisToLocalTime(epochMillis: Long): java.time.LocalTime =
+        java.time.Instant.ofEpochMilli(epochMillis).atZone(zone).toLocalTime()
+
+    // ---------- 统一的时间展示格式（QJ-RECORD-INPUT-UNIFIED-V3 / 8.3） ----------
+    // 以前饮食和饮水各写一份 DateTimeFormatter.ofPattern("HH:mm")，
+    // 时区/格式一旦不一致，同一个 createdAt 在两处会显示成不同时间。
+    // 所有「几点几分」都从这里取。
+
+    private val clockFormatter: java.time.format.DateTimeFormatter =
+        java.time.format.DateTimeFormatter.ofPattern("HH:mm")
+
+    /** 时刻 → "HH:mm"。 */
+    fun formatClock(time: java.time.LocalTime): String = clockFormatter.format(time)
+
+    /** epoch 毫秒 → "HH:mm"（按 AppClock.zone）。 */
+    fun formatClock(epochMillis: Long): String = clockFormatter.format(ofEpochMillisToLocalTime(epochMillis))
+
+    /** 日期 → "11月26日"（弹层日期入口的短标签）。 */
+    fun formatDateLabel(date: LocalDate): String = "${date.monthValue}月${date.dayOfMonth}日"
+
+    /** 日期 → "2026年11月26日"（详情页标题）。 */
+    fun formatDateFull(date: LocalDate): String =
+        "${date.year}年${date.monthValue}月${date.dayOfMonth}日"
 }
