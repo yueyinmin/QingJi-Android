@@ -44,10 +44,14 @@ import com.qingji.app.domain.ExerciseRecordType
 import com.qingji.app.domain.SessionCalorieCalculator
 import com.qingji.app.domain.TrainingMath
 import com.qingji.app.domain.WorkoutItem
+import com.qingji.app.domain.input.NumericEmptyPolicy
+import com.qingji.app.domain.input.NumericInputState
+import com.qingji.app.domain.input.TrainingInputRules
 import com.qingji.app.ui.components.AppDialog
 import com.qingji.app.ui.components.PageTopBar
 import com.qingji.app.ui.components.PrimaryButton
 import com.qingji.app.ui.components.SectionCard
+import com.qingji.app.ui.components.SelfSelectingNumberField
 import com.qingji.app.ui.theme.CardWhite
 import com.qingji.app.ui.theme.Dimens
 import com.qingji.app.ui.theme.DividerColor
@@ -412,38 +416,88 @@ private fun NonStrengthEditorCard(
     val target = remember(draft.targetConfigJson) {
         com.qingji.app.domain.TargetConfigJson.decode(draft.targetConfigJson)
     }
-    var minutes by remember(draft.key) {
-        mutableStateOf(((parsed as? WorkoutItem.Cardio)?.durationSec
-            ?: (parsed as? WorkoutItem.Hiit)?.durationSec
-            ?: (parsed as? WorkoutItem.Flexibility)?.durationSec
-            ?: (parsed as? WorkoutItem.Other)?.durationSec ?: 0L).toString())
+    // QJ-RECORD-INPUT-UNIFIED-V3 / B2：回填用的原始值只读一次。
+    // 用户没动某一项时，保存必须原样写回 —— 不能让「界面显示精度」反推数据
+    // （1800 秒 → 30 分钟 刚好相等，但历史里的 1850 秒会被四舍五入改掉）。
+    val originalDurationSec: Long = when (parsed) {
+        is WorkoutItem.Cardio -> parsed.durationSec
+        is WorkoutItem.Hiit -> parsed.durationSec
+        is WorkoutItem.Flexibility -> parsed.durationSec
+        is WorkoutItem.Other -> parsed.durationSec
+        else -> 0L
     }
-    var distanceKm by remember(draft.key) {
-        mutableStateOf(((parsed as? WorkoutItem.Cardio)?.distanceMeters ?: 0.0).toString())
+    val cardio = parsed as? WorkoutItem.Cardio
+
+    // 时长：数据层是秒，界面填分钟（旧代码把秒直接塞进分钟框，1800 秒显示成 1800 分钟）
+    var minutesState by remember(draft.key) {
+        mutableStateOf(
+            NumericInputState.of(
+                value = TrainingInputRules.secondsToMinutes(originalDurationSec),
+                min = 0.0,
+                max = TrainingInputRules.MAX_MINUTES.toDouble(),
+                decimals = 0,
+                emptyPolicy = NumericEmptyPolicy.NORMALIZE,
+                emptyFallback = 0.0
+            )
+        )
     }
+    // 「用户真改过时长」才重算秒数；只改强度/轮数时保留原始秒数
+    var minutesDirty by remember(draft.key) { mutableStateOf(false) }
+
+    // 距离：数据层是米，界面填公里（旧代码把米当公里，5000 米显示 5000 公里）
+    var distanceState by remember(draft.key) {
+        mutableStateOf(
+            NumericInputState.of(
+                value = TrainingInputRules.metersToKm(cardio?.distanceMeters),
+                min = 0.0,
+                max = TrainingInputRules.MAX_KM,
+                decimals = 3,
+                emptyPolicy = NumericEmptyPolicy.NORMALIZE,
+                emptyFallback = 0.0
+            )
+        )
+    }
+    var distanceDirty by remember(draft.key) { mutableStateOf(false) }
+
     var intensity by remember(draft.key) {
-        mutableStateOf((parsed as? WorkoutItem.Cardio)?.intensity
+        mutableStateOf(cardio?.intensity
             ?: (parsed as? WorkoutItem.Hiit)?.intensity ?: "medium")
     }
-    var workSec by remember(draft.key) {
-        mutableStateOf(((parsed as? WorkoutItem.Hiit)?.workSec ?: 0).toString())
+    var workSecState by remember(draft.key) {
+        mutableStateOf(
+            NumericInputState.of(
+                ((parsed as? WorkoutItem.Hiit)?.workSec ?: 0).toDouble(),
+                0.0, TrainingInputRules.MAX_ROUND_SEC
+            )
+        )
     }
-    var restSec by remember(draft.key) {
-        mutableStateOf(((parsed as? WorkoutItem.Hiit)?.restSec ?: 0).toString())
+    var restSecState by remember(draft.key) {
+        mutableStateOf(
+            NumericInputState.of(
+                ((parsed as? WorkoutItem.Hiit)?.restSec ?: 0).toDouble(),
+                0.0, TrainingInputRules.MAX_ROUND_SEC
+            )
+        )
     }
-    var rounds by remember(draft.key) {
-        mutableStateOf(((parsed as? WorkoutItem.Hiit)?.rounds ?: 0).toString())
+    var roundsState by remember(draft.key) {
+        mutableStateOf(
+            NumericInputState.of(
+                ((parsed as? WorkoutItem.Hiit)?.rounds ?: 0).toDouble(),
+                0.0, TrainingInputRules.MAX_ROUNDS
+            )
+        )
     }
     var content by remember(draft.key) {
         mutableStateOf((parsed as? WorkoutItem.Flexibility)?.content.orEmpty())
     }
-    var reps by remember(draft.key) {
-        mutableStateOf(((parsed as? WorkoutItem.Other)?.reps ?: 0).toString())
+    var repsState by remember(draft.key) {
+        mutableStateOf(
+            NumericInputState.of(((parsed as? WorkoutItem.Other)?.reps ?: 0).toDouble(), 0.0, 9999.0)
+        )
     }
 
     // 2026-11-24：步行类有氧可选时长/步数/公里；固定器械类只时长。
     // 回填时按「当初真填的原始值」判断，绝不从时长反推一个假步数。
-    val cardio = parsed as? WorkoutItem.Cardio
     val canChooseMode = type == ExerciseRecordType.CARDIO &&
         com.qingji.app.domain.CardioInputMode.supportsDistanceModes(draft.exerciseUuid)
     var cardioMode by remember(draft.key) {
@@ -456,22 +510,38 @@ private fun NonStrengthEditorCard(
         )
     }
     // 当前模式下用户填的原始数字；切换模式时各自保留，不互相换算冒充原始值
-    var stepsInput by remember(draft.key) {
-        mutableStateOf((cardio?.steps ?: 0).takeIf { it > 0 }?.toString().orEmpty())
+    var stepsState by remember(draft.key) {
+        mutableStateOf(
+            NumericInputState.of((cardio?.steps ?: 0).toDouble(), 0.0, TrainingInputRules.MAX_STEPS)
+        )
+    }
+    var stepsDirty by remember(draft.key) { mutableStateOf(false) }
+
+    /** 当前模式对应的输入状态（三个状态互相独立，切模式不串值）。 */
+    fun amountState(): NumericInputState = when (cardioMode) {
+        com.qingji.app.domain.CardioInputMode.MODE_STEPS -> stepsState
+        com.qingji.app.domain.CardioInputMode.MODE_KM -> distanceState
+        else -> minutesState
     }
 
-    fun cardioAmount(): Double = when (cardioMode) {
-        com.qingji.app.domain.CardioInputMode.MODE_STEPS -> stepsInput.toDoubleOrNull() ?: 0.0
-        com.qingji.app.domain.CardioInputMode.MODE_KM -> distanceKm.toDoubleOrNull() ?: 0.0
-        else -> minutes.toDoubleOrNull() ?: 0.0
-    }
+    fun cardioAmount(): Double = amountState().value ?: 0.0
 
     fun durationSec(mode: String, amount: Double): Long =
         com.qingji.app.domain.CardioInputMode.toMinutes(mode, amount)
-            .let { it.coerceIn(0.0, 600.0) }.toLong() * 60L
+            .let { it.coerceIn(0.0, TrainingInputRules.MAX_MINUTES.toDouble()) }
+            .toLong() * 60L
 
-    /** HIIT / 柔韧 / 其他仍按原来的分钟输入。 */
-    fun durationSec(): Long = (minutes.toIntOrNull() ?: 0).coerceIn(0, 600) * 60L
+    /** 当前模式下「用户是否真的动过数字」，没动过就保留原始秒数。 */
+    fun durationTouched(): Boolean = when {
+        canChooseMode && cardioMode == com.qingji.app.domain.CardioInputMode.MODE_STEPS -> stepsDirty
+        canChooseMode && cardioMode == com.qingji.app.domain.CardioInputMode.MODE_KM -> distanceDirty
+        else -> minutesDirty
+    }
+
+    /** HIIT / 柔韧 / 其他仍按原来的分钟输入；没改过就原样保留原始秒数。 */
+    fun durationSec(): Long =
+        if (minutesDirty) TrainingInputRules.minutesToSeconds(minutesState.value ?: 0.0)
+        else originalDurationSec
 
     fun emit() {
         val common = Triple(draft.key, draft.exerciseUuid, draft.name)
@@ -481,23 +551,28 @@ private fun NonStrengthEditorCard(
                 val mode = if (canChooseMode) cardioMode else com.qingji.app.domain.CardioInputMode.MODE_MINUTES
                 WorkoutItem.Cardio(
                     itemId = common.first, exerciseUuid = common.second, name = common.third, order = 0,
-                    // 消耗计算仍需分钟：步数/公里按既有口径折算；时长模式原样
-                    durationSec = durationSec(mode, amount),
-                    // 原始录入值各自保留；公里模式另存米数（上限 500 公里防误填）
-                    distanceMeters = if (mode == com.qingji.app.domain.CardioInputMode.MODE_KM)
-                        amount.takeIf { it > 0.0 && it <= 500.0 }?.times(1000.0)
-                    else null,
-                    steps = if (mode == com.qingji.app.domain.CardioInputMode.MODE_STEPS)
-                        amount.toInt().coerceAtLeast(0) else 0,
+                    // 消耗计算仍需分钟：步数/公里按既有口径折算；没动过就原样保留原始秒数
+                    durationSec = if (durationTouched()) durationSec(mode, amount) else originalDurationSec,
+                    // 原始录入值各自保留；公里模式另存米数（上限 500 公里防误填）。
+                    // 没改过距离时写回原始米数，避免「米→公里→米」的浮点误差改动历史数据。
+                    distanceMeters = if (mode == com.qingji.app.domain.CardioInputMode.MODE_KM) {
+                        if (distanceDirty) TrainingInputRules.kmToMeters(amount) else cardio?.distanceMeters
+                    } else null,
+                    steps = if (mode == com.qingji.app.domain.CardioInputMode.MODE_STEPS) {
+                        if (stepsDirty) amount.toInt().coerceAtLeast(0) else (cardio?.steps ?: 0)
+                    } else 0,
                     intensity = intensity
                 )
             }
             ExerciseRecordType.HIIT -> WorkoutItem.Hiit(
                 itemId = common.first, exerciseUuid = common.second, name = common.third, order = 0,
                 durationSec = durationSec(),
-                workSec = (workSec.toIntOrNull() ?: 0).coerceIn(0, 3600),
-                restSec = (restSec.toIntOrNull() ?: 0).coerceIn(0, 3600),
-                rounds = (rounds.toIntOrNull() ?: 0).coerceIn(0, 100),
+                workSec = (workSecState.value ?: 0.0).toInt()
+                    .coerceIn(0, TrainingInputRules.MAX_ROUND_SEC.toInt()),
+                restSec = (restSecState.value ?: 0.0).toInt()
+                    .coerceIn(0, TrainingInputRules.MAX_ROUND_SEC.toInt()),
+                rounds = (roundsState.value ?: 0.0).toInt()
+                    .coerceIn(0, TrainingInputRules.MAX_ROUNDS.toInt()),
                 intensity = intensity
             )
             ExerciseRecordType.FLEXIBILITY -> WorkoutItem.Flexibility(
@@ -506,7 +581,8 @@ private fun NonStrengthEditorCard(
             )
             ExerciseRecordType.OTHER -> WorkoutItem.Other(
                 itemId = common.first, exerciseUuid = common.second, name = common.third, order = 0,
-                durationSec = durationSec(), reps = reps.toIntOrNull()?.takeIf { it >= 0 }
+                durationSec = durationSec(),
+                reps = repsState.value?.toInt()?.takeIf { it >= 0 }
             )
             else -> return
         }
@@ -556,48 +632,63 @@ private fun NonStrengthEditorCard(
                 }
             }
             Spacer(Modifier.height(8.dp))
-            val amountValue = when (cardioMode) {
-                com.qingji.app.domain.CardioInputMode.MODE_STEPS -> stepsInput
-                com.qingji.app.domain.CardioInputMode.MODE_KM -> distanceKm
-                else -> minutes
+            // QJ-RECORD-INPUT-UNIFIED-V3 / B2：三种模式各有一份独立状态，
+            // 切换模式不串值；输入框切到「首次聚焦全选」，点击数字可直接覆盖。
+            val currentMode = cardioMode
+            val currentState = when (currentMode) {
+                com.qingji.app.domain.CardioInputMode.MODE_STEPS -> stepsState
+                com.qingji.app.domain.CardioInputMode.MODE_KM -> distanceState
+                else -> minutesState
             }
-            OutlinedTextField(
-                value = amountValue,
-                onValueChange = { v ->
-                    when (cardioMode) {
-                        com.qingji.app.domain.CardioInputMode.MODE_STEPS -> stepsInput = v
-                        com.qingji.app.domain.CardioInputMode.MODE_KM -> distanceKm = v
-                        else -> minutes = v
+            SelfSelectingNumberField(
+                state = currentState,
+                onStateChange = { next ->
+                    val changed = next.text != currentState.text
+                    when (currentMode) {
+                        com.qingji.app.domain.CardioInputMode.MODE_STEPS -> {
+                            stepsState = next
+                            if (changed) stepsDirty = true
+                        }
+                        com.qingji.app.domain.CardioInputMode.MODE_KM -> {
+                            distanceState = next
+                            if (changed) distanceDirty = true
+                        }
+                        else -> {
+                            minutesState = next
+                            if (changed) minutesDirty = true
+                        }
                     }
                     emit()
                 },
-                label = { Text("实际${com.qingji.app.domain.CardioInputMode.unit(cardioMode)}（${
+                label = "实际${com.qingji.app.domain.CardioInputMode.unit(cardioMode)}（${
                     when (cardioMode) {
                         com.qingji.app.domain.CardioInputMode.MODE_STEPS -> "按 100 步/分钟折算消耗"
                         com.qingji.app.domain.CardioInputMode.MODE_KM -> "按 10 分钟/公里折算消耗"
                         else -> "分钟"
                     }
-                }）") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+                }）"
             )
             Spacer(Modifier.height(6.dp))
         } else if (type == ExerciseRecordType.CARDIO) {
-            OutlinedTextField(
-                value = minutes,
-                onValueChange = { minutes = it; emit() },
-                label = { Text("实际时长（分钟）") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+            SelfSelectingNumberField(
+                state = minutesState,
+                onStateChange = { next ->
+                    if (next.text != minutesState.text) minutesDirty = true
+                    minutesState = next
+                    emit()
+                },
+                label = "实际时长（分钟）"
             )
             Spacer(Modifier.height(6.dp))
         } else {
-            OutlinedTextField(
-                value = minutes,
-                onValueChange = { minutes = it; emit() },
-                label = { Text("实际时长（分钟）") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+            SelfSelectingNumberField(
+                state = minutesState,
+                onStateChange = { next ->
+                    if (next.text != minutesState.text) minutesDirty = true
+                    minutesState = next
+                    emit()
+                },
+                label = "实际时长（分钟）"
             )
         }
         if (type == ExerciseRecordType.CARDIO) {
@@ -626,28 +717,22 @@ private fun NonStrengthEditorCard(
         }
         if (type == ExerciseRecordType.HIIT) {
             Spacer(Modifier.height(6.dp))
-            OutlinedTextField(
-                value = workSec,
-                onValueChange = { workSec = it; emit() },
-                label = { Text("工作时长（秒/轮）") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+            SelfSelectingNumberField(
+                state = workSecState,
+                onStateChange = { workSecState = it; emit() },
+                label = "工作时长（秒/轮）"
             )
             Spacer(Modifier.height(6.dp))
-            OutlinedTextField(
-                value = restSec,
-                onValueChange = { restSec = it; emit() },
-                label = { Text("休息时长（秒/轮）") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+            SelfSelectingNumberField(
+                state = restSecState,
+                onStateChange = { restSecState = it; emit() },
+                label = "休息时长（秒/轮）"
             )
             Spacer(Modifier.height(6.dp))
-            OutlinedTextField(
-                value = rounds,
-                onValueChange = { rounds = it; emit() },
-                label = { Text("完成轮数") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+            SelfSelectingNumberField(
+                state = roundsState,
+                onStateChange = { roundsState = it; emit() },
+                label = "完成轮数"
             )
         }
         if (type == ExerciseRecordType.FLEXIBILITY) {
@@ -662,12 +747,10 @@ private fun NonStrengthEditorCard(
         }
         if (type == ExerciseRecordType.OTHER) {
             Spacer(Modifier.height(6.dp))
-            OutlinedTextField(
-                value = reps,
-                onValueChange = { reps = it; emit() },
-                label = { Text("次数（可不填）") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+            SelfSelectingNumberField(
+                state = repsState,
+                onStateChange = { repsState = it; emit() },
+                label = "次数（可不填）"
             )
         }
         if (type == ExerciseRecordType.HIIT || type == ExerciseRecordType.FLEXIBILITY || type == ExerciseRecordType.OTHER) {
