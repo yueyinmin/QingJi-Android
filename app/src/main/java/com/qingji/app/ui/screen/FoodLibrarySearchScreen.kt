@@ -52,7 +52,6 @@ import com.qingji.app.data.local.entity.UserBrandDish
 import com.qingji.app.domain.FoodDataSource
 import com.qingji.app.domain.FoodNutritionCalculator
 import com.qingji.app.domain.FoodSearchResult
-import com.qingji.app.ui.components.AppBottomSheet
 import com.qingji.app.ui.components.HintBox
 import com.qingji.app.ui.components.PrimaryButton
 import com.qingji.app.ui.theme.pressable
@@ -82,6 +81,8 @@ fun FoodLibrarySearchScreen(
     onAddCustomFood: () -> Unit,
     onManageBrands: () -> Unit,
     onOpenFoodDetail: (Food) -> Unit = {},
+    /** QJ-RECORD-INPUT-UNIFIED-V3：从记录弹层进「饮食日详情」，返回后弹层按草稿恢复 */
+    onOpenFoodDayDetail: (java.time.LocalDate) -> Unit = {},
     vm: FoodLibrarySearchViewModel = viewModel()
 ) {
     val keyword by vm.keyword.collectAsState()
@@ -95,6 +96,12 @@ fun FoodLibrarySearchScreen(
 
     var pickFood by remember { mutableStateOf<Food?>(null) }
     var pickDish by remember { mutableStateOf<UserBrandDish?>(null) }
+    // QJ-RECORD-INPUT-UNIFIED-V3 / B4：草稿 + 开关都进 rememberSaveable，
+    // 进「饮食日详情」返回、旋转屏幕、进程回收后都能恢复未确认的记录。
+    var recordDraft by androidx.compose.runtime.saveable.rememberSaveable(
+        stateSaver = com.qingji.app.ui.screen.food.FoodRecordDraft.Saver
+    ) { mutableStateOf(com.qingji.app.ui.screen.food.FoodRecordDraft()) }
+    var recordOpen by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -232,22 +239,72 @@ fun FoodLibrarySearchScreen(
         }
     }
 
-    pickFood?.let { food ->
-        SearchAddToMealSheet(
-            title = food.name,
-            basis = FoodNutritionCalculator.normalizeBasis(food.nutritionBasis),
-            defaultGrams = food.defaultGrams,
-            onDismiss = { pickFood = null },
-            onAdd = { grams, meal, offset -> vm.addFoodToMeal(food, grams, meal, offset); pickFood = null }
-        )
+    // ---------- 统一食物记录弹层（食物 / 品牌菜品共用） ----------
+    androidx.compose.runtime.LaunchedEffect(pickFood, pickDish) {
+        val food = pickFood
+        val dish = pickDish
+        when {
+            food != null -> {
+                recordDraft = com.qingji.app.ui.screen.food.FoodRecordDraft.create(
+                    foodName = food.name,
+                    basis = food.nutritionBasis,
+                    defaultGrams = food.defaultGrams,
+                    // 与旧路径一致：按每 100g 折算时 servingGrams 传 defaultGrams
+                    servingGrams = food.defaultGrams,
+                    kcalPerBasis = food.kcalPer100g,
+                    proteinPerBasis = food.proteinPer100g,
+                    carbPerBasis = food.carbPer100g,
+                    fatPerBasis = food.fatPer100g
+                )
+                recordOpen = true
+            }
+            dish != null -> {
+                recordDraft = com.qingji.app.ui.screen.food.FoodRecordDraft.create(
+                    foodName = dish.name,
+                    basis = dish.nutritionBasis,
+                    defaultGrams = dish.servingGrams,
+                    servingGrams = dish.servingGrams,
+                    kcalPerBasis = dish.kcal,
+                    proteinPerBasis = dish.protein,
+                    carbPerBasis = dish.carb,
+                    fatPerBasis = dish.fat
+                )
+                recordOpen = true
+            }
+        }
     }
-    pickDish?.let { dish ->
-        SearchAddToMealSheet(
-            title = dish.name,
-            basis = FoodNutritionCalculator.normalizeBasis(dish.nutritionBasis),
-            defaultGrams = dish.servingGrams,
-            onDismiss = { pickDish = null },
-            onAdd = { grams, meal, offset -> vm.addDishToMeal(dish, grams, meal, offset); pickDish = null }
+
+    if (recordOpen) {
+        com.qingji.app.ui.screen.food.FoodRecordSheet(
+            draft = recordDraft,
+            onDraftChange = { recordDraft = it },
+            onCancel = {
+                recordOpen = false
+                pickFood = null
+                pickDish = null
+                recordDraft = com.qingji.app.ui.screen.food.FoodRecordDraft()
+            },
+            onConfirm = { d ->
+                val grams = d.grams ?: return@FoodRecordSheet
+                vm.addMealEntryAt(
+                    foodName = d.foodName,
+                    kcalPerBasis = d.kcalPerBasis,
+                    proteinPerBasis = d.proteinPerBasis,
+                    carbPerBasis = d.carbPerBasis,
+                    fatPerBasis = d.fatPerBasis,
+                    basis = d.basis,
+                    servingGrams = d.servingGrams,
+                    grams = grams,
+                    mealType = d.meal,
+                    date = d.date,
+                    time = d.time
+                )
+                recordOpen = false
+                pickFood = null
+                pickDish = null
+                recordDraft = com.qingji.app.ui.screen.food.FoodRecordDraft()
+            },
+            onOpenDetail = { d -> onOpenFoodDayDetail(d.date) }
         )
     }
 }
@@ -325,70 +382,3 @@ private fun SearchDishRow(dish: UserBrandDish, brandName: String, onClick: () ->
     }
 }
 
-@Composable
-private fun SearchAddToMealSheet(
-    title: String,
-    basis: String,
-    defaultGrams: Double,
-    onDismiss: () -> Unit,
-    onAdd: (Double, String, Int) -> Unit
-) {
-    var grams by remember { mutableStateOf(defaultGrams.toString()) }
-    var meal by remember { mutableStateOf("lunch") }
-    var offset by remember { mutableStateOf(0) }
-    val meals = listOf("breakfast" to "早餐", "lunch" to "午餐", "dinner" to "晚餐", "snack" to "加餐")
-    // QJ-FOOD-NUMERIC-PAD-V1：合法数量才允许提交，不再用 0 兜底
-    val valid = com.qingji.app.domain.NumericKeypadLogic.isValid(grams, 1.0, 3000.0)
-    val amount = com.qingji.app.domain.NumericKeypadLogic.asDouble(grams) ?: 0.0
-    // 单位按营养基准显示：
-    // 每份基准下 grams 仍是「实际克数」（ratio 用 servingGrams 做分母），不能显示成「份」，
-    // 否则用户填 2「份」会被当成 2g 计算；只有每100毫升基准的单位才是毫升。
-    val unitLabel = if (FoodNutritionCalculator.normalizeBasis(basis) == FoodNutritionCalculator.PER_100ML)
-        "毫升" else "克"
-    AppBottomSheet(
-        title = "加入饮食记录", subtitle = title,
-        confirmText = "加入", onConfirm = { if (valid) onAdd(amount, meal, offset) },
-        confirmEnabled = valid, skipPartiallyExpanded = true, onDismiss = onDismiss
-    ) {
-        Column {
-            Text("吃了多少（${FoodNutritionCalculator.basisLabel(basis)}）", fontSize = 13.sp, color = TextSecondary)
-            Spacer(Modifier.height(6.dp))
-            // QJ-FOOD-NUMERIC-PAD-V1：与主食物库统一组件；默认份量、餐次、日期规则不变
-            com.qingji.app.ui.components.NumericKeypadInput(
-                value = grams,
-                onValueChange = { grams = it },
-                unit = unitLabel,
-                min = 1.0,
-                max = 3000.0,
-                step = 10.0
-            )
-            Spacer(Modifier.height(14.dp))
-            Text("哪一餐", fontSize = 13.sp, color = TextSecondary)
-            Spacer(Modifier.height(6.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                meals.forEach { (value, label) ->
-                    val active = value == meal
-                    Box(Modifier.weight(1f).clip(RoundedCornerShape(10.dp))
-                        .background(if (active) QingJiGreen else CardWhite)
-                        .clickable { meal = value }.padding(vertical = 10.dp),
-                        contentAlignment = Alignment.Center) {
-                        Text(label, fontSize = 12.sp, color = if (active) Color.White else TextPrimary)
-                    }
-                }
-            }
-            Spacer(Modifier.height(14.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(0 to "今天", 1 to "昨天").forEach { (value, label) ->
-                    val active = value == offset
-                    Box(Modifier.weight(1f).clip(RoundedCornerShape(10.dp))
-                        .background(if (active) QingJiGreen else CardWhite)
-                        .clickable { offset = value }.padding(vertical = 10.dp),
-                        contentAlignment = Alignment.Center) {
-                        Text(label, fontSize = 12.sp, color = if (active) Color.White else TextPrimary)
-                    }
-                }
-            }
-            Spacer(Modifier.height(24.dp))
-        }
-    }
-}

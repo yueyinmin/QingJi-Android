@@ -103,4 +103,49 @@ class FoodLibrarySearchViewModel(app: Application) : AndroidViewModel(app) {
     ) {
         viewModelScope.launch { repo.addBrandDishToMeal(dish, grams, mealType, dayOffset) }
     }
+
+    /**
+     * QJ-RECORD-INPUT-UNIFIED-V3 / B4：按草稿里的营养参数 + 日期时刻写入。
+     *
+     * 为什么不再区分「食物」和「品牌菜品」两条方法：
+     * 两者落库只差营养参数来源，折算函数完全相同（FoodNutritionCalculator）；
+     * 统一成「参数进、记录出」之后，记录弹层只依赖草稿，
+     * 从「饮食日详情」返回、甚至进程被回收后都能照原样提交。
+     */
+    fun addMealEntryAt(
+        foodName: String,
+        kcalPerBasis: Double,
+        proteinPerBasis: Double,
+        carbPerBasis: Double,
+        fatPerBasis: Double,
+        basis: String,
+        servingGrams: Double,
+        grams: Double,
+        mealType: String,
+        date: java.time.LocalDate,
+        time: java.time.LocalTime
+    ) {
+        viewModelScope.launch {
+            val consumed = com.qingji.app.domain.FoodNutritionCalculator.compute(
+                kcalPerBasis = kcalPerBasis,
+                proteinPerBasis = proteinPerBasis,
+                carbPerBasis = carbPerBasis,
+                fatPerBasis = fatPerBasis,
+                basis = basis,
+                servingGrams = servingGrams,
+                grams = grams
+            )
+            repo.addFoodLogAt(
+                date = date,
+                time = time,
+                mealType = mealType,
+                foodName = foodName,
+                grams = grams,
+                kcal = consumed.kcal,
+                proteinG = consumed.proteinG,
+                carbG = consumed.carbG,
+                fatG = consumed.fatG
+            )
+        }
+    }
 }

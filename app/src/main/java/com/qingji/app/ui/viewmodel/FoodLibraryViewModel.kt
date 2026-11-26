@@ -204,4 +204,46 @@ class FoodLibraryViewModel(app: Application) : AndroidViewModel(app) {
             )
         }
     }
+
+    /**
+     * QJ-RECORD-INPUT-UNIFIED-V3 / 8.1：按「日期 + 具体时刻」加到某一餐。
+     * 与 addToMeal 只差时间参数来源（绝对日期/时刻 vs 天数偏移），
+     * 营养折算与校验完全共用，不产生第二套口径。
+     */
+    fun addToMealAt(
+        foodName: String,
+        perBasisKcal: Double,
+        grams: Double,
+        mealType: String,
+        date: java.time.LocalDate,
+        time: java.time.LocalTime,
+        perBasisProtein: Double = 0.0,
+        perBasisCarb: Double = 0.0,
+        perBasisFat: Double = 0.0,
+        basis: String = com.qingji.app.domain.FoodNutritionCalculator.PER_100G,
+        servingGrams: Double = 100.0
+    ) {
+        viewModelScope.launch {
+            val consumed = com.qingji.app.domain.FoodNutritionCalculator.compute(
+                kcalPerBasis = perBasisKcal,
+                proteinPerBasis = perBasisProtein,
+                carbPerBasis = perBasisCarb,
+                fatPerBasis = perBasisFat,
+                basis = basis,
+                servingGrams = servingGrams,
+                grams = grams
+            )
+            repo.addFoodLogAt(
+                date = date,
+                time = time,
+                mealType = mealType,
+                foodName = foodName,
+                grams = grams,
+                kcal = consumed.kcal,
+                proteinG = consumed.proteinG,
+                carbG = consumed.carbG,
+                fatG = consumed.fatG
+            )
+        }
+    }
 }

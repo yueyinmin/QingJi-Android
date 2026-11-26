@@ -21,7 +21,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.EditNote
@@ -47,7 +46,6 @@ import com.qingji.app.domain.AllergenRules
 import com.qingji.app.domain.FoodCategory
 import com.qingji.app.domain.NutritionMatch
 import com.qingji.app.domain.FoodIcon
-import com.qingji.app.domain.MealRules
 import com.qingji.app.ui.components.HintBox
 import com.qingji.app.ui.i18n.s
 import com.qingji.app.ui.theme.CardWhite
@@ -87,6 +85,8 @@ fun FoodLibraryScreen(
     // QJ-FOOD-UI-003：品牌新增/管理入口已移除，此回调保留兼容导航签名（当前不触发）。
     onManageBrands: () -> Unit = {},
     onOpenSearch: () -> Unit = {},
+    /** QJ-RECORD-INPUT-UNIFIED-V3：从记录弹层进「饮食日详情」，返回后弹层自动恢复 */
+    onOpenFoodDayDetail: (java.time.LocalDate) -> Unit = {},
     vm: FoodLibraryViewModel = viewModel()
 ) {
     val allFoods by vm.allFoods.collectAsState()
@@ -108,6 +108,14 @@ fun FoodLibraryScreen(
     // 家庭厨房的横排细类（大类右上的那排小胶囊）。空串 = 全部。
     var subCategory by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
     var pick by remember { mutableStateOf<Food?>(null) }
+    // QJ-RECORD-INPUT-UNIFIED-V3 / B4：食物记录草稿。
+    // 用 rememberSaveable：进「饮食日详情」再返回、旋转屏幕、进程被回收都能恢复
+    // 未确认的重量/餐次/日期/时间（工单 10.2）。
+    var recordDraft by androidx.compose.runtime.saveable.rememberSaveable(
+        stateSaver = com.qingji.app.ui.screen.food.FoodRecordDraft.Saver
+    ) { mutableStateOf(com.qingji.app.ui.screen.food.FoodRecordDraft()) }
+    var recordOpen by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+
     // v1.5 阶段四：搜索改为独立全屏页，食物库页内不再有搜索框/搜索词。
     // query 保留空串仅供旧的家常菜"相关食物"逻辑读取（恒不触发），不影响分类。
     val query = ""
@@ -485,26 +493,56 @@ fun FoodLibraryScreen(
     }
     } // 外层 Box 结束
 
-    // ---------- 加到某一餐 ----------
-    pick?.let { food ->
-        AddToMealDialog(
+    // ---------- 统一食物记录弹层（标准库 / 自定义 / 吃过的 共用一份） ----------
+    // 选中食物 → 生成草稿（只生成一次）；之后所有修改都只改草稿，点确认才落库
+    androidx.compose.runtime.LaunchedEffect(pick) {
+        val food = pick ?: return@LaunchedEffect
+        recordDraft = com.qingji.app.ui.screen.food.FoodRecordDraft.create(
             foodName = food.name,
+            basis = food.nutritionBasis,
             defaultGrams = food.defaultGrams,
-            onDismiss = { pick = null },
-            onConfirm = { meal, grams, dayOffset ->
-                vm.addToMeal(
-                    food.name,
-                    food.kcalPer100g,
-                    grams,
-                    meal,
-                    dayOffset,
-                    food.proteinPer100g,
-                    food.carbPer100g,
-                    food.fatPer100g,
-                    food.nutritionBasis,
-                    food.defaultGrams
-                )
+            servingGrams = food.defaultGrams,
+            kcalPerBasis = food.kcalPer100g,
+            proteinPerBasis = food.proteinPer100g,
+            carbPerBasis = food.carbPer100g,
+            fatPerBasis = food.fatPer100g
+        )
+        recordOpen = true
+    }
+
+    if (recordOpen) {
+        com.qingji.app.ui.screen.food.FoodRecordSheet(
+            draft = recordDraft,
+            onDraftChange = { recordDraft = it },
+            onCancel = {
+                // 取消：不写库，丢弃草稿
+                recordOpen = false
                 pick = null
+                recordDraft = com.qingji.app.ui.screen.food.FoodRecordDraft()
+            },
+            onConfirm = { d ->
+                val grams = d.grams ?: return@FoodRecordSheet
+                vm.addToMealAt(
+                    foodName = d.foodName,
+                    perBasisKcal = d.kcalPerBasis,
+                    grams = grams,
+                    mealType = d.meal,
+                    date = d.date,
+                    time = d.time,
+                    perBasisProtein = d.proteinPerBasis,
+                    perBasisCarb = d.carbPerBasis,
+                    perBasisFat = d.fatPerBasis,
+                    basis = d.basis,
+                    servingGrams = d.servingGrams
+                )
+                // 提交成功：关闭并清空草稿，下次打开不再恢复旧值
+                recordOpen = false
+                pick = null
+                recordDraft = com.qingji.app.ui.screen.food.FoodRecordDraft()
+            },
+            onOpenDetail = { d ->
+                // 只是去看详情：不保存、不清草稿；返回时弹层按草稿原样恢复
+                onOpenFoodDayDetail(d.date)
             }
         )
     }
@@ -645,78 +683,6 @@ private fun EatenRow(item: EatenFood, onClick: () -> Unit) {
         }
     }
     Spacer(Modifier.height(6.dp))
-}
-
-/** 选餐次 + 填克数。 */
-@Composable
-private fun AddToMealDialog(
-    foodName: String,
-    defaultGrams: Double,
-    onDismiss: () -> Unit,
-    onConfirm: (String, Double, Int) -> Unit
-) {
-    var meal by remember { mutableStateOf(MealRules.guess()) }
-    var grams by remember { mutableStateOf(defaultGrams.toInt().toString()) }
-    var dayOffset by remember { mutableStateOf(0L) }
-
-    com.qingji.app.ui.components.AppBottomSheet(
-        title = s("加到哪一餐"),
-        subtitle = foodName,
-        confirmText = s("加入"),
-        // QJ-FOOD-NUMERIC-PAD-V1：非法数量不得提交；不再用 defaultGrams 兜底错误输入
-        confirmEnabled = com.qingji.app.domain.NumericKeypadLogic.isValid(grams, 1.0, 3000.0),
-        onConfirm = {
-            val g = grams.toDoubleOrNull()?.coerceIn(1.0, 3000.0) ?: return@AppBottomSheet
-            onConfirm(meal, g, dayOffset.toInt())
-        },
-        onDismiss = onDismiss
-    ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            MealRules.ALL.forEach { type ->
-                val selected = type == meal
-                Text(
-                    text = MealRules.label(type),
-                    fontSize = 12.sp,
-                    color = if (selected) Color.White else TextSecondary,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(Dimens.TinyCorner))
-                        .background(if (selected) QingJiGreen else PageBackground)
-                        .clickable { meal = type }
-                        .padding(horizontal = 10.dp, vertical = 7.dp)
-                )
-            }
-        }
-        Spacer(Modifier.height(12.dp))
-        Spacer(Modifier.height(12.dp))
-        Text(text = s("记到哪一天"), fontSize = 12.sp, color = TextSecondary)
-        Spacer(Modifier.height(6.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            listOf(0L to s("今天"), 1L to s("昨天"), 2L to s("前天")).forEach { (offset, label) ->
-                val selected = dayOffset == offset
-                Text(
-                    text = label,
-                    fontSize = 12.sp,
-                    color = if (selected) Color.White else TextSecondary,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(if (selected) QingJiGreen else PageBackground)
-                        .clickable { dayOffset = offset }
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                )
-            }
-        }
-        Spacer(Modifier.height(12.dp))
-        // QJ-FOOD-NUMERIC-PAD-V1：自定义数字键盘替换系统输入框，不唤起软键盘；
-        // 默认份量仍来自 food.defaultGrams，步长 10g、范围 1..3000g
-        com.qingji.app.ui.components.NumericKeypadInput(
-            value = grams,
-            onValueChange = { grams = it },
-            unit = "克",
-            min = 1.0,
-            max = 3000.0,
-            step = 10.0
-        )
-    }
 }
 
 /** 分类的小图标，纯装饰。 */

@@ -799,6 +799,39 @@ class QingJiRepository(
         )
     }
 
+    /**
+     * QJ-RECORD-INPUT-UNIFIED-V3：品牌菜品按「日期 + 时刻」写入。
+     * 营养折算复用同一个 FoodNutritionCalculator，口径与按天数的版本一致。
+     */
+    suspend fun addBrandDishToMealAt(
+        dish: com.qingji.app.data.local.entity.UserBrandDish,
+        grams: Double,
+        mealType: String,
+        date: java.time.LocalDate,
+        time: java.time.LocalTime
+    ) {
+        val consumed = com.qingji.app.domain.FoodNutritionCalculator.compute(
+            kcalPerBasis = dish.kcal,
+            proteinPerBasis = dish.protein,
+            carbPerBasis = dish.carb,
+            fatPerBasis = dish.fat,
+            basis = dish.nutritionBasis,
+            servingGrams = dish.servingGrams,
+            grams = grams
+        )
+        addFoodLogAt(
+            date = date,
+            time = time,
+            mealType = mealType,
+            foodName = dish.name,
+            grams = grams,
+            kcal = consumed.kcal,
+            proteinG = consumed.proteinG,
+            carbG = consumed.carbG,
+            fatG = consumed.fatG
+        )
+    }
+
     // ---------- 轻断食 ----------
 
     fun observeFastingRange(from: LocalDate, to: LocalDate): Flow<List<com.qingji.app.data.local.entity.FastingLog>> =
@@ -972,6 +1005,46 @@ class QingJiRepository(
 
     suspend fun addFoodLogs(logs: List<FoodLog>) {
         logs.forEach { addFoodLog(it) }
+    }
+
+    /**
+     * QJ-RECORD-INPUT-UNIFIED-V3 / 8.1：按「日期 + 具体时刻」写一条饮食记录。
+     *
+     * 与饮水 addWater(ml, date, time) 完全同构：不新增 time 字段、不改 DAO、
+     * 不升数据库版本，只把 (date, time) 按 AppClock.zone 换算成 createdAt 毫秒。
+     * · date 仍用于统计过滤（首页/详情按 date 查）；
+     * · createdAt 只用于时间展示与同日排序（DAO 已按 createdAt ASC 排）。
+     * 旧的两参/带 dayOffset 的调用点全部保持原样。
+     */
+    suspend fun addFoodLogAt(
+        date: java.time.LocalDate,
+        time: java.time.LocalTime,
+        mealType: String,
+        foodName: String,
+        grams: Double,
+        kcal: Double,
+        proteinG: Double,
+        carbG: Double,
+        fatG: Double,
+        source: String = "manual"
+    ) {
+        val createdAt = java.time.LocalDateTime.of(date, time)
+            .atZone(com.qingji.app.domain.AppClock.zone)
+            .toInstant().toEpochMilli()
+        addFoodLog(
+            FoodLog(
+                date = date,
+                mealType = mealType,
+                foodName = foodName,
+                grams = grams,
+                kcal = kcal,
+                proteinG = proteinG,
+                carbG = carbG,
+                fatG = fatG,
+                source = source,
+                createdAt = createdAt
+            )
+        )
     }
 
     /**
